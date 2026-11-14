@@ -287,6 +287,7 @@ namespace Requestarr.Core.Test.Announcements
                 var firstNumbered = embedded.IndexOf("\n## 0.", StringComparison.Ordinal) + 1;
                 announcements.ChangelogText = () => embedded.Insert(firstNumbered, "## 0.6.0 (2026-11-13)\n\n### For admins\n- **Folded version:** this card goes once it's folded into Unreleased.\n\n");
                 await announcements.PostVersionNotesAsync();
+
                 // The admin panel moves below new posts as a new message, so it's counted by being there, not by its ID.
                 bool IsPanel(IMessage m) => m.Id.ToString() == guildSetup.GetConfig().AdminPanelMessageId;
                 var otherBefore = (await Recent(adminRest)).Where(m => VersionCards.Parse(ButtonIds(m), VersionAudience.Admins) == null && !IsPanel(m)).Select(m => m.Id).ToList();
@@ -296,9 +297,9 @@ namespace Requestarr.Core.Test.Announcements
                 await announcements.PostVersionNotesAsync();
                 var qaAdmin = await Cards(adminRest, VersionAudience.Admins);
                 var qaUsers = await Cards(channel, VersionAudience.Users);
-                var after = await Recent(adminRest);
-                var otherAfter = after.Select(m => m.Id).ToHashSet();
-                var panelKept = after.Any(IsPanel);
+                var afterFold = await Recent(adminRest);
+                var otherAfter = afterFold.Select(m => m.Id).ToHashSet();
+                var panelKept = afterFold.Any(IsPanel);
                 qaAdmin.ForEach(t => Log($"[qa] after the fold, admin card: \"{t}\""));
                 qaUsers.ForEach(t => Log($"[qa] after the fold, announcements card: \"{t}\""));
                 Log($"[qa] the admin channel's other messages: {otherBefore.Count} before the fold, {otherBefore.Count(otherAfter.Contains)} of them still there after; the admin panel still there: {panelKept}");
