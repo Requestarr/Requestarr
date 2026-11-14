@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Requestarr.Core.Qa
@@ -11,7 +12,10 @@ namespace Requestarr.Core.Qa
     {
         Recorded,
         NotOnChecklist,
-        NotClaudeCodes
+        NotClaudeCodes,
+
+        // An admin marked it failing: the evidence is kept, the failure stands.
+        KeptAdminsFailing
     }
 
     public interface IQaAutomatedResults
@@ -48,16 +52,30 @@ namespace Requestarr.Core.Qa
                 return QaAutomatedOutcome.NotClaudeCodes;
             }
 
+            var current = _checklist.State().Items.Single(i => i.Key == key);
+            var failing = current.State == nameof(QaItemState.Failing);
             _checklist.SetEvidence(key, result.Evidence, result.Screenshots);
+
+            // An admin's Failing stands until an admin passes the item; Claude Code's own failure already has its report.
+            if (failing && (current.By != QaChecker.ClaudeCodeName || !result.Passed))
+            {
+                await _checklist.RefreshItemAsync(key);
+                return current.By == QaChecker.ClaudeCodeName ? QaAutomatedOutcome.Recorded : QaAutomatedOutcome.KeptAdminsFailing;
+            }
 
             if (result.Passed)
             {
                 await _checklist.MarkPassedAsync(key, QaChecker.ClaudeCodeId, QaChecker.ClaudeCodeName);
+                return QaAutomatedOutcome.Recorded;
             }
-            else
+
+            // Submitting with the item's key marks it failing and links the report. Without a bug reports channel there's
+            // no report, and the item is failing all the same, so the gate stays blocked.
+            var sent = await _reports.SubmitAsync(QaChecker.ClaudeCodeId, QaChecker.ClaudeCodeName, result.Component, $"Claude Code's {entry.Checker.Check} check failed: {result.Evidence}", entry.Text, key, limited: false);
+
+            if (sent.Report == null)
             {
-                // Submitting with the item's key marks it failing and links the report.
-                await _reports.SubmitAsync(QaChecker.ClaudeCodeId, QaChecker.ClaudeCodeName, result.Component, $"Claude Code's {entry.Checker.Check} check failed: {result.Evidence}", entry.Text, key, limited: false);
+                await _checklist.MarkFailingAsync(key, QaChecker.ClaudeCodeId, QaChecker.ClaudeCodeName, null);
             }
 
             return QaAutomatedOutcome.Recorded;

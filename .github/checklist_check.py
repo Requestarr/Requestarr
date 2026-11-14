@@ -117,7 +117,8 @@ def checker(number, line, item):
     if not match:
         return [(number, "under an item only '  - Checked by Claude Code: the <check> check.' or '  - Checked by the owner, "
                          "<needs human eyes | unsure of the desired behavior | couldn't verify>: <why>.'")]
-    if match.group("check") and match.group("check") not in CHECKS:
+    # Numbered versions are never edited, so a check retired since stays named there.
+    if item["unreleased"] and match.group("check") and match.group("check") not in CHECKS:
         return [(number, "item '%s' names no check Claude Code has: '%s' (the checks are in docker/qa_checks.py)" % (item["name"], match.group("check")))]
     return [(number, "plain words only: who checks '%s' has %s" % (item["name"], what)) for pattern, what in CODE if pattern.search(line)]
 

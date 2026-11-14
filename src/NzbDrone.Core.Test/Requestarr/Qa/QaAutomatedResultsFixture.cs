@@ -38,6 +38,52 @@ namespace Requestarr.Core.Test.Qa
         {
             Mocker.GetMock<IQaChecklistService>().Setup(c => c.Find(ClaudeCodes.Key)).Returns(ClaudeCodes);
             Mocker.GetMock<IQaChecklistService>().Setup(c => c.Find(Owners.Key)).Returns(Owners);
+            ItemIs("Pending", null);
+            Mocker.GetMock<IBugReportService>().Setup(r => r.SubmitAsync(It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
+                .ReturnsAsync(new BugReportResult(new BugReport { Id = 5 }, "Thanks"));
+        }
+
+        [Test]
+        public async Task an_admins_failing_stands_and_keeps_claude_codes_evidence()
+        {
+            ItemIs("Failing", "Alex");
+
+            var outcome = await Subject.RecordAsync(ClaudeCodes.Key, new QaAutomatedResult(true, "Saw it.", "web-app", Array.Empty<QaEvidenceFile>()));
+
+            outcome.Should().Be(QaAutomatedOutcome.KeptAdminsFailing);
+            Mocker.GetMock<IQaChecklistService>().Verify(c => c.SetEvidence(ClaudeCodes.Key, "Saw it.", It.IsAny<IReadOnlyList<QaEvidenceFile>>()), Times.Once());
+            Mocker.GetMock<IQaChecklistService>().Verify(c => c.MarkPassedAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Never());
+        }
+
+        [Test]
+        public async Task failing_again_files_no_second_report_and_a_pass_clears_claude_codes_own_failure()
+        {
+            ItemIs("Failing", "Claude Code");
+
+            await Subject.RecordAsync(ClaudeCodes.Key, new QaAutomatedResult(false, "Still wrong.", "web-app", Array.Empty<QaEvidenceFile>()));
+            await Subject.RecordAsync(ClaudeCodes.Key, new QaAutomatedResult(true, "Fixed.", "web-app", Array.Empty<QaEvidenceFile>()));
+
+            Mocker.GetMock<IBugReportService>().Verify(r => r.SubmitAsync(It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never());
+            Mocker.GetMock<IQaChecklistService>().Verify(c => c.MarkPassedAsync(ClaudeCodes.Key, QaChecker.ClaudeCodeId, "Claude Code"), Times.Once());
+        }
+
+        [Test]
+        public async Task a_failure_with_no_bug_reports_channel_still_marks_the_item_failing()
+        {
+            Mocker.GetMock<IBugReportService>().Setup(r => r.SubmitAsync(It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
+                .ReturnsAsync(new BugReportResult(null, QaText.NoChannel));
+
+            await Subject.RecordAsync(ClaudeCodes.Key, new QaAutomatedResult(false, "Wrong.", "web-app", Array.Empty<QaEvidenceFile>()));
+
+            Mocker.GetMock<IQaChecklistService>().Verify(c => c.MarkFailingAsync(ClaudeCodes.Key, QaChecker.ClaudeCodeId, "Claude Code", null), Times.Once());
+        }
+
+        private void ItemIs(string state, string by)
+        {
+            var items = new[] { ClaudeCodes, Owners }
+                .Select(e => new QaChecklistItemState(e.Key, "0.7.0005", e.Name, state, by, null, null, null, "owner", null, null, null, new List<string>()))
+                .ToList();
+            Mocker.GetMock<IQaChecklistService>().Setup(c => c.State()).Returns(new QaChecklistState("qa", new[] { "0.7.0005" }, 2, 0, 0, 0, 0, false, null, null, items));
         }
 
         [Test]

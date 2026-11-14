@@ -21,11 +21,13 @@ The checks each item may name are CHECKS below ("Checked by Claude Code: the <na
 refuses an item naming any other.
 """
 import base64
+import hashlib
 import json
 import os
 import platform
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import time
@@ -75,8 +77,16 @@ UNRELEASED = "## Unreleased"
 EVIDENCE_LINES = 25
 
 
+def item_key(name, text):
+    """The item's key on the server (QaChecklist.WordingKey): its name in slug form and 8 hex digits of its wording's
+    SHA-256, so a result lands on exactly the item whose words were checked."""
+    wording = re.sub(r"\s+", " ", "%s: %s" % (name, text))
+    slug = re.sub("[^a-z0-9]+", "-", name.lower()).strip("-")
+    return "%s.%s" % (slug, hashlib.sha256(wording.encode("utf-8")).hexdigest()[:8])
+
+
 def checklist_items(text):
-    """The Unreleased items with who checks them: [{name, text, check}] (check None for the owner's)."""
+    """The Unreleased items with who checks them: [{name, text, key, check}] (check None for the owner's)."""
     items, inside = [], False
     for line in text.splitlines():
         stripped = line.strip()
@@ -86,16 +96,22 @@ def checklist_items(text):
         item = ITEM.match(stripped)
         checked = CHECKED_BY.match(stripped)
         if inside and item:
-            items.append({"name": item.group(1).strip(), "text": item.group(2).strip(), "check": None})
+            name, words = item.group(1).strip(), item.group(2).strip()
+            items.append({"name": name, "text": words, "key": item_key(name, words), "check": None})
         elif inside and checked and items:
             items[-1]["check"] = checked.group("check")
     return items
 
 
-def live_evidence(log, tags):
-    """The lines a live check logged under the tags, which say what it read back from Discord."""
+def live_result(ran, log, tags):
+    """A live check passes only when its test ran and passed and it logged read-backs under the item's tags."""
     lines = [line.strip() for line in log.splitlines() if any(line.strip().startswith(tag) for tag in tags)]
-    return "\n".join(lines[:EVIDENCE_LINES]) or "The check logged nothing under %s." % ", ".join(tags)
+    if not log:
+        return False, "The live check didn't run."
+    if not lines:
+        return False, "The live check logged nothing under %s (skipped, or stopped before it got there)." % ", ".join(tags)
+    evidence = "\n".join(lines[:EVIDENCE_LINES])
+    return (True, evidence) if ran else (False, "The live check failed (its log is in the run's live folder).\n" + evidence)
 
 
 def results_for(items, web, live):
@@ -104,19 +120,16 @@ def results_for(items, web, live):
     results = []
     for item in [i for i in items if i["check"]]:
         check = CHECKS.get(item["check"])
+        screenshots = []
         if check is None:
-            passed, evidence, screenshots = False, "No such check: %s." % item["check"], []
+            passed, evidence = False, "No such check: %s." % item["check"]
         elif check.kind == "web":
             found = web.get(check.target, {"passed": False, "evidence": "The web check didn't run.", "screenshots": []})
             passed, evidence, screenshots = found["passed"], found["evidence"], found["screenshots"]
         else:
-            ran, log = live.get(check.target, (False, ""))
-            passed, screenshots = ran, []
-            evidence = live_evidence(log, check.tags) if log else "The live check didn't run."
-            if not ran:
-                evidence = "The live check failed (its log is in the run's live folder).\n" + evidence
-        results.append({"name": item["name"], "check": item["check"], "component": check.component if check else "other",
-                        "passed": passed, "evidence": evidence, "screenshots": screenshots})
+            passed, evidence = live_result(*live.get(check.target, (False, "")), check.tags)
+        results.append({"name": item["name"], "key": item["key"], "check": item["check"], "kind": check.kind if check else None,
+                        "component": check.component if check else "other", "passed": passed, "evidence": evidence, "screenshots": screenshots})
     return results
 
 
@@ -167,11 +180,19 @@ def timed(name, timings, body):
 
 
 def dotnet_test(filter_, env, log_path):
-    """One test run; its output goes to log_path. True when every test passed."""
+    """One test run; its output goes to log_path. True when it passed and none of its tests was skipped (a live check
+    skips itself when a key it needs is missing, which dotnet test counts as success)."""
     with open(log_path, "w", encoding="utf-8") as log:
         code = subprocess.run(["dotnet", "test", TESTS, "--filter", filter_, "--logger", "console;verbosity=detailed"],
                               env=env, stdout=log, stderr=subprocess.STDOUT, cwd=os.path.dirname(TESTS)).returncode
-    return code == 0
+    with open(log_path, encoding="utf-8", errors="replace") as log:
+        return code == 0 and ran_all(log.read())
+
+
+def ran_all(output):
+    """Whether dotnet test's summary says at least one test passed and none was skipped."""
+    summary = re.search(r"Passed:\s+(\d+), Skipped:\s+(\d+)", output)
+    return bool(summary) and int(summary.group(1)) > 0 and int(summary.group(2)) == 0
 
 
 def run_web(out, env, commit):
@@ -213,6 +234,8 @@ def run(args):
                  % (git("rev-parse", "--short", "HEAD"), commit[:7], commit[:7]))
     out = os.path.abspath(option(args, "--out") or os.path.join(REPO, "_qa-checks", commit[:7]))
     only = option(args, "--only")
+    # A run starts empty, so nothing an earlier run left can stand in for a check that didn't run this time.
+    shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out, exist_ok=True)
     env = dict(os.environ, **secrets_env())
     timings, web, live = [], {}, {}
@@ -229,7 +252,7 @@ def run(args):
     results = results_for(items, web, live)
     total = sum(t for _, t in timings)
     with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as handle:
-        json.dump({"commit": commit, "results": results, "timings": timings, "seconds": round(total)}, handle, indent=2)
+        json.dump({"commit": commit, "only": only, "results": results, "timings": timings, "seconds": round(total)}, handle, indent=2)
     report(results, out, total)
 
 
@@ -265,9 +288,12 @@ def overrides(args):
     """--fail "Item name=what is wrong": Claude Code's own look at a screenshot found it doesn't match."""
     found = {}
     for i, arg in enumerate(args):
-        if arg == "--fail" and i + 1 < len(args) and "=" in args[i + 1]:
-            name, why = args[i + 1].split("=", 1)
-            found[name.strip()] = why.strip()
+        if arg != "--fail":
+            continue
+        name, _, why = (args[i + 1] if i + 1 < len(args) else "").partition("=")
+        if not name.strip() or not why.strip():
+            sys.exit('--fail takes "Item name=what is wrong" (got %r): nothing recorded.' % (args[i + 1] if i + 1 < len(args) else ""))
+        found[name.strip()] = why.strip()
     return found
 
 
@@ -294,19 +320,23 @@ def record(args):
     running = running_build(which)
     if not running.endswith("." + run_data["commit"][:7]):
         sys.exit("The %s stack runs %s, not the commit that was checked (%s): nothing recorded." % (which, running, run_data["commit"][:7]))
-    on_stack = {i["name"]: i for i in api(url, key, "/api/v1/qa/checklist")["checklist"]["items"] if i.get("checkedBy") == "Claude Code"}
-    for result in apply_overrides(run_data["results"], overrides(args)):
-        item = on_stack.pop(result["name"], None)
+    failed = overrides(args)
+    on_stack = {i["key"]: i for i in api(url, key, "/api/v1/qa/checklist")["checklist"]["items"] if i.get("checkedBy") == "Claude Code"}
+    for result in apply_overrides(run_data["results"], failed):
+        item = on_stack.pop(result["key"], None)
+        if run_data.get("only") and result["kind"] != run_data["only"]:
+            print("SKIP  %s: its %s check wasn't part of this run (--only %s)" % (result["name"], result["kind"], run_data["only"]))
+            continue
         if item is None:
-            print("SKIP  %s: not one of Claude Code's items on the %s checklist" % (result["name"], which))
+            print("SKIP  %s: not one of Claude Code's items on the %s checklist, in these words" % (result["name"], which))
             continue
         try:
             saved = api(url, key, "/api/v1/qa/checklist/%s/result" % item["key"], payload(result))
             print("%s  %s: %s by %s" % ("PASS" if result["passed"] else "FAIL", result["name"], saved["state"], saved["by"]))
         except urllib.error.HTTPError as error:
             print("ERROR %s: HTTP %d %s" % (result["name"], error.code, error.read().decode(errors="replace")))
-    for name in on_stack:
-        print("MISSING %s: Claude Code's item on the %s checklist had no result in this run" % (name, which))
+    for item in on_stack.values():
+        print("MISSING %s (%s): Claude Code's item on the %s checklist had no result in this run" % (item["name"], item["version"], which))
 
 
 def latest_run():
@@ -338,6 +368,18 @@ SAMPLE = """# QA checklist
 """
 
 
+# An item's words and the key the server gave them (November 14, 2026): the two must agree.
+READ_CHANGES = "Press Read changes on the update card. You should see the full list of what changed since the last beta, only to you."
+
+
+def refuses(call):
+    try:
+        call()
+    except SystemExit:
+        return True
+    return False
+
+
 def self_test():
     items = checklist_items(SAMPLE)
     web = {"status_page": {"passed": True, "evidence": "Version 0.7.0005-qa.abc1234", "screenshots": ["s/status-light.jpg"]}}
@@ -353,6 +395,11 @@ def self_test():
         ("a check that didn't run fails", not results_for(items, {}, {})[0]["passed"]),
         ("--fail overrides a pass", not failed["passed"] and failed["evidence"].startswith("The screenshots don't match")),
         ("--fail parsed", overrides(["--fail", "A=b c", "--stack", "qa"]) == {"A": "b c"}),
+        ("--fail without its reason refuses", refuses(lambda: overrides(["--fail", "A: b c"]))),
+        ("the server's key for an item's words", item_key("Read changes", READ_CHANGES) == "read-changes.412ba92d"),
+        ("a live check without its read-backs fails", not live_result(True, "Passed: 1, Skipped: 0\n[other] line", ("[pass]",))[0]),
+        ("a skipped test isn't a pass", not ran_all("Passed!  - Failed:     0, Passed:     0, Skipped:     1, Total:     1")),
+        ("a passed test is", ran_all("Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1")),
     ]
     wrong = [name for name, ok in expected if not ok]
     for name in wrong:
