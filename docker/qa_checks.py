@@ -190,9 +190,12 @@ def dotnet_test(filter_, env, log_path):
 
 
 def ran_all(output):
-    """Whether dotnet test's summary says at least one test passed and none was skipped."""
-    summary = re.search(r"Passed:\s+(\d+), Skipped:\s+(\d+)", output)
-    return bool(summary) and int(summary.group(1)) > 0 and int(summary.group(2)) == 0
+    """Whether dotnet test's summary says at least one test passed and none was skipped. The detailed summary puts each
+    count on its own line ("Passed: 1") and leaves out a count of none; the short one is "Passed: 1, Skipped: 0"."""
+    summary = output[output.rfind("Total tests:"):] if "Total tests:" in output else output
+    passed = re.findall(r"Passed:\s+(\d+)", summary)
+    skipped = re.findall(r"Skipped:\s+(\d+)", summary)
+    return bool(passed) and int(passed[-1]) > 0 and (not skipped or int(skipped[-1]) == 0)
 
 
 def run_web(out, env, commit):
@@ -405,6 +408,8 @@ def self_test():
         ("a live check without its read-backs fails", not live_result(True, "Passed: 1, Skipped: 0\n[other] line", ("[pass]",))[0]),
         ("a skipped test isn't a pass", not ran_all("Passed!  - Failed:     0, Passed:     0, Skipped:     1, Total:     1")),
         ("a passed test is", ran_all("Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1")),
+        ("the detailed summary's pass", ran_all("Total tests: 1\n     Passed: 1\n Total time: 1.9 Minutes")),
+        ("the detailed summary's skip", not ran_all("Total tests: 1\n     Skipped: 1\n Total time: 1 Minutes")),
     ]
     wrong = [name for name, ok in expected if not ok]
     for name in wrong:
