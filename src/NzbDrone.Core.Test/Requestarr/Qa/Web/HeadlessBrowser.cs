@@ -71,6 +71,9 @@ namespace Requestarr.Core.Test.Qa.Web
             return result.GetProperty("result").TryGetProperty("value", out var value) ? value.Deserialize<T>() : default;
         }
 
+        // Runs a statement for what it does (a click, a scroll), not for a value.
+        public Task RunAsync(string statement) => EvalAsync<bool>($"(() => {{ {statement}; return true; }})()");
+
         // Runs a script that leaves the page (a form sent, a link followed) and waits for the next page to load.
         public async Task LeaveAsync(string expression)
         {
@@ -102,12 +105,11 @@ namespace Requestarr.Core.Test.Qa.Web
             return Convert.FromBase64String(shot.GetProperty("data").GetString());
         }
 
-        // Every request takes this long first (the loading screen stays up long enough to see).
-        public async Task SlowNetworkAsync(int latencyMs)
-        {
-            await SendAsync("Network.enable", new { });
-            await SendAsync("Network.emulateNetworkConditions", new { offline = false, latency = latencyMs, downloadThroughput = -1, uploadThroughput = -1 });
-        }
+        // Requests to these addresses wait, unanswered, until released or the page is left (the loading screen stays up
+        // while the app's data is held).
+        public Task HoldRequestsAsync(string urlPattern) => SendAsync("Fetch.enable", new { patterns = new[] { new { urlPattern } } });
+
+        public Task ReleaseRequestsAsync() => SendAsync("Fetch.disable", new { });
 
         public async ValueTask DisposeAsync()
         {

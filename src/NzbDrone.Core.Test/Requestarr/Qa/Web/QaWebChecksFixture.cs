@@ -55,12 +55,12 @@ namespace Requestarr.Core.Test.Qa.Web
                 await check.ShotAsync(browser, theme);
             }
 
-            var api = await browser.EvalAsync<string>("fetch(window.Requestarr.urlBase + '/api/v1/system/status', { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(s => s.version)");
+            var built = Environment.GetEnvironmentVariable("QA_CHECKS_VERSION");
             var logoTitle = await browser.EvalAsync<string>($"document.querySelector(\"{HeaderLogo}\").title");
-            check.Saw($"Status shows version {shown}; the server says {api}; the logo's own label says \"{logoTitle}\".");
+            check.Saw($"Status shows version {shown}; the build is {built}; the logo's own label says \"{logoTitle}\".");
             check.Saw("On QA the same build says qa where the dev stack says dev; the number and the short code are the commit's.");
 
-            shown.Should().Be(api);
+            shown.Should().Be(built, "the label the image was built with");
             shown.Should().EndWith("." + Commit, "the build is the commit QA receives");
             logoTitle.Should().Contain(shown);
         });
@@ -74,7 +74,7 @@ namespace Requestarr.Core.Test.Qa.Web
             {
                 await browser.SetThemeAsync(theme);
                 await browser.GoAsync(Url + "/system/status");
-                await browser.WaitForAsync(HeaderLogo);
+                await browser.WaitForAsync($"document.querySelector(\"{HeaderLogo}\")");
                 await QaLogoAsync(browser);
                 var fit = await browser.EvalAsync<JsonElement>($@"(() => {{
                     const logo = document.querySelector(""{HeaderLogo}"");
@@ -137,7 +137,7 @@ namespace Requestarr.Core.Test.Qa.Web
             landed.Should().EndWith("/settings/general", "signing in goes back to where you were going");
 
             await browser.WaitForAsync("document.querySelector(\"[class*='PageHeaderActionsMenu-menuButton']\")");
-            await browser.EvalAsync<bool>("document.querySelector(\"[class*='PageHeaderActionsMenu-menuButton']\").click() || true");
+            await browser.RunAsync("document.querySelector(\"[class*='PageHeaderActionsMenu-menuButton']\").click()");
             await browser.WaitForAsync("[...document.querySelectorAll('a')].some(a => a.textContent.trim() === 'Logout')");
             await check.ShotAsync(browser, "account-menu");
             await browser.LeaveAsync("[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Logout').click()");
@@ -211,7 +211,7 @@ namespace Requestarr.Core.Test.Qa.Web
             foreach (var theme in new[] { "light", "dark" })
             {
                 await browser.SetThemeAsync(theme);
-                await browser.SlowNetworkAsync(1500);
+                await browser.HoldRequestsAsync("*/api/v1/*");
                 await browser.GoAsync(Url + "/");
                 await browser.WaitForAsync("document.querySelector(\"[class*='LoadingPage-page'] img\")");
                 await QaLogoAsync(browser);
@@ -223,7 +223,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 check.Saw($"{theme}: loading screen logo {screen.GetProperty("src").GetString()} (the header's), behind it {screen.GetProperty("behind").GetString()} on {screen.GetProperty("page").GetString()}.");
                 screen.GetProperty("src").GetString().Should().Contain("/qa/logo-header.png");
                 await check.ShotAsync(browser, theme);
-                await browser.SlowNetworkAsync(0);
+                await browser.ReleaseRequestsAsync();
             }
         });
 
@@ -234,7 +234,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.GoAsync(Url + "/system/status");
             await browser.WaitForAsync("[...document.querySelectorAll('a')].some(a => a.href.includes('github.com'))");
             var links = await browser.EvalAsync<string[]>("[...document.querySelectorAll('a')].filter(a => a.href.includes('github.com')).map(a => a.closest('dd').previousElementSibling.textContent.trim() + ': ' + a.href)");
-            await browser.EvalAsync<bool>("[...document.querySelectorAll('a')].find(a => a.href.includes('github.com')).scrollIntoView() || true");
+            await browser.RunAsync("[...document.querySelectorAll('a')].find(a => a.href.includes('github.com')).scrollIntoView()");
 
             foreach (var link in links)
             {
@@ -316,7 +316,7 @@ namespace Requestarr.Core.Test.Qa.Web
         }
 
         private static Task ToolbarAsync(HeadlessBrowser browser, string text) =>
-            browser.EvalAsync<bool>($"[...document.querySelectorAll(\"[class*='PageToolbarButton-toolbarButton']\")].find(b => b.textContent.includes({JsonSerializer.Serialize(text)})).click() || true");
+            browser.RunAsync($"[...document.querySelectorAll(\"[class*='PageToolbarButton-toolbarButton']\")].find(b => b.textContent.includes({JsonSerializer.Serialize(text)})).click()");
 
         // Typed the way React sees typing, then saved; the toolbar says No Changes again once it's saved.
         private static async Task SaveBackupRetentionAsync(HeadlessBrowser browser, int days)

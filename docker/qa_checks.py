@@ -139,6 +139,13 @@ def stack(command, env=None, ref=None):
     subprocess.run(args + command, env=dict(os.environ, **(env or {})), check=True)
 
 
+def running_build(which):
+    """The build a stack's Requestarr runs (0.7.0005-qa.4f2a9c1), from its image's label: read, never changed."""
+    return subprocess.run(["docker", "ps", "--filter", "label=com.docker.compose.project=requestarr-" + which,
+                           "--filter", "label=com.docker.compose.service=requestarr", "--format", '{{.Label "org.opencontainers.image.version"}}'],
+                          capture_output=True, text=True, check=True).stdout.strip()
+
+
 def git(*args):
     return subprocess.run(["git", "-C", REPO] + list(args), capture_output=True, text=True, check=True).stdout.strip()
 
@@ -166,7 +173,8 @@ def run_web(out, env, commit):
     stack(["up"], login, ref=commit)
     port = env.get("DEV_REQUESTARR_PORT") or "39797"
     web_env = dict(env, QA_CHECKS_URL="http://localhost:" + port, QA_CHECKS_DIR=os.path.join(out, "web"),
-                   QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password, QA_CHECKS_COMMIT=commit[:7])
+                   QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password, QA_CHECKS_COMMIT=commit[:7],
+                   QA_CHECKS_VERSION=running_build("dev"))
     os.makedirs(web_env["QA_CHECKS_DIR"], exist_ok=True)
     dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(out, "web", "web.log"))
     results = {}
@@ -277,7 +285,7 @@ def record(args):
     out = option(args, "--out") or latest_run()
     with open(os.path.join(out, "results.json"), encoding="utf-8") as handle:
         run_data = json.load(handle)
-    running = api(url, key, "/api/v1/system/status")["version"]
+    running = running_build(which)
     if not running.endswith("." + run_data["commit"][:7]):
         sys.exit("The %s stack runs %s, not the commit that was checked (%s): nothing recorded." % (which, running, run_data["commit"][:7]))
     on_stack = {i["name"]: i for i in api(url, key, "/api/v1/qa/checklist")["checklist"]["items"] if i.get("checkedBy") == "Claude Code"}
