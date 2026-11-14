@@ -21,12 +21,18 @@ namespace Requestarr.Core.Qa
     // After a promotion: the items that kept the pass an earlier build got, and the items new (or reworded) in this one.
     public record QaCarriedOver(int Carried, int New);
 
+    // Who checks what: Claude Code's items and how they stand, and the owner's items still to test (by name).
+    public record QaCheckers(int ClaudeCodeItems, int ClaudeCodePassed, int ClaudeCodeFailing, int OwnerItems, IReadOnlyList<string> OwnerLeft);
+
     public static class QaText
     {
         public const uint ChecklistColor = 0xE0A030;
         public const uint PassedColor = 0x2EA043;
         public const uint FailingColor = 0xDA3633;
         public const uint ReportColor = 0x5865F2;
+
+        // What Claude Code's check read back, kept short enough for the card (the screenshots show under it).
+        public const int EvidenceLength = 1200;
 
         public const string ChecklistChannelName = "requestarr-qa-checklist";
         public const string ChecklistChannelTopic = "What to test on this server before the versions here go to staging. Press Passes or Failing on each item.";
@@ -47,7 +53,7 @@ namespace Requestarr.Core.Qa
         public const string NoChannel = "The bug reports channel isn't set up yet. Try again in a minute.";
         public const string Sending = "Sending your report…";
 
-        public static string Summary(IReadOnlyList<Version> versions, int total, int passed, int failing, QaCarriedOver carriedOver, string completedBy, DateTime? completedAt)
+        public static string Summary(IReadOnlyList<Version> versions, int total, int passed, int failing, QaCarriedOver carriedOver, QaCheckers checkers, string completedBy, DateTime? completedAt)
         {
             var which = versions.Count switch
             {
@@ -57,8 +63,33 @@ namespace Requestarr.Core.Qa
             };
 
             return $"{ChecklistTitle}\nWhat to test here before {which} go{(versions.Count == 1 ? "es" : string.Empty)} to staging: **{passed} of {total} passed**{(failing > 0 ? $", {failing} failing" : string.Empty)}.\n" +
+                   ClaudeCodeLine(checkers) +
+                   OwnerLine(checkers) +
                    Carried(carriedOver) +
                    ChecklistStatus(total, passed, failing, completedBy, completedAt);
+        }
+
+        private static string ClaudeCodeLine(QaCheckers checkers)
+        {
+            if (checkers.ClaudeCodeItems == 0)
+            {
+                return string.Empty;
+            }
+
+            var failing = checkers.ClaudeCodeFailing > 0 ? $", {checkers.ClaudeCodeFailing} failing" : string.Empty;
+            return $"🤖 **Claude Code:** {checkers.ClaudeCodePassed} of {checkers.ClaudeCodeItems} passed{failing}, each with what it checked on the card.\n";
+        }
+
+        private static string OwnerLine(QaCheckers checkers)
+        {
+            if (checkers.OwnerItems == 0)
+            {
+                return string.Empty;
+            }
+
+            return checkers.OwnerLeft.Count == 0
+                ? $"👤 **For you:** all {checkers.OwnerItems} passed.\n"
+                : $"👤 **For you:** {checkers.OwnerLeft.Count} of {checkers.OwnerItems} left: {string.Join(", ", checkers.OwnerLeft)}.\n";
         }
 
         private static string Carried(QaCarriedOver carriedOver) =>
@@ -94,8 +125,20 @@ namespace Requestarr.Core.Qa
                 _ => "⏳ Not tested yet"
             };
 
-            return $"**{entry.Name}** · {Changelog.Display(entry.Version)}\n{entry.Text}\n{state}";
+            return $"**{entry.Name}** · {Changelog.Display(entry.Version)}\n{entry.Text}\n{CheckedBy(entry.Checker)}\n{state}{Evidence(record)}";
         }
+
+        private static string CheckedBy(QaChecker checker) => checker switch
+        {
+            { ClaudeCode: true } => $"-# 🤖 Claude Code checks this with its {checker.Check} check.",
+            { Why: null } => $"-# 👤 For you to check ({checker.Reason}).",
+            _ => $"-# 👤 For you to check, {checker.Reason}: {checker.Why}"
+        };
+
+        private static string Evidence(QaChecklistItem record) =>
+            string.IsNullOrWhiteSpace(record?.Evidence) ? string.Empty : $"\n**What Claude Code saw:** {Plain(Shorten(record.Evidence, EvidenceLength))}";
+
+        private static string Shorten(string text, int length) => text.Length <= length ? text : text.Substring(0, length - 1) + "…";
 
         public static string BugReportsPanel(bool filed) =>
             "## Report a problem\nSomething not working the way it should? Press **Report a problem**, pick the part of Requestarr, and say what " +

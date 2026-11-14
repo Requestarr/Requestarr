@@ -265,6 +265,11 @@ namespace Requestarr.Core.Discord.Gateway
                 var container = new ContainerBuilder().WithAccentColor(card.Color.HasValue ? new Color(card.Color.Value) : null);
                 container.WithTextDisplay(DiscordLimits.Truncate(card.Text, 4000));
 
+                if (card.Images.Any())
+                {
+                    container.WithMediaGallery(card.Images.Take(DiscordLimits.GalleryItems).Select(name => DiscordAssets.Scheme + name));
+                }
+
                 if (card.Buttons.Any())
                 {
                     container.WithActionRow(card.Buttons.Take(5).Select(b => (IMessageComponentBuilder)new ButtonBuilder(DiscordLimits.Truncate(b.Label, 80), b.CustomId, Map(b.Style), isDisabled: b.Disabled)).ToList());

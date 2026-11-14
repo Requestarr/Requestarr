@@ -273,6 +273,9 @@ promote_qa() {
     git push -q origin --delete "$branch" || true
     # up keeps QA's data: its checklist results carry over (a reworded item starts untested) and its bug reports stay.
     echo "QA is now at $short. Next: .\\docker\\dev.ps1 up (or docker/dev.sh up) so the QA stack runs qa, keeping its checklist results."
+    # Claude Code's checks run on the dev stack and dev server only, never on QA; their results are recorded on QA's checklist.
+    echo "Then Claude Code's checks on $short: git switch --detach $short; python3 docker/qa_checks.py run; look at every screenshot;"
+    echo "then python3 docker/qa_checks.py record --stack qa (docs/development.md#qa-checklist)."
 }
 
 # A security fix in something Requestarr ships, merged since staging's last build: the build's For admins says so.

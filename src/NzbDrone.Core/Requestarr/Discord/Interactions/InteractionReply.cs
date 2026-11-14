@@ -32,14 +32,22 @@ namespace Requestarr.Core.Discord.Interactions
         // characters of text in all of a message's cards.
         public List<InteractionCard> Cards { get; init; } = new();
 
+        // Files sent with the message, which its cards show by name (Images).
+        public List<InteractionFile> Files { get; init; } = new();
+
         public bool IsCards => Cards != null && Cards.Count > 0;
     }
+
+    public record InteractionFile(string Name, byte[] Bytes);
 
     public class InteractionCard
     {
         public uint? Color { get; init; }
         public string Text { get; init; }
         public List<InteractionButton> Buttons { get; init; } = new();
+
+        // Pictures under the text, by the name of a file the message brings (InteractionReply.Files).
+        public List<string> Images { get; init; } = new();
     }
 
     // Text: the menu's own options. User: Discord's member picker (values are user IDs).

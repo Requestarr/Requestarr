@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Discord;
 using FluentAssertions;
@@ -115,14 +114,18 @@ namespace Requestarr.Core.Test.Qa
             Mocker.SetConstant<IAdminQueue>(new AdminQueue(Array.Empty<IAdminQueueSource>()));
             panels = Mocker.Resolve<PanelService>();
             Mocker.SetConstant(panels);
+
+            // Claude Code's screenshots on the cards are kept in a folder of this run's own.
+            var appData = Path.Combine(Path.GetTempPath(), "requestarr-live-qa-" + Guid.NewGuid().ToString("N"));
+            Mocker.GetMock<NzbDrone.Common.EnvironmentInfo.IAppFolderInfo>().SetupGet(f => f.AppDataFolder).Returns(appData);
+            Mocker.SetConstant<IQaEvidenceStore>(Mocker.Resolve<QaEvidenceStore>());
             var checklist = Mocker.Resolve<QaChecklistService>();
 
-            // Dev shows only the running version's items, and the check passes one item and fails three more, so it runs
-            // as the newest version with at least that many. A build of that version had no Unreleased items yet.
-            const int itemsNeeded = 4;
-            var numbered = Regex.Replace(QaChecklist.Embedded().Replace("\r\n", "\n"), @"(?ms)^## Unreleased\n.*?(?=^## )", string.Empty);
-            checklist.ChecklistText = () => numbered;
-            var tested = QaChecklist.Parse(numbered).Where(v => v.Items.Count >= itemsNeeded).Max(v => v.Version);
+            // Dev shows only the running version's items: the build runs as a number no section has, so the Unreleased
+            // items (what the next build tests) are its checklist. The check passes one item and fails three more.
+            var text = QaChecklist.Embedded().Replace("\r\n", "\n");
+            var tested = new Version(9, 9, 9999);
+            checklist.ChecklistText = () => text;
             checklist.CurrentVersion = () => tested;
             build = $"{Changelog.Display(tested)}-dev.1111111";
             Mocker.SetConstant<IQaChecklistService>(checklist);
@@ -280,8 +283,8 @@ namespace Requestarr.Core.Test.Qa
                 Log($"[state] saved in {stateDir}: 1-posted.json, 2-failing.json, 3-complete.json");
 
                 // 8. A promotion rehearsal: the next build has the same items under Unreleased, one reworded, one new.
-                var items = QaChecklist.Parse(numbered).Single(v => v.Version == tested).Items;
-                var promoted = Regex.Replace(numbered, $@"(?m)^## {Regex.Escape(tested.ToString())}\b.*$", "## Unreleased\n- **Live check new item:** Press Passes. You should see it passed.")
+                var items = QaChecklist.Parse(text, tested).Single(v => v.Version == tested).Items;
+                var promoted = text.Replace("## Unreleased\n", "## Unreleased\n- **Live check new item:** Press Passes. You should see it passed.\n")
                     .Replace($"- **{items[1].Name}:** {items[1].Text}", $"- **{items[1].Name}:** {items[1].Text} Then look again.");
                 build = $"{Changelog.Display(tested)}-dev.2222222";
                 checklist.ChecklistText = () => promoted;
@@ -299,6 +302,30 @@ namespace Requestarr.Core.Test.Qa
                 carried.Items.Select(i => i.State).Should().Equal(new[] { "Pending" }.Concat(items.Select((_, n) => n == 1 ? "Pending" : "Passed")));
                 carried.Should().BeEquivalentTo(new { Total = items.Count + 1, Passed = items.Count - 1, Carried = items.Count - 1 });
                 Text(after[0]).Should().Contain($"{items.Count - 1} carried over").And.Contain("2 new or changed");
+
+                // 9. Claude Code's results, as its run records them: a pass with a screenshot on the card, and a failure that
+                // files a bug report the way Failing does. An item the owner checks takes no result from it.
+                var automated = new QaAutomatedResults(checklist, reports);
+                var promotedItems = QaChecklist.Parse(promoted, tested).Single().Items;
+                var ccItems = promotedItems.Where(i => i.Checker.ClaudeCode).ToList();
+                var ownerItem = promotedItems.First(i => !i.Checker.ClaudeCode);
+                var picture = new QaEvidenceFile("live-check.png", DiscordAssets.Bytes(DiscordAssets.TmdbLogo));
+                var passedByCc = await automated.RecordAsync(ccItems[0].Key, new QaAutomatedResult(true, "Live check: what the check read back.", "other", new[] { picture }));
+                var failedByCc = await automated.RecordAsync(ccItems[1].Key, new QaAutomatedResult(false, "Live check: a failing result (this is a test; it will be closed).", "other", Array.Empty<QaEvidenceFile>()));
+                var refusedForOwner = await automated.RecordAsync(ownerItem.Key, new QaAutomatedResult(true, "Live check.", "other", Array.Empty<QaEvidenceFile>()));
+                var ccCard = await checklistRest.GetMessageAsync(ulong.Parse(Mocker.Resolve<IQaChecklistItemRepository>().FindByKey(ccItems[0].Key).MessageId));
+                var ccFailing = Mocker.Resolve<IQaChecklistItemRepository>().FindByKey(ccItems[1].Key);
+                var gallery = All(ccCard.Components).OfType<MediaGalleryComponent>().SelectMany(g => g.Items).ToList();
+                Log($"[claude-code] pass on \"{ccItems[0].Name}\": {passedByCc}; card: {Text(ccCard)}; pictures on it {gallery.Count}, attachments {ccCard.Attachments.Count} ({string.Join(", ", ccCard.Attachments.Select(a => a.Filename))})");
+                Log($"[claude-code] failure on \"{ccItems[1].Name}\": {failedByCc}; state {ccFailing.State} by {ccFailing.ByName}, bug report #{ccFailing.BugReportId}");
+                Log($"[claude-code] a result for the owner's \"{ownerItem.Name}\": {refusedForOwner}");
+                Log($"[claude-code] summary now: {Text((await Cards())[0])}");
+                Text(ccCard).Should().Contain("Passed by Claude Code").And.Contain("Live check: what the check read back.");
+                gallery.Should().HaveCount(1);
+                ccCard.Attachments.Select(a => a.Filename).Should().Equal("live-check.png");
+                (ccFailing.State, ccFailing.ByName, ccFailing.BugReportId.HasValue).Should().Be((QaItemState.Failing, QaChecker.ClaudeCodeName, true));
+                refusedForOwner.Should().Be(QaAutomatedOutcome.NotClaudeCodes);
+                Text((await Cards())[0]).Should().Contain("Claude Code:").And.Contain("For you:");
             }
             finally
             {

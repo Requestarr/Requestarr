@@ -156,6 +156,7 @@ jobs:
           python3 .github/knip_check.py --self-test
           python3 .github/suppression_check.py --self-test
           python3 docker/qa-gate.py --self-test
+          python3 docker/qa_checks.py --self-test
       - name: CHANGELOG.md says what this change does under Unreleased, written to the rule
         env:
           EVENT: ${{ github.event_name }}

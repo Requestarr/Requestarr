@@ -22,6 +22,9 @@ namespace Requestarr.Core.Audit
     {
         public static readonly Actor System = new("system");
 
+        // Claude Code's automated QA checks, recording their results on the QA checklist.
+        public static readonly Actor ClaudeCode = new("claude-code");
+
         public static Actor Discord(ulong discordUserId, string username, int? userId = null) => new($"discord:{discordUserId} ({username})", userId);
     }
 

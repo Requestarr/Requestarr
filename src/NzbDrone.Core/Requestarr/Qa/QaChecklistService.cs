@@ -14,12 +14,17 @@ using Requestarr.Core.Discord.Interactions;
 
 namespace Requestarr.Core.Qa
 {
-    public record QaChecklistItemState(string Key, string Version, string Name, string State, string By, DateTime? At, int? BugReportId, string IssueUrl);
+    // CheckedBy: "Claude Code" (with the Check that verifies it) or "owner" (with the Reason a person has to).
+    public record QaChecklistItemState(string Key, string Version, string Name, string State, string By, DateTime? At, int? BugReportId, string IssueUrl, string CheckedBy, string Check, string Reason, string Evidence, IReadOnlyList<string> EvidenceFiles);
 
     // What Claude Code reads from the QA stack before promoting to staging, and what the portal will show.
     // Carried: the items passed on an earlier build that kept their pass (their wording didn't change). New: the items
-    // that first appeared on the running build (new, or reworded).
-    public record QaChecklistState(string Environment, IReadOnlyList<string> Versions, int Total, int Passed, int Failing, int Carried, int New, bool Complete, string CompletedBy, DateTime? CompletedAt, IReadOnlyList<QaChecklistItemState> Items);
+    // that first appeared on the running build (new, or reworded). Checkers: Claude Code's items and how many passed,
+    // and the owner's and how many are left.
+    public record QaChecklistState(string Environment, IReadOnlyList<string> Versions, int Total, int Passed, int Failing, int Carried, int New, bool Complete, string CompletedBy, DateTime? CompletedAt, IReadOnlyList<QaChecklistItemState> Items)
+    {
+        public QaCheckers Checkers { get; init; }
+    }
 
     public interface IQaChecklistService
     {
@@ -29,8 +34,12 @@ namespace Requestarr.Core.Qa
         QaChecklistEntry Find(string key);
         QaChecklistState State();
 
+        // discordUserId QaChecker.ClaudeCodeId: Claude Code's automated run (QaAutomatedResults).
         Task MarkPassedAsync(string key, ulong discordUserId, string name);
         Task MarkFailingAsync(string key, ulong discordUserId, string name, BugReport report);
+
+        // What Claude Code's check read back and its screenshots, kept with the item and shown on its card.
+        void SetEvidence(string key, string evidence, IReadOnlyList<QaEvidenceFile> screenshots);
 
         // A bug report's issue link arrived: the failing item's card shows it.
         Task RefreshItemAsync(string key);
@@ -51,9 +60,10 @@ namespace Requestarr.Core.Qa
         private readonly IBugReportRepository _reports;
         private readonly IReleaseEnvironment _environment;
         private readonly IAuditService _audit;
+        private readonly IQaEvidenceStore _evidence;
         private readonly Logger _logger;
 
-        public QaChecklistService(IDiscordGuildGateway gateway, IGuildSetupService guildSetup, IDiscordGuildConfigRepository configs, IQaChecklistItemRepository items, IBugReportRepository reports, IReleaseEnvironment environment, IAuditService audit, Logger logger)
+        public QaChecklistService(IDiscordGuildGateway gateway, IGuildSetupService guildSetup, IDiscordGuildConfigRepository configs, IQaChecklistItemRepository items, IBugReportRepository reports, IReleaseEnvironment environment, IAuditService audit, IQaEvidenceStore evidence, Logger logger)
         {
             _gateway = gateway;
             _guildSetup = guildSetup;
@@ -62,6 +72,7 @@ namespace Requestarr.Core.Qa
             _reports = reports;
             _environment = environment;
             _audit = audit;
+            _evidence = evidence;
             _logger = logger;
         }
 
@@ -95,10 +106,14 @@ namespace Requestarr.Core.Qa
             {
                 var r = records[e.Key];
                 var report = r.BugReportId.HasValue && reports.TryGetValue(r.BugReportId.Value, out var found) ? found : null;
-                return new QaChecklistItemState(e.Key, Changelog.Display(e.Version), e.Name, r.State.ToString(), r.ByName, r.At, r.BugReportId, report?.IssueUrl);
+                var checkedBy = e.Checker.ClaudeCode ? QaChecker.ClaudeCodeName : "owner";
+                return new QaChecklistItemState(e.Key, Changelog.Display(e.Version), e.Name, r.State.ToString(), r.ByName, r.At, r.BugReportId, report?.IssueUrl, checkedBy, e.Checker.Check, e.Checker.Reason, r.Evidence, r.EvidenceFiles ?? new List<string>());
             }).ToList();
 
-            return new QaChecklistState(_environment.IconSet, Versions().Select(v => Changelog.Display(v.Version)).ToList(), entries.Count, passed, failing, Carried(records), New(records), complete, last?.ByName, last?.At, items);
+            return new QaChecklistState(_environment.IconSet, Versions().Select(v => Changelog.Display(v.Version)).ToList(), entries.Count, passed, failing, Carried(records), New(records), complete, last?.ByName, last?.At, items)
+            {
+                Checkers = Checkers(entries, records)
+            };
         }
 
         public async Task EnsureAsync()
@@ -171,12 +186,12 @@ namespace Requestarr.Core.Qa
             var record = _items.FindByKey(key);
 
             record.State = QaItemState.Passed;
-            record.ByDiscordUserId = discordUserId.ToString();
+            record.ByDiscordUserId = MemberId(discordUserId);
             record.ByName = name;
             record.At = DateTime.UtcNow;
             record.RecordedOn = RunningBuild();
             _items.Update(record);
-            _audit.Record(Actor.Discord(discordUserId, name), "qa.checklist.pass", "qa-item", key);
+            _audit.Record(ActorFor(discordUserId, name), "qa.checklist.pass", "qa-item", key);
 
             await RefreshItemAsync(key);
 
@@ -184,7 +199,7 @@ namespace Requestarr.Core.Qa
 
             if (state.Complete && !wasComplete)
             {
-                _audit.Record(Actor.Discord(discordUserId, name), "qa.checklist.complete", "qa-checklist", string.Join(",", state.Versions));
+                _audit.Record(ActorFor(discordUserId, name), "qa.checklist.complete", "qa-checklist", string.Join(",", state.Versions));
                 _logger.Info("QA checklist complete for {0}, the last item passed by {1}", string.Join(", ", state.Versions), name);
             }
         }
@@ -200,15 +215,28 @@ namespace Requestarr.Core.Qa
             var record = Records(Entries())[key];
 
             record.State = QaItemState.Failing;
-            record.ByDiscordUserId = discordUserId.ToString();
+            record.ByDiscordUserId = MemberId(discordUserId);
             record.ByName = name;
             record.At = DateTime.UtcNow;
             record.RecordedOn = RunningBuild();
             record.BugReportId = report?.Id;
             _items.Update(record);
-            _audit.Record(Actor.Discord(discordUserId, name), "qa.checklist.fail", "qa-item", key, report != null ? $"bug report {report.Id}" : null);
+            _audit.Record(ActorFor(discordUserId, name), "qa.checklist.fail", "qa-item", key, report != null ? $"bug report {report.Id}" : null);
 
             await RefreshItemAsync(key);
+        }
+
+        public void SetEvidence(string key, string evidence, IReadOnlyList<QaEvidenceFile> screenshots)
+        {
+            if (Find(key) == null)
+            {
+                return;
+            }
+
+            var record = Records(Entries())[key];
+            record.Evidence = evidence?.Trim();
+            record.EvidenceFiles = _evidence.Replace(key, screenshots).ToList();
+            _items.SetFields(record, r => r.Evidence, r => r.EvidenceFiles);
         }
 
         public async Task RefreshItemAsync(string key)
@@ -304,6 +332,18 @@ namespace Requestarr.Core.Qa
             });
         }
 
+        private static string MemberId(ulong discordUserId) => discordUserId == QaChecker.ClaudeCodeId ? null : discordUserId.ToString();
+
+        private static Actor ActorFor(ulong discordUserId, string name) => discordUserId == QaChecker.ClaudeCodeId ? Actor.ClaudeCode : Actor.Discord(discordUserId, name);
+
+        private static QaCheckers Checkers(IReadOnlyList<QaChecklistEntry> entries, Dictionary<string, QaChecklistItem> records)
+        {
+            var claudeCode = entries.Where(e => e.Checker.ClaudeCode).Select(e => records[e.Key]).ToList();
+            var ownerLeft = entries.Where(e => !e.Checker.ClaudeCode && records[e.Key].State != QaItemState.Passed).Select(e => e.Name).ToList();
+
+            return new QaCheckers(claudeCode.Count, claudeCode.Count(r => r.State == QaItemState.Passed), claudeCode.Count(r => r.State == QaItemState.Failing), entries.Count - claudeCode.Count, ownerLeft);
+        }
+
         private string RunningBuild() => _environment.Shown(CurrentVersion());
 
         private int Carried(Dictionary<string, QaChecklistItem> records)
@@ -329,7 +369,7 @@ namespace Requestarr.Core.Qa
             return new InteractionReply
             {
                 Quiet = true,
-                Cards = { new InteractionCard { Color = SummaryColor(failing, complete: last != null), Text = QaText.Summary(Versions().Select(v => v.Version).ToList(), entries.Count, passed, failing, new QaCarriedOver(Carried(records), New(records)), last?.ByName, last?.At) } }
+                Cards = { new InteractionCard { Color = SummaryColor(failing, complete: last != null), Text = QaText.Summary(Versions().Select(v => v.Version).ToList(), entries.Count, passed, failing, new QaCarriedOver(Carried(records), New(records)), Checkers(entries, records), last?.ByName, last?.At) } }
             };
         }
 
@@ -343,19 +383,23 @@ namespace Requestarr.Core.Qa
             return complete ? QaText.PassedColor : QaText.ChecklistColor;
         }
 
+        // Claude Code's screenshots, if any, show under the item's text.
         private InteractionReply ItemCard(QaChecklistEntry entry, QaChecklistItem record)
         {
             var report = record.BugReportId.HasValue ? _reports.Find(record.BugReportId.Value) : null;
+            var screenshots = _evidence.Read(entry.Key, record.EvidenceFiles);
 
             return new InteractionReply
             {
                 Quiet = true,
+                Files = screenshots.Select(s => new InteractionFile(s.Name, s.Bytes)).ToList(),
                 Cards =
                 {
                     new InteractionCard
                     {
                         Color = record.State switch { QaItemState.Passed => QaText.PassedColor, QaItemState.Failing => QaText.FailingColor, _ => QaText.ChecklistColor },
                         Text = QaText.Item(entry, record, report),
+                        Images = screenshots.Select(s => s.Name).ToList(),
                         Buttons = new List<InteractionButton>
                         {
                             new() { CustomId = $"{QaRoutes.Check}:pass:{entry.Key}", Label = QaText.PassLabel, Style = ButtonStyle.Success },

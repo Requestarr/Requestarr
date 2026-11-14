@@ -211,3 +211,6 @@ __pycache__/
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
 .staging-hold
+
+# Claude Code's QA check runs: results and screenshots (docker/qa_checks.py)
+_qa-checks/
