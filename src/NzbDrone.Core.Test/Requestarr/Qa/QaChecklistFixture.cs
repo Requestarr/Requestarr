@@ -10,6 +10,8 @@ using NUnit.Framework;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Announcements;
 using Requestarr.Core.Discord;
+using Requestarr.Core.Discord.Gateway;
+using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Qa;
 using Requestarr.Core.Test.AnimeDub;
 
@@ -34,13 +36,24 @@ namespace Requestarr.Core.Test.Qa
         // The fold's 11 carried items, the two rewritten ones and the build-number item kept under Unreleased.
         private const int ItemsFromTheFold = 14;
 
+        private static readonly QaCheckers NoCheckers = new(0, 0, 0, 0, Array.Empty<string>());
+
         private readonly Dictionary<string, QaChecklistItem> _records = new();
+        private readonly Dictionary<string, IReadOnlyList<QaEvidenceFile>> _screenshots = new();
         private int _nextId = 1;
 
         [SetUp]
         public void Setup()
         {
             _records.Clear();
+            _screenshots.Clear();
+            var evidence = Mocker.GetMock<IQaEvidenceStore>();
+            evidence.Setup(e => e.Replace(It.IsAny<string>(), It.IsAny<IReadOnlyList<QaEvidenceFile>>())).Returns<string, IReadOnlyList<QaEvidenceFile>>((k, files) =>
+            {
+                _screenshots[k] = files;
+                return files.Select(f => f.Name).ToList();
+            });
+            evidence.Setup(e => e.Read(It.IsAny<string>(), It.IsAny<IEnumerable<string>>())).Returns<string, IEnumerable<string>>((k, _) => _screenshots.TryGetValue(k, out var files) ? files : new List<QaEvidenceFile>());
             var items = Mocker.GetMock<IQaChecklistItemRepository>();
             items.Setup(r => r.FindByKey(It.IsAny<string>())).Returns<string>(k => _records.TryGetValue(k, out var r) ? r : null);
             items.Setup(r => r.Insert(It.IsAny<QaChecklistItem>())).Returns<QaChecklistItem>(r =>
@@ -196,7 +209,7 @@ namespace Requestarr.Core.Test.Qa
         [TestCase(2, 1, "🔁 **2 carried over** with their pass from an earlier build; **1 new or changed** in this one.\n⏳ **1 left to test.**")]
         public void the_summary_says_how_many_passes_were_carried_over_and_how_many_items_are_new(int carried, int added, string ending)
         {
-            QaText.Summary(new[] { new Version(0, 7, 4) }, 3, 2, 0, new QaCarriedOver(carried, added), null, null).Should().EndWith(ending);
+            QaText.Summary(new[] { new Version(0, 7, 4) }, 3, 2, 0, new QaCarriedOver(carried, added), NoCheckers, null, null).Should().EndWith(ending);
         }
 
         [Test]
@@ -265,6 +278,66 @@ namespace Requestarr.Core.Test.Qa
 
             state.Versions.Should().Equal("0.4.16", "0.4.15", "0.4.14");
             state.Items.Select(i => (i.Name, i.State)).Should().Equal(("New thing", "Pending"), ("Passing an item", "Passed"), ("Failing an item", "Pending"));
+        }
+
+        [Test]
+        public void the_line_under_an_item_says_who_checks_it_and_isnt_part_of_its_wording()
+        {
+            var checkedText = Text
+                .Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.")
+                .Replace("You should see the logo.", "You should see the logo.\n  - Checked by the owner, needs human eyes: how it looks in the Discord app.");
+
+            var items = QaChecklist.Parse(checkedText).SelectMany(v => v.Items).ToList();
+
+            items.Select(i => i.Checker).Should().Equal(
+                new QaChecker(true, "live passing", null, null), QaChecker.Unclassified, new QaChecker(false, null, "needs human eyes", "how it looks in the Discord app"));
+            items.Select(i => i.Key).Should().Equal(Keys("Passing an item", "Failing an item", "Sign-in logo"), "a result stays with its item when it's classified");
+        }
+
+        [Test]
+        public void every_unreleased_item_in_the_shipped_checklist_says_who_checks_it()
+        {
+            var unreleased = QaChecklist.Parse(QaChecklist.Embedded(), new Version(9, 9, 9999))[0].Items;
+
+            unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
+            unreleased.Where(i => !i.Checker.ClaudeCode).Should().OnlyContain(i => i.Checker.Why != null);
+            unreleased.Where(i => !i.Checker.ClaudeCode).Select(i => i.Name).Should().Equal("Who checks each item", "Bot picture and banner");
+        }
+
+        [Test]
+        public void the_summary_shows_claude_codes_results_apart_from_the_owners_items_left()
+        {
+            var summary = QaText.Summary(new[] { new Version(0, 7, 5) }, 19, 16, 1, new QaCarriedOver(0, 0), new QaCheckers(17, 16, 1, 2, new[] { "Who checks each item", "Bot picture and banner" }), null, null);
+
+            summary.Should().Contain("🤖 **Claude Code:** 16 of 17 passed, 1 failing, each with what it checked on the card.\n")
+                .And.Contain("👤 **For you:** 2 of 2 left: Who checks each item, Bot picture and banner.\n");
+            QaText.Summary(new[] { new Version(0, 7, 5) }, 2, 2, 0, new QaCarriedOver(0, 0), new QaCheckers(0, 0, 0, 2, Array.Empty<string>()), "Alex", null)
+                .Should().Contain("👤 **For you:** all 2 passed.").And.NotContain("Claude Code");
+        }
+
+        [Test]
+        public async Task claude_codes_pass_is_recorded_under_no_member_and_its_card_shows_what_it_saw_and_its_screenshots()
+        {
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
+            Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100", QaChecklistSummaryMessageId = "200" });
+            var key = Subject.State().Items[0].Key;
+            _records[key].MessageId = "300";
+            var edits = new List<InteractionReply>();
+            Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.EditMessageAsync(100, 300, It.IsAny<InteractionReply>())).Callback<ulong, ulong, InteractionReply>((_, _, r) => edits.Add(r)).ReturnsAsync(true);
+
+            Subject.SetEvidence(key, "Pressed Passes twice; the card says passed.", new[] { new QaEvidenceFile("passing-light.jpg", new byte[] { 7 }) });
+            await Subject.MarkPassedAsync(key, QaChecker.ClaudeCodeId, QaChecker.ClaudeCodeName);
+            var state = Subject.State();
+
+            _records[key].Should().BeEquivalentTo(new { ByDiscordUserId = (string)null, ByName = "Claude Code", Evidence = "Pressed Passes twice; the card says passed.", EvidenceFiles = new[] { "passing-light.jpg" } });
+            state.Items[0].Should().BeEquivalentTo(new { CheckedBy = "Claude Code", Check = "live passing", State = "Passed", By = "Claude Code" });
+            state.Items[1].Should().BeEquivalentTo(new { CheckedBy = "owner", Reason = "not classified yet" });
+            state.Checkers.Should().BeEquivalentTo(new QaCheckers(1, 1, 0, 2, new[] { "Failing an item", "Sign-in logo" }));
+            var card = edits[^1];
+            card.Cards.Single().Text.Should().Contain("🤖 Claude Code checks this with its live passing check.").And.Contain("✅ Passed by Claude Code").And.Contain("**What Claude Code saw:** Pressed Passes twice");
+            card.Cards.Single().Images.Should().Equal("passing-light.jpg");
+            card.Files.Select(f => f.Name).Should().Equal("passing-light.jpg");
+            Mocker.GetMock<Requestarr.Core.Audit.IAuditService>().Verify(a => a.Record(Requestarr.Core.Audit.Actor.ClaudeCode, "qa.checklist.pass", "qa-item", key, null), Times.Once());
         }
 
         [Test]

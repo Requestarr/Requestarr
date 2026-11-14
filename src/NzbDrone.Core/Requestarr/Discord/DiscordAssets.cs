@@ -32,7 +32,8 @@ namespace Requestarr.Core.Discord
             return copy.ToArray();
         }
 
-        // The files a message's embeds point to (each once).
+        // The files a message's embeds point to (each once), then the files the message brings itself (a card's
+        // screenshots).
         public static IReadOnlyList<(string Name, byte[] Bytes)> For(InteractionReply reply) =>
             (reply?.Embeds ?? new List<InteractionEmbed>())
                 .SelectMany(e => new[] { e.ImageUrl, e.ThumbnailUrl, e.FooterIconUrl })
@@ -41,6 +42,7 @@ namespace Requestarr.Core.Discord
                 .Distinct()
                 .Select(n => (n, Bytes(n)))
                 .Where(f => f.Item2 != null)
+                .Concat((reply?.Files ?? new List<InteractionFile>()).Select(f => (f.Name, f.Bytes)))
                 .ToList();
     }
 }

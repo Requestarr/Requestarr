@@ -1,0 +1,336 @@
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
+using FluentAssertions;
+using NUnit.Framework;
+using NzbDrone.Test.Common.Categories;
+
+namespace Requestarr.Core.Test.Qa.Web
+{
+    // Claude Code's web app checks for the QA checklist (docker/qa_checks.py run): a real browser against the dev stack
+    // at the commit QA receives, signed in with a throwaway login, in the light and dark theme, never the QA server.
+    // Each test is one check an item names ("the web app status page check") and writes what it saw and its screenshots
+    // for Claude Code to look at against the item's "You should see". The dev stack shows the dev logo where QA shows
+    // QA's; the checks put QA's own logo files in the page where QA shows them (the logo is the only part that differs
+    // between environments). Needs QA_CHECKS_URL, QA_CHECKS_USERNAME, QA_CHECKS_PASSWORD, QA_CHECKS_DIR and
+    // QA_CHECKS_COMMIT (the run sets them).
+    [TestFixture]
+    [ManualTest]
+    public class QaWebChecksFixture
+    {
+        private const string Header = "[class*='PageHeader-header']";
+        private const string HeaderLogo = "img[class*='PageHeader-logo']";
+        private const string ProvisionedNote = "Set by your provisioning file";
+
+        // As QA: the environment's logo files are QA's (the dev stack's are dev's).
+        private const string ShowAsQa = @"(() => {
+            document.querySelectorAll('img, link[rel*=icon]').forEach(e => {
+                const attribute = e.tagName === 'IMG' ? 'src' : 'href';
+                const value = e.getAttribute(attribute);
+                if (value && value.includes('/dev/')) { e.setAttribute(attribute, value.replace('/dev/', '/qa/')); }
+            });
+            return true;
+        })()";
+
+        private const string ImagesLoaded = "[...document.images].every(i => i.complete && i.naturalWidth > 0)";
+
+        private static string Url => Environment.GetEnvironmentVariable("QA_CHECKS_URL")?.TrimEnd('/');
+        private static string Commit => Environment.GetEnvironmentVariable("QA_CHECKS_COMMIT");
+
+        [Test]
+        public Task status_page() => CheckAsync(nameof(status_page), async (browser, check) =>
+        {
+            await SignInAsync(browser);
+            string shown = null;
+
+            foreach (var theme in new[] { "light", "dark" })
+            {
+                await browser.SetThemeAsync(theme);
+                await browser.GoAsync(Url + "/system/status");
+                await browser.WaitForAsync("[...document.querySelectorAll('dt')].some(d => d.textContent.trim() === 'Version')");
+                shown = await browser.EvalAsync<string>("[...document.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Version').nextElementSibling.textContent.trim()");
+                await QaLogoAsync(browser);
+                await check.ShotAsync(browser, theme);
+            }
+
+            var api = await browser.EvalAsync<string>("fetch(window.Requestarr.urlBase + '/api/v1/system/status', { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(s => s.version)");
+            var logoTitle = await browser.EvalAsync<string>($"document.querySelector(\"{HeaderLogo}\").title");
+            check.Saw($"Status shows version {shown}; the server says {api}; the logo's own label says \"{logoTitle}\".");
+            check.Saw("On QA the same build says qa where the dev stack says dev; the number and the short code are the commit's.");
+
+            shown.Should().Be(api);
+            shown.Should().EndWith("." + Commit, "the build is the commit QA receives");
+            logoTitle.Should().Contain(shown);
+        });
+
+        [Test]
+        public Task header_logo() => CheckAsync(nameof(header_logo), async (browser, check) =>
+        {
+            await SignInAsync(browser);
+
+            foreach (var theme in new[] { "light", "dark" })
+            {
+                await browser.SetThemeAsync(theme);
+                await browser.GoAsync(Url + "/system/status");
+                await browser.WaitForAsync(HeaderLogo);
+                await QaLogoAsync(browser);
+                var fit = await browser.EvalAsync<JsonElement>($@"(() => {{
+                    const logo = document.querySelector(""{HeaderLogo}"");
+                    const header = document.querySelector(""{Header}"");
+                    const box = getComputedStyle(logo.parentElement);
+                    return {{ logo: Math.round(logo.getBoundingClientRect().height), header: Math.round(header.getBoundingClientRect().height),
+                              border: box.borderTopWidth, background: box.backgroundColor, src: logo.getAttribute('src') }};
+                }})()");
+                check.Saw($"{theme}: logo {fit.GetProperty("src").GetString()}, {fit.GetProperty("logo").GetInt32()}px tall in a {fit.GetProperty("header").GetInt32()}px header; around it a {fit.GetProperty("border").GetString()} border on {fit.GetProperty("background").GetString()}.");
+                fit.GetProperty("logo").GetInt32().Should().Be(fit.GetProperty("header").GetInt32(), "the R is full height");
+                fit.GetProperty("border").GetString().Should().Be("0px", "no box around the logo");
+                await check.ShotAsync(browser, theme);
+            }
+
+            // The tab icon and the dark logo's own background, sampled from QA's files: charcoal gray, never black.
+            var samples = await browser.EvalAsync<JsonElement>(@"Promise.all(['dark/qa/favicon-32x32.png', 'light/qa/favicon-32x32.png', 'dark/qa/logo-header.png'].map(file => new Promise(done => {
+                const image = new Image();
+                image.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(image, 0, 0);
+                    const [r, g, b, a] = context.getImageData(1, Math.floor(image.naturalHeight / 2), 1, 1).data;
+                    done({ file, r, g, b, a });
+                };
+                image.src = window.Requestarr.urlBase + '/Content/Images/Icons/' + file;
+            })))");
+
+            foreach (var sample in samples.EnumerateArray())
+            {
+                var (r, g, b) = (sample.GetProperty("r").GetInt32(), sample.GetProperty("g").GetInt32(), sample.GetProperty("b").GetInt32());
+                check.Saw($"{sample.GetProperty("file").GetString()}: background at its left edge rgb({r}, {g}, {b}), opacity {sample.GetProperty("a").GetInt32()}.");
+
+                if (sample.GetProperty("file").GetString().StartsWith("dark/"))
+                {
+                    Math.Max(r, Math.Max(g, b)).Should().BeGreaterThan(20, "charcoal gray, never black");
+                }
+            }
+
+            await ShowTabIconsAsync(browser);
+            await check.ShotAsync(browser, "tab-icons");
+        });
+
+        [Test]
+        public Task sign_in_and_out() => CheckAsync(nameof(sign_in_and_out), async (browser, check) =>
+        {
+            using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, CheckCertificateRevocationList = true });
+            var signedOut = await http.GetAsync(Url + "/settings/general");
+            check.Saw($"Signed out, the settings page answers {(int)signedOut.StatusCode} to {signedOut.Headers.Location}.");
+            signedOut.StatusCode.Should().Be(HttpStatusCode.Redirect, "never a bare browser error");
+
+            await browser.GoAsync(Url + "/settings/general");
+            await browser.WaitForAsync("document.querySelector('form input[name=username]')");
+            check.Saw($"The browser lands on {await browser.EvalAsync<string>("location.pathname + location.search")} with the sign-in form.");
+            await check.ShotAsync(browser, "signed-out");
+
+            await SubmitLoginAsync(browser);
+            var landed = await browser.EvalAsync<string>("location.pathname");
+            check.Saw($"Signed in, it goes on to {landed}.");
+            landed.Should().EndWith("/settings/general", "signing in goes back to where you were going");
+
+            await browser.WaitForAsync("document.querySelector(\"[class*='PageHeaderActionsMenu-menuButton']\")");
+            await browser.EvalAsync<bool>("document.querySelector(\"[class*='PageHeaderActionsMenu-menuButton']\").click() || true");
+            await browser.WaitForAsync("[...document.querySelectorAll('a')].some(a => a.textContent.trim() === 'Logout')");
+            await check.ShotAsync(browser, "account-menu");
+            await browser.LeaveAsync("[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Logout').click()");
+            check.Saw($"After Logout: {await browser.EvalAsync<string>("location.pathname")}, sign-in form shown {await browser.EvalAsync<bool>("!!document.querySelector('form input[name=username]')")}.");
+            await QaLogoAsync(browser);
+            await check.ShotAsync(browser, "after-logout");
+
+            await browser.GoAsync(Url + "/");
+            var again = await browser.EvalAsync<bool>("!!document.querySelector('form input[name=username]')");
+            check.Saw($"Opening the address again shows the sign-in form: {again}.");
+            again.Should().BeTrue();
+        });
+
+        [Test]
+        public Task general_settings() => CheckAsync(nameof(general_settings), async (browser, check) =>
+        {
+            await SignInAsync(browser);
+            await browser.SetThemeAsync("light");
+            await browser.GoAsync(Url + "/settings/general");
+            await browser.WaitForAsync("document.querySelector('input[name=port]')");
+
+            foreach (var label in new[] { "Port Number", "Allowed Hosts", "Authentication", "Authentication Required", "Username" })
+            {
+                var group = await GroupAsync(browser, label);
+                check.Saw($"{label}: read-only {group.ReadOnly}; note \"{group.Help}\".");
+                (label == "Port Number" ? group.Help.Contains("compose file") : group.Help.Contains(ProvisionedNote)).Should().BeTrue($"{label} explains itself");
+                group.ReadOnly.Should().BeTrue($"{label} is set where it can't be changed here");
+            }
+
+            await check.ShotAsync(browser, "light");
+            await ToolbarAsync(browser, "Show Advanced");
+            var before = await browser.EvalAsync<string>("document.querySelector('input[name=backupRetention]').value");
+            var changed = (int.Parse(before) % 90) + 1;
+            await SaveBackupRetentionAsync(browser, changed);
+            var saved = await browser.EvalAsync<int>("fetch(window.Requestarr.urlBase + '/api/v1/config/host', { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(h => h.backupRetention)");
+            check.Saw($"Backup Retention {before} changed to {changed} and saved: no error, and the server now has {saved}.");
+            await check.ShotAsync(browser, "saved");
+            saved.Should().Be(changed);
+
+            await SaveBackupRetentionAsync(browser, int.Parse(before));
+            check.Saw($"Set back to {before}.");
+            await browser.SetThemeAsync("dark");
+            await browser.GoAsync(Url + "/settings/general");
+            await browser.WaitForAsync("document.querySelector('input[name=port]')");
+            await check.ShotAsync(browser, "dark");
+        });
+
+        [Test]
+        public Task sign_in_page() => CheckAsync(nameof(sign_in_page), async (browser, check) =>
+        {
+            foreach (var theme in new[] { "light", "dark" })
+            {
+                await browser.SetThemeAsync(theme);
+                await browser.GoAsync(Url + "/login");
+                await QaLogoAsync(browser);
+                var page = await browser.EvalAsync<JsonElement>(@"(() => {
+                    const logo = document.querySelector('img.logo');
+                    return { src: logo.getAttribute('src'), panel: getComputedStyle(logo.closest('.panel-header') || logo.parentElement).backgroundColor };
+                })()");
+                check.Saw($"{theme}: logo {page.GetProperty("src").GetString()} on {page.GetProperty("panel").GetString()}.");
+                page.GetProperty("src").GetString().Should().Contain("/dark/", "the gray box takes the light-arrow logo in both themes");
+                await check.ShotAsync(browser, theme);
+            }
+        });
+
+        [Test]
+        public Task loading_screen() => CheckAsync(nameof(loading_screen), async (browser, check) =>
+        {
+            await SignInAsync(browser);
+
+            foreach (var theme in new[] { "light", "dark" })
+            {
+                await browser.SetThemeAsync(theme);
+                await browser.SlowNetworkAsync(1500);
+                await browser.GoAsync(Url + "/");
+                await browser.WaitForAsync("document.querySelector(\"[class*='LoadingPage-page'] img\")");
+                await QaLogoAsync(browser);
+                var screen = await browser.EvalAsync<JsonElement>(@"(() => {
+                    const page = document.querySelector(""[class*='LoadingPage-page']"");
+                    const logo = page.querySelector('img');
+                    return { src: logo.getAttribute('src'), behind: getComputedStyle(logo).backgroundColor, page: getComputedStyle(page).backgroundColor };
+                })()");
+                check.Saw($"{theme}: loading screen logo {screen.GetProperty("src").GetString()} (the header's), behind it {screen.GetProperty("behind").GetString()} on {screen.GetProperty("page").GetString()}.");
+                screen.GetProperty("src").GetString().Should().Contain("/qa/logo-header.png");
+                await check.ShotAsync(browser, theme);
+                await browser.SlowNetworkAsync(0);
+            }
+        });
+
+        [Test]
+        public Task project_links() => CheckAsync(nameof(project_links), async (browser, check) =>
+        {
+            await SignInAsync(browser);
+            await browser.GoAsync(Url + "/system/status");
+            await browser.WaitForAsync("[...document.querySelectorAll('a')].some(a => a.href.includes('github.com'))");
+            var links = await browser.EvalAsync<string[]>("[...document.querySelectorAll('a')].filter(a => a.href.includes('github.com')).map(a => a.closest('dd').previousElementSibling.textContent.trim() + ': ' + a.href)");
+            await browser.EvalAsync<bool>("[...document.querySelectorAll('a')].find(a => a.href.includes('github.com')).scrollIntoView() || true");
+
+            foreach (var link in links)
+            {
+                check.Saw(link);
+            }
+
+            await check.ShotAsync(browser, "more-info");
+            links.Should().Contain(l => l.EndsWith("https://github.com/Requestarr/Requestarr")).And.Contain(l => l.EndsWith("https://github.com/Requestarr/Requestarr/issues"));
+        });
+
+        private static async Task CheckAsync(string name, Func<HeadlessBrowser, WebCheck, Task> body)
+        {
+            if (string.IsNullOrWhiteSpace(Url))
+            {
+                Assert.Ignore("QA_CHECKS_URL not set: run through docker/qa_checks.py run");
+            }
+
+            var check = new WebCheck(name, Environment.GetEnvironmentVariable("QA_CHECKS_DIR"));
+            Exception failure = null;
+
+            try
+            {
+                await using var browser = await HeadlessBrowser.StartAsync();
+                await body(browser, check);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+                throw;
+            }
+            finally
+            {
+                check.Write(failure == null, failure);
+            }
+        }
+
+        private static async Task SignInAsync(HeadlessBrowser browser)
+        {
+            await browser.GoAsync(Url + "/login");
+            await SubmitLoginAsync(browser);
+            (await browser.EvalAsync<string>("location.pathname")).Should().NotEndWith("/login", "the throwaway login signs in");
+        }
+
+        private static Task SubmitLoginAsync(HeadlessBrowser browser)
+        {
+            var username = JsonSerializer.Serialize(Environment.GetEnvironmentVariable("QA_CHECKS_USERNAME"));
+            var password = JsonSerializer.Serialize(Environment.GetEnvironmentVariable("QA_CHECKS_PASSWORD"));
+
+            return browser.LeaveAsync($"document.querySelector('input[name=username]').value = {username}; document.querySelector('input[name=password]').value = {password}; document.querySelector('form').submit()");
+        }
+
+        private static async Task QaLogoAsync(HeadlessBrowser browser)
+        {
+            await browser.EvalAsync<bool>(ShowAsQa);
+            await browser.WaitForAsync(ImagesLoaded);
+        }
+
+        // QA's tab icons as a browser's tab strip shows them: on a light strip and on a dark one.
+        private static Task ShowTabIconsAsync(HeadlessBrowser browser) => browser.EvalAsync<bool>(@"(() => {
+            const base = window.Requestarr.urlBase + '/Content/Images/Icons/';
+            const strip = (shade, color) => `<div style=""background:${color};padding:24px;display:flex;gap:24px;align-items:center;font:16px sans-serif;color:${shade === 'dark' ? '#eee' : '#222'}"">
+                <img src=""${base}${shade}/qa/favicon-32x32.png"" width=""64"" height=""64""><img src=""${base}${shade}/qa/favicon-16x16.png"" width=""32"" height=""32"">
+                QA's tab icon, ${shade} theme</div>`;
+            document.body.innerHTML = strip('light', '#f1f3f4') + strip('dark', '#35363a');
+            return true;
+        })()").ContinueWith(_ => browser.WaitForAsync(ImagesLoaded)).Unwrap();
+
+        private static async Task<(bool ReadOnly, string Help)> GroupAsync(HeadlessBrowser browser, string label)
+        {
+            var group = await browser.EvalAsync<JsonElement>($@"(() => {{
+                const label = [...document.querySelectorAll(""[class*='FormLabel']"")].find(l => l.textContent.trim() === {JsonSerializer.Serialize(label)});
+                const group = label.closest(""[class*='FormGroup-group']"");
+                const input = group.querySelector('input, button, [class*=""EnhancedSelectInput""]');
+                const locked = !!input && (input.readOnly === true || input.disabled === true || /isDisabled|readOnly/i.test(input.className));
+                return {{ locked, help: [...group.querySelectorAll(""[class*='FormInputHelpText']"")].map(h => h.textContent.trim()).join(' ') }};
+            }})()");
+
+            return (group.GetProperty("locked").GetBoolean(), group.GetProperty("help").GetString());
+        }
+
+        private static Task ToolbarAsync(HeadlessBrowser browser, string text) =>
+            browser.EvalAsync<bool>($"[...document.querySelectorAll(\"[class*='PageToolbarButton-toolbarButton']\")].find(b => b.textContent.includes({JsonSerializer.Serialize(text)})).click() || true");
+
+        // Typed the way React sees typing, then saved; the toolbar says No Changes again once it's saved.
+        private static async Task SaveBackupRetentionAsync(HeadlessBrowser browser, int days)
+        {
+            await browser.EvalAsync<bool>($@"(() => {{
+                const input = document.querySelector('input[name=backupRetention]');
+                Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '{days}');
+                ['input', 'change', 'blur'].forEach(type => input.dispatchEvent(new Event(type, {{ bubbles: true }})));
+                return true;
+            }})()");
+            await browser.WaitForAsync("[...document.querySelectorAll(\"[class*='PageToolbarButton-toolbarButton']\")].some(b => b.textContent.includes('Save Changes'))");
+            await ToolbarAsync(browser, "Save Changes");
+            await browser.WaitForAsync("[...document.querySelectorAll(\"[class*='PageToolbarButton-toolbarButton']\")].some(b => b.textContent.includes('No Changes'))");
+            (await browser.EvalAsync<int>("document.querySelectorAll(\"[class*='Alert-danger'], [class*='validationError']\").length")).Should().Be(0, "it saves with no error");
+        }
+    }
+}
