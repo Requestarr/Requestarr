@@ -213,10 +213,13 @@ def run_web(out, env, commit):
     return results
 
 
-def run_live(out, env):
+def run_live(out, env, commit):
     stack(["reset-dev", "--stopped"])
     os.makedirs(os.path.join(out, "live"), exist_ok=True)
-    live_env = dict(env, LIVE_QA_STATE_DIR=os.path.join(out, "live", "state"))
+    # The live checks run as the dev build of this commit, labelled the way the dev stack labels it.
+    label = "%s-dev.%s" % (subprocess.run([sys.executable, os.path.join(REPO, ".github", "build_numbers.py"), "next"],
+                                          capture_output=True, text=True, check=True, cwd=REPO).stdout.strip(), commit[:7])
+    live_env = dict(env, LIVE_QA_STATE_DIR=os.path.join(out, "live", "state"), REQUESTARR_RELEASE_VERSION=label)
     results = {}
     for fixture in sorted({c.target for c in CHECKS.values() if c.kind == "live"}):
         log_path = os.path.join(out, "live", fixture + ".log")
@@ -238,6 +241,8 @@ def run(args):
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out, exist_ok=True)
     env = dict(os.environ, **secrets_env())
+    if only in (None, "live") and not env.get("DISCORD_TEST_MEMBERS"):
+        sys.exit("The live checks press buttons as a test member: set DISCORD_TEST_MEMBERS (in your shell or docker/secrets.env) first.")
     timings, web, live = [], {}, {}
     with open(os.path.join(REPO, "QA-CHECKLIST.md"), encoding="utf-8") as handle:
         items = checklist_items(handle.read())
@@ -246,7 +251,7 @@ def run(args):
         if only in (None, "web"):
             web = timed("web app checks (dev stack up at the commit, signed in)", timings, lambda: run_web(out, env, commit))
         if only in (None, "live"):
-            live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env))
+            live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit))
     finally:
         timed("dev stack reset", timings, lambda: stack(["reset-dev"]))
     results = results_for(items, web, live)
