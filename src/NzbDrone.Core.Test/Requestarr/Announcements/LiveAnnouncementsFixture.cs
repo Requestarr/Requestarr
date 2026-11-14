@@ -287,21 +287,26 @@ namespace Requestarr.Core.Test.Announcements
                 var firstNumbered = embedded.IndexOf("\n## 0.", StringComparison.Ordinal) + 1;
                 announcements.ChangelogText = () => embedded.Insert(firstNumbered, "## 0.6.0 (2026-11-13)\n\n### For admins\n- **Folded version:** this card goes once it's folded into Unreleased.\n\n");
                 await announcements.PostVersionNotesAsync();
-                var otherBefore = (await Recent(adminRest)).Where(m => VersionCards.Parse(ButtonIds(m), VersionAudience.Admins) == null).Select(m => m.Id).ToList();
+                // The admin panel moves below new posts as a new message, so it's counted by being there, not by its ID.
+                bool IsPanel(IMessage m) => m.Id.ToString() == guildSetup.GetConfig().AdminPanelMessageId;
+                var otherBefore = (await Recent(adminRest)).Where(m => VersionCards.Parse(ButtonIds(m), VersionAudience.Admins) == null && !IsPanel(m)).Select(m => m.Id).ToList();
                 var qaBefore = await Cards(adminRest, VersionAudience.Admins);
                 qaBefore.ForEach(t => Log($"[qa] before the fold, admin card: \"{t}\""));
                 announcements.ChangelogText = () => embedded;
                 await announcements.PostVersionNotesAsync();
                 var qaAdmin = await Cards(adminRest, VersionAudience.Admins);
                 var qaUsers = await Cards(channel, VersionAudience.Users);
-                var otherAfter = (await Recent(adminRest)).Select(m => m.Id).ToHashSet();
+                var after = await Recent(adminRest);
+                var otherAfter = after.Select(m => m.Id).ToHashSet();
+                var panelKept = after.Any(IsPanel);
                 qaAdmin.ForEach(t => Log($"[qa] after the fold, admin card: \"{t}\""));
                 qaUsers.ForEach(t => Log($"[qa] after the fold, announcements card: \"{t}\""));
-                Log($"[qa] the admin channel's other messages: {otherBefore.Count} before the fold, {otherBefore.Count(otherAfter.Contains)} of them still there after");
+                Log($"[qa] the admin channel's other messages: {otherBefore.Count} before the fold, {otherBefore.Count(otherAfter.Contains)} of them still there after; the admin panel still there: {panelKept}");
                 qaBefore.Should().HaveCount(2);
                 qaAdmin.Should().ContainSingle().Which.Should().StartWith($"Requestarr {shownAs} · {DiscordText.SinceLastBeta} | ");
                 qaUsers.Should().ContainSingle().Which.Should().StartWith($"Requestarr {shownAs} · {DiscordText.SinceLastBeta} | ");
                 otherBefore.Should().OnlyContain(id => otherAfter.Contains(id), "only version cards go");
+                panelKept.Should().BeTrue("the admin panel stays");
 
                 // Back to the dev server's own way for the rest.
                 stack = "dev";
