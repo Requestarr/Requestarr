@@ -20,9 +20,11 @@ namespace Requestarr.Core.Test.Qa.Web
     [ManualTest]
     public class QaWebChecksFixture
     {
-        private const string Header = "[class*='PageHeader-header']";
         private const string HeaderLogo = "img[class*='PageHeader-logo']";
         private const string ProvisionedNote = "Set by your provisioning file";
+
+        // Empty rows the header logo's image may leave above and below the R (antialiasing), in all.
+        private const int MaxLogoPadding = 4;
 
         // As QA: the environment's logo files are QA's (the dev stack's are dev's).
         private const string ShowAsQa = @"(() => {
@@ -36,6 +38,17 @@ namespace Requestarr.Core.Test.Qa.Web
 
         private const string ImagesLoaded = "[...document.images].every(i => i.complete && i.naturalWidth > 0)";
 
+        // QA's tab icons as a browser's tab strip shows them: on a light strip and on a dark one.
+        private const string TabIconsPage = @"(() => {
+            const base = window.Requestarr.urlBase + '/Content/Images/Icons/';
+            const strip = (shade, color) => `<div style=""background:${color};padding:24px;display:flex;gap:24px;align-items:center;font:16px sans-serif;color:${shade === 'dark' ? '#eee' : '#222'}"">
+                <img src=""${base}${shade}/qa/favicon-32x32.png"" width=""64"" height=""64""><img src=""${base}${shade}/qa/favicon-16x16.png"" width=""32"" height=""32"">
+                QA's tab icon, ${shade} theme</div>`;
+            document.body.innerHTML = strip('light', '#f1f3f4') + strip('dark', '#35363a');
+        })()";
+
+        private static readonly string[] Themes = { "light", "dark" };
+
         private static string Url => Environment.GetEnvironmentVariable("QA_CHECKS_URL")?.TrimEnd('/');
         private static string Commit => Environment.GetEnvironmentVariable("QA_CHECKS_COMMIT");
 
@@ -45,7 +58,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await SignInAsync(browser);
             string shown = null;
 
-            foreach (var theme in new[] { "light", "dark" })
+            foreach (var theme in Themes)
             {
                 await browser.SetThemeAsync(theme);
                 await browser.GoAsync(Url + "/system/status");
@@ -70,21 +83,34 @@ namespace Requestarr.Core.Test.Qa.Web
         {
             await SignInAsync(browser);
 
-            foreach (var theme in new[] { "light", "dark" })
+            foreach (var theme in Themes)
             {
                 await browser.SetThemeAsync(theme);
                 await browser.GoAsync(Url + "/system/status");
                 await browser.WaitForAsync($"document.querySelector(\"{HeaderLogo}\")");
                 await QaLogoAsync(browser);
+
+                // The R's own rows in the image (right of the bar): full height when it leaves no empty rows above or below.
                 var fit = await browser.EvalAsync<JsonElement>($@"(() => {{
                     const logo = document.querySelector(""{HeaderLogo}"");
-                    const header = document.querySelector(""{Header}"");
                     const box = getComputedStyle(logo.parentElement);
-                    return {{ logo: Math.round(logo.getBoundingClientRect().height), header: Math.round(header.getBoundingClientRect().height),
+                    const canvas = document.createElement('canvas');
+                    canvas.width = logo.naturalWidth; canvas.height = logo.naturalHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(logo, 0, 0);
+                    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                    const rows = [];
+                    for (let y = 0; y < canvas.height; y++) {{
+                        for (let x = Math.floor(canvas.width * 0.3); x < canvas.width; x++) {{
+                            if (pixels[(y * canvas.width + x) * 4 + 3] > 16) {{ rows.push(y); break; }}
+                        }}
+                    }}
+                    return {{ height: canvas.height, top: rows[0], bottom: rows[rows.length - 1], shown: Math.round(logo.getBoundingClientRect().height),
                               border: box.borderTopWidth, background: box.backgroundColor, src: logo.getAttribute('src') }};
                 }})()");
-                check.Saw($"{theme}: logo {fit.GetProperty("src").GetString()}, {fit.GetProperty("logo").GetInt32()}px tall in a {fit.GetProperty("header").GetInt32()}px header; around it a {fit.GetProperty("border").GetString()} border on {fit.GetProperty("background").GetString()}.");
-                fit.GetProperty("logo").GetInt32().Should().Be(fit.GetProperty("header").GetInt32(), "the R is full height");
+                var (height, top, bottom) = (fit.GetProperty("height").GetInt32(), fit.GetProperty("top").GetInt32(), fit.GetProperty("bottom").GetInt32());
+                check.Saw($"{theme}: logo {fit.GetProperty("src").GetString()}, shown {fit.GetProperty("shown").GetInt32()}px tall; the R fills rows {top} to {bottom} of {height}; around it a {fit.GetProperty("border").GetString()} border on {fit.GetProperty("background").GetString()}.");
+                (top + (height - 1 - bottom)).Should().BeLessOrEqualTo(MaxLogoPadding, "the R is full height");
                 fit.GetProperty("border").GetString().Should().Be("0px", "no box around the logo");
                 await check.ShotAsync(browser, theme);
             }
@@ -129,6 +155,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.GoAsync(Url + "/settings/general");
             await browser.WaitForAsync("document.querySelector('form input[name=username]')");
             check.Saw($"The browser lands on {await browser.EvalAsync<string>("location.pathname + location.search")} with the sign-in form.");
+            await QaLogoAsync(browser);
             await check.ShotAsync(browser, "signed-out");
 
             await SubmitLoginAsync(browser);
@@ -139,6 +166,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync("document.querySelector(\"[class*='PageHeaderActionsMenu-menuButton']\")");
             await browser.RunAsync("document.querySelector(\"[class*='PageHeaderActionsMenu-menuButton']\").click()");
             await browser.WaitForAsync("[...document.querySelectorAll('a')].some(a => a.textContent.trim() === 'Logout')");
+            await QaLogoAsync(browser);
             await check.ShotAsync(browser, "account-menu");
             await browser.LeaveAsync("[...document.querySelectorAll('a')].find(a => a.textContent.trim() === 'Logout').click()");
             check.Saw($"After Logout: {await browser.EvalAsync<string>("location.pathname")}, sign-in form shown {await browser.EvalAsync<bool>("!!document.querySelector('form input[name=username]')")}.");
@@ -158,6 +186,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.SetThemeAsync("light");
             await browser.GoAsync(Url + "/settings/general");
             await browser.WaitForAsync("document.querySelector('input[name=port]')");
+            await QaLogoAsync(browser);
 
             foreach (var label in new[] { "Port Number", "Allowed Hosts", "Authentication", "Authentication Required", "Username" })
             {
@@ -182,13 +211,14 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.SetThemeAsync("dark");
             await browser.GoAsync(Url + "/settings/general");
             await browser.WaitForAsync("document.querySelector('input[name=port]')");
+            await QaLogoAsync(browser);
             await check.ShotAsync(browser, "dark");
         });
 
         [Test]
         public Task sign_in_page() => CheckAsync(nameof(sign_in_page), async (browser, check) =>
         {
-            foreach (var theme in new[] { "light", "dark" })
+            foreach (var theme in Themes)
             {
                 await browser.SetThemeAsync(theme);
                 await browser.GoAsync(Url + "/login");
@@ -208,7 +238,7 @@ namespace Requestarr.Core.Test.Qa.Web
         {
             await SignInAsync(browser);
 
-            foreach (var theme in new[] { "light", "dark" })
+            foreach (var theme in Themes)
             {
                 await browser.SetThemeAsync(theme);
                 await browser.HoldRequestsAsync("*/api/v1/*");
@@ -241,6 +271,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 check.Saw(link);
             }
 
+            await QaLogoAsync(browser);
             await check.ShotAsync(browser, "more-info");
             links.Should().Contain(l => l.EndsWith("https://github.com/Requestarr/Requestarr")).And.Contain(l => l.EndsWith("https://github.com/Requestarr/Requestarr/issues"));
         });
@@ -267,7 +298,7 @@ namespace Requestarr.Core.Test.Qa.Web
             }
             finally
             {
-                check.Write(failure == null, failure);
+                check.Write(failure);
             }
         }
 
@@ -292,15 +323,11 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync(ImagesLoaded);
         }
 
-        // QA's tab icons as a browser's tab strip shows them: on a light strip and on a dark one.
-        private static Task ShowTabIconsAsync(HeadlessBrowser browser) => browser.EvalAsync<bool>(@"(() => {
-            const base = window.Requestarr.urlBase + '/Content/Images/Icons/';
-            const strip = (shade, color) => `<div style=""background:${color};padding:24px;display:flex;gap:24px;align-items:center;font:16px sans-serif;color:${shade === 'dark' ? '#eee' : '#222'}"">
-                <img src=""${base}${shade}/qa/favicon-32x32.png"" width=""64"" height=""64""><img src=""${base}${shade}/qa/favicon-16x16.png"" width=""32"" height=""32"">
-                QA's tab icon, ${shade} theme</div>`;
-            document.body.innerHTML = strip('light', '#f1f3f4') + strip('dark', '#35363a');
-            return true;
-        })()").ContinueWith(_ => browser.WaitForAsync(ImagesLoaded)).Unwrap();
+        private static async Task ShowTabIconsAsync(HeadlessBrowser browser)
+        {
+            await browser.RunAsync(TabIconsPage);
+            await browser.WaitForAsync(ImagesLoaded);
+        }
 
         private static async Task<(bool ReadOnly, string Help)> GroupAsync(HeadlessBrowser browser, string label)
         {

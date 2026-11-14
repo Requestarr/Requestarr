@@ -37,6 +37,8 @@ REPO = os.path.dirname(HERE)
 TESTS = os.path.join(REPO, "_tests", "net10.0", "Requestarr.Core.Test.dll")
 WEB_FIXTURE = "QaWebChecksFixture"
 ACCOUNT = "qa-checks"
+# Each stack's port setting in secrets.env and its default, as docker/dev.ps1 and docker/dev.sh have them.
+PORTS = {"qa": ("REQUESTARR_PORT", "29797"), "dev": ("DEV_REQUESTARR_PORT", "39797")}
 
 
 class Check:
@@ -146,6 +148,11 @@ def running_build(which):
                           capture_output=True, text=True, check=True).stdout.strip()
 
 
+def stack_url(env, which):
+    setting, default = PORTS[which]
+    return "http://localhost:" + (env.get(setting) or default)
+
+
 def git(*args):
     return subprocess.run(["git", "-C", REPO] + list(args), capture_output=True, text=True, check=True).stdout.strip()
 
@@ -171,16 +178,16 @@ def run_web(out, env, commit):
     password = secrets.token_urlsafe(24)
     login = {"DEV_AUTH_REQUIRED": "enabled", "REQUESTARR_ADMIN_USERNAME": ACCOUNT, "REQUESTARR_ADMIN_PASSWORD": password}
     stack(["up"], login, ref=commit)
-    port = env.get("DEV_REQUESTARR_PORT") or "39797"
-    web_env = dict(env, QA_CHECKS_URL="http://localhost:" + port, QA_CHECKS_DIR=os.path.join(out, "web"),
+    web_dir = os.path.join(out, "web")
+    web_env = dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir,
                    QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password, QA_CHECKS_COMMIT=commit[:7],
                    QA_CHECKS_VERSION=running_build("dev"))
-    os.makedirs(web_env["QA_CHECKS_DIR"], exist_ok=True)
-    dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(out, "web", "web.log"))
+    os.makedirs(web_dir, exist_ok=True)
+    dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(web_dir, "web.log"))
     results = {}
-    for name in os.listdir(web_env["QA_CHECKS_DIR"]):
+    for name in os.listdir(web_dir):
         if name.endswith(".json"):
-            with open(os.path.join(web_env["QA_CHECKS_DIR"], name), encoding="utf-8") as handle:
+            with open(os.path.join(web_dir, name), encoding="utf-8") as handle:
                 results[name[:-5]] = json.load(handle)
     return results
 
@@ -280,8 +287,7 @@ def record(args):
     if which not in ("qa", "dev"):
         sys.exit("record --stack qa|dev")
     env = secrets_env()
-    port = env.get("REQUESTARR_PORT" if which == "qa" else "DEV_REQUESTARR_PORT") or ("29797" if which == "qa" else "39797")
-    url, key = "http://localhost:" + port, env["REQUESTARR_API_KEY"]
+    url, key = stack_url(env, which), env["REQUESTARR_API_KEY"]
     out = option(args, "--out") or latest_run()
     with open(os.path.join(out, "results.json"), encoding="utf-8") as handle:
         run_data = json.load(handle)

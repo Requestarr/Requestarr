@@ -38,14 +38,15 @@ namespace Requestarr.Core.Test.Qa.Web
             Saw($"screenshot {Path.GetFileName(path)}");
         }
 
-        public void Write(bool passed, Exception failure)
+        // Passed when the check ended without a failure.
+        public void Write(Exception failure)
         {
             if (failure != null)
             {
                 _seen.Add($"Failed: {failure.Message}");
             }
 
-            var result = new { passed, evidence = string.Join("\n", _seen), screenshots = _screenshots };
+            var result = new { passed = failure == null, evidence = string.Join("\n", _seen), screenshots = _screenshots };
             File.WriteAllText(Path.Combine(_folder, _name + ".json"), JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
         }
     }

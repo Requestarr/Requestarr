@@ -31,7 +31,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         public static async Task<HeadlessBrowser> StartAsync(int width = 1366, int height = 900)
         {
-            var profile = Path.Combine(Path.GetTempPath(), "requestarr-qa-browser-" + Guid.NewGuid().ToString("N"));
+            var profile = Path.Combine(Path.GetTempPath(), "requestarr-check-browser-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(profile);
             var start = new ProcessStartInfo(Executable())
             {

@@ -119,8 +119,7 @@ def checker(number, line, item):
                          "<needs human eyes | unsure of the desired behavior | couldn't verify>: <why>.'")]
     if match.group("check") and match.group("check") not in CHECKS:
         return [(number, "item '%s' names no check Claude Code has: '%s' (the checks are in docker/qa_checks.py)" % (item["name"], match.group("check")))]
-    found = [(number, "plain words only: who checks '%s' has %s" % (item["name"], what)) for pattern, what in CODE if pattern.search(line)]
-    return found
+    return [(number, "plain words only: who checks '%s' has %s" % (item["name"], what)) for pattern, what in CODE if pattern.search(line)]
 
 
 BAD_CHANGELOG = """# Changelog

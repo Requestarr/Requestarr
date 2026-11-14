@@ -306,9 +306,10 @@ namespace Requestarr.Core.Test.Qa
                 // 9. Claude Code's results, as its run records them: a pass with a screenshot on the card, and a failure that
                 // files a bug report the way Failing does. An item the owner checks takes no result from it.
                 var automated = new QaAutomatedResults(checklist, reports);
-                var ccItems = QaChecklist.Parse(promoted, tested).Single().Items.Where(i => i.Checker.ClaudeCode).ToList();
-                var ownerItem = QaChecklist.Parse(promoted, tested).Single().Items.First(i => !i.Checker.ClaudeCode);
-                var picture = new QaEvidenceFile("live-check.png", Requestarr.Core.Discord.DiscordAssets.Bytes(Requestarr.Core.Discord.DiscordAssets.TmdbLogo));
+                var promotedItems = QaChecklist.Parse(promoted, tested).Single().Items;
+                var ccItems = promotedItems.Where(i => i.Checker.ClaudeCode).ToList();
+                var ownerItem = promotedItems.First(i => !i.Checker.ClaudeCode);
+                var picture = new QaEvidenceFile("live-check.png", DiscordAssets.Bytes(DiscordAssets.TmdbLogo));
                 var passedByCc = await automated.RecordAsync(ccItems[0].Key, new QaAutomatedResult(true, "Live check: what the check read back.", "other", new[] { picture }));
                 var failedByCc = await automated.RecordAsync(ccItems[1].Key, new QaAutomatedResult(false, "Live check: a failing result (this is a test; it will be closed).", "other", Array.Empty<QaEvidenceFile>()));
                 var refusedForOwner = await automated.RecordAsync(ownerItem.Key, new QaAutomatedResult(true, "Live check.", "other", Array.Empty<QaEvidenceFile>()));
