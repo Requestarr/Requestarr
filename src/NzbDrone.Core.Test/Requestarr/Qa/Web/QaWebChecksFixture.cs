@@ -26,6 +26,9 @@ namespace Requestarr.Core.Test.Qa.Web
         // Empty rows the header logo's image may leave above and below the R (antialiasing), in all.
         private const int MaxLogoPadding = 4;
 
+        // A colour whose brightest channel is at most this reads as black.
+        private const int NotBlack = 20;
+
         // As QA: the environment's logo files are QA's (the dev stack's are dev's).
         private const string ShowAsQa = @"(() => {
             document.querySelectorAll('img, link[rel*=icon]').forEach(e => {
@@ -106,25 +109,37 @@ namespace Requestarr.Core.Test.Qa.Web
                         }}
                     }}
                     return {{ height: canvas.height, top: rows[0], bottom: rows[rows.length - 1], shown: Math.round(logo.getBoundingClientRect().height),
-                              border: box.borderTopWidth, background: box.backgroundColor, src: logo.getAttribute('src') }};
+                              border: box.borderTopWidth, behind: box.backgroundColor, header: getComputedStyle(logo.closest('header, [class*=""PageHeader-header""]')).backgroundColor,
+                              src: logo.getAttribute('src') }};
                 }})()");
                 var (height, top, bottom) = (fit.GetProperty("height").GetInt32(), fit.GetProperty("top").GetInt32(), fit.GetProperty("bottom").GetInt32());
-                check.Saw($"{theme}: logo {fit.GetProperty("src").GetString()}, shown {fit.GetProperty("shown").GetInt32()}px tall; the R fills rows {top} to {bottom} of {height}; around it a {fit.GetProperty("border").GetString()} border on {fit.GetProperty("background").GetString()}.");
+                var header = fit.GetProperty("header").GetString();
+                check.Saw($"{theme}: logo {fit.GetProperty("src").GetString()}, shown {fit.GetProperty("shown").GetInt32()}px tall; the R fills rows {top} to {bottom} of {height}; around it a {fit.GetProperty("border").GetString()} border on {fit.GetProperty("behind").GetString()}, in a header of {header}.");
                 (top + (height - 1 - bottom)).Should().BeLessOrEqualTo(MaxLogoPadding, "the R is full height");
                 fit.GetProperty("border").GetString().Should().Be("0px", "no box around the logo");
+
+                if (theme == "dark")
+                {
+                    header.Should().NotBe("rgb(0, 0, 0)", "the dark theme's header is charcoal gray, never black");
+                }
+
                 await check.ShotAsync(browser, theme);
             }
 
-            // The tab icon and the dark logo's own background, sampled from QA's files: charcoal gray, never black.
-            var samples = await browser.EvalAsync<JsonElement>(@"Promise.all(['dark/qa/favicon-32x32.png', 'light/qa/favicon-32x32.png', 'dark/qa/logo-header.png'].map(file => new Promise(done => {
+            // The darkest solid pixel in each of QA's logo and tab icon files: the arrow, a soft charcoal, never black.
+            var samples = await browser.EvalAsync<JsonElement>(@"Promise.all(['light-purple/qa/logo-header.png', 'light/qa/favicon-32x32.png', 'dark/qa/logo-header.png', 'dark/qa/favicon-32x32.png'].map(file => new Promise(done => {
                 const image = new Image();
                 image.onload = () => {
                     const canvas = document.createElement('canvas');
                     canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
                     const context = canvas.getContext('2d');
                     context.drawImage(image, 0, 0);
-                    const [r, g, b, a] = context.getImageData(1, Math.floor(image.naturalHeight / 2), 1, 1).data;
-                    done({ file, r, g, b, a });
+                    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                    let darkest = [255, 255, 255];
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        if (pixels[i + 3] > 200 && pixels[i] + pixels[i + 1] + pixels[i + 2] < darkest[0] + darkest[1] + darkest[2]) { darkest = [pixels[i], pixels[i + 1], pixels[i + 2]]; }
+                    }
+                    done({ file, r: darkest[0], g: darkest[1], b: darkest[2] });
                 };
                 image.src = window.Requestarr.urlBase + '/Content/Images/Icons/' + file;
             })))");
@@ -132,12 +147,8 @@ namespace Requestarr.Core.Test.Qa.Web
             foreach (var sample in samples.EnumerateArray())
             {
                 var (r, g, b) = (sample.GetProperty("r").GetInt32(), sample.GetProperty("g").GetInt32(), sample.GetProperty("b").GetInt32());
-                check.Saw($"{sample.GetProperty("file").GetString()}: background at its left edge rgb({r}, {g}, {b}), opacity {sample.GetProperty("a").GetInt32()}.");
-
-                if (sample.GetProperty("file").GetString().StartsWith("dark/"))
-                {
-                    Math.Max(r, Math.Max(g, b)).Should().BeGreaterThan(20, "charcoal gray, never black");
-                }
+                check.Saw($"{sample.GetProperty("file").GetString()}: darkest solid colour rgb({r}, {g}, {b}).");
+                Math.Max(r, Math.Max(g, b)).Should().BeGreaterThan(NotBlack, "a soft charcoal, never black");
             }
 
             await ShowTabIconsAsync(browser);
@@ -203,6 +214,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await SaveBackupRetentionAsync(browser, changed);
             var saved = await browser.EvalAsync<int>("fetch(window.Requestarr.urlBase + '/api/v1/config/host', { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(h => h.backupRetention)");
             check.Saw($"Backup Retention {before} changed to {changed} and saved: no error, and the server now has {saved}.");
+            await browser.RunAsync("document.querySelector('input[name=backupRetention]').scrollIntoView({ block: 'center' })");
             await check.ShotAsync(browser, "saved");
             saved.Should().Be(changed);
 
