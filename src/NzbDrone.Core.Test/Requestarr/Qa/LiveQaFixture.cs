@@ -316,13 +316,14 @@ namespace Requestarr.Core.Test.Qa
                 var ccCard = await checklistRest.GetMessageAsync(ulong.Parse(Mocker.Resolve<IQaChecklistItemRepository>().FindByKey(ccItems[0].Key).MessageId));
                 var ccFailing = Mocker.Resolve<IQaChecklistItemRepository>().FindByKey(ccItems[1].Key);
                 var gallery = All(ccCard.Components).OfType<MediaGalleryComponent>().SelectMany(g => g.Items).ToList();
-                Log($"[claude-code] pass on \"{ccItems[0].Name}\": {passedByCc}; card: {Text(ccCard)}; pictures on it {gallery.Count}, attachments {ccCard.Attachments.Count} ({string.Join(", ", ccCard.Attachments.Select(a => a.Filename))})");
+                Log($"[claude-code] pass on \"{ccItems[0].Name}\": {passedByCc}; card: {Text(ccCard)}; pictures on it {gallery.Count}: {string.Join(", ", gallery.Select(g => g.Media.Url))}");
                 Log($"[claude-code] failure on \"{ccItems[1].Name}\": {failedByCc}; state {ccFailing.State} by {ccFailing.ByName}, bug report #{ccFailing.BugReportId}");
                 Log($"[claude-code] a result for the owner's \"{ownerItem.Name}\": {refusedForOwner}");
                 Log($"[claude-code] summary now: {Text((await Cards())[0])}");
                 Text(ccCard).Should().Contain("Passed by Claude Code").And.Contain("Live check: what the check read back.");
-                gallery.Should().HaveCount(1);
-                ccCard.Attachments.Select(a => a.Filename).Should().Equal("live-check.png");
+
+                // A picture in a card is the uploaded file at its Discord address (a card's files aren't listed as attachments).
+                gallery.Single().Media.Url.Should().StartWith("https://").And.Contain("live-check.png");
                 (ccFailing.State, ccFailing.ByName, ccFailing.BugReportId.HasValue).Should().Be((QaItemState.Failing, QaChecker.ClaudeCodeName, true));
                 refusedForOwner.Should().Be(QaAutomatedOutcome.NotClaudeCodes);
                 Text((await Cards())[0]).Should().Contain("Claude Code:").And.Contain("For you:");
