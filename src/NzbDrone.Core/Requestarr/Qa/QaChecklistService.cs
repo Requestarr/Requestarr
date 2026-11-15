@@ -80,6 +80,8 @@ namespace Requestarr.Core.Qa
         public Func<string> ChecklistText { get; set; } = QaChecklist.Embedded;
         public Func<Version> CurrentVersion { get; set; } = () => BuildInfo.Version;
 
+        private bool OwnersOnly => _environment.VersionPosts == VersionPostMode.NotYetStaged;
+
         public void HandleAsync(DiscordReadyEvent message)
         {
             EnsureAsync().GetAwaiter().GetResult();
@@ -88,7 +90,9 @@ namespace Requestarr.Core.Qa
         public IReadOnlyList<QaChecklistVersion> Versions() =>
             QaChecklist.ForServer(QaChecklist.Parse(ChecklistText(), Changelog.Release(CurrentVersion())), _environment, CurrentVersion());
 
-        public IReadOnlyList<QaChecklistEntry> Entries() => Versions().SelectMany(v => v.Items).ToList();
+        // QA's checklist is the owner's: Claude Code's items run on dev before a build is promoted and never show on QA.
+        // Dev shows them, with Claude Code's results.
+        public IReadOnlyList<QaChecklistEntry> Entries() => Versions().SelectMany(v => v.Items).Where(e => !(e.Checker.ClaudeCode && OwnersOnly)).ToList();
 
         public QaChecklistEntry Find(string key) => Entries().FirstOrDefault(e => e.Key == key);
 
@@ -127,6 +131,7 @@ namespace Requestarr.Core.Qa
 
             try
             {
+                ForgetClaudeCodesResultsOnQa();
                 var entries = Entries();
                 var records = Records(entries);
                 var config = _guildSetup.GetConfig();
@@ -330,6 +335,23 @@ namespace Requestarr.Core.Qa
                 At = last.At,
                 RecordedOn = last.RecordedOn
             });
+        }
+
+        // Results Claude Code recorded on QA before its items left QA's checklist (November 15, 2026) go, with their
+        // screenshots; the owner's own results stay.
+        private void ForgetClaudeCodesResultsOnQa()
+        {
+            if (!OwnersOnly)
+            {
+                return;
+            }
+
+            foreach (var record in _items.All().Where(r => r.ByName == QaChecker.ClaudeCodeName && r.ByDiscordUserId == null).ToList())
+            {
+                _evidence.Replace(record.ItemKey, Array.Empty<QaEvidenceFile>());
+                _items.Delete(record);
+                _logger.Info("QA checklist: removed Claude Code's result on {0}; its checks run before a promotion now", record.Name);
+            }
         }
 
         private static string MemberId(ulong discordUserId) => discordUserId == QaChecker.ClaudeCodeId ? null : discordUserId.ToString();
