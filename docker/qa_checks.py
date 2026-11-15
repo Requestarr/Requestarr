@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""Claude Code's QA checks: the QA checklist items a script can check, run on every promotion to QA, on the commit QA
-receives, without touching the QA server (docs/development.md#qa-checklist).
+"""Claude Code's checks before a promotion to QA (the owner's process, docs/development.md#qa-checklist): the full test
+suite, every live Discord check and Claude Code's checklist items, on dev at the commit to be promoted. QA gets a build
+only once all of it passed; QA's checklist shows only the owner's items, and nothing here touches the QA server.
 
     python3 docker/qa_checks.py run [--commit SHA] [--out DIR] [--only web|live]
-    python3 docker/qa_checks.py record --stack qa|dev [--out DIR] [--fail "Item name=what is wrong"]...
+    python3 docker/qa_checks.py record [--out DIR] [--fail "Item name=what is wrong"]...
+    python3 docker/qa_checks.py verify SHA
+    python3 docker/qa_checks.py summary SHA
     python3 docker/qa_checks.py --self-test
 
-run: the checkout must be at the commit QA receives (the tests are built from it). It builds the solution, brings the
-     dev stack up at that commit with sign-in required and a throwaway login, runs the web app checks in a real browser
-     (headless Edge or Chrome, light and dark theme) against it, then stops it and runs the live Discord checks on the
-     dev server (the bot and the test member, as every live check does), and finally resets the dev stack. Each item
-     Claude Code checks gets its result, what the check read back and its screenshots, in DIR (default
-     _qa-checks/<short commit>). Nothing here reads or changes the QA server, its data or its bot.
-record: after Claude Code has looked at every screenshot against the item's "You should see" (a screenshot that
-     doesn't match is recorded failing with --fail), posts each result to the stack's checklist: "Passed by Claude
-     Code" with its evidence, or failing, which files a bug report like an admin's Failing. Only the stack running the
-     commit that was checked takes the results.
+run: the checkout must be at the commit (the tests are built from it). It builds the solution and runs the full suite
+     the way CI does, brings the dev stack up at that commit with sign-in required and a throwaway login for the web app
+     checks (headless Edge or Chrome, light and dark theme), stops it and runs every live check on the dev server (the
+     test Sonarr and Radarr emptied before each, so no check finds another's titles), resets the dev stack and runs the
+     read-back of the running stack. Results, read-backs and screenshots go in DIR (default _qa-checks/<short commit>).
+record: after Claude Code has looked at every screenshot against its item's "You should see" (one that doesn't match
+     is --fail), records the results on the dev stack's checklist (Claude Code's server; it must run that commit) and
+     marks the run reviewed. QA never takes them.
+verify: whether the run for SHA is ready for the promotion (release.sh promote-qa): a full run that passed the suite,
+     every live check and every item, reviewed. Exit 0 ready, 1 not (the reasons are printed), 3 no run for SHA.
+summary: the run's results in Markdown, for the promotion pull request.
 
 The checks each item may name are CHECKS below ("Checked by Claude Code: the <name> check."); .github/checklist_check.py
 refuses an item naming any other.
@@ -76,6 +80,17 @@ CHECKED_BY = re.compile(r"^- Checked by (?:Claude Code: the (?P<check>.+) check|
 UNRELEASED = "## Unreleased"
 EVIDENCE_LINES = 25
 
+# CI's test assemblies and filter (.github/workflows/build.yml), with the platform's own category left out.
+SUITE = ["Requestarr.Api.V1.Test.dll", "Requestarr.Common.Test.dll", "Requestarr.Core.Test.dll", "Requestarr.Host.Test.dll",
+         "Requestarr.Libraries.Test.dll", "Requestarr.Mono.Test.dll", "Requestarr.Update.Test.dll"]
+SUITE_FILTER = "Category!=ManualTest&Category!=IntegrationTest&Category!=AutomationTest"
+
+# Every live check: these need the dev stack's bot stopped; the read-back reads the running stack, so it runs last.
+LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
+        "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
+        "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture"]
+LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
+
 
 def item_key(name, text):
     """The item's key on the server (QaChecklist.WordingKey): its name in slug form and 8 hex digits of its wording's
@@ -111,7 +126,9 @@ def live_result(ran, log, tags):
     if not lines:
         return False, "The live check logged nothing under %s (skipped, or stopped before it got there)." % ", ".join(tags)
     evidence = "\n".join(lines[:EVIDENCE_LINES])
-    return (True, evidence) if ran else (False, "The live check failed (its log is in the run's live folder).\n" + evidence)
+    if not ran:
+        return False, "The live check failed (its log is in the run's live folder).\n" + evidence
+    return True, "Passed on the dev server; the check read back %d line(s):\n%s" % (len(lines), evidence)
 
 
 def results_for(items, web, live):
@@ -216,20 +233,54 @@ def run_web(out, env, commit):
     return results
 
 
-def run_live(out, env, commit):
-    stack(["reset-dev", "--stopped"])
-    os.makedirs(os.path.join(out, "live"), exist_ok=True)
-    # The live checks run as the dev build of this commit, labelled the way the dev stack labels it.
+def run_suite(out, env):
+    """The full suite as CI runs it: {passed, failed, skipped, ok}."""
+    platform_category = "LINUX" if platform.system() == "Windows" else "WINDOWS"
+    log_path = os.path.join(out, "suite.log")
+    with open(log_path, "w", encoding="utf-8") as log:
+        code = subprocess.run(["dotnet", "test"] + SUITE + ["--filter:%s&Category!=%s" % (SUITE_FILTER, platform_category)],
+                              env=env, stdout=log, stderr=subprocess.STDOUT, cwd=os.path.dirname(TESTS)).returncode
+    with open(log_path, encoding="utf-8", errors="replace") as log:
+        counts = suite_counts(log.read())
+    counts["ok"] = code == 0 and counts["failed"] == 0 and counts["passed"] > 0
+    print("[qa-checks] full suite: %(passed)d passed, %(failed)d failed, %(skipped)d skipped" % counts, flush=True)
+    return counts
+
+
+def suite_counts(output):
+    """The totals of every assembly's summary line ("Passed!  - Failed: 0, Passed: 682, Skipped: 14, ...")."""
+    counts = {"passed": 0, "failed": 0, "skipped": 0}
+    for failed, passed, skipped in re.findall(r"Failed:\s+(\d+), Passed:\s+(\d+), Skipped:\s+(\d+)", output):
+        counts["failed"] += int(failed)
+        counts["passed"] += int(passed)
+        counts["skipped"] += int(skipped)
+    return counts
+
+
+def live_env_for(out, env, commit):
+    """The live checks run as the dev build of this commit, labelled the way the dev stack labels it."""
     label = "%s-dev.%s" % (subprocess.run([sys.executable, os.path.join(REPO, ".github", "build_numbers.py"), "next"],
                                           capture_output=True, text=True, check=True, cwd=REPO).stdout.strip(), commit[:7])
-    live_env = dict(env, LIVE_QA_STATE_DIR=os.path.join(out, "live", "state"), REQUESTARR_RELEASE_VERSION=label)
+    return dict(env, LIVE_QA_STATE_DIR=os.path.join(out, "live", "state"), REQUESTARR_RELEASE_VERSION=label)
+
+
+def run_one_live(fixture, out, live_env):
+    log_path = os.path.join(out, "live", fixture + ".log")
+    passed = dotnet_test("FullyQualifiedName~" + fixture, live_env, log_path)
+    print("[qa-checks] %s: %s" % (fixture, "passed" if passed else "FAILED"), flush=True)
+    with open(log_path, encoding="utf-8") as handle:
+        return passed, handle.read()
+
+
+def run_live(out, env, commit, fixtures):
+    stack(["reset-dev", "--stopped"])
+    os.makedirs(os.path.join(out, "live"), exist_ok=True)
+    live_env = live_env_for(out, env, commit)
     results = {}
-    for fixture in sorted({c.target for c in CHECKS.values() if c.kind == "live"}):
-        log_path = os.path.join(out, "live", fixture + ".log")
-        passed = dotnet_test("FullyQualifiedName~" + fixture, live_env, log_path)
-        with open(log_path, encoding="utf-8") as handle:
-            results[fixture] = (passed, handle.read())
-        print("[qa-checks] %s: %s" % (fixture, "passed" if passed else "FAILED"), flush=True)
+    for fixture in fixtures:
+        # Some checks leave their titles in the test Sonarr and Radarr (on purpose); each starts with them empty.
+        stack(["reset-test-backends"])
+        results[fixture] = run_one_live(fixture, out, live_env)
     return results
 
 
@@ -246,21 +297,28 @@ def run(args):
     env = dict(os.environ, **secrets_env())
     if only in (None, "live") and not env.get("DISCORD_TEST_MEMBERS"):
         sys.exit("The live checks press buttons as a test member: set DISCORD_TEST_MEMBERS (in your shell or docker/secrets.env) first.")
-    timings, web, live = [], {}, {}
+    timings, web, live, suite = [], {}, {}, None
     with open(os.path.join(REPO, "QA-CHECKLIST.md"), encoding="utf-8") as handle:
         items = checklist_items(handle.read())
     try:
         timed("build", timings, lambda: subprocess.run(["dotnet", "build", os.path.join(REPO, "src", "Requestarr.sln"), "-v", "q", "-nologo"], check=True))
+        if only is None:
+            suite = timed("full suite", timings, lambda: run_suite(out, env))
         if only in (None, "web"):
             web = timed("web app checks (dev stack up at the commit, signed in)", timings, lambda: run_web(out, env, commit))
         if only in (None, "live"):
-            live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit))
+            fixtures = LIVE if only is None else sorted({c.target for c in CHECKS.values() if c.kind == "live"})
+            live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit, fixtures))
     finally:
         timed("dev stack reset", timings, lambda: stack(["reset-dev"]))
+    if only is None:
+        live[LIVE_ON_RUNNING_STACK] = timed("read-back of the running dev stack", timings,
+                                            lambda: run_one_live(LIVE_ON_RUNNING_STACK, out, live_env_for(out, env, commit)))
     results = results_for(items, web, live)
     total = sum(t for _, t in timings)
     with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as handle:
-        json.dump({"commit": commit, "only": only, "results": results, "timings": timings, "seconds": round(total)}, handle, indent=2)
+        json.dump({"commit": commit, "only": only, "suite": suite, "live": {f: passed for f, (passed, _) in live.items()},
+                   "results": results, "reviewed": False, "timings": timings, "seconds": round(total)}, handle, indent=2)
     report(results, out, total)
 
 
@@ -270,8 +328,8 @@ def report(results, out, total):
         print("%s  %-32s the %s check (%s)" % ("PASS" if r["passed"] else "FAIL", r["name"], r["check"], shots))
     passed = sum(1 for r in results if r["passed"])
     print("\n%d of %d of Claude Code's items passed in %.0f minutes. Results: %s" % (passed, len(results), total / 60, os.path.join(out, "results.json")))
-    print("Look at every screenshot against its item's \"You should see\", then record them on the stack the commit went to:")
-    print('  python3 docker/qa_checks.py record --stack qa [--fail "Item name=what is wrong"]')
+    print("Look at every screenshot against its item's \"You should see\", then record them on dev (QA never takes them):")
+    print('  python3 docker/qa_checks.py record [--fail "Item name=what is wrong"]')
 
 
 def api(url, key, path, body=None):
@@ -317,9 +375,9 @@ def apply_overrides(results, failed):
 
 
 def record(args):
-    which = option(args, "--stack")
-    if which not in ("qa", "dev"):
-        sys.exit("record --stack qa|dev")
+    which = option(args, "--stack") or "dev"
+    if which != "dev":
+        sys.exit("QA's checklist is the owner's: Claude Code's results are recorded on dev only.")
     env = secrets_env()
     url, key = stack_url(env, which), env["REQUESTARR_API_KEY"]
     out = option(args, "--out") or latest_run()
@@ -329,6 +387,7 @@ def record(args):
     if not running.endswith("." + run_data["commit"][:7]):
         sys.exit("The %s stack runs %s, not the commit that was checked (%s): nothing recorded." % (which, running, run_data["commit"][:7]))
     failed = overrides(args)
+    mark_reviewed(out, run_data, failed)
     on_stack = {i["key"]: i for i in api(url, key, "/api/v1/qa/checklist")["checklist"]["items"] if i.get("checkedBy") == "Claude Code"}
     for result in apply_overrides(run_data["results"], failed):
         item = on_stack.pop(result["key"], None)
@@ -345,6 +404,78 @@ def record(args):
             print("ERROR %s: HTTP %d %s" % (result["name"], error.code, error.read().decode(errors="replace")))
     for item in on_stack.values():
         print("MISSING %s (%s): Claude Code's item on the %s checklist had no result in this run" % (item["name"], item["version"], which))
+
+
+def mark_reviewed(out, run_data, failed):
+    """Claude Code has looked at the screenshots: the run says so, with any it found don't match, for verify."""
+    run_data["results"] = apply_overrides(run_data["results"], failed)
+    run_data["reviewed"] = True
+    with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as handle:
+        json.dump(run_data, handle, indent=2)
+
+
+def load_run(commit):
+    path = os.path.join(REPO, "_qa-checks", commit[:7], "results.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def not_ready(run_data, commit):
+    """Why a run can't let this commit go to QA (nothing when it can)."""
+    reasons = []
+    if run_data["commit"] != commit:
+        reasons.append("the run was for %s, not %s" % (run_data["commit"][:7], commit[:7]))
+    if run_data.get("only"):
+        reasons.append("the run was partial (--only %s): it left out the full suite and the other checks" % run_data["only"])
+    suite = run_data.get("suite")
+    if not suite or not suite.get("ok"):
+        reasons.append("the full suite didn't pass" + (": %(failed)d failed" % suite if suite else " (it didn't run)"))
+    reasons += ["the live check %s failed" % f for f, passed in sorted((run_data.get("live") or {}).items()) if not passed]
+    missing = [f for f in LIVE + [LIVE_ON_RUNNING_STACK] if f not in (run_data.get("live") or {})]
+    if missing and not run_data.get("only"):
+        reasons.append("live checks that didn't run: " + ", ".join(missing))
+    reasons += ["the item \"%s\" failed (the %s check)" % (r["name"], r["check"]) for r in run_data["results"] if not r["passed"]]
+    if not run_data.get("reviewed"):
+        reasons.append("nobody looked at the screenshots yet (record, with --fail for any that don't match)")
+    return reasons
+
+
+def verify(args):
+    commit = git("rev-parse", args[0] if args else "origin/dev")
+    run_data = load_run(commit)
+    if run_data is None:
+        print("No run of Claude Code's checks for %s." % commit[:7])
+        return 3
+    reasons = not_ready(run_data, commit)
+    for reason in reasons:
+        print("Not ready for QA: %s." % reason)
+    if reasons:
+        print("Refused: QA gets %s only once every check passed on dev. Fix it on dev and run the checks again." % commit[:7])
+        return 1
+    print("Claude Code's checks passed on dev @ %s: the full suite, %d live checks and %d checklist items." % (commit[:7], len(run_data["live"]), len(run_data["results"])))
+    return 0
+
+
+def summary_text(run_data):
+    suite = run_data["suite"]
+    live = run_data["live"]
+    lines = ["- **Full suite:** %(passed)d passed, %(failed)d failed, %(skipped)d skipped." % suite,
+             "- **Live checks on the dev server:** %d of %d passed (%s)." % (sum(live.values()), len(live), ", ".join(sorted(live))),
+             "- **Checklist items:** %d of %d passed, screenshots looked at:" % (sum(1 for r in run_data["results"] if r["passed"]), len(run_data["results"]))]
+    lines += ["  - %s: %s" % (r["name"], r["evidence"].strip().splitlines()[0]) for r in run_data["results"]]
+    lines.append("- **Time:** %d minutes. Screenshots and the full read-backs are in the promotion's reply." % round(run_data["seconds"] / 60))
+    return "\n".join(lines)
+
+
+def summary(args):
+    commit = git("rev-parse", args[0] if args else "origin/dev")
+    run_data = load_run(commit)
+    if run_data is None:
+        sys.exit("No run of Claude Code's checks for %s." % commit[:7])
+    print(summary_text(run_data))
+    return 0
 
 
 def latest_run():
@@ -388,7 +519,18 @@ def refuses(call):
     return False
 
 
+SUITE_OUTPUT = """Passed!  - Failed:     0, Passed:   682, Skipped:    14, Total:   696, Duration: 32 s - Requestarr.Common.Test.dll
+Failed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 1 s - Requestarr.Host.Test.dll"""
+
+
+def a_ready_run():
+    return {"commit": "abc", "only": None, "suite": {"passed": 683, "failed": 0, "skipped": 14, "ok": True},
+            "live": {f: True for f in LIVE + [LIVE_ON_RUNNING_STACK]}, "reviewed": True, "seconds": 1800,
+            "results": [{"name": "Build number", "check": "web app status page", "passed": True, "evidence": "Version shown 0.7.0005-dev.abc\nmore"}]}
+
+
 def self_test():
+    ready = a_ready_run()
     items = checklist_items(SAMPLE)
     web = {"status_page": {"passed": True, "evidence": "Version 0.7.0005-qa.abc1234", "screenshots": ["s/status-light.jpg"]}}
     live = {"LiveQaFixture": (True, "noise\n[pass] the owner presses Passes\n[fail] not this one\n")}
@@ -398,7 +540,7 @@ def self_test():
         ("only Unreleased items, in order", [i["name"] for i in items] == ["Build number", "Bot picture", "Passing an item", "Gone"]),
         ("the owner's item has no check", items[1]["check"] is None and "Bot picture" not in results),
         ("a web check's own result", results["Build number"]["passed"] and results["Build number"]["screenshots"] == ["s/status-light.jpg"]),
-        ("a live check's tagged lines", results["Passing an item"]["evidence"] == "[pass] the owner presses Passes"),
+        ("a live check's tagged lines", results["Passing an item"]["evidence"] == "Passed on the dev server; the check read back 1 line(s):\n[pass] the owner presses Passes"),
         ("an unknown check fails", not results["Gone"]["passed"] and "No such check" in results["Gone"]["evidence"]),
         ("a check that didn't run fails", not results_for(items, {}, {})[0]["passed"]),
         ("--fail overrides a pass", not failed["passed"] and failed["evidence"].startswith("The screenshots don't match")),
@@ -410,6 +552,15 @@ def self_test():
         ("a passed test is", ran_all("Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1")),
         ("the detailed summary's pass", ran_all("Total tests: 1\n     Passed: 1\n Total time: 1.9 Minutes")),
         ("the detailed summary's skip", not ran_all("Total tests: 1\n     Skipped: 1\n Total time: 1 Minutes")),
+        ("the suite's totals", suite_counts(SUITE_OUTPUT) == {"passed": 683, "failed": 1, "skipped": 14}),
+        ("a ready run", not_ready(ready, "abc") == []),
+        ("a failed item refuses", any("\"Build number\" failed" in r for r in not_ready(dict(ready, results=[dict(ready["results"][0], passed=False)]), "abc"))),
+        ("a failed live check refuses", any("LiveQaFixture failed" in r for r in not_ready(dict(ready, live=dict(ready["live"], LiveQaFixture=False)), "abc"))),
+        ("a partial run refuses", any("partial" in r for r in not_ready(dict(ready, only="web"), "abc"))),
+        ("a failed suite refuses", any("suite" in r for r in not_ready(dict(ready, suite=dict(ready["suite"], ok=False)), "abc"))),
+        ("screenshots not looked at refuses", any("screenshots" in r for r in not_ready(dict(ready, reviewed=False), "abc"))),
+        ("another commit's run refuses", any("not def" in r for r in not_ready(ready, "def"))),
+        ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
     wrong = [name for name, ok in expected if not ok]
     for name in wrong:
@@ -427,6 +578,10 @@ def main(argv):
     if argv[1:2] == ["record"]:
         record(argv[2:])
         return 0
+    if argv[1:2] == ["verify"]:
+        return verify(argv[2:])
+    if argv[1:2] == ["summary"]:
+        return summary(argv[2:])
     print(__doc__)
     return 2
 
