@@ -445,14 +445,16 @@ resolve_merge_back() {
         cat >&2 <<EOF
 $from and $to conflict in: $others. Resolve on a branch:
   git switch -c $branch origin/$to && git merge origin/$from
-  CHANGELOG.md and QA-CHECKLIST.md: python3 .github/build_numbers.py merge <$to's files> <$from's files> <out>
+  CHANGELOG.md and QA-CHECKLIST.md: python3 .github/build_numbers.py merge <$to's files> <$from's files> <out> <their merge base's files>
   git commit, push, then: gh pr create --base $to --title "Merge $from back into $to"
 EOF
         return 1
     fi
     files_at "origin/$to" "$work/ours"
     files_at "origin/$from" "$work/theirs"
-    numbers merge "$work/ours" "$work/theirs" "$work/tree" >&2
+    # Their common base: a line one side rewrote or removed since it is gone from the merge, not kept beside the new one.
+    files_at "$(git merge-base "origin/$to" "origin/$from")" "$work/base"
+    numbers merge "$work/ours" "$work/theirs" "$work/tree" "$work/base" >&2
     git -C "$work/tree" add "${files[@]}"
     git -C "$work/tree" commit -q -m "Merge $from back into $to" >&2
     git -C "$work/tree" push -q origin "$branch" >&2
