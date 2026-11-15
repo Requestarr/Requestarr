@@ -24,7 +24,7 @@ it into "## 0.7.0004 (YYYY-MM-DD)". Numbered sections never change after that.
   python3 .github/build_numbers.py release <dir> <number> <YYYY-MM-DD> [--security]
         turns Unreleased into that number in <dir>/CHANGELOG.md and <dir>/QA-CHECKLIST.md (--security: adds the line
         telling admins a security fix is in this build)
-  python3 .github/build_numbers.py merge <ours dir> <theirs dir> <out dir>
+  python3 .github/build_numbers.py merge <ours dir> <theirs dir> <out dir> [<their merge base dir>]
         a merge-back of both files: every numbered section of both, highest first; Unreleased keeps the lines of both
         that no numbered section has yet
   python3 .github/build_numbers.py check <change|release|staging-fix|merge-back> <base dir> <head dir> [<upper dir>]
@@ -38,6 +38,8 @@ import re
 import subprocess
 import sys
 
+# A line under a QA checklist item that belongs to it ("  - Checked by ...").
+CONTINUATION = "  "
 UNRELEASED = "Unreleased"
 HEADING = re.compile(r"^## (?:(?P<unreleased>Unreleased)|(?P<version>\d+\.\d+\.\d+)(?: .*)?)$")
 TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d{4,})$")
@@ -200,11 +202,17 @@ def parse(document):
 
 
 def add_unreleased_row(unreleased, row):
+    """A line under Unreleased; an indented one (a QA checklist item's "Checked by" line) belongs to the item above it,
+    so the two move, merge and are released together."""
     if row.startswith("### "):
         unreleased.setdefault(row[4:].strip(), [])
     elif row.strip():
         last = list(unreleased)[-1] if unreleased else ""
-        unreleased.setdefault(last, []).append(row.rstrip())
+        rows = unreleased.setdefault(last, [])
+        if row.startswith(CONTINUATION) and rows:
+            rows[-1] += "\n" + row.rstrip()
+        else:
+            rows.append(row.rstrip())
 
 
 def ordered(unreleased):
@@ -233,7 +241,17 @@ def lines_of(unreleased):
 
 
 def released_lines(sections):
-    return {row.rstrip() for section in sections.values() for row in section.split("\n") if row.startswith("- ")}
+    """Every line of the numbered sections, an item with its indented lines as one, as Unreleased holds them."""
+    units = set()
+    for section in sections.values():
+        rows = []
+        for row in section.split("\n"):
+            if row.startswith(CONTINUATION) and rows:
+                rows[-1] += "\n" + row.rstrip()
+            elif row.startswith("- "):
+                rows.append(row.rstrip())
+        units.update(rows)
+    return units
 
 
 def release(document, number, day, extra_admin_line=None):
@@ -248,19 +266,23 @@ def release(document, number, day, extra_admin_line=None):
     return render(preamble, None, sections)
 
 
-def merge(ours, theirs):
+def merge(ours, theirs, base=None):
     """Every numbered section of both, highest first (one both have must read the same); Unreleased keeps the lines of
     both, ours first, except those the other side has since released (an older build with the same words doesn't
-    count)."""
+    count) and, given their common base, those one side rewrote or removed since it."""
     preamble, mine, own = parse(ours)
     _, other, others = parse(theirs)
+    gone = set()
+    if base is not None:
+        mine_rows, other_rows = lines_of(mine), lines_of(other)
+        gone = {row for row in lines_of(parse(base)[1]) if row not in mine_rows or row not in other_rows}
     for version in own.keys() & others.keys():
         if own[version].rstrip() != others[version].rstrip():
             raise ValueError("%s reads differently on the two branches: merge it by hand" % text(version))
     sections = {**others, **own}
     unreleased = {}
     for side, newer in ((mine or {}, newly_released(own, others)), (other or {}, newly_released(others, own))):
-        done = released_lines(newer)
+        done = released_lines(newer) | gone
         for sub, rows in side.items():
             kept = unreleased.setdefault(sub, [])
             kept.extend(row for row in rows if row not in done and row not in kept)
@@ -469,6 +491,19 @@ def self_test():
         (image_plan("workflow_dispatch", "x", "abc1234567", "", {}, first, "test-a").get("label") == "0.7.0004-test.abc1234",
          "a test publish is labelled, not numbered"),
     ]
+    checklist_base = "# QA checklist\n\n## Unreleased\n- **Old:** Do it. You should see it.\n  - Checked by Claude Code: the live bug reports check.\n- **Kept:** Do it. You should see it.\n  - Checked by Claude Code: the live bug reports check.\n"
+    checklist_fix = checklist_base.replace("- **Old:** Do it. You should see it.\n  - Checked by Claude Code: the live bug reports check.\n",
+                                           "- **New:** Do it. You should see it.\n  - Checked by the owner, needs human eyes: how it looks.\n")
+    checklist_dev = checklist_base + "- **Dev's:** Do it. You should see it.\n  - Checked by Claude Code: the live passing check.\n"
+    merged_checklist = merge(checklist_dev, checklist_fix, checklist_base)
+    cases += [
+        ("- **Old:**" not in merged_checklist and "- **New:** Do it. You should see it.\n  - Checked by the owner" in merged_checklist,
+         "a merge-back keeps the fix's rewrite of an item, not the old one"),
+        (merged_checklist.count("  - Checked by Claude Code: the live bug reports check.") == 1 and "- **Dev's:**" in merged_checklist,
+         "every item keeps its own Checked by line, even one another item has word for word"),
+        (merge(checklist_base, checklist_base).count("Checked by Claude Code: the live bug reports check.") == 2,
+         "two items with the same Checked by line both keep it"),
+    ]
     try:
         merge(change["CHANGELOG.md"], change["CHANGELOG.md"].replace("clearer", "changed"))
         cases.append((False, "a numbered version that reads differently isn't merged"))
@@ -532,9 +567,10 @@ def main(argv):
         write_dir(args[1], {name: release(documents[name], number, args[3], security if name == "CHANGELOG.md" else None)
                             for name in FILES})
         return 0
-    if len(args) == 4 and args[0] == "merge":
+    if len(args) in (4, 5) and args[0] == "merge":
         ours, theirs = read_dir(args[1]), read_dir(args[2])
-        write_dir(args[3], {name: merge(ours[name], theirs[name]) for name in FILES})
+        base = read_dir(args[4]) if len(args) == 5 else None
+        write_dir(args[3], {name: merge(ours[name], theirs[name], base[name] if base else None) for name in FILES})
         return 0
     if len(args) >= 4 and args[0] == "check":
         flags = args[4:]
