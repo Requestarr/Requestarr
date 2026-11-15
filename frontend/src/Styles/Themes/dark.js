@@ -159,6 +159,9 @@ module.exports = {
 
   inputBackgroundColor: '#333',
   inputReadOnlyBackgroundColor: '#222',
+  // A read-only field reads as greyed out, as in the light theme: a dim border and muted text.
+  inputReadOnlyBorderColor: '#555',
+  inputReadOnlyColor: '#999',
   inputHoverBackgroundColor: 'rgba(255, 255, 255, 0.20)',
   inputSelectedBackgroundColor: 'rgba(255, 255, 255, 0.05)',
   advancedFormLabelColor: '#ff902b',

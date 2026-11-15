@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -52,6 +53,9 @@ namespace Requestarr.Core.Qa
     public class QaChecklistService : IQaChecklistService, IHandleAsync<DiscordReadyEvent>
     {
         private static readonly SemaphoreSlim Gate = new(1, 1);
+
+        // Items whose screenshots changed since their card was last sent: the next edit uploads them.
+        private readonly ConcurrentDictionary<string, bool> _newScreenshots = new();
 
         private readonly IDiscordGuildGateway _gateway;
         private readonly IGuildSetupService _guildSetup;
@@ -147,7 +151,7 @@ namespace Requestarr.Core.Qa
 
                     foreach (var entry in entries)
                     {
-                        await _gateway.EditMessageAsync(channel, ulong.Parse(records[entry.Key].MessageId), ItemCard(entry, records[entry.Key]));
+                        await EditItemCardAsync(channel, entry, records[entry.Key]);
                     }
 
                     return;
@@ -164,7 +168,8 @@ namespace Requestarr.Core.Qa
                 foreach (var entry in entries)
                 {
                     var record = records[entry.Key];
-                    record.MessageId = (await _gateway.SendMessageAsync(channel, ItemCard(entry, record))).ToString();
+                    record.MessageId = (await _gateway.SendMessageAsync(channel, ItemCard(entry, record, CardFiles.Upload))).ToString();
+                    _newScreenshots.TryRemove(entry.Key, out _);
                     _items.SetFields(record, r => r.MessageId);
                 }
 
@@ -242,6 +247,7 @@ namespace Requestarr.Core.Qa
             record.Evidence = evidence?.Trim();
             record.EvidenceFiles = _evidence.Replace(key, screenshots).ToList();
             _items.SetFields(record, r => r.Evidence, r => r.EvidenceFiles);
+            _newScreenshots[key] = true;
         }
 
         public async Task RefreshItemAsync(string key)
@@ -256,7 +262,7 @@ namespace Requestarr.Core.Qa
             }
 
             var entries = Entries();
-            await _gateway.EditMessageAsync(channel, ulong.Parse(record.MessageId), ItemCard(entry, record));
+            await EditItemCardAsync(channel, entry, record);
 
             if (ulong.TryParse(config.QaChecklistSummaryMessageId, out var summary))
             {
@@ -405,23 +411,42 @@ namespace Requestarr.Core.Qa
             return complete ? QaText.PassedColor : QaText.ChecklistColor;
         }
 
-        // Claude Code's screenshots, if any, show under the item's text.
-        private InteractionReply ItemCard(QaChecklistEntry entry, QaChecklistItem record)
+        // A card's screenshots are uploaded once per result: later edits (a press, a restart) keep the files the message
+        // has. If Discord won't keep them, they're sent again.
+        private async Task EditItemCardAsync(ulong channel, QaChecklistEntry entry, QaChecklistItem record)
+        {
+            var message = ulong.Parse(record.MessageId);
+
+            if (!_newScreenshots.ContainsKey(entry.Key) && await _gateway.EditMessageAsync(channel, message, ItemCard(entry, record, CardFiles.Keep)))
+            {
+                return;
+            }
+
+            if (await _gateway.EditMessageAsync(channel, message, ItemCard(entry, record, CardFiles.Upload)))
+            {
+                _newScreenshots.TryRemove(entry.Key, out _);
+            }
+        }
+
+        // Claude Code's screenshots, if any, show under the item's text: sent with the card, or kept from when they were.
+        private InteractionReply ItemCard(QaChecklistEntry entry, QaChecklistItem record, CardFiles files)
         {
             var report = record.BugReportId.HasValue ? _reports.Find(record.BugReportId.Value) : null;
-            var screenshots = _evidence.Read(entry.Key, record.EvidenceFiles);
+            var screenshots = files == CardFiles.Upload ? _evidence.Read(entry.Key, record.EvidenceFiles) : new List<QaEvidenceFile>();
+            var names = files == CardFiles.Upload ? screenshots.Select(s => s.Name).ToList() : (record.EvidenceFiles ?? new List<string>()).ToList();
 
             return new InteractionReply
             {
                 Quiet = true,
                 Files = screenshots.Select(s => new InteractionFile(s.Name, s.Bytes)).ToList(),
+                KeepFiles = files == CardFiles.Keep,
                 Cards =
                 {
                     new InteractionCard
                     {
                         Color = record.State switch { QaItemState.Passed => QaText.PassedColor, QaItemState.Failing => QaText.FailingColor, _ => QaText.ChecklistColor },
                         Text = QaText.Item(entry, record, report),
-                        Images = screenshots.Select(s => s.Name).ToList(),
+                        Images = names,
                         Buttons = new List<InteractionButton>
                         {
                             new() { CustomId = $"{QaRoutes.Check}:pass:{entry.Key}", Label = QaText.PassLabel, Style = ButtonStyle.Success },
@@ -430,6 +455,12 @@ namespace Requestarr.Core.Qa
                     }
                 }
             };
+        }
+
+        private enum CardFiles
+        {
+            Upload,
+            Keep
         }
     }
 }

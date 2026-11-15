@@ -340,7 +340,31 @@ namespace Requestarr.Core.Test.Qa
             card.Cards.Single().Text.Should().Contain("🤖 Claude Code checks this with its live passing check.").And.Contain("✅ Passed by Claude Code").And.Contain("**What Claude Code saw:** Pressed Passes twice");
             card.Cards.Single().Images.Should().Equal("passing-light.jpg");
             card.Files.Select(f => f.Name).Should().Equal("passing-light.jpg");
+            card.KeepFiles.Should().BeFalse();
             Mocker.GetMock<Requestarr.Core.Audit.IAuditService>().Verify(a => a.Record(Requestarr.Core.Audit.Actor.ClaudeCode, "qa.checklist.pass", "qa-item", key, null), Times.Once());
+
+            // The next edit (a press, a restart) keeps the screenshots the message has: nothing is uploaded again.
+            await Subject.RefreshItemAsync(key);
+            edits[^1].Should().BeEquivalentTo(new { KeepFiles = true, Files = new List<InteractionFile>() }, o => o.Including(r => r.KeepFiles).Including(r => r.Files));
+            edits[^1].Cards.Single().Images.Should().Equal("passing-light.jpg");
+        }
+
+        [Test]
+        public async Task a_card_discord_wont_edit_keeping_its_screenshots_sends_them_again()
+        {
+            OnDev();
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
+            Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100" });
+            var key = Subject.State().Items[0].Key;
+            _records[key].MessageId = "300";
+            _records[key].EvidenceFiles = new List<string> { "passing-light.jpg" };
+            _screenshots[key] = new[] { new QaEvidenceFile("passing-light.jpg", new byte[] { 7 }) };
+            var edits = new List<InteractionReply>();
+            Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.EditMessageAsync(100, 300, It.IsAny<InteractionReply>())).Callback<ulong, ulong, InteractionReply>((_, _, r) => edits.Add(r)).ReturnsAsync((ulong _, ulong _, InteractionReply r) => !r.KeepFiles);
+
+            await Subject.RefreshItemAsync(key);
+
+            edits.Select(e => (e.KeepFiles, e.Files.Count)).Should().Equal((true, 0), (false, 1));
         }
 
         [Test]

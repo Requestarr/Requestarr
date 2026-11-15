@@ -35,6 +35,9 @@ namespace Requestarr.Core.Discord.Interactions
         // Files sent with the message, which its cards show by name (Images).
         public List<InteractionFile> Files { get; init; } = new();
 
+        // Edits only: the message keeps the files it already has, which its cards' Images name (sent once, not again).
+        public bool KeepFiles { get; init; }
+
         public bool IsCards => Cards != null && Cards.Count > 0;
     }
 
