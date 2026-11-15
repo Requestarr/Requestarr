@@ -194,7 +194,9 @@ namespace Requestarr.Core.Test.Qa
 
             Subject.ChecklistText = QaChecklist.Embedded;
             Subject.CurrentVersion = () => new Version(0, 7, 4, 1);
-            OnQa("0.3.1,0.3.2,0.3.3,0.3.4");
+
+            // Claude Code's folded items show on dev; the carry works the same on every server.
+            OnDev();
             var state = Subject.State();
 
             // The items that came out of the fold (later pull requests add their own, untested).
@@ -301,7 +303,7 @@ namespace Requestarr.Core.Test.Qa
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
             unreleased.Where(i => !i.Checker.ClaudeCode).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.ClaudeCode).Select(i => i.Name).Should().Equal("Who checks each item", "Bot picture and banner");
+            unreleased.Where(i => !i.Checker.ClaudeCode).Select(i => i.Name).Should().Equal("Only your items on QA", "Bot picture and banner");
         }
 
         [Test]
@@ -318,6 +320,7 @@ namespace Requestarr.Core.Test.Qa
         [Test]
         public async Task claude_codes_pass_is_recorded_under_no_member_and_its_card_shows_what_it_saw_and_its_screenshots()
         {
+            OnDev();
             Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
             Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100", QaChecklistSummaryMessageId = "200" });
             var key = Subject.State().Items[0].Key;
@@ -332,12 +335,46 @@ namespace Requestarr.Core.Test.Qa
             _records[key].Should().BeEquivalentTo(new { ByDiscordUserId = (string)null, ByName = "Claude Code", Evidence = "Pressed Passes twice; the card says passed.", EvidenceFiles = new[] { "passing-light.jpg" } });
             state.Items[0].Should().BeEquivalentTo(new { CheckedBy = "Claude Code", Check = "live passing", State = "Passed", By = "Claude Code" });
             state.Items[1].Should().BeEquivalentTo(new { CheckedBy = "owner", Reason = "not classified yet" });
-            state.Checkers.Should().BeEquivalentTo(new QaCheckers(1, 1, 0, 2, new[] { "Failing an item", "Sign-in logo" }));
+            state.Checkers.Should().BeEquivalentTo(new QaCheckers(1, 1, 0, 1, new[] { "Failing an item" }));
             var card = edits[^1];
             card.Cards.Single().Text.Should().Contain("🤖 Claude Code checks this with its live passing check.").And.Contain("✅ Passed by Claude Code").And.Contain("**What Claude Code saw:** Pressed Passes twice");
             card.Cards.Single().Images.Should().Equal("passing-light.jpg");
             card.Files.Select(f => f.Name).Should().Equal("passing-light.jpg");
             Mocker.GetMock<Requestarr.Core.Audit.IAuditService>().Verify(a => a.Record(Requestarr.Core.Audit.Actor.ClaudeCode, "qa.checklist.pass", "qa-item", key, null), Times.Once());
+        }
+
+        [Test]
+        public async Task qa_shows_only_the_owners_items_and_forgets_claude_codes_results_keeping_the_owners()
+        {
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
+            var claudeCodes = QaChecklist.Parse(Subject.ChecklistText()).SelectMany(v => v.Items).Single(i => i.Name == "Passing an item").Key;
+            _records[claudeCodes] = new QaChecklistItem { Id = 70, ItemKey = claudeCodes, Name = "Passing an item", State = QaItemState.Passed, ByName = "Claude Code", EvidenceFiles = new List<string> { "a.jpg" } };
+            _records[Key("Sign-in logo")] = new QaChecklistItem { Id = 71, ItemKey = Key("Sign-in logo"), Name = "Sign-in logo", State = QaItemState.Passed, ByDiscordUserId = "1", ByName = "EaZyCheaZ" };
+            Mocker.GetMock<IQaChecklistItemRepository>().Setup(r => r.All()).Returns(() => _records.Values.ToList());
+            Mocker.GetMock<IQaChecklistItemRepository>().Setup(r => r.Delete(It.IsAny<QaChecklistItem>())).Callback<QaChecklistItem>(r => _records.Remove(r.ItemKey));
+            Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100" });
+            Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.GetOwnMessagesAsync(100, It.IsAny<int>())).ReturnsAsync(new List<ChannelMessage>());
+            Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.SendMessageAsync(100, It.IsAny<InteractionReply>())).ReturnsAsync(500UL);
+
+            await Subject.EnsureAsync();
+            var state = Subject.State();
+
+            state.Items.Select(i => i.Name).Should().Equal("Failing an item", "Sign-in logo");
+            state.Should().BeEquivalentTo(new { Total = 2, Passed = 1 });
+            _records.Should().NotContainKey(claudeCodes);
+            _records[Key("Sign-in logo")].ByName.Should().Be("EaZyCheaZ");
+            Mocker.GetMock<IQaEvidenceStore>().Verify(e => e.Replace(claudeCodes, It.Is<IReadOnlyList<QaEvidenceFile>>(f => f.Count == 0)), Times.Once());
+            Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.SendMessageAsync(100, It.IsAny<InteractionReply>()), Times.Exactly(3), "the summary and the owner's two cards");
+            Subject.Find(claudeCodes).Should().BeNull("a result for it is refused on QA");
+        }
+
+        [Test]
+        public void dev_shows_claude_codes_items_with_their_results()
+        {
+            OnDev();
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
+
+            Subject.State().Items.Select(i => (i.Name, i.CheckedBy)).Should().Equal(("Passing an item", "Claude Code"), ("Failing an item", "owner"));
         }
 
         [Test]
@@ -352,6 +389,13 @@ namespace Requestarr.Core.Test.Qa
         private static string Key(string name) => QaChecklist.Parse(Text).SelectMany(v => v.Items).Single(i => i.Name == name).Key;
 
         private static string[] Keys(params string[] names) => names.Select(Key).ToArray();
+
+        private void OnDev()
+        {
+            var environment = Environment("dev");
+            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.VersionPosts).Returns(environment.VersionPosts);
+            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.IconSet).Returns(environment.IconSet);
+        }
 
         private void OnQa(string staged = "")
         {
