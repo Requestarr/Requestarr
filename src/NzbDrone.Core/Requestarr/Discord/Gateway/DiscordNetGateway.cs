@@ -211,7 +211,7 @@ namespace Requestarr.Core.Discord.Gateway
                 return false;
             }
 
-            var files = message.KeepEmbeds ? new List<FileAttachment>() : DiscordNetResponder.Files(message);
+            var files = message.KeepEmbeds || message.KeepFiles ? new List<FileAttachment>() : DiscordNetResponder.Files(message);
 
             try
             {
@@ -228,8 +228,11 @@ namespace Requestarr.Core.Discord.Gateway
                     {
                         m.Embeds = DiscordNetResponder.Embeds(message) ?? Array.Empty<Embed>();
 
-                        // The files the new embeds point to, replacing any earlier ones.
-                        m.Attachments = files;
+                        // The files the new embeds and cards point to, replacing any earlier ones (unless they're kept).
+                        if (!message.KeepFiles)
+                        {
+                            m.Attachments = files;
+                        }
                     }
 
                     m.Components = DiscordNetResponder.Components(message) ?? new ComponentBuilder().Build();

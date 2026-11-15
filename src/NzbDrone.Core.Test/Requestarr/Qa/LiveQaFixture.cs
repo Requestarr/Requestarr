@@ -122,13 +122,13 @@ namespace Requestarr.Core.Test.Qa
             var checklist = Mocker.Resolve<QaChecklistService>();
 
             // Dev shows only the running version's items: the check runs as version 0.0.0, which no section has, so the
-            // Unreleased items (what the next build tests) are its checklist, and its builds say they're a live check.
+            // Unreleased items (what the next build tests) are its checklist, and its builds are labelled as test builds.
             // It passes one item and fails three more.
             var text = QaChecklist.Embedded().Replace("\r\n", "\n");
             var tested = new Version(0, 0, 0);
             checklist.ChecklistText = () => text;
             checklist.CurrentVersion = () => tested;
-            build = "0.0.0-live-check.1";
+            build = "0.0.0-test.1111111";
             Mocker.SetConstant<IQaChecklistService>(checklist);
             var reports = Mocker.Resolve<BugReportService>();
             Mocker.SetConstant<IBugReportService>(reports);
@@ -289,7 +289,7 @@ namespace Requestarr.Core.Test.Qa
                 var items = QaChecklist.Parse(text, tested).Single(v => v.Version == tested).Items;
                 var promoted = text.Replace("## Unreleased\n", "## Unreleased\n- **Live check new item:** Press Passes. You should see it passed.\n")
                     .Replace($"- **{items[1].Name}:** {items[1].Text}", $"- **{items[1].Name}:** {items[1].Text} Then look again.");
-                build = "0.0.0-live-check.2";
+                build = "0.0.0-test.2222222";
                 checklist.ChecklistText = () => promoted;
                 await checklist.EnsureAsync();
 
@@ -330,6 +330,14 @@ namespace Requestarr.Core.Test.Qa
                 (ccFailing.State, ccFailing.ByName, ccFailing.BugReportId.HasValue).Should().Be((QaItemState.Failing, QaChecker.ClaudeCodeName, true));
                 refusedForOwner.Should().Be(QaAutomatedOutcome.NotClaudeCodes);
                 Text((await Cards())[0]).Should().Contain("Claude Code:").And.Contain("For you:");
+
+                // The card edited again (a press, a restart): its picture is the same upload, not sent again.
+                var firstUpload = gallery.Single().Media.Url.Split('?')[0];
+                await checklist.RefreshItemAsync(ccItems[0].Key);
+                var edited = await checklistRest.GetMessageAsync(ccCard.Id);
+                var afterEdit = All(edited.Components).OfType<MediaGalleryComponent>().SelectMany(g => g.Items).Single().Media.Url.Split('?')[0];
+                Log($"[claude-code] the card edited again: {(edited.EditedTimestamp > ccCard.EditedTimestamp ? "edited" : "not edited")}; picture {afterEdit} ({(afterEdit == firstUpload ? "the same upload, nothing sent again" : "uploaded again")})");
+                afterEdit.Should().Be(firstUpload);
             }
             finally
             {
@@ -358,7 +366,10 @@ namespace Requestarr.Core.Test.Qa
                 var (removed, left) = await leftovers.RemoveAsync();
                 Log($"[cleanup] removed the {removed} message(s) the check posted in the checklist and bug reports channels; left behind: {left}");
                 await host.StopAsync();
-                Directory.Delete(appData, true);
+                if (Directory.Exists(appData))
+                {
+                    Directory.Delete(appData, true);
+                }
 
                 foreach (var problem in problems.Logs.Where(l => !l.Contains("Discord.Net")))
                 {

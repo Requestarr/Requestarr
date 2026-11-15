@@ -15,7 +15,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked by Claude Code: the web app header check.
 - **Signing in and out:** Open the web app and sign in with the QA login, then open the account menu at the top right and press Logout, then open the web app's address again. You should see the login page with the QA logo every time you're signed out, never a browser error, and signing in again bring you back to where you were going.
   - Checked by Claude Code: the web app sign-in and sign-out check.
-- **General settings:** Sign in, open Settings, then General, change a setting the provisioning file doesn't set, such as Backup Retention, and press Save. You should see it save with no error, the fields the file sets, such as Allowed Hosts, Authentication and Username, read-only with "Set by your provisioning file", and the port with a note about Docker.
+- **General settings:** Sign in, open Settings, then General, change a setting the provisioning file doesn't set, such as Backup Retention, and press Save. You should see it save with no error, the fields the file sets, such as Allowed Hosts, Authentication and Username, read-only and greyed out in the light and the dark theme with "Set by your provisioning file", and the port with a note about Docker.
   - Checked by Claude Code: the web app general settings check.
 - **Sign-in logo:** Sign out of the web app and look at the sign-in page in the light theme, then in the dark theme. You should see the logo with a light arrow, easy to read on the gray box, in both.
   - Checked by Claude Code: the web app sign-in page check.

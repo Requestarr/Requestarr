@@ -159,6 +159,8 @@ module.exports = {
 
   inputBackgroundColor: '#fff',
   inputReadOnlyBackgroundColor: '#eee',
+  inputReadOnlyBorderColor: '#dde6e9',
+  inputReadOnlyColor: '#515253',
   inputHoverBackgroundColor: '#f8f8f8',
   inputSelectedBackgroundColor: '#e2e2e2',
   advancedFormLabelColor: '#ff902b',
