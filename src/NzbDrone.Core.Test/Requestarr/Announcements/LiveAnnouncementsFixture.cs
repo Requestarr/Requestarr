@@ -288,26 +288,24 @@ namespace Requestarr.Core.Test.Announcements
                 announcements.ChangelogText = () => embedded.Insert(firstNumbered, "## 0.6.0 (2026-11-13)\n\n### For admins\n- **Folded version:** this card goes once it's folded into Unreleased.\n\n");
                 await announcements.PostVersionNotesAsync();
 
-                // The admin panel moves below new posts as a new message, so it's counted by being there, not by its ID.
-                bool IsPanel(IMessage m) => m.Id.ToString() == guildSetup.GetConfig().AdminPanelMessageId;
-                var otherBefore = (await Recent(adminRest)).Where(m => VersionCards.Parse(ButtonIds(m), VersionAudience.Admins) == null && !IsPanel(m)).Select(m => m.Id).ToList();
+                // Every other message stays, known by what it says: a panel moves below new posts as a new message.
+                async Task<List<string>> Others() => (await Recent(adminRest)).Where(m => VersionCards.Parse(ButtonIds(m), VersionAudience.Admins) == null).Select(Said).ToList();
+                var otherBefore = await Others();
                 var qaBefore = await Cards(adminRest, VersionAudience.Admins);
                 qaBefore.ForEach(t => Log($"[qa] before the fold, admin card: \"{t}\""));
                 announcements.ChangelogText = () => embedded;
                 await announcements.PostVersionNotesAsync();
                 var qaAdmin = await Cards(adminRest, VersionAudience.Admins);
                 var qaUsers = await Cards(channel, VersionAudience.Users);
-                var afterFold = await Recent(adminRest);
-                var otherAfter = afterFold.Select(m => m.Id).ToHashSet();
-                var panelKept = afterFold.Any(IsPanel);
+                var otherAfter = await Others();
                 qaAdmin.ForEach(t => Log($"[qa] after the fold, admin card: \"{t}\""));
                 qaUsers.ForEach(t => Log($"[qa] after the fold, announcements card: \"{t}\""));
-                Log($"[qa] the admin channel's other messages: {otherBefore.Count} before the fold, {otherBefore.Count(otherAfter.Contains)} of them still there after; the admin panel still there: {panelKept}");
+                Log($"[qa] the admin channel's other messages before the fold: {string.Join(" / ", otherBefore)}");
+                Log($"[qa] and after: {string.Join(" / ", otherAfter)}");
                 qaBefore.Should().HaveCount(2);
                 qaAdmin.Should().ContainSingle().Which.Should().StartWith($"Requestarr {shownAs} · {DiscordText.SinceLastBeta} | ");
                 qaUsers.Should().ContainSingle().Which.Should().StartWith($"Requestarr {shownAs} · {DiscordText.SinceLastBeta} | ");
-                otherBefore.Should().OnlyContain(id => otherAfter.Contains(id), "only version cards go");
-                panelKept.Should().BeTrue("the admin panel stays");
+                otherBefore.Should().BeSubsetOf(otherAfter, "only version cards go");
 
                 // Back to the dev server's own way for the rest.
                 stack = "dev";
@@ -409,6 +407,15 @@ namespace Requestarr.Core.Test.Announcements
             process.WaitForExit();
             process.ExitCode.Should().Be(0, process.StandardError.ReadToEnd());
             return output;
+        }
+
+        // A message's first line, whether it's text, an embed or a card.
+        private static string Said(IMessage message)
+        {
+            var cardText = message.Components.OfType<ContainerComponent>().SelectMany(c => c.Components).OfType<TextDisplayComponent>().Select(t => t.Content);
+            var all = new[] { message.Content }.Concat(message.Embeds.Select(e => e.Title)).Concat(cardText).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+
+            return (all ?? "(no text)").Split('\n')[0];
         }
 
         private static List<string> Buttons(IMessage message) =>
