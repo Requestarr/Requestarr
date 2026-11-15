@@ -303,7 +303,7 @@ namespace Requestarr.Core.Test.Qa
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
             unreleased.Where(i => !i.Checker.ClaudeCode).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.ClaudeCode).Select(i => i.Name).Should().Equal("Only your items on QA", "Bot picture and banner");
+            unreleased.Where(i => !i.Checker.ClaudeCode).Select(i => i.Name).Should().BeEquivalentTo("Only your items on QA", "Bot picture and banner");
         }
 
         [Test]
