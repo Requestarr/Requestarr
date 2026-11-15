@@ -5,8 +5,6 @@ What admins on the QA server test, in Discord, before a build goes to staging. R
 Every pull request adds its items under Unreleased, the way it adds its changelog lines: each one says what to do and what you should see, in plain words. The line under each item says who checks it: Claude Code, with the check that verifies it (run on every promotion to QA, with its evidence on the item's card), or the owner, with the reason a person has to (it needs human eyes, the behavior wanted isn't settled, or Claude Code couldn't verify it). Unreleased is what to test since the last build the beta testers got: a change to something an Unreleased item already tests rewrites that item instead of adding another. The promotion to staging gives them the build's number. The items for 0.4.3 to 0.6.0, which never reached the testers, are folded into it. See docs/development.md#qa-checklist.
 
 ## Unreleased
-- **Who checks each item:** After the next promotion to QA, open the QA checklist channel and look at the summary and a few cards. You should see the summary say how many of Claude Code's items passed and which of yours are left, each card say who checks it, and Claude Code's cards say what it saw with its screenshots underneath, all easy to read.
-  - Checked by the owner, needs human eyes: how the cards and their screenshots read in the Discord app.
 - **Update cards:** In the admin channel and in the announcements channel, look at the update cards. You should see one card in each, titled Requestarr, the build number with qa and a short code, then since the last beta, with the main change underneath and how many more, and no cards for the versions 0.4.0 to 0.6.0.
   - Checked by Claude Code: the live update cards check.
 - **Read changes:** Press Read changes on the update card. You should see the full list of what changed since the last beta, only to you.
@@ -43,3 +41,5 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked by Claude Code: the live report limit check.
 - **Why a report isn't on GitHub:** Look at the card of a report you sent. You should see either the link to its GitHub issue, or the exact reason it isn't there yet, such as the server having no GitHub access key.
   - Checked by Claude Code: the live bug reports check.
+- **Only your items on QA:** Open the QA checklist channel. You should see only the items that need you, each card saying why, the summary counting only those, your earlier passes kept, and nothing of Claude Code's.
+  - Checked by the owner, needs human eyes: how the checklist reads in the Discord app.

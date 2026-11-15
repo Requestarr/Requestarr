@@ -31,8 +31,9 @@ namespace Requestarr.Core.Qa
         public const uint FailingColor = 0xDA3633;
         public const uint ReportColor = 0x5865F2;
 
-        // What Claude Code's check read back, kept short enough for the card (the screenshots show under it).
-        public const int EvidenceLength = 1200;
+        // A card shows one short line of what Claude Code's check read back (the screenshots show under it); the whole
+        // read-back is in the record and the task's reply.
+        public const int EvidenceLength = 200;
 
         public const string ChecklistChannelName = "requestarr-qa-checklist";
         public const string ChecklistChannelTopic = "What to test on this server before the versions here go to staging. Press Passes or Failing on each item.";
@@ -136,7 +137,9 @@ namespace Requestarr.Core.Qa
         };
 
         private static string Evidence(QaChecklistItem record) =>
-            string.IsNullOrWhiteSpace(record?.Evidence) ? string.Empty : $"\n**What Claude Code saw:** {Plain(Shorten(record.Evidence, EvidenceLength))}";
+            string.IsNullOrWhiteSpace(record?.Evidence) ? string.Empty : $"\n**What Claude Code saw:** {Plain(Shorten(FirstLine(record.Evidence), EvidenceLength))}";
+
+        private static string FirstLine(string text) => text.Trim().Split('\n')[0].Trim();
 
         private static string Shorten(string text, int length) => text.Length <= length ? text : text.Substring(0, length - 1) + "…";
 
