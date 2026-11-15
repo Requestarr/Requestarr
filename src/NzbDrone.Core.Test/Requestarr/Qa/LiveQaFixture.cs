@@ -121,13 +121,14 @@ namespace Requestarr.Core.Test.Qa
             Mocker.SetConstant<IQaEvidenceStore>(Mocker.Resolve<QaEvidenceStore>());
             var checklist = Mocker.Resolve<QaChecklistService>();
 
-            // Dev shows only the running version's items: the build runs as a number no section has, so the Unreleased
-            // items (what the next build tests) are its checklist. The check passes one item and fails three more.
+            // Dev shows only the running version's items: the check runs as version 0.0.0, which no section has, so the
+            // Unreleased items (what the next build tests) are its checklist, and its builds say they're a live check.
+            // It passes one item and fails three more.
             var text = QaChecklist.Embedded().Replace("\r\n", "\n");
-            var tested = new Version(9, 9, 9999);
+            var tested = new Version(0, 0, 0);
             checklist.ChecklistText = () => text;
             checklist.CurrentVersion = () => tested;
-            build = $"{Changelog.Display(tested)}-dev.1111111";
+            build = "0.0.0-live-check.1";
             Mocker.SetConstant<IQaChecklistService>(checklist);
             var reports = Mocker.Resolve<BugReportService>();
             Mocker.SetConstant<IBugReportService>(reports);
@@ -145,9 +146,11 @@ namespace Requestarr.Core.Test.Qa
             await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
             ulong? membersRole = null;
             IUser member = null;
+            var leftovers = new LiveLeftovers(gateway);
 
             try
             {
+                await leftovers.NoteAsync(ulong.Parse(guildSetup.GetConfig().QaChecklistChannelId), ulong.Parse(guildSetup.GetConfig().BugReportsChannelId));
                 await checklist.EnsureAsync();
                 await panels.EnsureAllAsync();
 
@@ -286,7 +289,7 @@ namespace Requestarr.Core.Test.Qa
                 var items = QaChecklist.Parse(text, tested).Single(v => v.Version == tested).Items;
                 var promoted = text.Replace("## Unreleased\n", "## Unreleased\n- **Live check new item:** Press Passes. You should see it passed.\n")
                     .Replace($"- **{items[1].Name}:** {items[1].Text}", $"- **{items[1].Name}:** {items[1].Text} Then look again.");
-                build = $"{Changelog.Display(tested)}-dev.2222222";
+                build = "0.0.0-live-check.2";
                 checklist.ChecklistText = () => promoted;
                 await checklist.EnsureAsync();
 
@@ -351,7 +354,11 @@ namespace Requestarr.Core.Test.Qa
                     }
                 }
 
+                // Its checklist (version 0.0.0, the made-up item, the failing ones) goes too; the dev stack posts its own.
+                var (removed, left) = await leftovers.RemoveAsync();
+                Log($"[cleanup] removed the {removed} message(s) the check posted in the checklist and bug reports channels; left behind: {left}");
                 await host.StopAsync();
+                Directory.Delete(appData, true);
 
                 foreach (var problem in problems.Logs.Where(l => !l.Contains("Discord.Net")))
                 {

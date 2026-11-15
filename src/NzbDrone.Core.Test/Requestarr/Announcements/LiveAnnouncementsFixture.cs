@@ -168,6 +168,7 @@ namespace Requestarr.Core.Test.Announcements
             var handlers = new IInteractionHandler[] { Mocker.Resolve<AdminConsoleHandler>(), Mocker.Resolve<RequestHandler>(), Mocker.Resolve<ApprovalHandler>(), Mocker.Resolve<SeasonsHandler>(), Mocker.Resolve<MediaServerHandler>(), Mocker.Resolve<PanelHandler>(), Mocker.Resolve<AdminRequestsHandler>(), Mocker.Resolve<OutageHandler>() };
             var dispatcher = new InteractionDispatcher(handlers, LogManager.GetLogger("LiveDiscord"));
             var sonarrStopped = false;
+            var leftovers = new LiveLeftovers(gateway);
 
             try
             {
@@ -177,6 +178,7 @@ namespace Requestarr.Core.Test.Announcements
                 var guild = host.Client.GetGuild(settings.Current.GuildId);
                 var adminChannel = ulong.Parse(guildSetup.GetConfig().AdminChannelId);
                 var adminRest = (IMessageChannel)await host.Client.Rest.GetChannelAsync(adminChannel);
+                await leftovers.NoteAsync(adminChannel, ulong.Parse(guildSetup.GetConfig().AnnouncementsChannelId));
                 FakeInteraction AsOwner(FakeInteraction i) => i.By(guild.OwnerId, "owner").InGuild(guild.Id).InChannel(adminChannel);
                 var restGuild = await host.Client.Rest.GetGuildAsync(guild.Id);
                 string Name(ulong id) => id switch
@@ -379,6 +381,9 @@ namespace Requestarr.Core.Test.Announcements
                     await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
                 }
 
+                // The made-up next version's cards and QA's cards go with everything else the check posted.
+                var (removed, left) = await leftovers.RemoveAsync();
+                Log($"[cleanup] removed the {removed} message(s) the check posted in the admin and announcements channels; left behind: {left}");
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }
