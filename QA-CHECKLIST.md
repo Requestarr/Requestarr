@@ -42,4 +42,5 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
 - **Report limit:** As a member who isn't an admin, send a report, then press Report a problem again straight away. You should see Requestarr ask you to wait, and no second card posted.
   - Checked by Claude Code: the live report limit check.
 - **Why a report isn't on GitHub:** Look at the card of a report you sent. You should see either the link to its GitHub issue, or the exact reason it isn't there yet, such as the server having no GitHub access key.
-  - Checked by Claude Code: the live bug reports check.
+- **Only your items on QA:** Open the QA checklist channel. You should see only the items that need you, each card saying why, the summary counting only those, your earlier passes kept, and nothing of Claude Code's.
+  - Checked by the owner, needs human eyes: how the checklist reads in the Discord app.
