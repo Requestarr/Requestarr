@@ -206,6 +206,7 @@ namespace NzbDrone.Core.Test.Framework
 
             if (TestFolderInfo != null)
             {
+                KeepDatabaseIfAsked();
                 DeleteTempFolder(TestFolderInfo.AppDataFolder);
             }
 
@@ -213,6 +214,22 @@ namespace NzbDrone.Core.Test.Framework
             {
                 DropPostgresDb();
             }
+        }
+
+        // Requestarr: a live run keeps its database when LIVE_KEEP_DATABASE names a folder, one file per test, so the
+        // dev stack can be started on what the run made (the admin portal's screenshots show real requests that way).
+        private void KeepDatabaseIfAsked()
+        {
+            var folder = Environment.GetEnvironmentVariable("LIVE_KEEP_DATABASE");
+            var database = TestFolderInfo.GetDatabase();
+
+            if (string.IsNullOrWhiteSpace(folder) || _databaseType != DatabaseType.SQLite || !File.Exists(database))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(folder);
+            File.Copy(database, Path.Combine(folder, TestContext.CurrentContext.Test.Name + ".db"), true);
         }
     }
 }

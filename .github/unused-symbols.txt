@@ -1,8 +1,6 @@
 # Public and internal members in Requestarr's code that no code calls, and why each stays (.github/unused_check.py).
 # One symbol a line as Roslynator names it, then two spaces, "# " and the reason. Remove a line once the member is used
 # or removed; the check reports stale lines.
-Requestarr.Core.Audit.IAuditRepository.ForTarget(string targetType, string targetId)  # the admin portal's request and member pages read a title's history with it (task 5a, next)
-Requestarr.Core.Removals.IRemovalService.LatestFor(int requestId)  # the admin portal's request page shows the latest removal with it (task 5a, next)
 Requestarr.Core.Backends.BackendInstance.ConfigContract  # a database column of the backend instance (Servarr's provider record)
 Requestarr.Core.Backends.BackendInstance.Tags  # a database column of the backend instance (Servarr's provider record)
 Requestarr.Core.Backends.EpisodeInfo.EpisodeNumber  # part of Sonarr's answer this record mirrors

@@ -24,7 +24,7 @@ REPO = os.path.dirname(HERE)
 BASELINE = os.path.join(HERE, "unused-symbols.txt")
 
 # Requestarr's own code: .editorconfig's "Requestarr additions", relative to src/.
-INCLUDE = ["**/Requestarr/**", "NzbDrone.Core/Datastore/Migration/*.cs", "Requestarr.Http/Qa/**", "Requestarr.Http/Webhooks/**",
+INCLUDE = ["**/Requestarr/**", "NzbDrone.Core/Datastore/Migration/*.cs", "Requestarr.Http/Qa/**", "Requestarr.Http/Portal/**", "Requestarr.Http/Webhooks/**",
            "Requestarr.Http/Frontend/Mappers/VersionLogo.cs", "Requestarr.Http/Frontend/Mappers/VersionLogoMapper.cs",
            "Requestarr.Http/Frontend/Mappers/WebIcons.cs", "NzbDrone.Common/Exceptions/RequestarrStartupException.cs"]
 TEST_PROJECTS = ["Requestarr.Core.Test", "Requestarr.Api.V1.Test", "Requestarr.Common.Test", "Requestarr.Host.Test",
@@ -45,7 +45,8 @@ def reached_otherwise(kind, symbol):
     call = re.match(r"(?P<type>.*)\.(?P<name>[^.(<]+)(?:<[^>]*>)?\(", symbol)
     if kind == "method" and call and re.sub(r"<.*>$", "", call.group("type").split(".")[-1]) == call.group("name"):
         return True
-    return re.search(r"Controller\b", symbol) is not None or ".Datastore.Migration." in symbol
+    owner = call.group("type") if call else symbol
+    return owner.split(".")[-1].endswith("Controller") or ".Datastore.Migration." in symbol
 
 
 def baseline(text):
@@ -68,7 +69,7 @@ def run_roslynator():
     command = ["dotnet", "roslynator", "find-symbol", os.path.join("src", "Requestarr.sln"), "--unused", "--visibility", "public", "internal",
                "--ignored-projects"] + TEST_PROJECTS + ["--include"] + INCLUDE + ["-v", "n"]
     result = subprocess.run(command, cwd=REPO, capture_output=True, text=True)
-    if result.returncode != 0 or "symbols found" not in result.stdout:
+    if result.returncode != 0 or not re.search(r"\d+ symbols? found", result.stdout):
         sys.exit("Roslynator didn't run (exit %d):\n%s%s" % (result.returncode, result.stdout[-2000:], result.stderr[-2000:]))
     return result.stdout
 
@@ -99,6 +100,7 @@ SAMPLE = """Analyze solution 'src/Requestarr.sln'
     class    NzbDrone.Core.Datastore.Migration.qa_automated_results
     property Requestarr.Core.Requests.Request.Isbn
     method   Requestarr.Core.Requests.RequestCards.Outcome(ServiceResult result)
+    method   Requestarr.Core.Qa.QaRunner.Use(IFooController controller)
 
 2 symbols found
 """
@@ -108,8 +110,9 @@ def self_test():
     kept = baseline("# header\nRequestarr.Core.Requests.Request.Isbn  # a database column\nRequestarr.Core.Gone.Old  # was used\nRequestarr.Core.X.Y\n")
     new, stale, unexplained = compare(findings(SAMPLE), kept)
     cases = [
-        ("six findings read", len(findings(SAMPLE)) == 6),
-        ("constructors, generic ones too, a controller and a migration set aside", new == ["Requestarr.Core.Requests.RequestCards.Outcome(ServiceResult result)"]),
+        ("seven findings read", len(findings(SAMPLE)) == 7),
+        ("constructors, generic ones too, a controller and a migration set aside", new[:1] == ["Requestarr.Core.Requests.RequestCards.Outcome(ServiceResult result)"]),
+        ("a controller only as a parameter type isn't set aside", new[1:] == ["Requestarr.Core.Qa.QaRunner.Use(IFooController controller)"]),
         ("a listed symbol no longer found is stale", "Requestarr.Core.Gone.Old" in stale),
         ("a listed symbol needs its reason", unexplained == ["Requestarr.Core.X.Y"]),
         ("a listed finding with its reason passes", "Requestarr.Core.Requests.Request.Isbn" not in new),

@@ -18,6 +18,25 @@ const HEADER_HEIGHT = parseInt(dimensions.headerHeight);
 const SIDEBAR_WIDTH = parseInt(dimensions.sidebarWidth);
 
 const links = [
+  // The admin portal's read views (docs/admin-portal.md).
+  {
+    iconName: icons.FILM,
+    title: () => translate('PortalRequests'),
+    to: '/requests'
+  },
+
+  {
+    iconName: icons.INTERACTIVE,
+    title: () => translate('PortalMembers'),
+    to: '/members'
+  },
+
+  {
+    iconName: icons.ACTIVITY,
+    title: () => translate('PortalQueue'),
+    to: '/queue'
+  },
+
   {
     iconName: icons.SETTINGS,
     title: () => translate('Settings'),

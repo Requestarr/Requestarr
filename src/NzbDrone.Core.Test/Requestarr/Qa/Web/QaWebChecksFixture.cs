@@ -82,7 +82,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
             var copyright = await browser.EvalAsync<string>("[...document.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Copyright').nextElementSibling.textContent.trim()");
             check.Saw($"About says: {copyright}");
-            copyright.Should().StartWith("Copyright 2026-").And.Contain("Requestarr contributors").And.NotContain("Runemark")
+            copyright.Should().MatchRegex(@"^Copyright 2026(-20\d\d)? ").And.Contain("Requestarr contributors").And.NotContain("Runemark")
                 .And.EndWith("Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)");
         });
 

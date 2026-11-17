@@ -71,7 +71,10 @@
   <PropertyGroup Condition="'$(RequestarrProject)'=='true'">
     <Product>Requestarr</Product>
     <Company>Requestarr contributors</Company>
-    <Copyright>Copyright 2026-$([System.DateTime]::Now.ToString('yyyy')) Requestarr contributors. Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)</Copyright>
+    <!-- "2026" in Requestarr's first year, "2026-2027" and so on after it. -->
+    <RequestarrCopyrightYears>2026</RequestarrCopyrightYears>
+    <RequestarrCopyrightYears Condition="$([System.DateTime]::Now.Year) &gt; 2026">2026-$([System.DateTime]::Now.ToString('yyyy'))</RequestarrCopyrightYears>
+    <Copyright>Copyright $(RequestarrCopyrightYears) Requestarr contributors. Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)</Copyright>
 
     <!-- The build's number is stamped at build time, never kept here (docs/development.md#versions): the Image workflow
          and the local stacks pass -p:RequestarrVersion=0.7.0004. .NET's version is numeric, 0.7.4.*; people see
