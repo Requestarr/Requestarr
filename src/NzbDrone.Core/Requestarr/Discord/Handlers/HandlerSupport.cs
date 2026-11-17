@@ -44,8 +44,6 @@ namespace Requestarr.Core.Discord.Handlers
 
         public static Task Ephemeral(this IInteractionResponder responder, string message) => Send(responder, message, true);
 
-        public static Task Public(this IInteractionResponder responder, string message) => Send(responder, message, false);
-
         public static Task Reply(this IInteractionResponder responder, ServiceResult result) => Send(responder, result.Message, !result.Success);
 
         private static Task Send(IInteractionResponder responder, string message, bool ephemeral)

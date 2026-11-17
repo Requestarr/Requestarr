@@ -11,6 +11,9 @@ namespace Requestarr.Api.V1.System
         public string AppName { get; set; }
         public string InstanceName { get; set; }
         public string Version { get; set; }
+
+        // Requestarr: the build's copyright notice, shown on the About page.
+        public string Copyright { get; set; }
         public DateTime BuildTime { get; set; }
         public bool IsDebug { get; set; }
         public bool IsProduction { get; set; }

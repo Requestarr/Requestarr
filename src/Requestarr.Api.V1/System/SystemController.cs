@@ -62,6 +62,7 @@ namespace Requestarr.Api.V1.System
                 AppName = BuildInfo.AppName,
                 InstanceName = _configFileProvider.InstanceName,
                 Version = BuildInfo.Version.ToString(),
+                Copyright = BuildInfo.Copyright,
                 BuildTime = BuildInfo.BuildDateTime,
                 IsDebug = BuildInfo.IsDebug,
                 IsProduction = RuntimeInfo.IsProduction,

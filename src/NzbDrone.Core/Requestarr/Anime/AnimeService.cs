@@ -17,7 +17,7 @@ namespace Requestarr.Core.Anime
         public int For(AnimeLanguage language) => language == AnimeLanguage.Dub ? Dub : Sub;
     }
 
-    public record AnimeSetupResult(string Instance, int TagsCreated, int ProfilesCreated, int ProfilesUpdated, AnimeTags Tags, string Error)
+    public record AnimeSetupResult(int TagsCreated, int ProfilesCreated, int ProfilesUpdated, AnimeTags Tags, string Error)
     {
         public bool Ok => Error == null;
     }
@@ -76,7 +76,7 @@ namespace Requestarr.Core.Anime
             if (!config.Enabled)
             {
                 _tags.TryRemove(instance.Id, out _);
-                return new AnimeSetupResult(instance.Name, 0, 0, 0, null, null);
+                return new AnimeSetupResult(0, 0, 0, null, null);
             }
 
             try
@@ -134,12 +134,12 @@ namespace Requestarr.Core.Anime
                     _logger.Info("Anime on {0}: {1} tags and {2} release profiles created, {3} updated", instance.Name, tagsCreated, created, updated);
                 }
 
-                return new AnimeSetupResult(instance.Name, tagsCreated, created, updated, tags, null);
+                return new AnimeSetupResult(tagsCreated, created, updated, tags, null);
             }
             catch (BackendException ex)
             {
                 _logger.Warn("Anime setup on {0} failed: {1}", instance.Name, ex.Message);
-                return new AnimeSetupResult(instance.Name, 0, 0, 0, null, ex.Message);
+                return new AnimeSetupResult(0, 0, 0, null, ex.Message);
             }
         }
 

@@ -24,6 +24,9 @@ namespace NzbDrone.Common.EnvironmentInfo
             }
 
             Release = $"{Version}-{Branch}";
+
+            // Requestarr: who holds the copyright, as the build says it (Directory.Build.props), for the About page.
+            Copyright = attributes.OfType<AssemblyCopyrightAttribute>().FirstOrDefault()?.Copyright ?? string.Empty;
         }
 
         public static string AppName { get; } = "Requestarr";
@@ -31,6 +34,7 @@ namespace NzbDrone.Common.EnvironmentInfo
         public static Version Version { get; }
         public static string Branch { get; }
         public static string Release { get; }
+        public static string Copyright { get; }
 
         public static DateTime BuildDateTime
         {

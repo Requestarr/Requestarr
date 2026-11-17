@@ -28,6 +28,7 @@ is a build sent to the beta testers, counting every build, and the release is th
 - **Link Plex is hidden for now:** the button comes back once the admin connects a Plex server.
 
 ### For admins
+- **Copyright:** Requestarr's copyright is held by its contributors, with the Servarr team's notice for the code it's built on; the About section under System, then Status, shows it.
 - **Build numbers:** every build sent to the beta testers has one number that counts up, like 0.7.0004, shown the same on the update cards, in the web app and on the logo, and a release is that exact build, never rebuilt, so production runs what the testers ran. Going back to an earlier build means restoring the backup the beta update takes every time, which its rollback puts back.
 - **Two channel groups:** Requestarr keeps its channels in Requestarr Admin (the admin channel and the feed, admins only) and Requestarr Users (welcome, announcements, bug reports and every member's channel); existing channels move over on the next start with their messages kept.
 - **No second copies after setting up again:** Requestarr finds its own groups, channels and panels, and each member's channel, even when its saved data is gone, so a reinstall or a reset never doubles them, and a member who comes back gets their one channel back.

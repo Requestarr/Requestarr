@@ -421,8 +421,6 @@ namespace Requestarr.Core.Requests
         }
 
         // A request message showing the request's real state; Cancel only while it is pending.
-        public static InteractionReply Status(Request request, MediaLookupResult item, string instance) => Status(request, item, instance, null, null, null);
-
         // mention: the person the message is for (a reposted message pings them); note: an extra line
         // (for example a sub/dub switch); followerOf: the owner's name when the message is a follower's.
         public static InteractionReply Status(Request request, MediaLookupResult item, string instance, string mention, string note, string followerOf)
@@ -837,19 +835,6 @@ namespace Requestarr.Core.Requests
 
         public static InteractionButton CancelButton(int requestId) =>
             new() { CustomId = $"{RequestRoutes.Cancel}:{requestId}", Label = DiscordText.CancelLabel, Style = ButtonStyle.Danger };
-
-        // The reply to a request outside a block (old cards); pending ones the user owns get a Cancel button.
-        public static InteractionReply Outcome(Users.ServiceResult result)
-        {
-            var reply = new InteractionReply { Content = DiscordLimits.Truncate(result.Message, DiscordLimits.MessageLength), Ephemeral = !result.Success };
-
-            if (result is RequestResult { Request: { Status: RequestStatus.Pending } pending, Outcome: RequestOutcome.Pending })
-            {
-                reply.Buttons.Add(CancelButton(pending.Id));
-            }
-
-            return reply;
-        }
 
         public static InteractionModal LinkPlex() => new()
         {

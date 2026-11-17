@@ -9,7 +9,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked by Claude Code: the live update cards check.
 - **Read changes:** Press Read changes on the update card. You should see the full list of what changed since the last beta, only to you.
   - Checked by Claude Code: the live Read changes check.
-- **Build number in the web app:** Open System, then Status. You should see the same number, qa and short code as the version, and the same number on the logo.
+- **Build number in the web app:** Open System, then Status. You should see the same number, qa and short code as the version, the same number on the logo, and under About the copyright of Requestarr's contributors with the Servarr team's notice.
   - Checked by Claude Code: the web app status page check.
 - **Web app logo:** Look at the web app's header in the light theme, then in the dark theme, and at the icon in the browser tab. You should see a full-height R beside the yellow QA bar, straight on the header with no box around it, the arrow in a soft charcoal, and the logo and the tab icon on charcoal gray in the dark theme, never on black.
   - Checked by Claude Code: the web app header check.

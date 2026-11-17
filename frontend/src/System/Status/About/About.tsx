@@ -17,6 +17,7 @@ function About() {
 
   const {
     version,
+    copyright,
     packageVersion,
     packageAuthor,
     isNetCore,
@@ -98,6 +99,8 @@ function About() {
           title={translate('Uptime')}
           data={<StartTime startTime={startTime} />}
         />
+
+        <DescriptionListItem title={translate('Copyright')} data={copyright} />
       </DescriptionList>
     </FieldSet>
   );

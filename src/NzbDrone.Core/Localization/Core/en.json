@@ -145,6 +145,7 @@
   "ConnectionLostReconnect": "{appName} will try to connect automatically, or you can click reload below.",
   "ConnectionLostToBackend": "{appName} has lost its connection to the backend and will need to be reloaded to restore functionality.",
   "Connections": "Connections",
+  "Copyright": "Copyright",
   "CouldNotConnectSignalR": "Could not connect to SignalR, UI won't update",
   "CountApplicationsSelected": "{count} application(s) selected",
   "CountDownloadClientsSelected": "{count} download client(s) selected",

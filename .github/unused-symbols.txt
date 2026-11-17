@@ -1,0 +1,32 @@
+# Public and internal members in Requestarr's code that no code calls, and why each stays (.github/unused_check.py).
+# One symbol a line as Roslynator names it, then two spaces, "# " and the reason. Remove a line once the member is used
+# or removed; the check reports stale lines.
+Requestarr.Core.Audit.IAuditRepository.ForTarget(string targetType, string targetId)  # the admin portal's request and member pages read a title's history with it (task 5a, next)
+Requestarr.Core.Removals.IRemovalService.LatestFor(int requestId)  # the admin portal's request page shows the latest removal with it (task 5a, next)
+Requestarr.Core.Backends.BackendInstance.ConfigContract  # a database column of the backend instance (Servarr's provider record)
+Requestarr.Core.Backends.BackendInstance.Tags  # a database column of the backend instance (Servarr's provider record)
+Requestarr.Core.Backends.EpisodeInfo.EpisodeNumber  # part of Sonarr's answer this record mirrors
+Requestarr.Core.Backends.LibraryTitle.HasFile  # part of Sonarr's and Radarr's answer this record mirrors
+Requestarr.Core.Backends.QueueEntry.SeasonNumber  # part of Sonarr's and Radarr's download queue this record mirrors
+Requestarr.Core.Backends.QueueEntry.Size  # part of Sonarr's and Radarr's download queue this record mirrors
+Requestarr.Core.Backends.QueueEntry.Title  # part of Sonarr's and Radarr's download queue this record mirrors
+Requestarr.Core.MediaServers.ShareStatus.Active  # a value of the media server share stored in the database
+Requestarr.Core.MediaServers.ShareStatus.Invited  # a value of the media server share stored in the database
+Requestarr.Core.MediaServers.ShareStatus.Requested  # a value of the media server share stored in the database
+Requestarr.Core.MediaServers.ShareStatus.Revoked  # a value of the media server share stored in the database
+Requestarr.Core.Provisioning.BackendInstanceProvisioning.Tags  # read from the provisioning file
+Requestarr.Core.Qa.QaChecklistItemState.At  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistItemState.BugReportId  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistItemState.Check  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistItemState.Evidence  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistItemState.EvidenceFiles  # in the QA checklist's API answer, which docker/qa_checks.py reads
+Requestarr.Core.Qa.QaChecklistItemState.IssueUrl  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistItemState.Reason  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistItemState.Version  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistState.Carried  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistState.CompletedAt  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistState.Environment  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Qa.QaChecklistState.New  # in the QA checklist's API answer, which docker/qa-gate.py reads
+Requestarr.Core.Requests.Request.ComicVineId  # a database column of the request (comics, deferred)
+Requestarr.Core.Requests.Request.Isbn  # a database column of the request (books, deferred)
+Requestarr.Core.Requests.Request.MusicBrainzId  # a database column of the request (music, Phase 2)
