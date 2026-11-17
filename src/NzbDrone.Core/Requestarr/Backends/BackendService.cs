@@ -37,7 +37,6 @@ namespace Requestarr.Core.Backends
         bool EverConnected(ContentType type);
 
         // The type's instances that are down right now (lost connection).
-        IReadOnlyList<BackendInstance> DownFor(ContentType type);
     }
 
     public class BackendService : IBackendService, IHandleAsync<ProvisioningCompletedEvent>
@@ -229,12 +228,6 @@ namespace Requestarr.Core.Backends
         {
             var implementation = BackendImplementations.ForContentType(type);
             return implementation != null && _repository.All().Any(b => b.Enable && b.Implementation == implementation && b.FirstConnected.HasValue);
-        }
-
-        public IReadOnlyList<BackendInstance> DownFor(ContentType type)
-        {
-            var implementation = BackendImplementations.ForContentType(type);
-            return _repository.All().Where(b => b.Enable && b.Implementation == implementation && b.DownSince.HasValue).ToList();
         }
 
         public static NamedItem ResolveProfile(IReadOnlyList<NamedItem> profiles, string wanted)

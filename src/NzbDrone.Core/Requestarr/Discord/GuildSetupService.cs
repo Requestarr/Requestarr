@@ -19,7 +19,6 @@ namespace Requestarr.Core.Discord
         // The shared role every onboarded member holds; it can read the announcements channel.
         ulong? MembersRoleId { get; }
         ulong? AnnouncementsChannelId { get; }
-        ulong? WelcomeChannelId { get; }
         ulong? BlockedRoleId { get; }
     }
 
@@ -53,8 +52,6 @@ namespace Requestarr.Core.Discord
         public ulong? MembersRoleId => Parse(GetConfig()?.MembersRoleId);
 
         public ulong? AnnouncementsChannelId => Parse(GetConfig()?.AnnouncementsChannelId);
-
-        public ulong? WelcomeChannelId => Parse(GetConfig()?.WelcomeChannelId);
 
         public ulong? BlockedRoleId => Parse(GetConfig()?.BlockedRoleId);
 

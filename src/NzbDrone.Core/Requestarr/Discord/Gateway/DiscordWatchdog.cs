@@ -29,17 +29,6 @@ namespace Requestarr.Core.Discord.Gateway
             _lastHeartbeat = clock();
         }
 
-        public bool Connected
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _connected;
-                }
-            }
-        }
-
         public void OnConnected()
         {
             lock (_lock)

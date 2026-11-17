@@ -34,6 +34,10 @@ jobs:
           global-json-file: global.json
       - name: Build
         run: dotnet build src/Requestarr.sln -c Debug -p:Platform=Posix
+      - name: No unused public or internal members in Requestarr's code (Roslynator)
+        run: |
+          dotnet tool restore
+          python3 .github/unused_check.py
       - name: Test
         working-directory: _tests/net10.0
         run: >
@@ -157,6 +161,7 @@ jobs:
           python3 .github/suppression_check.py --self-test
           python3 docker/qa-gate.py --self-test
           python3 docker/qa_checks.py --self-test
+          python3 .github/unused_check.py --self-test
       - name: CHANGELOG.md says what this change does under Unreleased, written to the rule
         env:
           EVENT: ${{ github.event_name }}

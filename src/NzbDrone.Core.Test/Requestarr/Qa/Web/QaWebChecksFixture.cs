@@ -79,6 +79,11 @@ namespace Requestarr.Core.Test.Qa.Web
             shown.Should().Be(built, "the label the image was built with");
             shown.Should().EndWith("." + Commit, "the build is the commit QA receives");
             logoTitle.Should().Contain(shown);
+
+            var copyright = await browser.EvalAsync<string>("[...document.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Copyright').nextElementSibling.textContent.trim()");
+            check.Saw($"About says: {copyright}");
+            copyright.Should().StartWith("Copyright 2026-").And.Contain("Requestarr contributors").And.NotContain("Runemark")
+                .And.EndWith("Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)");
         });
 
         [Test]

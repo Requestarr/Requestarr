@@ -28,8 +28,6 @@ namespace Requestarr.Core.Removals
         public ContentType Type => DiscordText.TypeOf(Instance);
 
         public string Label => Titles.WithYear(Title.Title, Title.Year);
-
-        public int? ExternalId => Type == ContentType.Tv ? Title.TvdbId : Title.TmdbId;
     }
 
     public interface IRemovalService

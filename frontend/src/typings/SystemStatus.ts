@@ -4,6 +4,7 @@ interface SystemStatus {
   authentication: string;
   branch: string;
   buildTime: string;
+  copyright: string;
   databaseVersion: string;
   databaseType: string;
   instanceName: string;
