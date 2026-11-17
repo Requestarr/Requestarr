@@ -289,7 +289,7 @@ indent_size = 2
 # (TreatWarningsAsErrors). Limits are in src/SonarLint.xml; reasons in docs/development.md#clean-code.
 # A file Requestarr adds outside a Requestarr folder is added to this list in the same pull request.
 # ---------------------------------------------------------------------------------------------------------------------
-[{src/**/Requestarr/**.cs,src/NzbDrone.Core/Datastore/Migration/*.cs,src/Requestarr.Http/Qa/**.cs,src/Requestarr.Http/Portal/**.cs,src/Requestarr.Http/Webhooks/**.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogo.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogoMapper.cs,src/Requestarr.Http/Frontend/Mappers/WebIcons.cs,src/NzbDrone.Common/Exceptions/RequestarrStartupException.cs,src/Requestarr.Api.V1.Test/Frontend/VersionLogoFixture.cs,src/NzbDrone.Common.Test/ExtensionTests/StringExtensionTests/ForLogFixture.cs}]
+[{src/**/Requestarr/**.cs,src/NzbDrone.Core/Datastore/Migration/*.cs,src/Requestarr.Http/Qa/**.cs,src/Requestarr.Http/Webhooks/**.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogo.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogoMapper.cs,src/Requestarr.Http/Frontend/Mappers/WebIcons.cs,src/NzbDrone.Common/Exceptions/RequestarrStartupException.cs,src/Requestarr.Api.V1.Test/Frontend/VersionLogoFixture.cs,src/NzbDrone.Common.Test/ExtensionTests/StringExtensionTests/ForLogFixture.cs}]
 
 # Unused code: private members, members written but never read, parameters, locals, private fields.
 dotnet_diagnostic.IDE0051.severity = warning

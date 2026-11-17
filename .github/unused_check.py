@@ -25,7 +25,7 @@ REPO = os.path.dirname(HERE)
 BASELINE = os.path.join(HERE, "unused-symbols.txt")
 
 # Requestarr's own code: .editorconfig's "Requestarr additions", relative to src/.
-INCLUDE = ["**/Requestarr/**", "NzbDrone.Core/Datastore/Migration/*.cs", "Requestarr.Http/Qa/**", "Requestarr.Http/Portal/**", "Requestarr.Http/Webhooks/**",
+INCLUDE = ["**/Requestarr/**", "NzbDrone.Core/Datastore/Migration/*.cs", "Requestarr.Http/Qa/**", "Requestarr.Http/Webhooks/**",
            "Requestarr.Http/Frontend/Mappers/VersionLogo.cs", "Requestarr.Http/Frontend/Mappers/VersionLogoMapper.cs",
            "Requestarr.Http/Frontend/Mappers/WebIcons.cs", "NzbDrone.Common/Exceptions/RequestarrStartupException.cs"]
 TEST_PROJECTS = ["Requestarr.Core.Test", "Requestarr.Api.V1.Test", "Requestarr.Common.Test", "Requestarr.Host.Test",
