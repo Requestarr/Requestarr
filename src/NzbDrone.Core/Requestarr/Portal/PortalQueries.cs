@@ -130,7 +130,7 @@ namespace Requestarr.Core.Portal
             var own = all.Values.Where(r => r.OwnerUserId == id).OrderByDescending(r => r.Requested).ToList();
             var following = _subscribers.ForUser(id).Select(s => all.GetValueOrDefault(s.RequestId)).Where(r => r != null).ToList();
             var removals = _proposals.All().Where(p => p.RequesterUserId == id || p.InitiatedByUserId == id).OrderByDescending(p => p.Created).Select(p => Removal(p, names)).ToList();
-            var history = _audit.ForTarget("user", id.ToString()).OrderBy(e => e.Timestamp).Select(PortalText.Event).ToList();
+            var history = _audit.ForTarget("user", id.ToString()).OrderBy(e => e.Timestamp).Select(e => PortalText.Event(e, names)).ToList();
 
             return new PortalMemberDetail(Member(user, own, following.Count, instances), own.Select(rows.Of).ToList(), following.Select(rows.Of).ToList(), removals, MediaServer(id), history);
         }
@@ -149,7 +149,7 @@ namespace Requestarr.Core.Portal
             var requested = PortalText.Action("request.create");
             var events = _audit.ForTarget("request", request.Id.ToString())
                 .Concat(_proposals.ForRequest(request.Id).SelectMany(p => _audit.ForTarget("removal", p.Id.ToString())))
-                .Select(PortalText.Event)
+                .Select(e => PortalText.Event(e, names))
                 .ToList();
 
             if (!events.Any(e => e.What == requested))

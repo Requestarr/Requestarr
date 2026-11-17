@@ -89,6 +89,7 @@ namespace Requestarr.Core.Test.Portal
             var dune = Requested("Dune", _alice, RequestStatus.Available, 1);
             var removal = Db.Insert(new RemovalProposal { RequestId = dune.Id, Title = "Dune", Status = RemovalStatus.Voting, Created = Start.AddHours(9), InitiatedByName = "Bob" });
             Audited("request", dune.Id, "request.approve", "discord:111 (Carol)", 3, "looks good");
+            Db.Insert(new AuditEntry { TargetType = "request", TargetId = dune.Id.ToString(), Action = "request.subscribe", Actor = "discord:222 (user-222)", ActorUserId = _bob.Id, Timestamp = Start.AddHours(4) });
             Audited("request", dune.Id, "request.fulfilled", "system", 6);
             Audited("removal", removal.Id, "removal.start", "discord:222 (Bob)", 9);
             Mocker.GetMock<IRemovalService>().Setup(s => s.LatestFor(dune.Id)).Returns(removal);
@@ -98,6 +99,7 @@ namespace Requestarr.Core.Test.Portal
             detail.Timeline.Should().Equal(
                 new PortalEvent(Start.AddHours(1), "Requested", "Alice", null),
                 new PortalEvent(Start.AddHours(3), "Approved", "Carol", "looks good"),
+                new PortalEvent(Start.AddHours(4), "Followed", "Bob", null),
                 new PortalEvent(Start.AddHours(6), "Available", PortalText.Requestarr, null),
                 new PortalEvent(Start.AddHours(9), "Removal started", "Bob", null));
             detail.LatestRemoval.StartedBy.Should().Be("Bob");

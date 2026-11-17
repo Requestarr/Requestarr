@@ -61,6 +61,11 @@ namespace Requestarr.Core.Portal
             return discord.Success ? discord.Groups["name"].Value : Requestarr;
         }
 
-        public static PortalEvent Event(AuditEntry entry) => new(entry.Timestamp, Action(entry.Action), Actor(entry.Actor), entry.Detail);
+        // Who: a member as Requestarr knows them when the entry says which member it was, else the name it recorded.
+        public static PortalEvent Event(AuditEntry entry, IReadOnlyDictionary<int, string> members)
+        {
+            var who = entry.ActorUserId is { } id && members.TryGetValue(id, out var name) ? name : Actor(entry.Actor);
+            return new PortalEvent(entry.Timestamp, Action(entry.Action), who, entry.Detail);
+        }
     }
 }
