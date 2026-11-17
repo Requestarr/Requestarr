@@ -157,6 +157,18 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public void a_waiting_removal_names_and_opens_its_requester_and_a_limit_without_a_window_counts_7_days()
+        {
+            var dune = Requested("Dune", _alice, RequestStatus.Available, 1);
+            var removal = Db.Insert(new RemovalProposal { RequestId = dune.Id, Title = "Dune", Year = 2021, Status = RemovalStatus.Declined, Created = Start, RequesterUserId = _alice.Id, InitiatedByUserId = _bob.Id, InitiatedByName = "Bob" });
+            Db.Insert(new UserMediaAccess { UserId = _alice.Id, ContentType = ContentType.Movie, State = AccessState.AutoApprove, QuotaLimit = 2 });
+            Mocker.GetMock<IAdminQueue>().Setup(q => q.Items()).Returns(new List<QueueItem> { new($"x{removal.Id}", Start) });
+
+            Subject.Queue().Single().Should().Be(new PortalQueueItem($"x{removal.Id}", "removal", Start, "Dune (2021)", "Alice", dune.Id, _alice.Id));
+            Subject.Members().Single(m => m.Id == _alice.Id).Access.Single().QuotaDays.Should().Be(7);
+        }
+
+        [Test]
         public void an_unknown_request_or_member_is_not_found()
         {
             Subject.Request(999).Should().BeNull();

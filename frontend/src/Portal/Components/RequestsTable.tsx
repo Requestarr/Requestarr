@@ -14,8 +14,9 @@ import {
   seasonsText,
   titleText,
 } from '../portalText';
-import { PortalPerson, PortalRequest } from '../PortalTypes';
+import { PortalRequest } from '../PortalTypes';
 import useSortedRows, { SortValues } from '../useSortedRows';
+import MemberLink from './MemberLink';
 import styles from '../Portal.css';
 
 const columns: Column[] = [
@@ -37,14 +38,6 @@ const sortValues: SortValues<PortalRequest> = {
   instance: (r) => r.instance,
   requested: (r) => r.requested,
 };
-
-function MemberLink({ person }: { person: PortalPerson }) {
-  return (
-    <Link to={`/members/${person.id}`}>
-      {person.name ?? translate('PortalUnknownMember')}
-    </Link>
-  );
-}
 
 function RequestRow({ request }: { request: PortalRequest }) {
   const seasons = seasonsText(request.seasons);

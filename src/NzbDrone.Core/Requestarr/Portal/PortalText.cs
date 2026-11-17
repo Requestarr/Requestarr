@@ -26,6 +26,7 @@ namespace Requestarr.Core.Portal
             ["request.available"] = "Already available",
             ["request.removed"] = "Removed from the library",
             ["removal.start"] = "Removal started",
+            ["removal.requester-yes"] = "Requester said remove it",
             ["removal.requester-no"] = "Requester said keep it",
             ["removal.requester-silent"] = "Requester didn't answer: put to a vote",
             ["removal.keep"] = "Keep it pressed",
@@ -36,6 +37,8 @@ namespace Requestarr.Core.Portal
             ["removal.drop"] = "Dropped",
             ["removal.deleted"] = "Deleted",
             ["removal.failed"] = "Deletion failed",
+            ["user.record"] = "First seen",
+            ["user.admin-record"] = "First seen, as an admin",
             ["user.add"] = "Added",
             ["user.access"] = "Access changed",
             ["user.quota"] = "Limit changed",
@@ -43,8 +46,7 @@ namespace Requestarr.Core.Portal
             ["user.unsuspend"] = "Unsuspended",
             ["user.remove"] = "Removed",
             ["user.departed"] = "Left the server",
-            ["mediaserver.link"] = "Media server linked",
-            ["access.unblock"] = "Access requests unpaused"
+            ["mediaserver.link"] = "Media server linked"
         };
 
         private static readonly Regex DiscordName = new(@"^discord:\d+ \((?<name>.*)\)$");

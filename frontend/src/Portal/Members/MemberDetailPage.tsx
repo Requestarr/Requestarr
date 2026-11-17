@@ -13,14 +13,14 @@ import { accessText, contentTypeText, memberStatusText } from '../portalText';
 import { PortalMemberDetail } from '../PortalTypes';
 import usePortal from '../usePortal';
 
-// The member's rows, title then value: who they are, then one row per type they have a setting for.
+// The member's rows, title then value: who they are, then one row per type they have a setting for; a row with
+// nothing to show is left out.
 function memberRows(
   detail: PortalMemberDetail,
   dateText: (date: string | null) => string
 ): [string, ReactNode][] {
   const { member } = detail;
-
-  return [
+  const rows: [string, ReactNode][] = [
     [translate('PortalDiscordName'), member.discordName],
     [translate('PortalStatus'), memberStatusText(member.status)],
     [translate('PortalAdded'), dateText(member.added)],
@@ -33,6 +33,8 @@ function memberRows(
       [accessText(access), access.instance].filter(Boolean).join(' · '),
     ]),
   ];
+
+  return rows.filter(([, value]) => value);
 }
 
 function Summary({ detail }: { detail: PortalMemberDetail }) {
@@ -40,11 +42,9 @@ function Summary({ detail }: { detail: PortalMemberDetail }) {
 
   return (
     <DescriptionList>
-      {memberRows(detail, dateText)
-        .filter(([, value]) => value)
-        .map(([title, value]) => (
-          <DescriptionListItem key={title} title={title} data={value} />
-        ))}
+      {memberRows(detail, dateText).map(([title, value]) => (
+        <DescriptionListItem key={title} title={title} data={value} />
+      ))}
     </DescriptionList>
   );
 }

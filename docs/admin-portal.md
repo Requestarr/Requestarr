@@ -16,8 +16,8 @@ Discord stays the place members act; the portal never replaces a Discord message
 | `/admin requests` (**Skip**, **Start over**) | The same walk, one private card at a time | Queue | 5a (read), 5c (act) |
 | Approval card (**Approve**, **Deny**, **Already available**) | A request that needs approval | Queue and the request's page | 5a (read), 5c (act) |
 | Access request card (**Approve…**, **Deny**) | Someone in the welcome channel asking to join | Queue | 5a (read), 5c (act) |
-| Paused access requests notice (**Unblock**) | Someone who clicked too often | Members (status) and the member's page | 5a (read), 5c (act) |
-| Media server link request (**Approve Plex link**, **Deny Plex link**) | A member asking to link their Plex account | Queue and the member's page | 5a (read), 5c (act) |
+| Paused access requests notice (**Unblock**) | Someone who clicked too often; they aren't a member yet, so no member page has them | Access requests (a page of its own) | 5c |
+| Media server link request (**Approve Plex link**, **Deny Plex link**) | A member asking to link their Plex account | Queue (waiting); the member's page shows the account once linked | 5a (read), 5c (act) |
 | Download in trouble (**Search again**, **Try adding again**, **Cancel request**) | A sent request that failed, stalled or couldn't be added | Queue and the request's page | 5a (read), 5c (act) |
 | Instance down (**Check now**; the alert's **Announce to users**) | A Sonarr or Radarr that can't be reached | Queue | 5a (read), 5c (act and outage history) |
 | Removal waiting on the admin (**Force removal**, **Drop removal**) | A requester's No, a vote kept by Keep it, a failed deletion, a removal waiting on its requester | Queue and the request's page | 5a (read), 5c (act) |

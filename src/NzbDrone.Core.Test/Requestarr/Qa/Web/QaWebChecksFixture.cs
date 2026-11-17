@@ -86,6 +86,50 @@ namespace Requestarr.Core.Test.Qa.Web
                 .And.EndWith("Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)");
         });
 
+        // The admin portal's read views: Requests, Members and Queue load in both themes with their table or their
+        // "nothing yet" line, and a request's and a member's own page open from the lists when there are any.
+        [Test]
+        public Task portal_pages() => CheckAsync(nameof(portal_pages), async (browser, check) =>
+        {
+            const string Loaded = "document.querySelector('table, [class*=\"Portal-empty\"], [class*=\"Alert-\"]')";
+            const string Failed = "!!document.querySelector('[class*=\"Alert-danger\"], [class*=\"Alert-warning\"]')";
+            await SignInAsync(browser);
+
+            foreach (var theme in Themes)
+            {
+                await browser.SetThemeAsync(theme);
+
+                foreach (var page in new[] { "requests", "members", "queue" })
+                {
+                    await browser.GoAsync($"{Url}/{page}");
+                    await browser.WaitForAsync(Loaded);
+                    (await browser.EvalAsync<bool>(Failed)).Should().BeFalse($"the {page} page loads");
+                    var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
+                    check.Saw($"{page} ({theme}): {rows} row(s)");
+                    await check.ShotAsync(browser, $"{page}-{theme}");
+                    await OpenFirstAsync(browser, check, page, theme);
+                }
+            }
+        });
+
+        // A list's first title or name opens its own page, which shows what it is and its history.
+        private static async Task OpenFirstAsync(HeadlessBrowser browser, WebCheck check, string page, string theme)
+        {
+            var link = await browser.EvalAsync<string>($"document.querySelector('tbody a[href*=\"/{page}/\"]')?.getAttribute('href') ?? ''");
+
+            if (page == "queue" || string.IsNullOrEmpty(link))
+            {
+                return;
+            }
+
+            await browser.GoAsync(Url + link[link.IndexOf("/" + page + "/", StringComparison.Ordinal)..]);
+            await browser.WaitForAsync("document.querySelectorAll('legend').length > 1");
+            var sections = await browser.EvalAsync<string>("[...document.querySelectorAll('legend')].map(l => l.textContent.trim()).join(', ')");
+            check.Saw($"{page} detail ({theme}): {sections}");
+            sections.Should().Contain(page == "requests" ? "Timeline" : "History");
+            await check.ShotAsync(browser, $"{page}-detail-{theme}");
+        }
+
         [Test]
         public Task header_logo() => CheckAsync(nameof(header_logo), async (browser, check) =>
         {

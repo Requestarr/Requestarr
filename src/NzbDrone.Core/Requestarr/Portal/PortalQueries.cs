@@ -25,6 +25,11 @@ namespace Requestarr.Core.Portal
     // Discord, Sonarr or Radarr, so the pages load fast and show what Requestarr knows.
     public class PortalQueries : IPortalQueries
     {
+        // An access request's title when the person wrote no note.
+        private const string NoNote = "No note";
+
+        private static readonly TimeSpan DefaultQuotaWindow = TimeSpan.FromDays(7);
+
         private readonly IRequestRepository _requests;
         private readonly IRequestSubscriberRepository _subscribers;
         private readonly IRequestarrUserRepository _users;
@@ -95,8 +100,12 @@ namespace Requestarr.Core.Portal
 
         public IReadOnlyList<PortalMember> Members()
         {
-            var requests = _requests.All().ToLookup(r => r.OwnerUserId);
-            var following = _subscribers.All().ToLookup(s => s.UserId);
+            var all = _requests.All().ToList();
+            var requests = all.ToLookup(r => r.OwnerUserId);
+            var ids = all.Select(r => r.Id).ToHashSet();
+
+            // Only follows of requests that still exist, as the member's own page lists them.
+            var following = _subscribers.All().Where(s => ids.Contains(s.RequestId)).ToLookup(s => s.UserId);
             var instances = Instances();
 
             return _users.All()
@@ -163,7 +172,8 @@ namespace Requestarr.Core.Portal
 
         private static PortalAccess Access(UserMediaAccess access, Dictionary<int, string> instances)
         {
-            int? days = access.QuotaWindow.HasValue ? (int)access.QuotaWindow.Value.TotalDays : null;
+            // A limit without its own window counts the last 7 days, as requests and the member card do.
+            int? days = access.QuotaLimit.HasValue ? (int)(access.QuotaWindow ?? DefaultQuotaWindow).TotalDays : null;
             var instance = access.BackendId.HasValue ? instances.GetValueOrDefault(access.BackendId.Value) : null;
 
             return new PortalAccess(access.ContentType, access.State, access.QuotaLimit, days, instance);
@@ -196,14 +206,22 @@ namespace Requestarr.Core.Portal
                 ? new PortalQueueItem(item.Key, "mediaServerLink", item.Since, $"{link.Provider}: {link.Username}", names.GetValueOrDefault(link.UserId), null, link.UserId)
                 : null,
             'i' => _backends.Find(item.Id) is { } instance ? new PortalQueueItem(item.Key, "instanceDown", item.Since, instance.Name, null, null, null) : null,
-            'x' => _proposals.Find(item.Id) is { } removal
-                ? new PortalQueueItem(item.Key, "removal", item.Since, removal.Label, removal.InitiatedByName, removal.RequestId, removal.RequesterUserId)
-                : null,
+            'x' => _proposals.Find(item.Id) is { } removal ? RemovalItem(item, removal, names) : null,
             'a' => _accessRequests.Find(item.Id) is { } access
-                ? new PortalQueueItem(item.Key, "accessRequest", item.Since, access.Note, access.DisplayName ?? access.Username, null, null)
+                ? new PortalQueueItem(item.Key, "accessRequest", item.Since, access.Note ?? NoNote, access.DisplayName ?? access.Username, null, null)
                 : null,
             _ => null
         };
+
+        // A removal waits on the admin about its requester's title (their No, a vote they lost); one with no requester
+        // names whoever started it. The name and the member page it opens are always the same person.
+        private static PortalQueueItem RemovalItem(QueueItem item, RemovalProposal removal, Dictionary<int, string> names)
+        {
+            var memberId = removal.RequesterUserId ?? removal.InitiatedByUserId;
+            var who = removal.RequesterUserId.HasValue ? names.GetValueOrDefault(removal.RequesterUserId.Value) : removal.InitiatedByName;
+
+            return new PortalQueueItem(item.Key, "removal", item.Since, removal.Label, who, removal.RequestId, memberId);
+        }
 
         private PortalQueueItem RequestItem(QueueItem item, string kind, Dictionary<int, string> names) =>
             _requests.Find(item.Id) is { } request

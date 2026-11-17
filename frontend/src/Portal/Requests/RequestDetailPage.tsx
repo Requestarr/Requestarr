@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
-import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
+import MemberLink from '../Components/MemberLink';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
 import TimelineTable from '../Components/TimelineTable';
@@ -29,9 +29,7 @@ function People({ people }: { people: PortalPerson[] }) {
       {people.map((person, index) => (
         <span key={person.id}>
           {index > 0 && ', '}
-          <Link to={`/members/${person.id}`}>
-            {person.name ?? translate('PortalUnknownMember')}
-          </Link>
+          <MemberLink person={person} />
         </span>
       ))}
     </>

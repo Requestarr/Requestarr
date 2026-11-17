@@ -61,10 +61,10 @@ export function statusText(status: RequestStatus) {
 // "Approved", or while Sonarr or Radarr has it, "Approved: downloading".
 export function requestStatusText(request: PortalRequest) {
   const status = statusText(request.status);
-  const isDownloading =
+  const hasProgress =
     request.status === 'approved' && request.progress !== 'none';
 
-  return isDownloading
+  return hasProgress
     ? `${status}: ${translate(
         `PortalProgress${capitalised(request.progress)}`
       )}`
