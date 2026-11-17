@@ -7,7 +7,8 @@ An analyzer looks at one project at a time, so it can't see a public member nobo
 files `.editorconfig`'s "Requestarr additions" holds to the clean-code rules; inherited Servarr code is left as it is.
 
 Set aside, because something other than code reaches them: constructors (dependency injection builds the services,
-records their own), controllers (routing) and migrations (the migration runner). What's left fails the build unless
+records their own), controllers (routing), migrations (the migration runner) and the properties of records that are
+API answers as a whole, the admin portal's (the JSON serializer). What's left fails the build unless
 .github/unused-symbols.txt lists it with the reason it stays (written to a database column, sent in an API answer,
 read from a file). A listed symbol that's no longer found is reported, so the list doesn't keep stale lines.
 
@@ -31,6 +32,8 @@ TEST_PROJECTS = ["Requestarr.Core.Test", "Requestarr.Api.V1.Test", "Requestarr.C
                  "Requestarr.Libraries.Test", "Requestarr.Mono.Test", "Requestarr.Update.Test", "Requestarr.Windows.Test",
                  "Requestarr.Integration.Test", "Requestarr.Automation.Test", "Requestarr.Benchmark.Test",
                  "Requestarr.Test.Common", "Requestarr.Test.Dummy"]
+# Records that are API answers as a whole: the JSON serializer reads every property, so none is unused.
+ANSWERS = ("Requestarr.Core.Portal.Portal",)
 KINDS = ("class", "method", "property", "field", "const", "enum", "interface", "struct", "event", "indexer", "delegate")
 FINDING = re.compile(r"^\s+(%s)\s+(\S.*)$" % "|".join(KINDS))
 
@@ -41,11 +44,15 @@ def findings(output):
 
 
 def reached_otherwise(kind, symbol):
-    """Constructors, controllers and migrations: injection, routing and the migration runner reach them."""
+    """Constructors, controllers, migrations and API answers' properties: injection, routing, the migration runner
+    and the JSON serializer reach them."""
     call = re.match(r"(?P<type>.*)\.(?P<name>[^.(<]+)(?:<[^>]*>)?\(", symbol)
     if kind == "method" and call and re.sub(r"<.*>$", "", call.group("type").split(".")[-1]) == call.group("name"):
         return True
-    return re.search(r"Controller\b", symbol) is not None or ".Datastore.Migration." in symbol
+    if kind == "property" and symbol.startswith(ANSWERS):
+        return True
+    owner = call.group("type") if call else symbol
+    return owner.split(".")[-1].endswith("Controller") or ".Datastore.Migration." in symbol
 
 
 def baseline(text):
@@ -68,7 +75,7 @@ def run_roslynator():
     command = ["dotnet", "roslynator", "find-symbol", os.path.join("src", "Requestarr.sln"), "--unused", "--visibility", "public", "internal",
                "--ignored-projects"] + TEST_PROJECTS + ["--include"] + INCLUDE + ["-v", "n"]
     result = subprocess.run(command, cwd=REPO, capture_output=True, text=True)
-    if result.returncode != 0 or "symbols found" not in result.stdout:
+    if result.returncode != 0 or not re.search(r"\d+ symbols? found", result.stdout):
         sys.exit("Roslynator didn't run (exit %d):\n%s%s" % (result.returncode, result.stdout[-2000:], result.stderr[-2000:]))
     return result.stdout
 
@@ -99,6 +106,8 @@ SAMPLE = """Analyze solution 'src/Requestarr.sln'
     class    NzbDrone.Core.Datastore.Migration.qa_automated_results
     property Requestarr.Core.Requests.Request.Isbn
     method   Requestarr.Core.Requests.RequestCards.Outcome(ServiceResult result)
+    method   Requestarr.Core.Qa.QaRunner.Use(IFooController controller)
+    property Requestarr.Core.Portal.PortalRequest.Followers
 
 2 symbols found
 """
@@ -108,8 +117,9 @@ def self_test():
     kept = baseline("# header\nRequestarr.Core.Requests.Request.Isbn  # a database column\nRequestarr.Core.Gone.Old  # was used\nRequestarr.Core.X.Y\n")
     new, stale, unexplained = compare(findings(SAMPLE), kept)
     cases = [
-        ("six findings read", len(findings(SAMPLE)) == 6),
-        ("constructors, generic ones too, a controller and a migration set aside", new == ["Requestarr.Core.Requests.RequestCards.Outcome(ServiceResult result)"]),
+        ("eight findings read", len(findings(SAMPLE)) == 8),
+        ("constructors, generic ones too, a controller, a migration and an API answer's property set aside", new[:1] == ["Requestarr.Core.Requests.RequestCards.Outcome(ServiceResult result)"]),
+        ("a controller only as a parameter type isn't set aside", new[1:] == ["Requestarr.Core.Qa.QaRunner.Use(IFooController controller)"]),
         ("a listed symbol no longer found is stale", "Requestarr.Core.Gone.Old" in stale),
         ("a listed symbol needs its reason", unexplained == ["Requestarr.Core.X.Y"]),
         ("a listed finding with its reason passes", "Requestarr.Core.Requests.Request.Isbn" not in new),

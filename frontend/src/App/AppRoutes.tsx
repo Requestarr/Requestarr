@@ -2,6 +2,11 @@ import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
+import MemberDetailPage from 'Portal/Members/MemberDetailPage';
+import MembersPage from 'Portal/Members/MembersPage';
+import QueuePage from 'Portal/Queue/QueuePage';
+import RequestDetailPage from 'Portal/Requests/RequestDetailPage';
+import RequestsPage from 'Portal/Requests/RequestsPage';
 import DevelopmentSettingsConnector from 'Settings/Development/DevelopmentSettingsConnector';
 import GeneralSettingsConnector from 'Settings/General/GeneralSettingsConnector';
 import Settings from 'Settings/Settings';
@@ -38,6 +43,20 @@ function AppRoutes() {
           render={RedirectToSystemStatus}
         />
       )}
+
+      {/*
+        Admin portal
+      */}
+
+      <Route exact={true} path="/requests" component={RequestsPage} />
+
+      <Route path="/requests/:id" component={RequestDetailPage} />
+
+      <Route exact={true} path="/members" component={MembersPage} />
+
+      <Route path="/members/:id" component={MemberDetailPage} />
+
+      <Route path="/queue" component={QueuePage} />
 
       {/*
         Settings

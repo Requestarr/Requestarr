@@ -1,0 +1,44 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+
+  margin-bottom: 20px;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+}
+
+.filterLabel {
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.poster {
+  max-width: 150px;
+  max-height: 225px;
+  border-radius: 4px;
+}
+
+.muted {
+  color: var(--helpTextColor);
+}
+
+.empty {
+  padding: 10px 0;
+  color: var(--helpTextColor);
+}
+
+.count {
+  margin-bottom: 10px;
+  color: var(--helpTextColor);
+}
