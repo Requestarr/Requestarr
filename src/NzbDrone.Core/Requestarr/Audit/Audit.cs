@@ -41,6 +41,9 @@ namespace Requestarr.Core.Audit
         List<AuditEntry> ForTargetTypes(string first, string second);
 
         List<AuditEntry> ForAction(string action);
+
+        // Deletes the entries from before the cutoff; how many went.
+        int DeleteOlderThan(DateTime cutoff);
     }
 
     public class AuditRepository : BasicRepository<AuditEntry>, IAuditRepository
@@ -63,6 +66,14 @@ namespace Requestarr.Core.Audit
         public List<AuditEntry> ForAction(string action)
         {
             return Query(a => a.Action == action);
+        }
+
+        public int DeleteOlderThan(DateTime cutoff)
+        {
+            var count = Query(a => a.Timestamp < cutoff).Count;
+            Delete(a => a.Timestamp < cutoff);
+
+            return count;
         }
     }
 

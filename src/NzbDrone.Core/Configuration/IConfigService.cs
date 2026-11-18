@@ -38,6 +38,9 @@ namespace NzbDrone.Core.Configuration
         int BugReportsPerDay { get; set; }
         int BugReportsMinutesBetween { get; set; }
 
+        // How long Requestarr's audit log keeps an entry; read through Requestarr.Core.Audit.AuditSettings
+        string AuditLogKeepFor { get; set; }
+
         // Requestarr's settings that the provisioning file keeps in memory only; saved here when there is no file
         // (beta and production), read through Requestarr.Core.Settings.StoredSettings
         string BugReportsGithubToken { get; set; }

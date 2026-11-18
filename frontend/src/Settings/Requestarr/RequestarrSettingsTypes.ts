@@ -6,7 +6,7 @@ export interface AppSettings {
   values: Record<string, SettingValue>;
 }
 
-export type SettingInput = 'text' | 'number' | 'check' | 'password';
+export type SettingInput = 'text' | 'number' | 'check' | 'password' | 'select';
 
 export interface SettingsSection {
   legend: string;

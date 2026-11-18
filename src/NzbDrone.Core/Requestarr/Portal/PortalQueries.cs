@@ -47,6 +47,7 @@ namespace Requestarr.Core.Portal
         private readonly IMediaServerAccessRequestRepository _mediaRequests;
         private readonly IAccessRequestRepository _accessRequests;
         private readonly IAdminQueue _queue;
+        private readonly IAuditSettings _auditSettings;
 
         public PortalQueries(
             IRequestRepository requests,
@@ -62,7 +63,8 @@ namespace Requestarr.Core.Portal
             IMediaServerAccountRepository mediaAccounts,
             IMediaServerAccessRequestRepository mediaRequests,
             IAccessRequestRepository accessRequests,
-            IAdminQueue queue)
+            IAdminQueue queue,
+            IAuditSettings auditSettings)
         {
             _requests = requests;
             _subscribers = subscribers;
@@ -78,6 +80,7 @@ namespace Requestarr.Core.Portal
             _mediaRequests = mediaRequests;
             _accessRequests = accessRequests;
             _queue = queue;
+            _auditSettings = auditSettings;
         }
 
         public IReadOnlyList<PortalRequest> Requests()
@@ -109,7 +112,8 @@ namespace Requestarr.Core.Portal
                 request.PosterUrl,
                 removal,
                 Timeline(request, names),
-                Actions(request, latest));
+                Actions(request, latest),
+                HistoryTrimmedAfter(request.Requested));
         }
 
         public IReadOnlyList<PortalMember> Members()
@@ -147,7 +151,7 @@ namespace Requestarr.Core.Portal
             var discordNames = PortalText.DiscordNames(_identities.All(), names);
             var history = _audit.ForTarget("user", id.ToString()).OrderBy(e => e.Timestamp).Select(e => PortalText.Event(e, names, discordNames)).ToList();
 
-            return new PortalMemberDetail(Member(user, own, following.Count, instances), own.Select(rows.Of).ToList(), following.Select(rows.Of).ToList(), removals, MediaServer(id), history);
+            return new PortalMemberDetail(Member(user, own, following.Count, instances), own.Select(rows.Of).ToList(), following.Select(rows.Of).ToList(), removals, MediaServer(id), history, HistoryTrimmedAfter(user.Added));
         }
 
         public IReadOnlyList<PortalQueueItem> Queue()
@@ -162,6 +166,14 @@ namespace Requestarr.Core.Portal
             var names = Names();
 
             return _proposals.All().Where(p => p.RequestId == null && p.IsOpen).OrderBy(p => p.Created).Select(p => new PortalTitleRemoval(p.Label, Removal(p, names))).ToList();
+        }
+
+        // Something that began before the audit log's cutoff may have lost its first events to the daily trim.
+        private string HistoryTrimmedAfter(DateTime since)
+        {
+            var keepFor = _auditSettings.KeepFor;
+
+            return AuditRetention.Cutoff(keepFor, DateTime.UtcNow) is { } cutoff && since < cutoff ? keepFor : null;
         }
 
         // The request's own history and its removals', oldest first. A request made before the audit log recorded

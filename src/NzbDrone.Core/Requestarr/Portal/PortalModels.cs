@@ -26,9 +26,10 @@ namespace Requestarr.Core.Portal
     public record PortalTitleRemoval(string Title, PortalRemoval Removal);
 
     // Actions: what an admin can do to it now, as its feed card in Discord offers (approve, deny, available, cancel,
-    // searchAgain, retry, addSeasons, remove, forceRemoval, dropRemoval).
+    // searchAgain, retry, addSeasons, remove, forceRemoval, dropRemoval). HistoryTrimmedAfter: how long the audit log keeps
+    // an entry ("1 year") when the request is older than that, so its first events may have been trimmed; otherwise null.
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,
-                                      PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions);
+                                      PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions, string HistoryTrimmedAfter);
 
     // A member's access to one content type: its level, their limit (requests per so many days) and their instance.
     public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays, string Instance);
@@ -36,9 +37,9 @@ namespace Requestarr.Core.Portal
     public record PortalMember(int Id, string Name, string DiscordName, string DiscordId, UserStatus Status, DateTime Added, IReadOnlyList<PortalAccess> Access,
                                int Requests, int Active, int Pending, int Following);
 
-    // MediaServer: the linked account ("Plex: name"), or null.
+    // MediaServer: the linked account ("Plex: name"), or null. HistoryTrimmedAfter: as on a request's page.
     public record PortalMemberDetail(PortalMember Member, IReadOnlyList<PortalRequest> Requests, IReadOnlyList<PortalRequest> Following,
-                                     IReadOnlyList<PortalRemoval> Removals, string MediaServer, IReadOnlyList<PortalEvent> History);
+                                     IReadOnlyList<PortalRemoval> Removals, string MediaServer, IReadOnlyList<PortalEvent> History, string HistoryTrimmedAfter);
 
     // One thing waiting on an admin, as the admin channel's queue has it. Kind: request, trouble, mediaServerLink,
     // instanceDown, removal or accessRequest; RequestId or MemberId says which page it opens.

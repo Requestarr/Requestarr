@@ -52,6 +52,11 @@ removal:
   requesterTimeoutDays: 7
   reminderDay: 5
 
+# How long the audit log keeps an entry: 90 days, 6 months, 1 year (the default), 2 years or forever. Older entries
+# are removed once a day; requests, members and removals stay.
+auditLog:
+  keepFor: 1 year
+
 # Access requests from the welcome channel (these are the defaults; the admin web portal can change them).
 # After a denial, someone can ask again after denialCooldownDays. The spam guard counts only clicks that can't
 # do anything, within the last windowMinutes: shortCooldownClicks of them wait shortCooldownMinutes,

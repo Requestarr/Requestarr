@@ -152,7 +152,7 @@ Browse to `http://{host}:9797` and sign in with the username and password from `
 What's there:
 
 - **Requests, Members and Queue:** every request, every member, and what waits on an admin, with everything an admin does in Discord's admin channels: approve, deny, cancel, add seasons, start, force or drop a removal, add a member, change their access and limits, suspend, unsuspend, remove, link Plex. Discord's messages change as if it had been done there.
-- **Access requests, Outages and Audit log:** people asking to join or paused, what can't be reached now and past outages, and everything Requestarr recorded, by member, title, action and day.
+- **Access requests, Outages and Audit log:** people asking to join or paused, what can't be reached now and past outages, and everything Requestarr recorded, by member, title, action and day. The audit log keeps an entry for 1 year by default (Settings, Requests, **Keep the audit log for**: 90 days, 6 months, 1 year, 2 years or forever; `auditLog.keepFor` in `provisioning.yml`). Older entries are removed once a day, and that is recorded too; requests, members and removals stay, and a page older than that says its older history was trimmed.
 - **The search in the header** (press `/`): a request by title, a member by name or Discord username.
 - **Settings:** General, UI and Tags; Discord, Sonarr and Radarr, Requests and Connections (Requestarr's own settings); Changes (every change to them); and Setup (the first-run setup).
 - **System:** Status, Tasks, Backup, Updates, What's new (each version's changes), Events, and Log Files.

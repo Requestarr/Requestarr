@@ -195,6 +195,12 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("BugReportsMinutesBetween", value); }
         }
 
+        public string AuditLogKeepFor
+        {
+            get { return GetValue("AuditLogKeepFor", Requestarr.Core.Audit.AuditRetention.Default); }
+            set { SetValue("AuditLogKeepFor", value ?? string.Empty); }
+        }
+
         public string BugReportsGithubToken
         {
             get { return GetValue("BugReportsGithubToken"); }

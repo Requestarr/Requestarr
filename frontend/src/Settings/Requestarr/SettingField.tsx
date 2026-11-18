@@ -6,6 +6,7 @@ import { inputTypes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import readOnlyProps from './readOnlyProps';
 import { AppSettings, SettingInput } from './RequestarrSettingsTypes';
+import { SETTING_CHOICES } from './settingsPages';
 import { SettingsForm } from './useSettingsForm';
 
 const INPUT_TYPES: Record<SettingInput, string> = {
@@ -13,7 +14,16 @@ const INPUT_TYPES: Record<SettingInput, string> = {
   number: inputTypes.NUMBER,
   check: inputTypes.CHECK,
   password: inputTypes.PASSWORD,
+  select: inputTypes.SELECT,
 };
+
+// A select's choices in the shape the web app's select input takes; other inputs have none.
+function choicesOf(name: string) {
+  return SETTING_CHOICES[name]?.map(([key, label]) => ({
+    key,
+    value: translate(label),
+  }));
+}
 
 interface SettingFieldProps {
   name: string;
@@ -54,6 +64,7 @@ function SettingField({ name, input, form }: SettingFieldProps) {
         type={INPUT_TYPES[input]}
         name={name}
         value={value}
+        values={choicesOf(name)}
         helpText={helpText(name, input, settings)}
         {...readOnlyProps(settings.provisioned)}
         onChange={form.onChange}

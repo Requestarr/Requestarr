@@ -71,6 +71,7 @@ export interface PortalRequestDetail {
   latestRemoval: PortalRemoval | null;
   timeline: PortalEvent[];
   actions: string[];
+  historyTrimmedAfter: string | null;
 }
 
 export interface PortalAccess {
@@ -102,6 +103,7 @@ export interface PortalMemberDetail {
   removals: PortalRemoval[];
   mediaServer: string | null;
   history: PortalEvent[];
+  historyTrimmedAfter: string | null;
 }
 
 export interface PortalQueueItem {

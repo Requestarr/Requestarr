@@ -191,6 +191,13 @@ namespace Requestarr.Core.Test.Qa.Web
                     {
                         rows.Should().BeGreaterThan(0, "the stack's Sonarr and Radarr are listed");
                     }
+
+                    if (page == "requests")
+                    {
+                        var keepFor = await browser.EvalAsync<bool>("document.body.innerText.includes('Keep the audit log for') && document.body.innerText.includes('1 year')");
+                        check.Saw($"requests ({theme}): Keep the audit log for {(keepFor ? "shown, 1 year" : "not shown")}");
+                        keepFor.Should().BeTrue("the provisioning file keeps the audit log for 1 year");
+                    }
                 }
             }
         });

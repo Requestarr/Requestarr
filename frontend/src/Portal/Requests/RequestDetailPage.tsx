@@ -99,7 +99,10 @@ function RequestDetail({ detail, onDone }: RequestDetailProps) {
       <RequestActions detail={detail} onDone={onDone} />
 
       <FieldSet legend={translate('PortalTimeline')}>
-        <TimelineTable events={detail.timeline} />
+        <TimelineTable
+          events={detail.timeline}
+          trimmedAfter={detail.historyTrimmedAfter}
+        />
       </FieldSet>
 
       {latestRemoval && (

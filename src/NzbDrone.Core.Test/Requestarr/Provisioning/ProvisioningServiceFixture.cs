@@ -6,6 +6,7 @@ using NzbDrone.Core.Authentication;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
+using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Settings;
@@ -37,6 +38,24 @@ namespace Requestarr.Core.Test.Provisioning
             Subject.UsesFile.Should().BeFalse();
             Mocker.GetMock<IStoredSettings>().Verify(s => s.Load(), Times.Once());
             Mocker.GetMock<IConfigFileProvider>().Verify(c => c.SaveConfigDictionary(It.IsAny<Dictionary<string, object>>()), Times.Never());
+        }
+
+        [Test]
+        public void should_keep_the_audit_log_for_the_files_choice_and_fail_on_one_it_doesnt_have()
+        {
+            Mocker.GetMock<IConfigService>().SetupAllProperties();
+            Mocker.SetConstant<IAuditSettings>(Mocker.Resolve<AuditSettings>());
+
+            GivenDocument(new ProvisioningDocument { AuditLog = new AuditLogProvisioning { KeepFor = AuditRetention.TwoYears } });
+            Subject.Apply().Applied.Should().Contain("audit log (kept for 2 years)");
+
+            GivenDocument(new ProvisioningDocument { AuditLog = new AuditLogProvisioning { KeepFor = "3 weeks" } });
+            var refused = Subject.Apply();
+
+            refused.Outcome.Should().Be(ProvisioningOutcome.Failed);
+            refused.Error.Should().Contain("auditLog.keepFor");
+            Mocker.GetMock<IConfigService>().Object.AuditLogKeepFor.Should().Be(AuditRetention.TwoYears);
+            ExceptionVerification.ExpectedErrors(1);
         }
 
         [Test]
