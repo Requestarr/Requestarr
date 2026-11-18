@@ -1,5 +1,4 @@
 import React, { useCallback } from 'react';
-import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
@@ -58,14 +57,6 @@ function AddMemberModal({ isOpen, onClose, onDone }: AddMemberModalProps) {
             {...search}
             helpText={translate('PortalAddMemberHelpText')}
           />
-          {search.problem && (
-            <Alert kind={kinds.DANGER}>{search.problem}</Alert>
-          )}
-          {search.found?.length === 0 && (
-            <div className={styles.empty}>
-              {translate('PortalNothingFound')}
-            </div>
-          )}
           {search.found?.map((person) => (
             <Candidate key={person.discordId} person={person} action={action} />
           ))}

@@ -11,13 +11,16 @@ const DATE_FORMATS: Record<string, string> = {
   'dddd, D MMMM YYYY': 'D MMMM YYYY',
 };
 
+function dayText(date: string, longDateFormat: string) {
+  return moment(date).format(DATE_FORMATS[longDateFormat] ?? longDateFormat);
+}
+
 // A day on its own ("November 17, 2026"), in the order chosen under Settings, then UI.
 export function useDayText() {
   const { longDateFormat } = useSelector(createUISettingsSelector());
 
   return useCallback(
-    (date: string) =>
-      moment(date).format(DATE_FORMATS[longDateFormat] ?? longDateFormat),
+    (date: string) => dayText(date, longDateFormat),
     [longDateFormat]
   );
 }
@@ -34,11 +37,7 @@ function useDateText() {
         return '';
       }
 
-      const day = moment(date).format(
-        DATE_FORMATS[longDateFormat] ?? longDateFormat
-      );
-
-      return `${day}, ${formatTime(date, timeFormat, {
+      return `${dayText(date, longDateFormat)}, ${formatTime(date, timeFormat, {
         includeMinuteZero: true,
       })}`;
     },

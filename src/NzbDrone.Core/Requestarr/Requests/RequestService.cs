@@ -519,8 +519,7 @@ namespace Requestarr.Core.Requests
                 return await CloseAsAvailable(request, admin, adminName, current);
             }
 
-            request.DecidedByUserId = admin.UserId;
-            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
+            SetDecider(request, admin, adminName);
             _audit.Record(admin, "request.approve", "request", request.Id.ToString());
 
             var (sent, item) = await SendAsync(request, instance, current, admin);
@@ -564,8 +563,7 @@ namespace Requestarr.Core.Requests
             request.Status = RequestStatus.Denied;
             request.DecisionReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
             request.Decided = Clock();
-            request.DecidedByUserId = admin.UserId;
-            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
+            SetDecider(request, admin, adminName);
             _requests.Update(request);
 
             _audit.Record(admin, "request.deny", "request", request.Id.ToString(), request.DecisionReason);
@@ -604,8 +602,7 @@ namespace Requestarr.Core.Requests
             request.Status = RequestStatus.Cancelled;
             request.DecisionReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
             request.Decided = Clock();
-            request.DecidedByUserId = admin.UserId;
-            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
+            SetDecider(request, admin, adminName);
             _requests.Update(request);
 
             var reasonDetail = request.DecisionReason != null ? "; " + request.DecisionReason : string.Empty;
@@ -655,14 +652,20 @@ namespace Requestarr.Core.Requests
             request.DecisionReason = null;
             request.Decided = Clock();
             request.Fulfilled = Clock();
-            request.DecidedByUserId = admin.UserId;
-            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
+            SetDecider(request, admin, adminName);
             _requests.Update(request);
 
             _audit.Record(admin, "request.available", "request", request.Id.ToString(), item?.LibraryId != null ? "already in the library" : "marked by the admin");
             await RefreshOrNotify(request, item, DiscordText.RequestAlreadyAvailableNotice(request.Label, request.Id));
 
             return ServiceResult.Ok(DiscordText.AdminMarkedAvailable(request));
+        }
+
+        // The deciding admin: the member, or by name an admin who isn't one (the web app).
+        private static void SetDecider(Request request, Actor admin, string adminName)
+        {
+            request.DecidedByUserId = admin.UserId;
+            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
         }
 
         // The admin can cancel while it waits for approval, or once sent while nothing is

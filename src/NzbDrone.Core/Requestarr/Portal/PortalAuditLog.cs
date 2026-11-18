@@ -63,8 +63,9 @@ namespace Requestarr.Core.Portal
 
         public IReadOnlyList<PortalAuditEntry> Find(PortalAuditFilter filter)
         {
-            var about = new Subjects(_requests.All(), _users.All(), _removals.All(), _accessRequests.All(), _backends.All());
-            var names = _users.All().ToDictionary(u => u.Id, u => u.DisplayName);
+            var users = _users.All();
+            var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.All());
+            var names = users.ToDictionary(u => u.Id, u => u.DisplayName);
 
             return _audit.All()
                 .Where(e => (filter.From == null || e.Timestamp >= filter.From.Value.Date) && (filter.To == null || e.Timestamp < filter.To.Value.Date.AddDays(1)))

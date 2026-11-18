@@ -2,26 +2,18 @@ import React, { useCallback } from 'react';
 import FieldSet from 'Components/FieldSet';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
+import columnsOf from '../Components/columnsOf';
 import PortalPage from '../Components/PortalPage';
 import { PortalOutageNow, PortalOutages } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
 import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';
 import styles from '../Portal.css';
-
-function columnsOf(labels: string[]): Column[] {
-  return labels.map((label) => ({
-    name: label,
-    label: () => translate(label),
-    isVisible: true,
-  }));
-}
 
 const nowColumns = columnsOf([
   'PortalInstance',

@@ -242,7 +242,6 @@ namespace Requestarr.Core.Portal
             }
 
             var keeps = _flags.ForProposal(proposal.Id).Select(f => names.GetValueOrDefault(f.UserId)).ToList();
-
             var seasons = proposal.Seasons ?? new List<int>();
 
             return new PortalRemoval(proposal.Id, proposal.Status, seasons, proposal.Created, proposal.Closed, startedBy, proposal.ClosedByName, keeps, proposal.IsOpen);

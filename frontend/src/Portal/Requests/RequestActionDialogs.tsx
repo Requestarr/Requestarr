@@ -2,8 +2,7 @@ import React, { useCallback, useState } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
-import ConfirmModal from 'Components/Modal/ConfirmModal';
-import { inputTypes, kinds } from 'Helpers/Props';
+import { inputTypes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionModal from '../Components/ActionModal';
 import RemovalScope, {
@@ -12,13 +11,12 @@ import RemovalScope, {
 } from '../Components/RemovalScope';
 import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
 
-export type RequestDialog = 'deny' | 'cancel' | 'seasons' | 'remove' | 'force';
+export type RequestDialog = 'deny' | 'cancel' | 'seasons' | 'remove';
 
 interface RequestDialogAnswers {
   onReason: (dialog: 'deny' | 'cancel', reason: string) => void;
   onSeasons: (seasons: number[], all: boolean, future: boolean) => void;
   onRemove: (seasons: number[], force: boolean) => void;
-  onForce: () => void;
 }
 
 interface RequestActionDialogsProps extends RequestDialogAnswers {
@@ -48,7 +46,7 @@ function promptFor(dialog?: RequestDialog) {
 
 // The choices a request's actions ask for, as Discord's forms do: a reason, seasons, what a removal covers.
 function RequestActionDialogs(props: RequestActionDialogsProps) {
-  const { dialog, onReason, onSeasons, onRemove, onForce, onClose } = props;
+  const { dialog, onReason, onSeasons, onRemove, onClose } = props;
   const [removal, setRemoval] = useState(NO_REMOVAL);
   const [seasons, setSeasons] = useState(NO_SEASONS);
 
@@ -109,16 +107,6 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
       >
         <RemovalScope choice={removal} onChange={setRemoval} />
       </ActionModal>
-
-      <ConfirmModal
-        isOpen={dialog === 'force'}
-        kind={kinds.DANGER}
-        title={translate('PortalActionForceRemoval')}
-        message={translate('PortalForceRemovalMessage')}
-        confirmLabel={translate('PortalActionForceRemoval')}
-        onConfirm={onForce}
-        onCancel={onClose}
-      />
     </>
   );
 }

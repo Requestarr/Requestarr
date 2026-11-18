@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import FieldSet from 'Components/FieldSet';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
+import RemovalActions from '../Components/RemovalActions';
 import { PortalRequestDetail } from '../PortalTypes';
 import usePortalAction from '../usePortalAction';
 import ActionButton from './ActionButton';
@@ -22,8 +23,10 @@ const ASKING: Record<string, RequestDialog> = {
   cancel: 'cancel',
   addSeasons: 'seasons',
   remove: 'remove',
-  forceRemoval: 'force',
 };
+
+// An open removal's actions, which come last in the request's: its own buttons, as on the Queue page.
+const REMOVAL_ACTIONS = ['forceRemoval', 'dropRemoval'];
 
 interface RequestActionsProps {
   detail: PortalRequestDetail;
@@ -32,10 +35,14 @@ interface RequestActionsProps {
 
 // What an admin can do to the request now, as its feed card in Discord offers, through the same rules.
 function RequestActions({ detail, onDone }: RequestActionsProps) {
-  const { act, isBusy, outcome } = usePortalAction(onDone);
+  const action = usePortalAction(onDone);
+  const { act, isBusy, outcome } = action;
   const [dialog, setDialog] = useState<RequestDialog>();
   const request = `requests/${detail.request.id}`;
-  const removal = `removals/${detail.latestRemoval?.id}`;
+  const removal = detail.actions.includes('forceRemoval')
+    ? detail.latestRemoval
+    : null;
+  const own = detail.actions.filter((name) => !REMOVAL_ACTIONS.includes(name));
 
   const onClose = useCallback(() => setDialog(undefined), []);
 
@@ -48,16 +55,14 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
   );
 
   const onPress = useCallback(
-    (action: string) => {
-      if (ASKING[action]) {
-        setDialog(ASKING[action]);
-      } else if (action === 'dropRemoval') {
-        act(`${removal}/drop`);
+    (name: string) => {
+      if (ASKING[name]) {
+        setDialog(ASKING[name]);
       } else {
-        act(`${request}/${AT_ONCE[action]}`);
+        act(`${request}/${AT_ONCE[name]}`);
       }
     },
-    [act, request, removal]
+    [act, request]
   );
 
   const onReason = useCallback(
@@ -75,10 +80,6 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
       answer(`${request}/removal`, { seasons, force }),
     [answer, request]
   );
-  const onForce = useCallback(
-    () => answer(`${removal}/force`),
-    [answer, removal]
-  );
 
   if (!detail.actions.length) {
     return null;
@@ -87,14 +88,15 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
   return (
     <FieldSet legend={translate('PortalActions')}>
       <div className={styles.actions}>
-        {detail.actions.map((action) => (
+        {own.map((name) => (
           <ActionButton
-            key={action}
-            action={action}
+            key={name}
+            action={name}
             isBusy={isBusy}
             onPress={onPress}
           />
         ))}
+        {removal && <RemovalActions removalId={removal.id} action={action} />}
       </div>
 
       <ActionOutcomeAlert outcome={outcome} />
@@ -104,7 +106,6 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
         onReason={onReason}
         onSeasons={onSeasons}
         onRemove={onRemove}
-        onForce={onForce}
         onClose={onClose}
       />
     </FieldSet>

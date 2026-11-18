@@ -47,6 +47,10 @@ export function contentTypeText(type: ContentType) {
   return translate(CONTENT_TYPES[type]);
 }
 
+export function accessStateText(state: AccessState) {
+  return translate(ACCESS[state]);
+}
+
 export function memberStatusText(status: MemberStatus) {
   return translate(MEMBER_STATUS[status]);
 }
@@ -78,7 +82,7 @@ export function removalStatusText(status: string) {
 
 // "Needs approval, 3 every 7 days" or "Off".
 export function accessText(access: PortalAccess) {
-  const level = translate(ACCESS[access.state]);
+  const level = accessStateText(access.state);
 
   if (access.state === 'off' || access.quotaLimit == null) {
     return level;

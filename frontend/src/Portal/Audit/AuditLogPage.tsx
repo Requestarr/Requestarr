@@ -4,12 +4,12 @@ import Button from 'Components/Link/Button';
 import Link from 'Components/Link/Link';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import columnsOf from '../Components/columnsOf';
 import PortalPage from '../Components/PortalPage';
 import { PortalAuditEntry } from '../PortalTypes';
 import usePortal from '../usePortal';
@@ -27,17 +27,13 @@ const NO_FILTERS: Filters = {
   to: '',
 };
 
-const columns: Column[] = [
+const columns = columnsOf([
   'PortalWhen',
   'PortalWhat',
   'PortalWho',
   'PortalDetail',
   'PortalAbout',
-].map((label) => ({
-  name: label,
-  label: () => translate(label),
-  isVisible: true,
-}));
+]);
 
 function About({ entry }: { entry: PortalAuditEntry }) {
   if (entry.requestId) {

@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
@@ -73,14 +72,6 @@ function RemoveTitleModal({ isOpen, onClose, onDone }: RemoveTitleModalProps) {
             {...search}
             helpText={translate('PortalRemoveTitleHelpText')}
           />
-          {search.problem && (
-            <Alert kind={kinds.DANGER}>{search.problem}</Alert>
-          )}
-          {search.found?.length === 0 && (
-            <div className={styles.empty}>
-              {translate('PortalNothingFound')}
-            </div>
-          )}
           {!picked &&
             search.found?.map((title) => (
               <Found
