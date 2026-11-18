@@ -35,8 +35,9 @@ function TitleRemovals() {
     usePortal<PortalTitleRemoval[]>('title-removals');
   const action = usePortalAction(reload);
 
+  // The last one forced or dropped leaves its answer.
   if (!removals?.length) {
-    return null;
+    return <ActionOutcomeAlert outcome={action.outcome} />;
   }
 
   return (
