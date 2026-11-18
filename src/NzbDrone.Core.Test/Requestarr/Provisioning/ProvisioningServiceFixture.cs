@@ -8,6 +8,7 @@ using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Provisioning;
+using Requestarr.Core.Settings;
 
 namespace Requestarr.Core.Test.Provisioning
 {
@@ -29,10 +30,12 @@ namespace Requestarr.Core.Test.Provisioning
         }
 
         [Test]
-        public void should_do_nothing_without_a_file()
+        public void should_load_the_web_apps_settings_without_a_file()
         {
             Subject.Apply().Outcome.Should().Be(ProvisioningOutcome.NoFile);
 
+            Subject.UsesFile.Should().BeFalse();
+            Mocker.GetMock<IStoredSettings>().Verify(s => s.Load(), Times.Once());
             Mocker.GetMock<IConfigFileProvider>().Verify(c => c.SaveConfigDictionary(It.IsAny<Dictionary<string, object>>()), Times.Never());
         }
 

@@ -17,20 +17,28 @@ namespace Requestarr.Core.Audit
         public string Detail { get; set; }
     }
 
-    // Who did something: a Discord member (admin or user), or Requestarr itself.
+    // Who did something: a Discord member (admin or user), an admin in the web app, or Requestarr itself.
     public record Actor(string Description, int? UserId = null)
     {
+        public const string WebPrefix = "web";
+
         public static readonly Actor System = new("system");
 
         // Claude Code's automated QA checks, recording their results on the QA checklist.
         public static readonly Actor ClaudeCode = new("claude-code");
 
         public static Actor Discord(ulong discordUserId, string username, int? userId = null) => new($"discord:{discordUserId} ({username})", userId);
+
+        // The name they signed in with; none when sign-in is off for local addresses.
+        public static Actor Web(string username) => new(string.IsNullOrWhiteSpace(username) ? WebPrefix : $"{WebPrefix}:{username}");
     }
 
     public interface IAuditRepository : IBasicRepository<AuditEntry>
     {
         List<AuditEntry> ForTarget(string targetType, string targetId);
+
+        // Newest first.
+        List<AuditEntry> ForTargetTypes(string first, string second);
     }
 
     public class AuditRepository : BasicRepository<AuditEntry>, IAuditRepository
@@ -43,6 +51,11 @@ namespace Requestarr.Core.Audit
         public List<AuditEntry> ForTarget(string targetType, string targetId)
         {
             return Query(a => a.TargetType == targetType && a.TargetId == targetId).OrderBy(a => a.Id).ToList();
+        }
+
+        public List<AuditEntry> ForTargetTypes(string first, string second)
+        {
+            return Query(a => a.TargetType == first || a.TargetType == second).OrderByDescending(a => a.Id).ToList();
         }
     }
 

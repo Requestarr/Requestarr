@@ -15,6 +15,12 @@ namespace Requestarr.Core.Backends
 {
     public record BackendCheckResult(int BackendId, string Name, bool Ok, string Error, int? QualityProfileId);
 
+    // What an instance offers a request (its quality profiles and root folders), or why it can't be used.
+    public record BackendProbe(string Error, IReadOnlyList<NamedItem> QualityProfiles, IReadOnlyList<string> RootFolders)
+    {
+        public static BackendProbe Failed(string error) => new(error, Array.Empty<NamedItem>(), Array.Empty<string>());
+    }
+
     public class BackendsCheckedEvent : IEvent
     {
     }
@@ -28,6 +34,9 @@ namespace Requestarr.Core.Backends
         BackendInstance ForUser(UserMediaAccess access, ContentType type);
         void SyncFromProvisioning(BackendsProvisioning backends);
         Task<BackendCheckResult> CheckAsync(BackendInstance instance);
+
+        // Reaches an instance that may not be saved yet: an error when it isn't the right app or version.
+        Task<BackendProbe> ProbeAsync(string implementation, BackendSettings settings);
         Task CheckAllAsync();
         IReadOnlyCollection<BackendCheckResult> LastResults { get; }
         IBackendApi ApiFor(BackendInstance instance);
@@ -172,37 +181,25 @@ namespace Requestarr.Core.Backends
 
             try
             {
-                var api = ApiFor(instance);
-                var status = await api.GetStatusAsync(instance.Settings);
-                var minimum = MinimumMajorVersion[instance.Implementation];
+                var probe = await ProbeAsync(instance.Implementation, instance.Settings);
+                var profile = ResolveProfile(probe.QualityProfiles, instance.Settings.QualityProfile);
+                var root = instance.Settings.RootFolder ?? (probe.RootFolders.Count > 0 ? probe.RootFolders[0] : null);
 
-                if (!string.Equals(status.AppName, instance.Implementation, StringComparison.OrdinalIgnoreCase))
+                if (probe.Error != null)
                 {
-                    result = Fail(instance, $"{instance.Settings.Url} is {status.AppName}, not {instance.Implementation}");
+                    result = Fail(instance, probe.Error);
                 }
-                else if (status.Version.Major < minimum)
+                else if (profile == null)
                 {
-                    result = Fail(instance, $"{instance.Implementation} {status.Version} is not supported; version {minimum} or later is required");
+                    result = Fail(instance, $"quality profile '{instance.Settings.QualityProfile}' not found (available: {string.Join(", ", probe.QualityProfiles.Select(p => p.Name))})");
+                }
+                else if (root == null || !probe.RootFolders.Any(r => SamePath(r, root)))
+                {
+                    result = Fail(instance, $"root folder '{root}' not found (available: {string.Join(", ", probe.RootFolders)})");
                 }
                 else
                 {
-                    var profiles = await api.GetQualityProfilesAsync(instance.Settings);
-                    var profile = ResolveProfile(profiles, instance.Settings.QualityProfile);
-                    var roots = await api.GetRootFoldersAsync(instance.Settings);
-                    var root = instance.Settings.RootFolder ?? roots.FirstOrDefault();
-
-                    if (profile == null)
-                    {
-                        result = Fail(instance, $"quality profile '{instance.Settings.QualityProfile}' not found (available: {string.Join(", ", profiles.Select(p => p.Name))})");
-                    }
-                    else if (root == null || !roots.Any(r => SamePath(r, root)))
-                    {
-                        result = Fail(instance, $"root folder '{root}' not found (available: {string.Join(", ", roots)})");
-                    }
-                    else
-                    {
-                        result = new BackendCheckResult(instance.Id, instance.Name, true, null, profile.Id);
-                    }
+                    result = new BackendCheckResult(instance.Id, instance.Name, true, null, profile.Id);
                 }
             }
             catch (Exception ex)
@@ -222,6 +219,25 @@ namespace Requestarr.Core.Backends
 
             _results[instance.Id] = result;
             return result;
+        }
+
+        public async Task<BackendProbe> ProbeAsync(string implementation, BackendSettings settings)
+        {
+            var api = ApiFor(new BackendInstance { Implementation = implementation });
+            var status = await api.GetStatusAsync(settings);
+            var minimum = MinimumMajorVersion[implementation];
+
+            if (!string.Equals(status.AppName, implementation, StringComparison.OrdinalIgnoreCase))
+            {
+                return BackendProbe.Failed($"{settings.Url} is {status.AppName}, not {implementation}");
+            }
+
+            if (status.Version.Major < minimum)
+            {
+                return BackendProbe.Failed($"{implementation} {status.Version} is not supported; version {minimum} or later is required");
+            }
+
+            return new BackendProbe(null, await api.GetQualityProfilesAsync(settings), await api.GetRootFoldersAsync(settings));
         }
 
         public bool EverConnected(ContentType type)

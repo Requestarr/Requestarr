@@ -112,6 +112,44 @@ namespace Requestarr.Core.Test.Qa.Web
             }
         });
 
+        // Requestarr's own settings pages load in both themes. QA and dev take their settings from the provisioning file,
+        // so each page says so and its fields can't be changed; the instances page lists the stack's Sonarr and Radarr.
+        [Test]
+        public Task settings_pages() => CheckAsync(nameof(settings_pages), async (browser, check) =>
+        {
+            const string Loaded = "document.querySelector('fieldset, table, [class*=\"Alert-danger\"]')";
+            await SignInAsync(browser);
+
+            foreach (var theme in Themes)
+            {
+                await browser.SetThemeAsync(theme);
+
+                foreach (var page in new[] { "discord", "instances", "requests", "connections", "changes" })
+                {
+                    await browser.GoAsync($"{Url}/settings/{page}");
+                    await browser.WaitForAsync(Loaded);
+                    var notice = await browser.EvalAsync<bool>("document.body.innerText.includes('takes these settings from its provisioning file')");
+                    var editable = await browser.EvalAsync<int>("[...document.querySelectorAll('main input, [class*=\"PageContentBody\"] input')].filter(i => !i.disabled && !i.readOnly).length");
+                    var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
+                    check.Saw($"{page} ({theme}): provisioning note {(notice ? "shown" : "not shown")}, {editable} field(s) that can be changed, {rows} row(s)");
+                    await check.ShotAsync(browser, $"settings-{page}-{theme}");
+
+                    (await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"Alert-danger\"]')")).Should().BeFalse($"the {page} settings page loads");
+
+                    if (page != "changes")
+                    {
+                        notice.Should().BeTrue("the provisioning file sets these on QA and dev");
+                        editable.Should().Be(0, "a change would be undone on the next start");
+                    }
+
+                    if (page == "instances")
+                    {
+                        rows.Should().BeGreaterThan(0, "the stack's Sonarr and Radarr are listed");
+                    }
+                }
+            }
+        });
+
         // A list's first title or name opens its own page, which shows what it is and its history.
         private static async Task OpenFirstAsync(HeadlessBrowser browser, WebCheck check, string page, string theme)
         {

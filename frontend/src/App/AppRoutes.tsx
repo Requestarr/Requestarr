@@ -1,5 +1,5 @@
 import React from 'react';
-import { Redirect, Route } from 'react-router-dom';
+import { Route } from 'react-router-dom';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
 import MemberDetailPage from 'Portal/Members/MemberDetailPage';
@@ -9,20 +9,22 @@ import RequestDetailPage from 'Portal/Requests/RequestDetailPage';
 import RequestsPage from 'Portal/Requests/RequestsPage';
 import DevelopmentSettingsConnector from 'Settings/Development/DevelopmentSettingsConnector';
 import GeneralSettingsConnector from 'Settings/General/GeneralSettingsConnector';
+import ConnectionSettings from 'Settings/Requestarr/ConnectionSettings';
+import DiscordSettings from 'Settings/Requestarr/DiscordSettings';
+import InstancesSettings from 'Settings/Requestarr/InstancesSettings';
+import RequestSettings from 'Settings/Requestarr/RequestSettings';
+import SettingsChanges from 'Settings/Requestarr/SettingsChanges';
 import Settings from 'Settings/Settings';
 import TagSettings from 'Settings/Tags/TagSettings';
 import UISettingsConnector from 'Settings/UI/UISettingsConnector';
+import HomeRedirect from 'Setup/HomeRedirect';
+import SetupPage from 'Setup/SetupPage';
 import BackupsConnector from 'System/Backup/BackupsConnector';
 import LogsTableConnector from 'System/Events/LogsTableConnector';
 import Logs from 'System/Logs/Logs';
 import Status from 'System/Status/Status';
 import Tasks from 'System/Tasks/Tasks';
 import Updates from 'System/Updates/Updates';
-import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
-
-function RedirectToSystemStatus() {
-  return <Redirect to={getPathWithUrlBase('/system/status')} />;
-}
 
 function AppRoutes() {
   return (
@@ -31,7 +33,7 @@ function AppRoutes() {
         Home
       */}
 
-      <Route exact={true} path="/" render={RedirectToSystemStatus} />
+      <Route exact={true} path="/" component={HomeRedirect} />
 
       {window.Requestarr.urlBase && (
         <Route
@@ -40,7 +42,7 @@ function AppRoutes() {
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore
           addUrlBase={false}
-          render={RedirectToSystemStatus}
+          component={HomeRedirect}
         />
       )}
 
@@ -69,6 +71,18 @@ function AppRoutes() {
       <Route path="/settings/general" component={GeneralSettingsConnector} />
 
       <Route path="/settings/ui" component={UISettingsConnector} />
+
+      <Route path="/settings/discord" component={DiscordSettings} />
+
+      <Route path="/settings/instances" component={InstancesSettings} />
+
+      <Route path="/settings/requests" component={RequestSettings} />
+
+      <Route path="/settings/connections" component={ConnectionSettings} />
+
+      <Route path="/settings/changes" component={SettingsChanges} />
+
+      <Route path="/setup" component={SetupPage} />
 
       <Route
         path="/settings/development"

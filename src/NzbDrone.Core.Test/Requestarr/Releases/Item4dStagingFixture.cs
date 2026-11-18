@@ -36,11 +36,12 @@ namespace Requestarr.Core.Test.Releases
                 .Should().BeEquivalentTo(new[] { "tv-beta", "movies-beta", "check/tv-beta", "check/movies-beta" });
             compose.Should().Contain("condition: service_completed_successfully", "Sonarr and Radarr wait for the folder check");
 
-            var provisioning = Read("deploy", "staging", "provisioning.yml");
-            Regex.Matches(provisioning, @"rootFolder: (\S+)").Select(m => m.Groups[1].Value).Should().Equal("/tv-beta", "/movies-beta");
-            provisioning.Should().Contain("webhookUrl: http://requestarr:9797");
-            Regex.Matches(provisioning, @"^\s+(botToken|applicationId|guildId|apiKey|password|username): (?<value>.+)$", RegexOptions.Multiline)
-                .Select(m => m.Groups["value"].Value).Should().OnlyContain(v => v.StartsWith("${"), "every secret comes from .env");
+            // No provisioning file: Requestarr's settings are made in its web app, which the setup guide walks through.
+            compose.Should().NotContain("PROVISIONING").And.NotContain("provisioning.yml");
+            File.Exists(Item4To6Fixture.RepoFile("deploy", "staging", "provisioning.yml")).Should().BeFalse("beta's provisioning file is retired");
+            var guide = Read("docs", "setup-guide.md");
+            guide.Should().Contain("### B.6 Set up Requestarr in its web app").And.Contain("root folder `/tv-beta`").And.Contain("`/movies-beta`");
+            guide.Should().Contain("`http://requestarr:9797`").And.Contain("The provisioning file is retired for beta.");
         }
 
         [Test]
@@ -49,10 +50,10 @@ namespace Requestarr.Core.Test.Releases
             var template = Read("deploy", "staging", "env.example");
             var values = Regex.Matches(template, @"^(?<name>[A-Z_]+)=(?<value>.*)$", RegexOptions.Multiline).ToDictionary(m => m.Groups["name"].Value, m => m.Groups["value"].Value);
 
-            var owners = "BETA_TV_FOLDER BETA_MOVIES_FOLDER BETA_DOWNLOADS_FOLDER BETA_REQUESTARR_PORT BETA_SONARR_PORT BETA_RADARR_PORT PUID PGID BETA_SONARR_API_KEY " +
-                "BETA_RADARR_API_KEY REQUESTARR_API_KEY BETA_DISCORD_BOT_TOKEN BETA_DISCORD_APPLICATION_ID BETA_DISCORD_GUILD_ID TMDB_API_KEY";
+            var owners = "BETA_TV_FOLDER BETA_MOVIES_FOLDER BETA_DOWNLOADS_FOLDER BETA_REQUESTARR_PORT BETA_SONARR_PORT BETA_RADARR_PORT PUID PGID BETA_SONARR_API_KEY BETA_RADARR_API_KEY";
             values.Keys.Should().Contain(owners.Split(' '));
-            values.Where(v => v.Key != "BETA_DOWNLOADS_PATH" && v.Key != "TZ" && v.Key != "BETA_QUALITY_PROFILE").Should().OnlyContain(v => v.Value == string.Empty, "paths, ports, IDs and secrets are the owner's");
+            values.Keys.Should().NotContain(new[] { "BETA_DISCORD_BOT_TOKEN", "REQUESTARR_ADMIN_PASSWORD", "GITHUB_ISSUES_TOKEN" }, "Requestarr's own settings are made in its web app");
+            values.Where(v => v.Key != "BETA_DOWNLOADS_PATH" && v.Key != "TZ").Should().OnlyContain(v => v.Value == string.Empty, "paths, ports and keys are the owner's");
 
             Read(".gitignore").Should().Contain("deploy/staging/.env").And.Contain("deploy/staging/backups/");
             Read(".dockerignore").Should().Contain("**/*.env").And.Contain("**/.env").And.Contain("docker/secrets.env");
@@ -124,7 +125,7 @@ namespace Requestarr.Core.Test.Releases
             Read("docker", "compose.yaml").Should().Contain("REQUESTARR_AUTH_REQUIRED: ${STACK_AUTH_REQUIRED:-disabledForLocalAddresses}");
             Read("docker", "dev.ps1").Should().Contain("STACK_AUTH_REQUIRED = 'enabled'").And.Contain("'DEV_AUTH_REQUIRED' 'disabledForLocalAddresses'");
             Read("docker", "dev.sh").Should().Contain("STACK_AUTH_REQUIRED=\"enabled\"").And.Contain("STACK_AUTH_REQUIRED=\"${auth_required:-${DEV_AUTH_REQUIRED:-disabledForLocalAddresses}}\"");
-            Read("deploy", "staging", "provisioning.yml").Should().Contain("required: enabled", "beta requires sign-in for every address, so it needs no allowed hosts");
+            Read("docs", "setup-guide.md").Should().Contain("keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts)");
             Read("docs", "setup-guide.md").Should().Contain("Changing the web portal password").And.Contain("REQUESTARR_ADMIN_PASSWORD");
         }
 
@@ -163,7 +164,7 @@ namespace Requestarr.Core.Test.Releases
             start.Should().BeGreaterThan(0);
             var section = guide.Substring(start, guide.IndexOf("\n## ", start + 10) - start);
             var steps = Regex.Matches(section, @"^### B\.(\d+) ", RegexOptions.Multiline).Select(m => int.Parse(m.Groups[1].Value)).ToList();
-            steps.Should().Equal(Enumerable.Range(1, 10), "every step, in order");
+            steps.Should().Equal(Enumerable.Range(1, 11), "every step, in order");
             Regex.Matches(section, @"\*\*Check:\*\*").Count.Should().BeGreaterOrEqualTo(10, "each step says what to check");
             section.Should().Contain("Category `tv-beta`").And.Contain("Category `movies-beta`").And.Contain("./update.sh rollback").And.Contain("Automatic updates")
                 .And.Contain("### Known limitation: beta can download a second copy").And.Contain("http://requestarr:9797");

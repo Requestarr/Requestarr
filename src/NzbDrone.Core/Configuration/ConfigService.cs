@@ -195,6 +195,60 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("BugReportsMinutesBetween", value); }
         }
 
+        public string BugReportsGithubToken
+        {
+            get { return GetValue("BugReportsGithubToken"); }
+            set { SetValue("BugReportsGithubToken", value ?? string.Empty); }
+        }
+
+        public string DiscordBotToken
+        {
+            get { return GetValue("DiscordBotToken"); }
+            set { SetValue("DiscordBotToken", value ?? string.Empty); }
+        }
+
+        public string DiscordApplicationId
+        {
+            get { return GetValue("DiscordApplicationId"); }
+            set { SetValue("DiscordApplicationId", value ?? string.Empty); }
+        }
+
+        public string DiscordGuildId
+        {
+            get { return GetValue("DiscordGuildId"); }
+            set { SetValue("DiscordGuildId", value ?? string.Empty); }
+        }
+
+        public string DiscordAdminRoleId
+        {
+            get { return GetValue("DiscordAdminRoleId"); }
+            set { SetValue("DiscordAdminRoleId", value ?? string.Empty); }
+        }
+
+        public string DiscordAdminRoleName
+        {
+            get { return GetValue("DiscordAdminRoleName"); }
+            set { SetValue("DiscordAdminRoleName", value ?? string.Empty); }
+        }
+
+        public string TmdbApiKey
+        {
+            get { return GetValue("TmdbApiKey"); }
+            set { SetValue("TmdbApiKey", value ?? string.Empty); }
+        }
+
+        public string AvailabilityWebhookUrl
+        {
+            get { return GetValue("AvailabilityWebhookUrl"); }
+            set { SetValue("AvailabilityWebhookUrl", value ?? string.Empty); }
+        }
+
+        public int AvailabilityPollMinutes
+        {
+            get { return GetValueInt("AvailabilityPollMinutes", Requestarr.Core.Availability.AvailabilitySettingsStore.DefaultPollMinutes); }
+            set { SetValue("AvailabilityPollMinutes", value); }
+        }
+
         public bool LogIndexerResponse
         {
             get { return GetValueBoolean("LogIndexerResponse", false); }

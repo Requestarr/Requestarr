@@ -64,6 +64,7 @@ CHECKS = {
     "web app loading screen": Check("web", "loading_screen", "web-app"),
     "web app project links": Check("web", "project_links", "web-app"),
     "web app portal pages": Check("web", "portal_pages", "web-app"),
+    "web app settings pages": Check("web", "settings_pages", "web-app"),
     "live update cards": Check("live", "LiveAnnouncementsFixture", "admin", ("[qa]",)),
     "live Read changes": Check("live", "LiveWelcomeFixture", "admin", ("[cards]",)),
     "live access requests": Check("live", "LiveWelcomeFixture", "access", ("[spam]", "[block]", "[unblock]")),

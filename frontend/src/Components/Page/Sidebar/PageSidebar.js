@@ -53,6 +53,26 @@ const links = [
       {
         title: () => translate('UI'),
         to: '/settings/ui'
+      },
+      {
+        title: () => translate('SettingsDiscord'),
+        to: '/settings/discord'
+      },
+      {
+        title: () => translate('SettingsInstances'),
+        to: '/settings/instances'
+      },
+      {
+        title: () => translate('SettingsRequests'),
+        to: '/settings/requests'
+      },
+      {
+        title: () => translate('SettingsConnections'),
+        to: '/settings/connections'
+      },
+      {
+        title: () => translate('SettingsChanges'),
+        to: '/settings/changes'
       }
     ]
   },
