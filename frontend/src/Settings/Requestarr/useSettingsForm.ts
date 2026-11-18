@@ -9,6 +9,20 @@ interface SettingChange {
   value: SettingValue;
 }
 
+// A secret's field starts empty and its saved value only says whether one is set: a field typed in and emptied again
+// keeps the saved secret instead of erasing it.
+function changesToSend(
+  pending: Record<string, SettingValue>,
+  settings: AppSettings | undefined
+) {
+  return Object.fromEntries(
+    Object.entries(pending).filter(
+      ([name, value]) =>
+        !(value === '' && typeof settings?.values[name] === 'boolean')
+    )
+  );
+}
+
 // Requestarr's settings and the changes made on the page; saving sends only those changes.
 function useSettingsForm(onSaved?: () => void) {
   const { data, error, setData } = useRequestarrApi<AppSettings>('settings');
@@ -21,14 +35,19 @@ function useSettingsForm(onSaved?: () => void) {
 
   const onSave = useCallback(() => {
     run(
-      () => callRequestarrApi<AppSettings>('settings', 'PUT', pending),
+      () =>
+        callRequestarrApi<AppSettings>(
+          'settings',
+          'PUT',
+          changesToSend(pending, data)
+        ),
       (saved) => {
         setData(saved);
         setPending({});
         onSaved?.();
       }
     );
-  }, [pending, run, setData, onSaved]);
+  }, [pending, data, run, setData, onSaved]);
 
   const hasChanges = Object.keys(pending).length > 0;
 

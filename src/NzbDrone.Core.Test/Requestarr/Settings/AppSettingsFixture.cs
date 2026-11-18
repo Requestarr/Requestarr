@@ -5,8 +5,10 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Test.Framework;
+using Requestarr.Core.Announcements;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Availability;
+using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Metadata;
@@ -64,6 +66,8 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [TestCase("removalVoteDays", "0")]
+        [TestCase("removalVoteDays", "10001")]
+        [TestCase("bugReportsFileIssues", "false")]
         [TestCase("discordGuildId", "my server")]
         [TestCase("availabilityWebhookUrl", "requestarr:9797")]
         [TestCase("bugReportsRepository", "Requestarr")]
@@ -95,6 +99,23 @@ namespace Requestarr.Core.Test.Settings
 
             Mocker.Resolve<ITmdbSettingsStore>().ApiKey.Should().Be("key");
             Mocker.GetMock<IDiscordClientHost>().Verify(h => h.RestartAsync(), Times.Never());
+        }
+
+        [Test]
+        public async Task should_set_up_the_webhooks_again_when_their_address_changes()
+        {
+            await Save("availabilityWebhookUrl", "http://requestarr:9797");
+
+            Mocker.Resolve<IAvailabilitySettingsStore>().WebhookUrl.Should().Be("http://requestarr:9797");
+            Mocker.GetMock<IBackendService>().Verify(b => b.CheckAllAsync(), Times.Once());
+        }
+
+        [Test]
+        public async Task should_let_production_stop_filing_bug_reports()
+        {
+            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.IconSet).Returns(ReleaseEnvironment.Production);
+
+            (await Save("bugReportsFileIssues", "false")).Saved.Should().BeTrue();
         }
 
         [Test]

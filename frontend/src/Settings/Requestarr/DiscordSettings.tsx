@@ -7,12 +7,13 @@ import { DISCORD_SECTIONS } from './settingsPages';
 import useRequestarrApi from './useRequestarrApi';
 
 function DiscordSettings() {
-  const { data: setup } = useRequestarrApi<SetupStatus>('setup');
+  const { data: setup, reload } = useRequestarrApi<SetupStatus>('setup');
 
   return (
     <RequestarrSettingsPage
       title={translate('SettingsDiscord')}
       sections={DISCORD_SECTIONS}
+      onSaved={reload}
     >
       {setup && <BotStatus setup={setup} />}
     </RequestarrSettingsPage>

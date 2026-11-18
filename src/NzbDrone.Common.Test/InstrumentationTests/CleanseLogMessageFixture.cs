@@ -125,6 +125,11 @@ namespace NzbDrone.Common.Test.InstrumentationTests
         // Discord
         [TestCase(@"https://discord.com/api/webhooks/mySecret")]
         [TestCase(@"https://discord.com/api/webhooks/mySecret/01233210")]
+
+        // Requestarr: keys saved in the web app's settings
+        [TestCase(@"Writing Setting to database. Key:'discordbottoken' Value:'mySecret.01233210'")]
+        [TestCase(@"Writing Setting to database. Key:'tmdbapikey' Value:'mySecret'")]
+        [TestCase(@"Writing Setting to database. Key:'bugreportsgithubtoken' Value:'github_pat_mySecret'")]
         public void should_clean_message(string message)
         {
             var cleansedMessage = CleanseLogMessage.Cleanse(message);

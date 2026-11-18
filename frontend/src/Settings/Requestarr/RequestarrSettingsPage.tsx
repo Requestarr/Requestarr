@@ -16,6 +16,7 @@ interface RequestarrSettingsPageProps {
   title: string;
   sections: SettingsSection[];
   children?: ReactNode;
+  onSaved?: () => void;
 }
 
 // A page of Requestarr's own settings: read-only where the provisioning file sets them (dev and QA), otherwise saved
@@ -24,8 +25,9 @@ function RequestarrSettingsPage({
   title,
   sections,
   children,
+  onSaved,
 }: RequestarrSettingsPageProps) {
-  const form = useSettingsForm();
+  const form = useSettingsForm(onSaved);
   const { settings, error, hasChanges, isSaving, saveError, onSave } = form;
 
   return (

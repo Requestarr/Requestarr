@@ -169,7 +169,7 @@ namespace Requestarr.Core.Qa
 
         public Func<string, string> Variable { get; set; } = System.Environment.GetEnvironmentVariable;
 
-        public bool FileIssues => _environment.IconSet != "production" || _config.BugReportsFileIssues;
+        public bool FileIssues => _environment.IconSet != ReleaseEnvironment.Production || _config.BugReportsFileIssues;
 
         public string Repository => string.IsNullOrWhiteSpace(_config.BugReportsRepository) ? DefaultRepository : _config.BugReportsRepository;
 

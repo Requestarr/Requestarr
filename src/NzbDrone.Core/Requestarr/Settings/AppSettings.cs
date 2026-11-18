@@ -5,8 +5,10 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NzbDrone.Core.Configuration;
+using Requestarr.Core.Announcements;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Availability;
+using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Metadata;
@@ -54,10 +56,18 @@ namespace Requestarr.Core.Settings
     public class AppSettingsService : IAppSettingsService
     {
         public const string ChangeAction = "settings.change";
+
+        // Every number here is days, hours, minutes or clicks: this is more than any needs (27 years in days) and small
+        // enough that no time Requestarr works out from it overflows.
+        public const int MaxNumber = 10000;
+
         public const string ProvisionedProblem = "These settings come from the provisioning file on this server; change them there.";
+
+        private const string WebhookAddress = "availabilityWebhookUrl";
 
         private static readonly Regex DiscordId = new(@"^\d{15,21}$");
         private static readonly Regex Repository = new(@"^[\w.-]+/[\w.-]+$");
+
         private static readonly HashSet<string> DiscordConnection = new() { "discordBotToken", "discordApplicationId", "discordGuildId", "discordAdminRoleId", "discordAdminRoleName" };
 
         private readonly IConfigService _config;
@@ -68,6 +78,8 @@ namespace Requestarr.Core.Settings
         private readonly ITmdbSettingsStore _tmdb;
         private readonly IAvailabilitySettingsStore _availability;
         private readonly IBugReportSettings _bugReports;
+        private readonly IBackendService _backends;
+        private readonly IReleaseEnvironment _environment;
         private readonly IAuditService _audit;
 
         public AppSettingsService(IConfigService config,
@@ -78,6 +90,8 @@ namespace Requestarr.Core.Settings
                                   ITmdbSettingsStore tmdb,
                                   IAvailabilitySettingsStore availability,
                                   IBugReportSettings bugReports,
+                                  IBackendService backends,
+                                  IReleaseEnvironment environment,
                                   IAuditService audit)
         {
             _config = config;
@@ -88,6 +102,8 @@ namespace Requestarr.Core.Settings
             _tmdb = tmdb;
             _availability = availability;
             _bugReports = bugReports;
+            _backends = backends;
+            _environment = environment;
             _audit = audit;
         }
 
@@ -119,6 +135,12 @@ namespace Requestarr.Core.Settings
                 await _discordHost.RestartAsync();
             }
 
+            // Sonarr's and Radarr's webhooks follow the address: checking the instances adds, moves or removes them.
+            if (changed.Contains(WebhookAddress))
+            {
+                await _backends.CheckAllAsync();
+            }
+
             return SettingsSaveResult.Done;
         }
 
@@ -148,8 +170,8 @@ namespace Requestarr.Core.Settings
 
             return definition.Kind switch
             {
-                SettingKind.Number when !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number < definition.Min =>
-                    $"{definition.Label} must be a whole number, at least {definition.Min}.",
+                SettingKind.Number when !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number < definition.Min || number > MaxNumber =>
+                    $"{definition.Label} must be a whole number from {definition.Min} to {MaxNumber}.",
                 SettingKind.Switch when !bool.TryParse(value, out _) => $"{definition.Label} is on or off.",
                 _ => definition.Check?.Invoke(Normalized(definition.Kind, value))
             };
@@ -231,10 +253,10 @@ namespace Requestarr.Core.Settings
 
         private IEnumerable<SettingDefinition> ConnectionDefinitions() => new[]
         {
-            new SettingDefinition("availabilityWebhookUrl", "Address Sonarr and Radarr reach Requestarr at", SettingKind.Text, () => _availability.WebhookUrl, v => _config.AvailabilityWebhookUrl = v, Check: UrlProblem),
+            new SettingDefinition(WebhookAddress, "Address Sonarr and Radarr reach Requestarr at", SettingKind.Text, () => _availability.WebhookUrl, v => _config.AvailabilityWebhookUrl = v, Check: UrlProblem),
             Number("availabilityPollMinutes", "Minutes between download checks", () => _availability.PollMinutes, v => _config.AvailabilityPollMinutes = v, AvailabilitySettingsStore.MinPollMinutes),
             new SettingDefinition("tmdbApiKey", "The Movie Database key", SettingKind.Secret, () => _tmdb.ApiKey, v => _config.TmdbApiKey = v),
-            Switch("bugReportsFileIssues", "File bug reports on GitHub", () => _config.BugReportsFileIssues, v => _config.BugReportsFileIssues = v),
+            new SettingDefinition("bugReportsFileIssues", "File bug reports on GitHub", SettingKind.Switch, () => _bugReports.FileIssues ? "true" : "false", v => _config.BugReportsFileIssues = v == "true", Check: FileIssuesProblem),
             new SettingDefinition("bugReportsRepository", "GitHub repository for bug reports", SettingKind.Text, () => _config.BugReportsRepository, v => _config.BugReportsRepository = v, Check: RepositoryProblem),
             new SettingDefinition("bugReportsGithubToken", "GitHub key for bug reports", SettingKind.Secret, () => _bugReports.Token, v => _config.BugReportsGithubToken = v),
             Number("bugReportsPerDay", "Bug reports a person can send a day", () => _config.BugReportsPerDay, v => _config.BugReportsPerDay = v, 1),
@@ -257,6 +279,10 @@ namespace Requestarr.Core.Settings
 
         private static string UrlProblem(string value) =>
             value.Length == 0 || IsWebAddress(value) ? null : "The address starts with http:// or https://, for example http://requestarr:9797.";
+
+        // The dev, QA and beta servers file every report, so the gate before staging sees them (BugReportSettings).
+        private string FileIssuesProblem(string value) =>
+            value == "false" && _environment.IconSet != ReleaseEnvironment.Production ? "Test servers (dev, QA and beta) always file bug reports on GitHub." : null;
 
         private static string RepositoryProblem(string value) =>
             value.Length == 0 || Repository.IsMatch(value) ? null : "The repository is written owner/name, for example Requestarr/Requestarr.";

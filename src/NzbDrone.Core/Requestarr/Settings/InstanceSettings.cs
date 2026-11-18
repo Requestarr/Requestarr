@@ -27,7 +27,7 @@ namespace Requestarr.Core.Settings
         IReadOnlyList<InstanceView> All();
 
         // Reaches the instance before it's saved and lists its quality profiles and root folders. Id: the saved
-        // instance whose API key to use when none is given.
+        // instance whose API key to use when none is given and the address is its own.
         Task<InstanceTestResult> TestAsync(int? id, InstanceInput input);
         Task<InstanceSaveResult> SaveAsync(int? id, InstanceInput input, Actor actor);
     }
@@ -66,7 +66,9 @@ namespace Requestarr.Core.Settings
                 return new InstanceTestResult("Choose Sonarr or Radarr.", Array.Empty<string>(), Array.Empty<string>());
             }
 
-            var settings = Settings(input, id is { } saved ? _backends.Find(saved)?.Settings : null);
+            // The saved API key is only sent to the saved address: a changed address needs its key typed again.
+            var saved = id is { } savedId ? _backends.Find(savedId)?.Settings : null;
+            var settings = Settings(input, saved?.Url == input.Url?.Trim() ? saved : null);
 
             try
             {
@@ -97,7 +99,7 @@ namespace Requestarr.Core.Settings
             instance.Settings = Settings(input, existing?.Settings);
             _repository.Upsert(instance);
 
-            if (input.IsDefault)
+            if (input.IsDefault && input.Enabled)
             {
                 ClearOtherDefaults(instance);
             }

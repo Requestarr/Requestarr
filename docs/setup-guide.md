@@ -837,11 +837,11 @@ Open the beta web portal at `http://<server>:<BETA_REQUESTARR_PORT>`. A new inst
 
 1. **Your sign-in.** A dialog asks for the web app's sign-in first: choose **Forms (login page)**, keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts), and choose a username and password. Save, then sign in. To change them later: **Settings → General**.
 2. **The Discord bot.** Paste the beta bot's token, its application ID and the Requestarr Beta server's ID (B.1), then **Save**. The bot connects: **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if you haven't added it yet.
-3. **Sonarr or Radarr.** Press **Add Sonarr**: name `Sonarr (beta)`, address `http://sonarr:8989`, API key `BETA_SONARR_API_KEY` from `.env`. Press **Test**, choose quality profile `HD-1080p` and root folder `/tv-beta`, keep **Default** on, and **Save**.
+3. **Sonarr or Radarr.** Press **Add Sonarr**: name `Sonarr (beta)`, address `http://sonarr:8989`, API key `BETA_SONARR_API_KEY` from `.env`. Press **Test**, choose quality profile `HD-1080p` and root folder `/tv-beta`, tick **Default**, and **Save**.
 
 The setup then says Requestarr is ready. Finish under **Settings**:
 
-- **Settings → Sonarr and Radarr → Add Radarr:** `Radarr (beta)`, `http://radarr:7878`, `BETA_RADARR_API_KEY`, **Test**, `HD-1080p`, `/movies-beta`, **Default** on, **Save**.
+- **Settings → Sonarr and Radarr → Add Radarr:** `Radarr (beta)`, `http://radarr:7878`, `BETA_RADARR_API_KEY`, **Test**, `HD-1080p`, `/movies-beta`, tick **Default**, **Save**.
 - **Settings → Connections:** **Requestarr's address for Sonarr and Radarr** `http://requestarr:9797` (they call it on the beta stack's own network, never through the server's ports) and **Check downloads every** `5` minutes; the **GitHub key** for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr; every report from beta becomes an issue, and until the key is set they wait on the server); and optionally **The Movie Database key** ([4.6](#46-cast-from-the-movie-database-optional)). **Save Changes**.
 - **Settings → Requests:** removal votes and the welcome channel's access requests and spam guard. The defaults are the ones the old provisioning file set; change them any time.
 

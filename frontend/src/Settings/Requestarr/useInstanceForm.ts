@@ -12,7 +12,8 @@ const NEW_INSTANCE = {
   name: '',
   url: '',
   seriesType: 'standard',
-  isDefault: true,
+  // Requests use the first instance of a type anyway; ticking Default on a second one moves them there.
+  isDefault: false,
   enabled: true,
   pollingOnly: false,
   animeEnabled: true,

@@ -81,6 +81,18 @@ namespace Requestarr.Core.Test.Settings
             _instances[0].Settings.ApiKey.Should().Be("old");
         }
 
+        [Test]
+        public async Task should_send_the_saved_api_key_only_to_the_saved_address()
+        {
+            Mocker.GetMock<IBackendService>().Setup(b => b.ProbeAsync(It.IsAny<string>(), It.IsAny<BackendSettings>())).ReturnsAsync(BackendProbe.Failed("unreachable"));
+
+            await Subject.TestAsync(1, Input("Sonarr", "http://sonarr:8989"));
+            await Subject.TestAsync(1, Input("Sonarr", "http://elsewhere:8989"));
+
+            Mocker.GetMock<IBackendService>().Verify(b => b.ProbeAsync(BackendImplementations.Sonarr, It.Is<BackendSettings>(s => s.Url == "http://sonarr:8989" && s.ApiKey == "old")), Times.Once());
+            Mocker.GetMock<IBackendService>().Verify(b => b.ProbeAsync(BackendImplementations.Sonarr, It.Is<BackendSettings>(s => s.Url == "http://elsewhere:8989" && s.ApiKey == null)), Times.Once());
+        }
+
         [TestCase("Sonarr", "http://sonarr2:8989", "key")]
         [TestCase("Sonarr 2", "sonarr2:8989", "key")]
         [TestCase("Sonarr 2", "http://sonarr2:8989", null)]

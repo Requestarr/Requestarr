@@ -174,7 +174,13 @@ namespace Requestarr.Core.Discord.Gateway
             }
             catch (Exception ex)
             {
+                // A login that failed (a wrong token) never connects: without its client and watchdog, the watchdog
+                // can't restart the app over it. A corrected setting starts a new client.
                 _logger.Error(ex, "Discord bot failed to start");
+                _watchdogTimer?.Dispose();
+                _watchdogTimer = null;
+                Client?.Dispose();
+                Client = null;
                 SetState(DiscordBotState.Failed, ex.Message);
             }
             finally
