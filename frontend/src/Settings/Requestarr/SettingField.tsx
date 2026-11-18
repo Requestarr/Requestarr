@@ -8,6 +8,7 @@ import readOnlyProps from './readOnlyProps';
 import { AppSettings, SettingInput } from './RequestarrSettingsTypes';
 import { SETTING_CHOICES } from './settingsPages';
 import { SettingsForm } from './useSettingsForm';
+import styles from './SettingField.css';
 
 const INPUT_TYPES: Record<SettingInput, string> = {
   text: inputTypes.TEXT,
@@ -17,12 +18,19 @@ const INPUT_TYPES: Record<SettingInput, string> = {
   select: inputTypes.SELECT,
 };
 
-// A select's choices in the shape the web app's select input takes; other inputs have none.
-function choicesOf(name: string) {
-  return SETTING_CHOICES[name]?.map(([key, label]) => ({
-    key,
-    value: translate(label),
-  }));
+// A select's choices, in the shape the web app's select input takes, and its locked look; other inputs have none.
+function selectProps(name: string, input: SettingInput) {
+  if (input !== 'select') {
+    return {};
+  }
+
+  return {
+    values: SETTING_CHOICES[name].map(([key, label]) => ({
+      key,
+      value: translate(label),
+    })),
+    disabledClassName: styles.lockedSelect,
+  };
 }
 
 interface SettingFieldProps {
@@ -64,7 +72,7 @@ function SettingField({ name, input, form }: SettingFieldProps) {
         type={INPUT_TYPES[input]}
         name={name}
         value={value}
-        values={choicesOf(name)}
+        {...selectProps(name, input)}
         helpText={helpText(name, input, settings)}
         {...readOnlyProps(settings.provisioned)}
         onChange={form.onChange}
