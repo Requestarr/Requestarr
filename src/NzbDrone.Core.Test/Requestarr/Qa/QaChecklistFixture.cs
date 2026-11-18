@@ -195,7 +195,7 @@ namespace Requestarr.Core.Test.Qa
             Subject.ChecklistText = QaChecklist.Embedded;
             Subject.CurrentVersion = () => new Version(0, 7, 4, 1);
 
-            // Claude Code's folded items show on dev; the carry works the same on every server.
+            // The automated folded items show on dev; the carry works the same on every server.
             OnDev();
             var state = Subject.State();
 
@@ -286,7 +286,7 @@ namespace Requestarr.Core.Test.Qa
         public void the_line_under_an_item_says_who_checks_it_and_isnt_part_of_its_wording()
         {
             var checkedText = Text
-                .Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.")
+                .Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.")
                 .Replace("You should see the logo.", "You should see the logo.\n  - Checked by the owner, needs human eyes: how it looks in the Discord app.");
 
             var items = QaChecklist.Parse(checkedText).SelectMany(v => v.Items).ToList();
@@ -302,26 +302,26 @@ namespace Requestarr.Core.Test.Qa
             var unreleased = QaChecklist.Parse(QaChecklist.Embedded(), new Version(9, 9, 9999))[0].Items;
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
-            unreleased.Where(i => !i.Checker.ClaudeCode).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.ClaudeCode).Select(i => i.Name).Should().BeEquivalentTo("Only your items on QA", "Bot picture and banner");
+            unreleased.Where(i => !i.Checker.Automated).Should().OnlyContain(i => i.Checker.Why != null);
+            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Only your items on QA", "Bot picture and banner");
         }
 
         [Test]
-        public void the_summary_shows_claude_codes_results_apart_from_the_owners_items_left()
+        public void the_summary_shows_the_automated_results_apart_from_the_owners_items_left()
         {
             var summary = QaText.Summary(new[] { new Version(0, 7, 5) }, 19, 16, 1, new QaCarriedOver(0, 0), new QaCheckers(17, 16, 1, 2, new[] { "Who checks each item", "Bot picture and banner" }), null, null);
 
-            summary.Should().Contain("🤖 **Claude Code:** 16 of 17 passed, 1 failing, each with what it checked on the card.\n")
+            summary.Should().Contain("🤖 **Automated checks:** 16 of 17 passed, 1 failing, each with what it checked on the card.\n")
                 .And.Contain("👤 **For you:** 2 of 2 left: Who checks each item, Bot picture and banner.\n");
             QaText.Summary(new[] { new Version(0, 7, 5) }, 2, 2, 0, new QaCarriedOver(0, 0), new QaCheckers(0, 0, 0, 2, Array.Empty<string>()), "Alex", null)
-                .Should().Contain("👤 **For you:** all 2 passed.").And.NotContain("Claude Code");
+                .Should().Contain("👤 **For you:** all 2 passed.").And.NotContain("Automated checks");
         }
 
         [Test]
-        public async Task claude_codes_pass_is_recorded_under_no_member_and_its_card_shows_what_it_saw_and_its_screenshots()
+        public async Task an_automated_pass_is_recorded_under_no_member_and_its_card_shows_what_it_saw_and_its_screenshots()
         {
             OnDev();
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
             Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100", QaChecklistSummaryMessageId = "200" });
             var key = Subject.State().Items[0].Key;
             _records[key].MessageId = "300";
@@ -329,19 +329,19 @@ namespace Requestarr.Core.Test.Qa
             Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.EditMessageAsync(100, 300, It.IsAny<InteractionReply>())).Callback<ulong, ulong, InteractionReply>((_, _, r) => edits.Add(r)).ReturnsAsync(true);
 
             Subject.SetEvidence(key, "Pressed Passes twice; the card says passed.", new[] { new QaEvidenceFile("passing-light.jpg", new byte[] { 7 }) });
-            await Subject.MarkPassedAsync(key, QaChecker.ClaudeCodeId, QaChecker.ClaudeCodeName);
+            await Subject.MarkPassedAsync(key, QaChecker.AutomationId, QaChecker.AutomationName);
             var state = Subject.State();
 
-            _records[key].Should().BeEquivalentTo(new { ByDiscordUserId = (string)null, ByName = "Claude Code", Evidence = "Pressed Passes twice; the card says passed.", EvidenceFiles = new[] { "passing-light.jpg" } });
-            state.Items[0].Should().BeEquivalentTo(new { CheckedBy = "Claude Code", Check = "live passing", State = "Passed", By = "Claude Code" });
+            _records[key].Should().BeEquivalentTo(new { ByDiscordUserId = (string)null, ByName = "automation", Evidence = "Pressed Passes twice; the card says passed.", EvidenceFiles = new[] { "passing-light.jpg" } });
+            state.Items[0].Should().BeEquivalentTo(new { CheckedBy = "automation", Check = "live passing", State = "Passed", By = "automation" });
             state.Items[1].Should().BeEquivalentTo(new { CheckedBy = "owner", Reason = "not classified yet" });
             state.Checkers.Should().BeEquivalentTo(new QaCheckers(1, 1, 0, 1, new[] { "Failing an item" }));
             var card = edits[^1];
-            card.Cards.Single().Text.Should().Contain("🤖 Claude Code checks this with its live passing check.").And.Contain("✅ Passed by Claude Code").And.Contain("**What Claude Code saw:** Pressed Passes twice");
+            card.Cards.Single().Text.Should().Contain("🤖 Checked automatically by the live passing check.").And.Contain("✅ Passed automatically").And.Contain("**What the check saw:** Pressed Passes twice");
             card.Cards.Single().Images.Should().Equal("passing-light.jpg");
             card.Files.Select(f => f.Name).Should().Equal("passing-light.jpg");
             card.KeepFiles.Should().BeFalse();
-            Mocker.GetMock<Requestarr.Core.Audit.IAuditService>().Verify(a => a.Record(Requestarr.Core.Audit.Actor.ClaudeCode, "qa.checklist.pass", "qa-item", key, null), Times.Once());
+            Mocker.GetMock<Requestarr.Core.Audit.IAuditService>().Verify(a => a.Record(Requestarr.Core.Audit.Actor.Automation, "qa.checklist.pass", "qa-item", key, null), Times.Once());
 
             // The next edit (a press, a restart) keeps the screenshots the message has: nothing is uploaded again.
             await Subject.RefreshItemAsync(key);
@@ -353,7 +353,7 @@ namespace Requestarr.Core.Test.Qa
         public async Task a_card_discord_wont_edit_keeping_its_screenshots_sends_them_again()
         {
             OnDev();
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
             Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100" });
             var key = Subject.State().Items[0].Key;
             _records[key].MessageId = "300";
@@ -368,11 +368,11 @@ namespace Requestarr.Core.Test.Qa
         }
 
         [Test]
-        public async Task qa_shows_only_the_owners_items_and_forgets_claude_codes_results_keeping_the_owners()
+        public async Task qa_shows_only_the_owners_items_and_forgets_the_automated_results_keeping_the_owners()
         {
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
-            var claudeCodes = QaChecklist.Parse(Subject.ChecklistText()).SelectMany(v => v.Items).Single(i => i.Name == "Passing an item").Key;
-            _records[claudeCodes] = new QaChecklistItem { Id = 70, ItemKey = claudeCodes, Name = "Passing an item", State = QaItemState.Passed, ByName = "Claude Code", EvidenceFiles = new List<string> { "a.jpg" } };
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
+            var automatedKey = QaChecklist.Parse(Subject.ChecklistText()).SelectMany(v => v.Items).Single(i => i.Name == "Passing an item").Key;
+            _records[automatedKey] = new QaChecklistItem { Id = 70, ItemKey = automatedKey, Name = "Passing an item", State = QaItemState.Passed, ByName = "automation", EvidenceFiles = new List<string> { "a.jpg" } };
             _records[Key("Sign-in logo")] = new QaChecklistItem { Id = 71, ItemKey = Key("Sign-in logo"), Name = "Sign-in logo", State = QaItemState.Passed, ByDiscordUserId = "1", ByName = "EaZyCheaZ" };
             Mocker.GetMock<IQaChecklistItemRepository>().Setup(r => r.All()).Returns(() => _records.Values.ToList());
             Mocker.GetMock<IQaChecklistItemRepository>().Setup(r => r.Delete(It.IsAny<QaChecklistItem>())).Callback<QaChecklistItem>(r => _records.Remove(r.ItemKey));
@@ -385,20 +385,20 @@ namespace Requestarr.Core.Test.Qa
 
             state.Items.Select(i => i.Name).Should().Equal("Failing an item", "Sign-in logo");
             state.Should().BeEquivalentTo(new { Total = 2, Passed = 1 });
-            _records.Should().NotContainKey(claudeCodes);
+            _records.Should().NotContainKey(automatedKey);
             _records[Key("Sign-in logo")].ByName.Should().Be("EaZyCheaZ");
-            Mocker.GetMock<IQaEvidenceStore>().Verify(e => e.Replace(claudeCodes, It.Is<IReadOnlyList<QaEvidenceFile>>(f => f.Count == 0)), Times.Once());
+            Mocker.GetMock<IQaEvidenceStore>().Verify(e => e.Replace(automatedKey, It.Is<IReadOnlyList<QaEvidenceFile>>(f => f.Count == 0)), Times.Once());
             Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.SendMessageAsync(100, It.IsAny<InteractionReply>()), Times.Exactly(3), "the summary and the owner's two cards");
-            Subject.Find(claudeCodes).Should().BeNull("a result for it is refused on QA");
+            Subject.Find(automatedKey).Should().BeNull("a result for it is refused on QA");
         }
 
         [Test]
-        public void dev_shows_claude_codes_items_with_their_results()
+        public void dev_shows_the_automated_items_with_their_results()
         {
             OnDev();
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked by Claude Code: the live passing check.");
+            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
 
-            Subject.State().Items.Select(i => (i.Name, i.CheckedBy)).Should().Equal(("Passing an item", "Claude Code"), ("Failing an item", "owner"));
+            Subject.State().Items.Select(i => (i.Name, i.CheckedBy)).Should().Equal(("Passing an item", "automation"), ("Failing an item", "owner"));
         }
 
         [Test]

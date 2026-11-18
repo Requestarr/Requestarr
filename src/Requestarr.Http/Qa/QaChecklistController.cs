@@ -7,7 +7,7 @@ using Requestarr.Core.Qa;
 
 namespace Requestarr.Http.Qa
 {
-    // What Claude Code reads from the QA stack at the start of every goal (docker/qa-gate.py): the QA checklist's state
+    // What the automation reads from the QA stack at the start of every goal (docker/qa-gate.py): the QA checklist's state
     // and the bug reports this server sent. Needs the API key, like the rest of the API.
     public class QaChecklistController : Controller
     {
@@ -25,7 +25,7 @@ namespace Requestarr.Http.Qa
             _automated = automated;
         }
 
-        // Claude Code's result for one item it checks (docker/qa_checks.py record), with its evidence: passed, or failing
+        // The automated result for one item it checks (docker/qa_checks.py record), with its evidence: passed, or failing
         // (which files a bug report like an admin's Failing). 404: no such item here; 409: the owner checks that item.
         [HttpPost("/api/v1/qa/checklist/{key}/result")]
         [Produces("application/json")]
@@ -43,7 +43,7 @@ namespace Requestarr.Http.Qa
             return outcome switch
             {
                 QaAutomatedOutcome.NotOnChecklist => NotFound(new { message = $"{key} isn't on this server's checklist." }),
-                QaAutomatedOutcome.NotClaudeCodes => Conflict(new { message = $"{key} is the owner's to check, not Claude Code's." }),
+                QaAutomatedOutcome.NotAutomated => Conflict(new { message = $"{key} is the owner's to check, not one the automated checks take." }),
                 _ => Json(_checklist.State().Items.Single(i => i.Key == key))
             };
         }

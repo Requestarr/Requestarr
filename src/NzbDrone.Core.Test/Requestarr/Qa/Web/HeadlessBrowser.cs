@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Requestarr.Core.Test.Qa.Web
 {
-    // A real browser for Claude Code's web app checks: headless Edge or Chrome (QA_CHECKS_BROWSER, or the one installed),
+    // A real browser for the automated web app checks: headless Edge or Chrome (QA_CHECKS_BROWSER, or the one installed),
     // driven over the DevTools protocol, so nothing has to be downloaded. Pages are read with JavaScript and photographed
     // as JPEG; the theme is the system's light or dark setting the page sees, which the web app follows on Auto.
     public sealed class HeadlessBrowser : IAsyncDisposable

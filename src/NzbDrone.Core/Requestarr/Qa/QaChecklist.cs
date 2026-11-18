@@ -23,15 +23,16 @@ namespace Requestarr.Core.Qa
         public QaChecker Checker { get; init; } = QaChecker.Unclassified;
     }
 
-    // Who checks an item: Claude Code, with the automated check named on the item (docker/qa_checks.py), or the owner,
-    // with the reason a person has to: it needs human eyes, the desired behavior is unsure, or Claude Code couldn't verify
+    // Who checks an item: the automated checks, with the check named on the item (docker/qa_checks.py), or the owner,
+    // with the reason a person has to: it needs human eyes, the desired behavior is unsure, or the automation couldn't verify
     // it. An item nobody classified is the owner's until it is.
-    public record QaChecker(bool ClaudeCode, string Check, string Reason, string Why)
+    public record QaChecker(bool Automated, string Check, string Reason, string Why)
     {
-        public const string ClaudeCodeName = "Claude Code";
+        // Recorded as who passed or failed an item; shown as "Passed automatically".
+        public const string AutomationName = "automation";
 
-        // Claude Code isn't a Discord member: its results are recorded under no member (and audited as itself).
-        public const ulong ClaudeCodeId = 0;
+        // The automation isn't a Discord member: its results are recorded under no member (and audited as itself).
+        public const ulong AutomationId = 0;
 
         public static readonly QaChecker Unclassified = new(false, null, "not classified yet", null);
     }
@@ -47,9 +48,9 @@ namespace Requestarr.Core.Qa
         private static readonly Regex Heading = new(@"^## (?:(?<unreleased>Unreleased)|(?<version>\d+\.\d+\.\d+)(?: \(\d{4}-\d{2}-\d{2}\))?)\s*$");
         private static readonly Regex Item = new(@"^- \*\*(?<name>[^*:]+):\*\* (?<text>.+)$");
 
-        // "  - Checked by Claude Code: the web app status page check." or
+        // "  - Checked automatically: the web app status page check." or
         // "  - Checked by the owner, needs human eyes: how the profile popout looks in the Discord app."
-        private static readonly Regex CheckedBy = new(@"^- Checked by (?:Claude Code: the (?<check>.+) check|the owner, (?<reason>needs human eyes|unsure of the desired behavior|couldn't verify): (?<why>.+?))\.?$");
+        private static readonly Regex CheckedBy = new(@"^- Checked (?:automatically: the (?<check>.+) check|by the owner, (?<reason>needs human eyes|unsure of the desired behavior|couldn't verify): (?<why>.+?))\.?$");
 
         public static string Embedded()
         {
@@ -182,7 +183,7 @@ namespace Requestarr.Core.Qa
         // The build it first appeared on: an item added on the running build is new (or reworded) in it.
         public string AddedOn { get; set; }
 
-        // Claude Code's result: what its check read back, and the screenshots it took (files in the app data folder's
+        // The automated result: what its check read back, and the screenshots it took (files in the app data folder's
         // qa-evidence folder, shown on the item's card).
         public string Evidence { get; set; }
         public List<string> EvidenceFiles { get; set; } = new();

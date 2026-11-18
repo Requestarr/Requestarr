@@ -21,8 +21,8 @@ namespace Requestarr.Core.Qa
     // After a promotion: the items that kept the pass an earlier build got, and the items new (or reworded) in this one.
     public record QaCarriedOver(int Carried, int New);
 
-    // Who checks what: Claude Code's items and how they stand, and the owner's items still to test (by name).
-    public record QaCheckers(int ClaudeCodeItems, int ClaudeCodePassed, int ClaudeCodeFailing, int OwnerItems, IReadOnlyList<string> OwnerLeft);
+    // Who checks what: the automated items and how they stand, and the owner's items still to test (by name).
+    public record QaCheckers(int AutomatedItems, int AutomatedPassed, int AutomatedFailing, int OwnerItems, IReadOnlyList<string> OwnerLeft);
 
     public static class QaText
     {
@@ -31,7 +31,7 @@ namespace Requestarr.Core.Qa
         public const uint FailingColor = 0xDA3633;
         public const uint ReportColor = 0x5865F2;
 
-        // A card shows one short line of what Claude Code's check read back (the screenshots show under it); the whole
+        // A card shows one short line of what the automated check read back (the screenshots show under it); the whole
         // read-back is in the record and the task's reply.
         public const int EvidenceLength = 200;
 
@@ -64,21 +64,21 @@ namespace Requestarr.Core.Qa
             };
 
             return $"{ChecklistTitle}\nWhat to test here before {which} go{(versions.Count == 1 ? "es" : string.Empty)} to staging: **{passed} of {total} passed**{(failing > 0 ? $", {failing} failing" : string.Empty)}.\n" +
-                   ClaudeCodeLine(checkers) +
+                   AutomatedLine(checkers) +
                    OwnerLine(checkers) +
                    Carried(carriedOver) +
                    ChecklistStatus(total, passed, failing, completedBy, completedAt);
         }
 
-        private static string ClaudeCodeLine(QaCheckers checkers)
+        private static string AutomatedLine(QaCheckers checkers)
         {
-            if (checkers.ClaudeCodeItems == 0)
+            if (checkers.AutomatedItems == 0)
             {
                 return string.Empty;
             }
 
-            var failing = checkers.ClaudeCodeFailing > 0 ? $", {checkers.ClaudeCodeFailing} failing" : string.Empty;
-            return $"🤖 **Claude Code:** {checkers.ClaudeCodePassed} of {checkers.ClaudeCodeItems} passed{failing}, each with what it checked on the card.\n";
+            var failing = checkers.AutomatedFailing > 0 ? $", {checkers.AutomatedFailing} failing" : string.Empty;
+            return $"🤖 **Automated checks:** {checkers.AutomatedPassed} of {checkers.AutomatedItems} passed{failing}, each with what it checked on the card.\n";
         }
 
         private static string OwnerLine(QaCheckers checkers)
@@ -113,7 +113,7 @@ namespace Requestarr.Core.Qa
                 return $"⏳ **{total - passed} left to test.**";
             }
 
-            var last = completedBy != null ? $", the last by {completedBy} {Stamp(completedAt)}" : string.Empty;
+            var last = completedBy != null ? $", the last {By(completedBy)} {Stamp(completedAt)}" : string.Empty;
             return $"✅ **Complete:** every item passed{last}. Staging can have these versions once no bug report from QA is still open.";
         }
 
@@ -121,8 +121,8 @@ namespace Requestarr.Core.Qa
         {
             var state = record?.State switch
             {
-                QaItemState.Passed => $"✅ Passed by {record.ByName} {Stamp(record.At)}",
-                QaItemState.Failing => $"❌ Failing, reported by {record.ByName} {Stamp(record.At)}{(report != null ? $": {ReportLink(report)}" : string.Empty)}",
+                QaItemState.Passed => $"✅ Passed {By(record.ByName)} {Stamp(record.At)}",
+                QaItemState.Failing => $"❌ Failing, reported {By(record.ByName)} {Stamp(record.At)}{(report != null ? $": {ReportLink(report)}" : string.Empty)}",
                 _ => "⏳ Not tested yet"
             };
 
@@ -131,13 +131,16 @@ namespace Requestarr.Core.Qa
 
         private static string CheckedBy(QaChecker checker) => checker switch
         {
-            { ClaudeCode: true } => $"-# 🤖 Claude Code checks this with its {checker.Check} check.",
+            { Automated: true } => $"-# 🤖 Checked automatically by the {checker.Check} check.",
             { Why: null } => $"-# 👤 For you to check ({checker.Reason}).",
             _ => $"-# 👤 For you to check, {checker.Reason}: {checker.Why}"
         };
 
         private static string Evidence(QaChecklistItem record) =>
-            string.IsNullOrWhiteSpace(record?.Evidence) ? string.Empty : $"\n**What Claude Code saw:** {Plain(Shorten(FirstLine(record.Evidence), EvidenceLength))}";
+            string.IsNullOrWhiteSpace(record?.Evidence) ? string.Empty : $"\n**What the check saw:** {Plain(Shorten(FirstLine(record.Evidence), EvidenceLength))}";
+
+        // "automatically", or "by" the admin who did it.
+        private static string By(string name) => name == QaChecker.AutomationName ? "automatically" : $"by {name}";
 
         private static string FirstLine(string text) => text.Trim().Split('\n')[0].Trim();
 

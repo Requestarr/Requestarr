@@ -1,5 +1,5 @@
 # Local test stacks for Requestarr, from PowerShell (the same commands as docker/dev.sh): QA (the owner's
-# manual QA, the default) and dev (Claude Code's automated testing), side by side. Add -Stack dev (or
+# manual QA, the default) and dev (automated testing), side by side. Add -Stack dev (or
 # --stack dev) to act on the dev stack; QA is used otherwise.
 #
 #   .\docker\dev.ps1 up [--ref <git ref>]            build Requestarr from the stack's branch (qa or dev; --ref for

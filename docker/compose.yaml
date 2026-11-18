@@ -1,6 +1,6 @@
 # Local test stacks. Start with:  .\docker\dev.ps1 up  (PowerShell)  or  docker/dev.sh up
 # One file, two stacks that run side by side: `qa` (the owner's manual QA, the default) and `dev`
-# (Claude Code's automated testing). The scripts pick the stack and set the variables below; each stack
+# (automated testing). The scripts pick the stack and set the variables below; each stack
 # is its own Compose project (requestarr-qa, requestarr-dev), so containers, volumes and the network
 # are separate, its ports differ, and it gets only its own Discord bot's values.
 # Everything here is disposable and separate from any production deployment.

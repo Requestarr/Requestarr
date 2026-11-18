@@ -115,7 +115,7 @@ namespace Requestarr.Core.Test.Qa
             panels = Mocker.Resolve<PanelService>();
             Mocker.SetConstant(panels);
 
-            // Claude Code's screenshots on the cards are kept in a folder of this run's own.
+            // The automated screenshots on the cards are kept in a folder of this run's own.
             var appData = Path.Combine(Path.GetTempPath(), "requestarr-live-qa-" + Guid.NewGuid().ToString("N"));
             Mocker.GetMock<NzbDrone.Common.EnvironmentInfo.IAppFolderInfo>().SetupGet(f => f.AppDataFolder).Returns(appData);
             Mocker.SetConstant<IQaEvidenceStore>(Mocker.Resolve<QaEvidenceStore>());
@@ -306,12 +306,12 @@ namespace Requestarr.Core.Test.Qa
                 carried.Should().BeEquivalentTo(new { Total = items.Count + 1, Passed = items.Count - 1, Carried = items.Count - 1 });
                 Text(after[0]).Should().Contain($"{items.Count - 1} carried over").And.Contain("2 new or changed");
 
-                // 9. Claude Code's results, as its run records them: a pass with a screenshot on the card, and a failure that
+                // 9. The automated results, as the run records them: a pass with a screenshot on the card, and a failure that
                 // files a bug report the way Failing does. An item the owner checks takes no result from it.
                 var automated = new QaAutomatedResults(checklist, reports);
                 var promotedItems = QaChecklist.Parse(promoted, tested).Single().Items;
-                var ccItems = promotedItems.Where(i => i.Checker.ClaudeCode).ToList();
-                var ownerItem = promotedItems.First(i => !i.Checker.ClaudeCode);
+                var ccItems = promotedItems.Where(i => i.Checker.Automated).ToList();
+                var ownerItem = promotedItems.First(i => !i.Checker.Automated);
                 var picture = new QaEvidenceFile("live-check.png", DiscordAssets.Bytes(DiscordAssets.TmdbLogo));
                 var passedByCc = await automated.RecordAsync(ccItems[0].Key, new QaAutomatedResult(true, "Live check: what the check read back.", "other", new[] { picture }));
                 var failedByCc = await automated.RecordAsync(ccItems[1].Key, new QaAutomatedResult(false, "Live check: a failing result (this is a test; it will be closed).", "other", Array.Empty<QaEvidenceFile>()));
@@ -319,24 +319,24 @@ namespace Requestarr.Core.Test.Qa
                 var ccCard = await checklistRest.GetMessageAsync(ulong.Parse(Mocker.Resolve<IQaChecklistItemRepository>().FindByKey(ccItems[0].Key).MessageId));
                 var ccFailing = Mocker.Resolve<IQaChecklistItemRepository>().FindByKey(ccItems[1].Key);
                 var gallery = All(ccCard.Components).OfType<MediaGalleryComponent>().SelectMany(g => g.Items).ToList();
-                Log($"[claude-code] pass on \"{ccItems[0].Name}\": {passedByCc}; card: {Text(ccCard)}; pictures on it {gallery.Count}: {string.Join(", ", gallery.Select(g => g.Media.Url))}");
-                Log($"[claude-code] failure on \"{ccItems[1].Name}\": {failedByCc}; state {ccFailing.State} by {ccFailing.ByName}, bug report #{ccFailing.BugReportId}");
-                Log($"[claude-code] a result for the owner's \"{ownerItem.Name}\": {refusedForOwner}");
-                Log($"[claude-code] summary now: {Text((await Cards())[0])}");
-                Text(ccCard).Should().Contain("Passed by Claude Code").And.Contain("Live check: what the check read back.");
+                Log($"[automation] pass on \"{ccItems[0].Name}\": {passedByCc}; card: {Text(ccCard)}; pictures on it {gallery.Count}: {string.Join(", ", gallery.Select(g => g.Media.Url))}");
+                Log($"[automation] failure on \"{ccItems[1].Name}\": {failedByCc}; state {ccFailing.State} by {ccFailing.ByName}, bug report #{ccFailing.BugReportId}");
+                Log($"[automation] a result for the owner's \"{ownerItem.Name}\": {refusedForOwner}");
+                Log($"[automation] summary now: {Text((await Cards())[0])}");
+                Text(ccCard).Should().Contain("Passed automatically").And.Contain("Live check: what the check read back.");
 
                 // A picture in a card is the uploaded file at its Discord address (a card's files aren't listed as attachments).
                 gallery.Single().Media.Url.Should().StartWith("https://").And.Contain("live-check.png");
-                (ccFailing.State, ccFailing.ByName, ccFailing.BugReportId.HasValue).Should().Be((QaItemState.Failing, QaChecker.ClaudeCodeName, true));
-                refusedForOwner.Should().Be(QaAutomatedOutcome.NotClaudeCodes);
-                Text((await Cards())[0]).Should().Contain("Claude Code:").And.Contain("For you:");
+                (ccFailing.State, ccFailing.ByName, ccFailing.BugReportId.HasValue).Should().Be((QaItemState.Failing, QaChecker.AutomationName, true));
+                refusedForOwner.Should().Be(QaAutomatedOutcome.NotAutomated);
+                Text((await Cards())[0]).Should().Contain("Automated checks:").And.Contain("For you:");
 
                 // The card edited again (a press, a restart): its picture is the same upload, not sent again.
                 var firstUpload = gallery.Single().Media.Url.Split('?')[0];
                 await checklist.RefreshItemAsync(ccItems[0].Key);
                 var edited = await checklistRest.GetMessageAsync(ccCard.Id);
                 var afterEdit = All(edited.Components).OfType<MediaGalleryComponent>().SelectMany(g => g.Items).Single().Media.Url.Split('?')[0];
-                Log($"[claude-code] the card edited again: {(edited.EditedTimestamp > ccCard.EditedTimestamp ? "edited" : "not edited")}; picture {afterEdit} ({(afterEdit == firstUpload ? "the same upload, nothing sent again" : "uploaded again")})");
+                Log($"[automation] the card edited again: {(edited.EditedTimestamp > ccCard.EditedTimestamp ? "edited" : "not edited")}; picture {afterEdit} ({(afterEdit == firstUpload ? "the same upload, nothing sent again" : "uploaded again")})");
                 afterEdit.Should().Be(firstUpload);
             }
             finally

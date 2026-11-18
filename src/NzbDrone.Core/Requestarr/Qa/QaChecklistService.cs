@@ -15,12 +15,12 @@ using Requestarr.Core.Discord.Interactions;
 
 namespace Requestarr.Core.Qa
 {
-    // CheckedBy: "Claude Code" (with the Check that verifies it) or "owner" (with the Reason a person has to).
+    // CheckedBy: "automation" (with the Check that verifies it) or "owner" (with the Reason a person has to).
     public record QaChecklistItemState(string Key, string Version, string Name, string State, string By, DateTime? At, int? BugReportId, string IssueUrl, string CheckedBy, string Check, string Reason, string Evidence, IReadOnlyList<string> EvidenceFiles);
 
-    // What Claude Code reads from the QA stack before promoting to staging, and what the portal will show.
+    // What the automation reads from the QA stack before promoting to staging, and what the portal will show.
     // Carried: the items passed on an earlier build that kept their pass (their wording didn't change). New: the items
-    // that first appeared on the running build (new, or reworded). Checkers: Claude Code's items and how many passed,
+    // that first appeared on the running build (new, or reworded). Checkers: the automated items and how many passed,
     // and the owner's and how many are left.
     public record QaChecklistState(string Environment, IReadOnlyList<string> Versions, int Total, int Passed, int Failing, int Carried, int New, bool Complete, string CompletedBy, DateTime? CompletedAt, IReadOnlyList<QaChecklistItemState> Items)
     {
@@ -35,11 +35,11 @@ namespace Requestarr.Core.Qa
         QaChecklistEntry Find(string key);
         QaChecklistState State();
 
-        // discordUserId QaChecker.ClaudeCodeId: Claude Code's automated run (QaAutomatedResults).
+        // discordUserId QaChecker.AutomationId: the automated run (QaAutomatedResults).
         Task MarkPassedAsync(string key, ulong discordUserId, string name);
         Task MarkFailingAsync(string key, ulong discordUserId, string name, BugReport report);
 
-        // What Claude Code's check read back and its screenshots, kept with the item and shown on its card.
+        // What the automated check read back and its screenshots, kept with the item and shown on its card.
         void SetEvidence(string key, string evidence, IReadOnlyList<QaEvidenceFile> screenshots);
 
         // A bug report's issue link arrived: the failing item's card shows it.
@@ -94,9 +94,9 @@ namespace Requestarr.Core.Qa
         public IReadOnlyList<QaChecklistVersion> Versions() =>
             QaChecklist.ForServer(QaChecklist.Parse(ChecklistText(), Changelog.Release(CurrentVersion())), _environment, CurrentVersion());
 
-        // QA's checklist is the owner's: Claude Code's items run on dev before a build is promoted and never show on QA.
-        // Dev shows them, with Claude Code's results.
-        public IReadOnlyList<QaChecklistEntry> Entries() => Versions().SelectMany(v => v.Items).Where(e => !(e.Checker.ClaudeCode && OwnersOnly)).ToList();
+        // QA's checklist is the owner's: the automated items run on dev before a build is promoted and never show on QA.
+        // Dev shows them, with their automated results.
+        public IReadOnlyList<QaChecklistEntry> Entries() => Versions().SelectMany(v => v.Items).Where(e => !(e.Checker.Automated && OwnersOnly)).ToList();
 
         public QaChecklistEntry Find(string key) => Entries().FirstOrDefault(e => e.Key == key);
 
@@ -114,7 +114,7 @@ namespace Requestarr.Core.Qa
             {
                 var r = records[e.Key];
                 var report = r.BugReportId.HasValue && reports.TryGetValue(r.BugReportId.Value, out var found) ? found : null;
-                var checkedBy = e.Checker.ClaudeCode ? QaChecker.ClaudeCodeName : "owner";
+                var checkedBy = e.Checker.Automated ? QaChecker.AutomationName : "owner";
                 return new QaChecklistItemState(e.Key, Changelog.Display(e.Version), e.Name, r.State.ToString(), r.ByName, r.At, r.BugReportId, report?.IssueUrl, checkedBy, e.Checker.Check, e.Checker.Reason, r.Evidence, r.EvidenceFiles ?? new List<string>());
             }).ToList();
 
@@ -135,7 +135,7 @@ namespace Requestarr.Core.Qa
 
             try
             {
-                ForgetClaudeCodesResultsOnQa();
+                ForgetAutomatedResultsOnQa();
                 var entries = Entries();
                 var records = Records(entries);
                 var config = _guildSetup.GetConfig();
@@ -343,33 +343,33 @@ namespace Requestarr.Core.Qa
             });
         }
 
-        // Results Claude Code recorded on QA before its items left QA's checklist (November 15, 2026) go, with their
+        // Results the automation recorded on QA before its items left QA's checklist (November 15, 2026) go, with their
         // screenshots; the owner's own results stay.
-        private void ForgetClaudeCodesResultsOnQa()
+        private void ForgetAutomatedResultsOnQa()
         {
             if (!OwnersOnly)
             {
                 return;
             }
 
-            foreach (var record in _items.All().Where(r => r.ByName == QaChecker.ClaudeCodeName && r.ByDiscordUserId == null).ToList())
+            foreach (var record in _items.All().Where(r => r.ByName == QaChecker.AutomationName && r.ByDiscordUserId == null).ToList())
             {
                 _evidence.Replace(record.ItemKey, Array.Empty<QaEvidenceFile>());
                 _items.Delete(record);
-                _logger.Info("QA checklist: removed Claude Code's result on {0}; its checks run before a promotion now", record.Name);
+                _logger.Info("QA checklist: removed the automated result on {0}; its checks run before a promotion now", record.Name);
             }
         }
 
-        private static string MemberId(ulong discordUserId) => discordUserId == QaChecker.ClaudeCodeId ? null : discordUserId.ToString();
+        private static string MemberId(ulong discordUserId) => discordUserId == QaChecker.AutomationId ? null : discordUserId.ToString();
 
-        private static Actor ActorFor(ulong discordUserId, string name) => discordUserId == QaChecker.ClaudeCodeId ? Actor.ClaudeCode : Actor.Discord(discordUserId, name);
+        private static Actor ActorFor(ulong discordUserId, string name) => discordUserId == QaChecker.AutomationId ? Actor.Automation : Actor.Discord(discordUserId, name);
 
         private static QaCheckers Checkers(IReadOnlyList<QaChecklistEntry> entries, Dictionary<string, QaChecklistItem> records)
         {
-            var claudeCode = entries.Where(e => e.Checker.ClaudeCode).Select(e => records[e.Key]).ToList();
-            var ownerLeft = entries.Where(e => !e.Checker.ClaudeCode && records[e.Key].State != QaItemState.Passed).Select(e => e.Name).ToList();
+            var automated = entries.Where(e => e.Checker.Automated).Select(e => records[e.Key]).ToList();
+            var ownerLeft = entries.Where(e => !e.Checker.Automated && records[e.Key].State != QaItemState.Passed).Select(e => e.Name).ToList();
 
-            return new QaCheckers(claudeCode.Count, claudeCode.Count(r => r.State == QaItemState.Passed), claudeCode.Count(r => r.State == QaItemState.Failing), entries.Count - claudeCode.Count, ownerLeft);
+            return new QaCheckers(automated.Count, automated.Count(r => r.State == QaItemState.Passed), automated.Count(r => r.State == QaItemState.Failing), entries.Count - automated.Count, ownerLeft);
         }
 
         private string RunningBuild() => _environment.Shown(CurrentVersion());
@@ -428,7 +428,7 @@ namespace Requestarr.Core.Qa
             }
         }
 
-        // Claude Code's screenshots, if any, show under the item's text: sent with the card, or kept from when they were.
+        // The automated check's screenshots, if any, show under the item's text: sent with the card, or kept from when they were.
         private InteractionReply ItemCard(QaChecklistEntry entry, QaChecklistItem record, CardFiles files)
         {
             var report = record.BugReportId.HasValue ? _reports.Find(record.BugReportId.Value) : null;
