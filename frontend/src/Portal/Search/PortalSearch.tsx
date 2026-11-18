@@ -63,9 +63,11 @@ function PortalSearch() {
     setTimeout(() => setIsOpen(false), BLUR_DELAY_MS);
   }, []);
 
+  // Typing opens the results too: a box focused without a focus event (from code) still shows them.
   const onChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setTerm(event.target.value);
     setHighlight(0);
+    setIsOpen(true);
   }, []);
 
   const onKeyDown = useCallback(
