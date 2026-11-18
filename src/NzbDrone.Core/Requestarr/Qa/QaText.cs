@@ -54,7 +54,8 @@ namespace Requestarr.Core.Qa
         public const string NoChannel = "The bug reports channel isn't set up yet. Try again in a minute.";
         public const string Sending = "Sending your report…";
 
-        public static string Summary(IReadOnlyList<Version> versions, int total, int passed, int failing, QaCarriedOver carriedOver, QaCheckers checkers, string completedBy, DateTime? completedAt)
+        // lastPassedBy: how the last item was passed, as By says it.
+        public static string Summary(IReadOnlyList<Version> versions, int total, int passed, int failing, QaCarriedOver carriedOver, QaCheckers checkers, string lastPassedBy, DateTime? completedAt)
         {
             var which = versions.Count switch
             {
@@ -67,7 +68,7 @@ namespace Requestarr.Core.Qa
                    AutomatedLine(checkers) +
                    OwnerLine(checkers) +
                    Carried(carriedOver) +
-                   ChecklistStatus(total, passed, failing, completedBy, completedAt);
+                   ChecklistStatus(total, passed, failing, lastPassedBy, completedAt);
         }
 
         private static string AutomatedLine(QaCheckers checkers)
@@ -96,7 +97,7 @@ namespace Requestarr.Core.Qa
         private static string Carried(QaCarriedOver carriedOver) =>
             carriedOver.Carried > 0 ? $"🔁 **{carriedOver.Carried} carried over** with their pass from an earlier build; **{carriedOver.New} new or changed** in this one.\n" : string.Empty;
 
-        private static string ChecklistStatus(int total, int passed, int failing, string completedBy, DateTime? completedAt)
+        private static string ChecklistStatus(int total, int passed, int failing, string lastPassedBy, DateTime? completedAt)
         {
             if (total == 0)
             {
@@ -113,7 +114,7 @@ namespace Requestarr.Core.Qa
                 return $"⏳ **{total - passed} left to test.**";
             }
 
-            var last = completedBy != null ? $", the last {By(completedBy)} {Stamp(completedAt)}" : string.Empty;
+            var last = lastPassedBy != null ? $", the last {lastPassedBy} {Stamp(completedAt)}" : string.Empty;
             return $"✅ **Complete:** every item passed{last}. Staging can have these versions once no bug report from QA is still open.";
         }
 
@@ -121,8 +122,8 @@ namespace Requestarr.Core.Qa
         {
             var state = record?.State switch
             {
-                QaItemState.Passed => $"✅ Passed {By(record.ByName)} {Stamp(record.At)}",
-                QaItemState.Failing => $"❌ Failing, reported {By(record.ByName)} {Stamp(record.At)}{(report != null ? $": {ReportLink(report)}" : string.Empty)}",
+                QaItemState.Passed => $"✅ Passed {By(record)} {Stamp(record.At)}",
+                QaItemState.Failing => $"❌ Failing, reported {By(record)} {Stamp(record.At)}{(report != null ? $": {ReportLink(report)}" : string.Empty)}",
                 _ => "⏳ Not tested yet"
             };
 
@@ -140,7 +141,7 @@ namespace Requestarr.Core.Qa
             string.IsNullOrWhiteSpace(record?.Evidence) ? string.Empty : $"\n**What the check saw:** {Plain(Shorten(FirstLine(record.Evidence), EvidenceLength))}";
 
         // "automatically", or "by" the admin who did it.
-        private static string By(string name) => name == QaChecker.AutomationName ? "automatically" : $"by {name}";
+        public static string By(QaChecklistItem record) => QaChecker.IsAutomation(record) ? "automatically" : $"by {record.ByName}";
 
         private static string FirstLine(string text) => text.Trim().Split('\n')[0].Trim();
 

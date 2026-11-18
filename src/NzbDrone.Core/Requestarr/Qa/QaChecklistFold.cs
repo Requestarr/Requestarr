@@ -22,7 +22,10 @@ namespace Requestarr.Core.Qa
             ["failing-an-item.0cad33fd"] = new[] { "0.4.15/failing-an-item", "0.4.16/failing-in-a-row" },
             ["report-a-problem.3aa33284"] = new[] { "0.4.15/report-a-problem", "0.4.16/bug-reports-channel-order", "0.5.6/bug-report-at-the-new-home" },
             ["report-limit.13e91dd1"] = new[] { "0.4.15/report-limit", "0.4.16/member-limit-still-holds" },
-            ["why-a-report-isn-t-on-github.64e0be4a"] = new[] { "0.4.16/why-a-report-isn-t-on-github" }
+            ["why-a-report-isn-t-on-github.64e0be4a"] = new[] { "0.4.16/why-a-report-isn-t-on-github" },
+
+            // Reworded only to stop naming the tool that runs the automated checks (November 18, 2026).
+            ["only-your-items-on-qa.9866aac6"] = new[] { "only-your-items-on-qa.7b89baa0" }
         };
     }
 }

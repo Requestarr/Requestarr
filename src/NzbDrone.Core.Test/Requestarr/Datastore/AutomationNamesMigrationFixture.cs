@@ -23,6 +23,7 @@ namespace Requestarr.Core.Test.Datastore
             var db = WithDapperMigrationTestDb(c =>
             {
                 c.Insert.IntoTable("AuditEntries").Row(new { Actor = OldActor, Action = "qa.pass", Timestamp = at });
+                c.Insert.IntoTable("AuditEntries").Row(new { Actor = "discord:0 (" + OldName + ")", Action = "bugreport.send", Timestamp = at });
                 c.Insert.IntoTable("AuditEntries").Row(new { Actor = "discord:1 (alice)", Action = "qa.pass", Timestamp = at });
                 c.Insert.IntoTable("QaChecklistItems").Row(new { ItemKey = "kept.1a2b3c4d", Version = "0.7.4", State = 1, ByName = OldName });
                 c.Insert.IntoTable("QaChecklistItems").Row(new { ItemKey = "owners.1a2b3c4d", Version = "0.7.4", State = 1, ByName = "alice" });
@@ -38,7 +39,7 @@ namespace Requestarr.Core.Test.Datastore
                 });
             });
 
-            db.Query<string>("SELECT \"Actor\" FROM \"AuditEntries\" ORDER BY \"Id\"").Should().Equal("automation", "discord:1 (alice)");
+            db.Query<string>("SELECT \"Actor\" FROM \"AuditEntries\" ORDER BY \"Id\"").Should().Equal("automation", "automation", "discord:1 (alice)");
             db.Query<string>("SELECT \"ByName\" FROM \"QaChecklistItems\" ORDER BY \"Id\"").Should().Equal("automation", "alice");
             db.Query<string>("SELECT \"ItemKey\" FROM \"QaChecklistItems\" ORDER BY \"Id\"").First().Should().Be("kept.1a2b3c4d", "a pass stays with its item");
 

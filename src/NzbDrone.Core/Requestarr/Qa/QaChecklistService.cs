@@ -16,7 +16,11 @@ using Requestarr.Core.Discord.Interactions;
 namespace Requestarr.Core.Qa
 {
     // CheckedBy: "automation" (with the Check that verifies it) or "owner" (with the Reason a person has to).
-    public record QaChecklistItemState(string Key, string Version, string Name, string State, string By, DateTime? At, int? BugReportId, string IssueUrl, string CheckedBy, string Check, string Reason, string Evidence, IReadOnlyList<string> EvidenceFiles);
+    public record QaChecklistItemState(string Key, string Version, string Name, string State, string By, DateTime? At, int? BugReportId, string IssueUrl, string CheckedBy, string Check, string Reason, string Evidence, IReadOnlyList<string> EvidenceFiles)
+    {
+        // Passed or failed by the automated checks, not an admin (QaChecker.IsAutomation).
+        public bool ByAutomation { get; init; }
+    }
 
     // What the automation reads from the QA stack before promoting to staging, and what the portal will show.
     // Carried: the items passed on an earlier build that kept their pass (their wording didn't change). New: the items
@@ -115,7 +119,10 @@ namespace Requestarr.Core.Qa
                 var r = records[e.Key];
                 var report = r.BugReportId.HasValue && reports.TryGetValue(r.BugReportId.Value, out var found) ? found : null;
                 var checkedBy = e.Checker.Automated ? QaChecker.AutomationName : "owner";
-                return new QaChecklistItemState(e.Key, Changelog.Display(e.Version), e.Name, r.State.ToString(), r.ByName, r.At, r.BugReportId, report?.IssueUrl, checkedBy, e.Checker.Check, e.Checker.Reason, r.Evidence, r.EvidenceFiles ?? new List<string>());
+                return new QaChecklistItemState(e.Key, Changelog.Display(e.Version), e.Name, r.State.ToString(), r.ByName, r.At, r.BugReportId, report?.IssueUrl, checkedBy, e.Checker.Check, e.Checker.Reason, r.Evidence, r.EvidenceFiles ?? new List<string>())
+                {
+                    ByAutomation = QaChecker.IsAutomation(r)
+                };
             }).ToList();
 
             return new QaChecklistState(_environment.IconSet, Versions().Select(v => Changelog.Display(v.Version)).ToList(), entries.Count, passed, failing, Carried(records), New(records), complete, last?.ByName, last?.At, items)
@@ -397,7 +404,7 @@ namespace Requestarr.Core.Qa
             return new InteractionReply
             {
                 Quiet = true,
-                Cards = { new InteractionCard { Color = SummaryColor(failing, complete: last != null), Text = QaText.Summary(Versions().Select(v => v.Version).ToList(), entries.Count, passed, failing, new QaCarriedOver(Carried(records), New(records)), Checkers(entries, records), last?.ByName, last?.At) } }
+                Cards = { new InteractionCard { Color = SummaryColor(failing, complete: last != null), Text = QaText.Summary(Versions().Select(v => v.Version).ToList(), entries.Count, passed, failing, new QaCarriedOver(Carried(records), New(records)), Checkers(entries, records), last == null ? null : QaText.By(last), last?.At) } }
             };
         }
 
