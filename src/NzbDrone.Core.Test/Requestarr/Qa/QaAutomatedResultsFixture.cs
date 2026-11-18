@@ -81,7 +81,7 @@ namespace Requestarr.Core.Test.Qa
         private void ItemIs(string state, string by)
         {
             var items = new[] { AutomatedItem, Owners }
-                .Select(e => new QaChecklistItemState(e.Key, "0.7.0005", e.Name, state, by, null, null, null, "owner", null, null, null, new List<string>()))
+                .Select(e => new QaChecklistItemState(e.Key, "0.7.0005", e.Name, state, by, null, null, null, "owner", null, null, null, new List<string>()) { ByAutomation = by == QaChecker.AutomationName })
                 .ToList();
             Mocker.GetMock<IQaChecklistService>().Setup(c => c.State()).Returns(new QaChecklistState("qa", new[] { "0.7.0005" }, 2, 0, 0, 0, 0, false, null, null, items));
         }

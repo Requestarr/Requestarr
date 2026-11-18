@@ -57,10 +57,10 @@ namespace Requestarr.Core.Qa
             _checklist.SetEvidence(key, result.Evidence, result.Screenshots);
 
             // An admin's Failing stands until an admin passes the item; an automated failure already has its report.
-            if (failing && (current.By != QaChecker.AutomationName || !result.Passed))
+            if (failing && (!current.ByAutomation || !result.Passed))
             {
                 await _checklist.RefreshItemAsync(key);
-                return current.By == QaChecker.AutomationName ? QaAutomatedOutcome.Recorded : QaAutomatedOutcome.KeptAdminsFailing;
+                return current.ByAutomation ? QaAutomatedOutcome.Recorded : QaAutomatedOutcome.KeptAdminsFailing;
             }
 
             if (result.Passed)

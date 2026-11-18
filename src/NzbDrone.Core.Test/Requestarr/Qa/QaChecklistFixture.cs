@@ -34,7 +34,7 @@ namespace Requestarr.Core.Test.Qa
 ";
 
         // The fold's 11 carried items, the two rewritten ones and the build-number item kept under Unreleased.
-        private const int ItemsFromTheFold = 14;
+        private const int ItemsFromTheFold = 15;
 
         private static readonly QaCheckers NoCheckers = new(0, 0, 0, 0, Array.Empty<string>());
 
@@ -183,11 +183,14 @@ namespace Requestarr.Core.Test.Qa
             "build-4/build-number-on-update-cards", "build-4/build-number-in-the-web-app"
         };
 
+        // Passed on QA after the fold, under wording reworded since (November 18, 2026): folded the same way.
+        private static readonly string[] PassedSince = { "only-your-items-on-qa.7b89baa0" };
+
         [TestCase(null, "Update cards", "Read changes")]
         [TestCase("0.4.11/charcoal-arrow", "Update cards", "Read changes", "Web app logo")]
         public void the_fold_keeps_a_merged_items_pass_only_when_every_item_it_came_from_passed(string untested, params string[] toTest)
         {
-            foreach (var key in BeforeTheFold.Where(k => k != untested))
+            foreach (var key in BeforeTheFold.Concat(PassedSince).Where(k => k != untested))
             {
                 _records[key] = new QaChecklistItem { Id = _nextId++, ItemKey = key, State = QaItemState.Passed, ByName = "EaZyCheaZ", At = new DateTime(2026, 11, 14, 18, 57, 5) };
             }
@@ -313,7 +316,7 @@ namespace Requestarr.Core.Test.Qa
 
             summary.Should().Contain("🤖 **Automated checks:** 16 of 17 passed, 1 failing, each with what it checked on the card.\n")
                 .And.Contain("👤 **For you:** 2 of 2 left: Who checks each item, Bot picture and banner.\n");
-            QaText.Summary(new[] { new Version(0, 7, 5) }, 2, 2, 0, new QaCarriedOver(0, 0), new QaCheckers(0, 0, 0, 2, Array.Empty<string>()), "Alex", null)
+            QaText.Summary(new[] { new Version(0, 7, 5) }, 2, 2, 0, new QaCarriedOver(0, 0), new QaCheckers(0, 0, 0, 2, Array.Empty<string>()), "by Alex", null)
                 .Should().Contain("👤 **For you:** all 2 passed.").And.NotContain("Automated checks");
         }
 

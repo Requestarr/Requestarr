@@ -4,8 +4,9 @@ request; run it locally with `python3 .github/tool_names_check.py`.
 
 Anything can run Requestarr's automation, so the code, docs, scripts, data and file metadata say "automation" or
 "automated checks", never the tool that happened to run them. Checked: every file git tracks, as bytes (text, and any
-metadata a binary file carries in plain text, such as an image's), and the compressed text and other metadata inside
-PNG images. The names are built from parts below, so this file doesn't name them itself.
+metadata a binary file carries in plain text, such as an image's), the compressed text inside PNG images, and every
+tracked path. The tool's name is matched anywhere (it also hides in identifiers); its maker's only at the start of a word,
+so words such as "philanthropic" pass. The names are built from parts below, so this file doesn't name them itself.
 """
 import os
 import re
@@ -16,7 +17,7 @@ import tempfile
 import zlib
 
 NAMES = ["cl" + "aude", "anthro" + "pic"]
-FOUND = re.compile("|".join(NAMES).encode(), re.IGNORECASE)
+FOUND = re.compile((NAMES[0] + r"|\b" + NAMES[1]).encode(), re.IGNORECASE)
 PNG = b"\x89PNG\r\n\x1a\n"
 COMPRESSED_TEXT = {b"zTXt", b"iTXt"}
 
@@ -34,6 +35,13 @@ def png_texts(data):
 
 
 def compressed_text(kind, body):
+    try:
+        return chunk_text(kind, body)
+    except (ValueError, IndexError):
+        return body
+
+
+def chunk_text(kind, body):
     _, rest = body.split(b"\0", 1)
     if kind == b"zTXt":
         return safe_inflate(rest[1:])
@@ -71,6 +79,8 @@ def tracked(root):
 def check(root):
     failures = []
     for path in tracked(root):
+        if FOUND.search(path.encode()):
+            failures.append("%s (its name): names an AI tool" % path)
         failures += ["%s (%s): names an AI tool; say \"automation\" or \"automated checks\"" % (path, where) for where in problems(os.path.join(root, path))]
     return failures
 
@@ -92,6 +102,9 @@ def self_test():
         "hidden-metadata.png": (png([(b"zTXt", b"Comment\0\0" + zlib.compress(b"made with " + name.encode()))]), ["image metadata"]),
         "international-metadata.png": (png([(b"iTXt", b"Comment\0\1\0\0\0" + zlib.compress(name.encode()))]), ["image metadata"]),
         "clean.png": (png([(b"gAMA", struct.pack(">I", 45455))]), []),
+        "a-word.md": (b"A philanthropic gift.\n", []),
+        "broken-chunk.png": (png([(b"zTXt", b"no zero byte here")]), []),
+        "notes-%s.md" % NAMES[0]: (b"Clean words.\n", []),
     }
     failed = []
     with tempfile.TemporaryDirectory() as root:
@@ -105,8 +118,8 @@ def self_test():
         subprocess.run(["git", "-C", root, "init", "-q"], check=True)
         subprocess.run(["git", "-C", root, "-c", "core.autocrlf=false", "add", "."], check=True)
         findings = check(root)
-        if len(findings) != 5:
-            failed.append("check over a repository: expected 5 findings, got %s" % findings)
+        if len(findings) != 6:
+            failed.append("check over a repository: expected 6 findings, got %s" % findings)
     for line in failed:
         print("SELF-TEST FAILED: " + line)
     if not failed:

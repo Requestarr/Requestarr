@@ -5,7 +5,7 @@ namespace NzbDrone.Core.Datastore.Migration
 {
     // Requestarr: the automated checks are recorded as "automation", not the name of the tool that ran them. Audit rows,
     // checklist results and the bug reports they filed carry over under the new name, so no pass or history is lost.
-    // Checklist results are keyed by each item's wording, which this doesn't touch.
+    // Checklist results are keyed by each item's wording; the one item reworded with this is folded (QaChecklistFold).
     [Migration(16)]
     public class automation_names : NzbDroneMigrationBase
     {
@@ -14,9 +14,12 @@ namespace NzbDrone.Core.Datastore.Migration
         private const string OldName = "Cl" + "aude Code";
         private const string OldFailure = OldName + "'s ";
 
+        // A bug report the checks filed was audited as a Discord account with no member behind it.
+        private const string OldReporter = "discord:0 (" + OldName + ")";
+
         protected override void MainDbUpgrade()
         {
-            Execute.Sql($"UPDATE \"AuditEntries\" SET \"Actor\" = 'automation' WHERE \"Actor\" = '{OldActor}'");
+            Execute.Sql($"UPDATE \"AuditEntries\" SET \"Actor\" = 'automation' WHERE \"Actor\" IN ('{OldActor}', '{OldReporter}')");
             Execute.Sql($"UPDATE \"QaChecklistItems\" SET \"ByName\" = 'automation' WHERE \"ByName\" = '{OldName}'");
             Execute.Sql($"UPDATE \"BugReports\" SET \"ReporterName\" = 'automation' WHERE \"ReporterName\" = '{OldName}'");
 

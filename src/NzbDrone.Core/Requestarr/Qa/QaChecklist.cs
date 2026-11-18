@@ -35,6 +35,9 @@ namespace Requestarr.Core.Qa
         public const ulong AutomationId = 0;
 
         public static readonly QaChecker Unclassified = new(false, null, "not classified yet", null);
+
+        // By its name and no member: an admin whose Discord name happens to be the same is still that admin.
+        public static bool IsAutomation(QaChecklistItem record) => record.ByDiscordUserId == null && record.ByName == AutomationName;
     }
 
     public record QaChecklistVersion(Version Version, IReadOnlyList<QaChecklistEntry> Items);
