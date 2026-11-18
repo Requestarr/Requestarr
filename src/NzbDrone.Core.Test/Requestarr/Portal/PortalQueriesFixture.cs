@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Access;
 using Requestarr.Core.Admin;
@@ -44,6 +45,8 @@ namespace Requestarr.Core.Test.Portal
             Mocker.SetConstant<IMediaServerAccountRepository>(Mocker.Resolve<MediaServerAccountRepository>());
             Mocker.SetConstant<IMediaServerAccessRequestRepository>(Mocker.Resolve<MediaServerAccessRequestRepository>());
             Mocker.SetConstant<IAccessRequestRepository>(Mocker.Resolve<AccessRequestRepository>());
+            Mocker.GetMock<IConfigService>().SetupAllProperties();
+            Mocker.SetConstant<IAuditSettings>(Mocker.Resolve<AuditSettings>());
 
             _alice = Db.Insert(new RequestarrUser { DisplayName = "Alice", Status = UserStatus.Active, Added = Start });
             _bob = Db.Insert(new RequestarrUser { DisplayName = "Bob", Status = UserStatus.Suspended, Added = Start });
@@ -176,6 +179,28 @@ namespace Requestarr.Core.Test.Portal
         {
             Subject.Request(999).Should().BeNull();
             Subject.Member(999).Should().BeNull();
+        }
+
+        [Test]
+        public void a_page_that_began_before_a_trims_cutoff_says_its_history_was_trimmed()
+        {
+            var now = DateTime.UtcNow;
+            var old = Db.Insert(new Request { Title = "Alien", ContentType = ContentType.Movie, OwnerUserId = _alice.Id, Status = RequestStatus.Available, Requested = now.AddYears(-2) });
+            var recent = Db.Insert(new Request { Title = "Dune", ContentType = ContentType.Movie, OwnerUserId = _alice.Id, Status = RequestStatus.Pending, Requested = now.AddDays(-1) });
+            var carol = Db.Insert(new RequestarrUser { DisplayName = "Carol", Status = UserStatus.Active, Added = now.AddYears(-2) });
+            var dave = Db.Insert(new RequestarrUser { DisplayName = "Dave", Status = UserStatus.Active, Added = now.AddDays(-1) });
+
+            Subject.Request(old.Id).HistoryTrimmedAfter.Should().BeNull("nothing has been trimmed yet");
+
+            Mocker.Resolve<AuditSettings>().Trimmed(now.AddYears(-1));
+
+            Subject.Request(old.Id).HistoryTrimmedAfter.Should().Be(AuditRetention.OneYear);
+            Subject.Member(carol.Id).HistoryTrimmedAfter.Should().Be(AuditRetention.OneYear);
+            Subject.Request(recent.Id).HistoryTrimmedAfter.Should().BeNull();
+            Subject.Member(dave.Id).HistoryTrimmedAfter.Should().BeNull();
+
+            Mocker.GetMock<IConfigService>().Object.AuditLogKeepFor = AuditRetention.Forever;
+            Subject.Request(old.Id).HistoryTrimmedAfter.Should().Be(AuditRetention.Forever, "what was trimmed before stays gone");
         }
 
         [Test]

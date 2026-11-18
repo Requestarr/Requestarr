@@ -94,7 +94,10 @@ function MemberDetail({ detail, onDone }: MemberDetailProps) {
       </FieldSet>
 
       <FieldSet legend={translate('PortalHistory')}>
-        <TimelineTable events={detail.history} />
+        <TimelineTable
+          events={detail.history}
+          trimmedAfter={detail.historyTrimmedAfter}
+        />
       </FieldSet>
     </>
   );

@@ -78,6 +78,7 @@ namespace Requestarr.Core.Settings
         private readonly ITmdbSettingsStore _tmdb;
         private readonly IAvailabilitySettingsStore _availability;
         private readonly IBugReportSettings _bugReports;
+        private readonly IAuditSettings _auditLog;
         private readonly IBackendService _backends;
         private readonly IReleaseEnvironment _environment;
         private readonly IAuditService _audit;
@@ -90,6 +91,7 @@ namespace Requestarr.Core.Settings
                                   ITmdbSettingsStore tmdb,
                                   IAvailabilitySettingsStore availability,
                                   IBugReportSettings bugReports,
+                                  IAuditSettings auditLog,
                                   IBackendService backends,
                                   IReleaseEnvironment environment,
                                   IAuditService audit)
@@ -102,6 +104,7 @@ namespace Requestarr.Core.Settings
             _tmdb = tmdb;
             _availability = availability;
             _bugReports = bugReports;
+            _auditLog = auditLog;
             _backends = backends;
             _environment = environment;
             _audit = audit;
@@ -248,7 +251,8 @@ namespace Requestarr.Core.Settings
             Number("accessLongCooldownClicks", "Spam guard: clicks before a long wait", () => _config.AccessLongCooldownClicks, v => _config.AccessLongCooldownClicks = v, 1),
             Number("accessLongCooldownHours", "Spam guard: long wait (hours)", () => _config.AccessLongCooldownHours, v => _config.AccessLongCooldownHours = v, 1),
             Number("accessBlockClicks", "Spam guard: more clicks that block", () => _config.AccessBlockClicks, v => _config.AccessBlockClicks = v, 1),
-            Number("accessBlockWithinHours", "Spam guard: hours those clicks count for", () => _config.AccessBlockWithinHours, v => _config.AccessBlockWithinHours = v, 1)
+            Number("accessBlockWithinHours", "Spam guard: hours those clicks count for", () => _config.AccessBlockWithinHours, v => _config.AccessBlockWithinHours = v, 1),
+            new SettingDefinition("auditLogKeepFor", "Keep the audit log for", SettingKind.Text, () => _auditLog.KeepFor, v => _config.AuditLogKeepFor = v, Check: AuditRetention.Problem)
         };
 
         private IEnumerable<SettingDefinition> ConnectionDefinitions() => new[]

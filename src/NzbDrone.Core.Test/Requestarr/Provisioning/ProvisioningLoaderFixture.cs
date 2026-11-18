@@ -99,11 +99,18 @@ mediaServers:
         [TestCase("backends:\n  sonarr:\n    - name: Same\n      url: http://a\n      apiKey: k\n  radarr:\n    - name: same\n      url: http://b\n      apiKey: k", "*'Same' is used more than once*")]
         [TestCase("version: 2", "*version 2 is not supported*")]
         [TestCase("unknownSection: true", "*not valid*")]
+        [TestCase("auditLog:\n  keepFor: 3 months", "*auditLog.keepFor*90 days, 6 months, 1 year, 2 years, forever*")]
         public void should_reject_invalid_documents(string yaml, string expectedMessage)
         {
             Action act = () => Subject.Parse(yaml);
 
             act.Should().Throw<ProvisioningException>().WithMessage(expectedMessage);
+        }
+
+        [Test]
+        public void should_read_how_long_the_audit_log_is_kept()
+        {
+            Subject.Parse("auditLog:\n  keepFor: 2 years").AuditLog.KeepFor.Should().Be("2 years");
         }
 
         [Test]

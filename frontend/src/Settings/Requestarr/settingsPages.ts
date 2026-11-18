@@ -45,7 +45,23 @@ export const REQUEST_SECTIONS: SettingsSection[] = [
       ['accessBlockWithinHours', 'number'],
     ],
   },
+  {
+    legend: 'SettingsAuditLog',
+    fields: [['auditLogKeepFor', 'select']],
+  },
 ];
+
+// The choices of each 'select' setting: the value the settings API takes, and the translation key of its words.
+export const SETTING_CHOICES: Record<string, [value: string, label: string][]> =
+  {
+    auditLogKeepFor: [
+      ['90 days', 'AuditLogKeep90Days'],
+      ['6 months', 'AuditLogKeep6Months'],
+      ['1 year', 'AuditLogKeep1Year'],
+      ['2 years', 'AuditLogKeep2Years'],
+      ['forever', 'AuditLogKeepForever'],
+    ],
+  };
 
 export const CONNECTION_SECTIONS: SettingsSection[] = [
   {

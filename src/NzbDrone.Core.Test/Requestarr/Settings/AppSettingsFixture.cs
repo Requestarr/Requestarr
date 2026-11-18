@@ -32,6 +32,7 @@ namespace Requestarr.Core.Test.Settings
             Mocker.SetConstant<ITmdbSettingsStore>(new TmdbSettingsStore());
             Mocker.SetConstant<IAvailabilitySettingsStore>(new AvailabilitySettingsStore());
             Mocker.SetConstant<IStoredSettings>(Mocker.Resolve<StoredSettings>());
+            Mocker.SetConstant<IAuditSettings>(Mocker.Resolve<AuditSettings>());
         }
 
         private Task<SettingsSaveResult> Save(string key, string value) => Subject.SaveAsync(new Dictionary<string, string> { [key] = value }, Admin);
@@ -58,6 +59,17 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
+        public async Task should_keep_the_audit_log_for_a_year_until_another_choice_is_saved()
+        {
+            Subject.Get().Values["auditLogKeepFor"].Should().Be(AuditRetention.OneYear);
+
+            (await Save("auditLogKeepFor", AuditRetention.NinetyDays)).Saved.Should().BeTrue();
+
+            Subject.Get().Values["auditLogKeepFor"].Should().Be(AuditRetention.NinetyDays);
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "auditLogKeepFor", "Keep the audit log for: from 1 year to 90 days"), Times.Once());
+        }
+
+        [Test]
         public async Task should_record_nothing_when_a_value_is_unchanged()
         {
             await Save("removalVoteDays", "7");
@@ -72,6 +84,7 @@ namespace Requestarr.Core.Test.Settings
         [TestCase("availabilityWebhookUrl", "requestarr:9797")]
         [TestCase("bugReportsRepository", "Requestarr")]
         [TestCase("nonsense", "1")]
+        [TestCase("auditLogKeepFor", "3 weeks")]
         public async Task should_refuse_a_value_it_cant_use_and_change_nothing(string key, string value)
         {
             var result = await Subject.SaveAsync(new Dictionary<string, string> { ["accessBlockClicks"] = "9", [key] = value }, Admin);

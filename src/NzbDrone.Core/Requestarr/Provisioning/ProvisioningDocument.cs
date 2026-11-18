@@ -33,6 +33,15 @@ namespace Requestarr.Core.Provisioning
         // Optional: bug reports from the Report a problem button. Stored as settings the admin portal can change; the
         // GitHub access key is kept in memory only.
         public BugReportsProvisioning BugReports { get; set; }
+
+        // Optional: how long the audit log keeps an entry. Stored as a setting the admin portal can change.
+        public AuditLogProvisioning AuditLog { get; set; }
+    }
+
+    public class AuditLogProvisioning
+    {
+        // 90 days | 6 months | 1 year (default) | 2 years | forever
+        public string KeepFor { get; set; }
     }
 
     public class BugReportsProvisioning

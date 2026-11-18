@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dapper;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
 
@@ -41,6 +42,9 @@ namespace Requestarr.Core.Audit
         List<AuditEntry> ForTargetTypes(string first, string second);
 
         List<AuditEntry> ForAction(string action);
+
+        // Deletes the entries from before the cutoff, except those of the action kept; how many went.
+        int DeleteOlderThan(DateTime cutoff, string kept);
     }
 
     public class AuditRepository : BasicRepository<AuditEntry>, IAuditRepository
@@ -63,6 +67,14 @@ namespace Requestarr.Core.Audit
         public List<AuditEntry> ForAction(string action)
         {
             return Query(a => a.Action == action);
+        }
+
+        public int DeleteOlderThan(DateTime cutoff, string kept)
+        {
+            var sql = Builder().Where<AuditEntry>(a => a.Timestamp < cutoff && a.Action != kept).AddDeleteTemplate(typeof(AuditEntry));
+
+            using var conn = _database.OpenConnection();
+            return conn.Execute(sql.RawSql, sql.Parameters);
         }
     }
 

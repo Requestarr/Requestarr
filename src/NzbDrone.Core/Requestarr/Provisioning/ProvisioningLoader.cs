@@ -149,11 +149,20 @@ namespace Requestarr.Core.Provisioning
                 .Concat(ValidateDiscord(document.Discord))
                 .Concat(ValidateAvailability(document.Availability))
                 .Concat(ValidateBackends(document.Backends))
-                .Concat(ValidateMediaServers(document.MediaServers));
+                .Concat(ValidateMediaServers(document.MediaServers))
+                .Concat(ValidateAuditLog(document.AuditLog));
 
             foreach (var error in sections)
             {
                 yield return error;
+            }
+        }
+
+        private static IEnumerable<string> ValidateAuditLog(AuditLogProvisioning auditLog)
+        {
+            if (auditLog?.KeepFor is { } keepFor && Requestarr.Core.Audit.AuditRetention.Problem(keepFor) is { } problem)
+            {
+                yield return $"auditLog.keepFor: {problem}";
             }
         }
 

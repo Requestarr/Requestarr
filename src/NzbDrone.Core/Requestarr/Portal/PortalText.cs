@@ -62,6 +62,7 @@ namespace Requestarr.Core.Portal
             [MemberNameService.RenameAction] = "Renamed",
             ["mediaserver.link"] = "Media server linked",
             ["settings.change"] = "Setting changed",
+            [TrimAuditLog.TrimAction] = "Audit log trimmed",
             ["instance.add"] = "Instance added",
             ["instance.change"] = "Instance changed"
         };
