@@ -16,8 +16,9 @@ namespace Requestarr.Core.Portal
 
     public record PortalAccessRequests(IReadOnlyList<PortalAccessRequest> Waiting, IReadOnlyList<PortalBlocked> Paused);
 
-    // An instance down now: since when, and whether members were told (and by whom).
-    public record PortalOutageNow(int InstanceId, string Instance, DateTime Since, bool Announced, string AnnouncedBy);
+    // An instance down now: since when, whether Announce to users is offered yet (as on its alert, after 30 minutes),
+    // and whether members were told (and by whom).
+    public record PortalOutageNow(int InstanceId, string Instance, DateTime Since, bool AnnounceOffered, bool Announced, string AnnouncedBy);
 
     // One outage long enough to alert the admins, from Requestarr's lasting record.
     public record PortalOutage(string Instance, DateTime Started, DateTime? Ended, DateTime? Announced, string AnnouncedBy);
@@ -78,7 +79,7 @@ namespace Requestarr.Core.Portal
             var now = _backends.All()
                 .Where(b => b.Enable && b.DownSince.HasValue)
                 .Select(b => (Instance: b, Record: _outages.Ongoing(b.Id)))
-                .Select(d => new PortalOutageNow(d.Instance.Id, d.Instance.Name, d.Instance.DownSince.Value, d.Instance.DownAnnounceMessageId != null, d.Record?.AnnouncedBy))
+                .Select(d => new PortalOutageNow(d.Instance.Id, d.Instance.Name, d.Instance.DownSince.Value, d.Instance.DownAnnounceOffered, d.Instance.DownAnnounceMessageId != null, d.Record?.AnnouncedBy))
                 .ToList();
 
             var history = _outages.History().Select(o => new PortalOutage(o.InstanceName, o.Started, o.Ended, o.Announced, o.AnnouncedBy)).ToList();

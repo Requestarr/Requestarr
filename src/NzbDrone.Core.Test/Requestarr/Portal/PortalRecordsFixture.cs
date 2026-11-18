@@ -38,7 +38,7 @@ namespace Requestarr.Core.Test.Portal
         {
             Mocker.GetMock<IBackendRepository>().Setup(b => b.All()).Returns(new List<BackendInstance>
             {
-                new() { Id = 1, Name = "Radarr", Enable = true, DownSince = Start, DownAnnounceMessageId = "9" },
+                new() { Id = 1, Name = "Radarr", Enable = true, DownSince = Start, DownAnnounceOffered = true, DownAnnounceMessageId = "9" },
                 new() { Id = 2, Name = "Sonarr", Enable = true }
             });
             Mocker.GetMock<IOutageRepository>().Setup(o => o.Ongoing(1)).Returns(new Outage { AnnouncedBy = "owner (web app)" });
@@ -46,7 +46,7 @@ namespace Requestarr.Core.Test.Portal
 
             var outages = Subject.Outages();
 
-            outages.Now.Should().ContainSingle().Which.Should().Be(new PortalOutageNow(1, "Radarr", Start, true, "owner (web app)"));
+            outages.Now.Should().ContainSingle().Which.Should().Be(new PortalOutageNow(1, "Radarr", Start, true, true, "owner (web app)"));
             outages.History.Should().ContainSingle().Which.Instance.Should().Be("Radarr");
         }
 

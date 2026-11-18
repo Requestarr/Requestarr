@@ -145,6 +145,7 @@ export interface PortalOutageNow {
   instanceId: number;
   instance: string;
   since: string;
+  announceOffered: boolean;
   announced: boolean;
   announcedBy: string | null;
 }

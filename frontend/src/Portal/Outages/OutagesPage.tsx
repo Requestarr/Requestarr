@@ -59,7 +59,7 @@ function NowRow({
       </TableRowCell>
       <TableRowCell className={styles.actions}>
         <ActionButton action="check" isBusy={action.isBusy} onPress={onPress} />
-        {!outage.announced && (
+        {outage.announceOffered && !outage.announced && (
           <ActionButton
             action="announce"
             isBusy={action.isBusy}
