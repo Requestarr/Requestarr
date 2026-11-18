@@ -54,8 +54,10 @@ def problems(path):
     data = open(path, "rb").read()
     found = []
     if FOUND.search(data):
-        lines = data.split(b"\n")
-        found = ["line %d" % n for n, line in enumerate(lines, 1) if FOUND.search(line)] if b"\0" not in data else ["its bytes"]
+        if b"\0" in data:
+            found = ["its bytes"]
+        else:
+            found = ["line %d" % n for n, line in enumerate(data.split(b"\n"), 1) if FOUND.search(line)]
     if data.startswith(PNG) and any(FOUND.search(t) for t in png_texts(data)):
         found.append("image metadata")
     return found
@@ -102,8 +104,9 @@ def self_test():
                 failed.append("%s: expected %s, got %s" % (file, expected, got))
         subprocess.run(["git", "-C", root, "init", "-q"], check=True)
         subprocess.run(["git", "-C", root, "-c", "core.autocrlf=false", "add", "."], check=True)
-        if len(check(root)) != 5:
-            failed.append("check over a repository: expected 5 findings, got %s" % check(root))
+        findings = check(root)
+        if len(findings) != 5:
+            failed.append("check over a repository: expected 5 findings, got %s" % findings)
     for line in failed:
         print("SELF-TEST FAILED: " + line)
     if not failed:
@@ -118,7 +121,10 @@ def main(args):
     failures = check(root)
     for line in failures:
         print(line)
-    print("No AI tool named in the %d tracked files." % len(tracked(root)) if not failures else "%d places name an AI tool." % len(failures))
+    if failures:
+        print("%d places name an AI tool." % len(failures))
+    else:
+        print("No AI tool named in the %d tracked files." % len(tracked(root)))
     return 1 if failures else 0
 
 
