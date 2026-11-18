@@ -46,19 +46,37 @@ namespace Requestarr.Core.Portal
             ["user.unsuspend"] = "Unsuspended",
             ["user.remove"] = "Removed",
             ["user.departed"] = "Left the server",
-            ["mediaserver.link"] = "Media server linked"
+            ["mediaserver.link"] = "Media server linked",
+            ["settings.change"] = "Setting changed",
+            ["instance.add"] = "Instance added",
+            ["instance.change"] = "Instance changed"
         };
 
         private static readonly Regex DiscordName = new(@"^discord:\d+ \((?<name>.*)\)$");
+        private static readonly Regex WebName = new(@"^web(:(?<name>.+))?$");
 
         // An action Requestarr doesn't name yet shows as it's recorded.
         public static string Action(string action) => Actions.TryGetValue(action ?? string.Empty, out var words) ? words : action;
 
-        // "discord:123 (name)" is that member; anything else is Requestarr itself.
+        // "discord:123 (name)" is that member, "web:name" an admin in the web app; anything else is Requestarr itself.
         public static string Actor(string actor)
         {
-            var discord = DiscordName.Match(actor ?? string.Empty);
-            return discord.Success ? discord.Groups["name"].Value : Requestarr;
+            var recorded = actor ?? string.Empty;
+            var discord = DiscordName.Match(recorded);
+
+            if (discord.Success)
+            {
+                return discord.Groups["name"].Value;
+            }
+
+            var web = WebName.Match(recorded);
+
+            if (web.Success)
+            {
+                return web.Groups["name"].Success ? $"{web.Groups["name"].Value} (web app)" : "An admin (web app)";
+            }
+
+            return Requestarr;
         }
 
         // Who: a member as Requestarr knows them when the entry says which member it was, else the name it recorded.

@@ -21,11 +21,15 @@ namespace Requestarr.Core.Provisioning
         // username, ...): the settings pages show them read-only, since a change there would be undone on restart.
         IReadOnlyCollection<string> ProvisionedSettings { get; }
 
+        // A provisioning file was found (dev and QA): it sets Requestarr's settings, so the web app shows them read-only.
+        bool UsesFile { get; }
+
         ProvisioningResult Apply();
     }
 
     // Applies the provisioning file on every start. Keys present in the file win over values
-    // changed in the UI; keys left out of the file are not touched.
+    // changed in the UI; keys left out of the file are not touched. Without a file (beta and production) every setting
+    // is the web app's (Requestarr.Core.Settings).
     public class ProvisioningService : IProvisioningService, IHandle<ApplicationStartedEvent>
     {
         private readonly IProvisioningLoader _loader;
@@ -39,6 +43,7 @@ namespace Requestarr.Core.Provisioning
         private readonly Requestarr.Core.Access.IAccessSettings _access;
         private readonly Requestarr.Core.Discord.IBotProfileSettings _botProfile;
         private readonly Requestarr.Core.Qa.IBugReportSettings _bugReports;
+        private readonly Requestarr.Core.Settings.IStoredSettings _storedSettings;
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
 
@@ -53,6 +58,7 @@ namespace Requestarr.Core.Provisioning
                                    Requestarr.Core.Access.IAccessSettings access,
                                    Requestarr.Core.Discord.IBotProfileSettings botProfile,
                                    Requestarr.Core.Qa.IBugReportSettings bugReports,
+                                   Requestarr.Core.Settings.IStoredSettings storedSettings,
                                    IEventAggregator eventAggregator,
                                    Logger logger)
         {
@@ -67,6 +73,7 @@ namespace Requestarr.Core.Provisioning
             _access = access;
             _botProfile = botProfile;
             _bugReports = bugReports;
+            _storedSettings = storedSettings;
             _eventAggregator = eventAggregator;
             _logger = logger;
         }
@@ -74,6 +81,8 @@ namespace Requestarr.Core.Provisioning
         public ProvisioningResult LastResult { get; private set; } = ProvisioningResult.NotRun();
 
         public IReadOnlyCollection<string> ProvisionedSettings { get; private set; } = Array.Empty<string>();
+
+        public bool UsesFile => LastResult.Outcome is ProvisioningOutcome.Succeeded or ProvisioningOutcome.Failed;
 
         public void Handle(ApplicationStartedEvent message)
         {
@@ -90,7 +99,8 @@ namespace Requestarr.Core.Provisioning
 
                 if (path == null)
                 {
-                    _logger.Debug("No provisioning file found, skipping provisioning");
+                    _logger.Debug("No provisioning file found: settings come from the web app");
+                    _storedSettings.Load();
                     LastResult = ProvisioningResult.NoFile();
                 }
                 else
@@ -243,8 +253,8 @@ namespace Requestarr.Core.Provisioning
             return config;
         }
 
-        // No discord section: no settings, so the bot doesn't start.
-        private static DiscordSettings DiscordSettingsFrom(DiscordProvisioning discord)
+        // No discord section: no settings, so the bot doesn't start. The web app's saved settings have the same shape.
+        public static DiscordSettings DiscordSettingsFrom(DiscordProvisioning discord)
         {
             if (discord == null)
             {

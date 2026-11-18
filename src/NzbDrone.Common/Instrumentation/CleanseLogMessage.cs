@@ -19,6 +19,9 @@ namespace NzbDrone.Common.Instrumentation
             new(@"getnzb.*?(?<=\?|&)(r)=(?<secret>[^&=]+?)(?= |&|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
             new(@"\b(\w*)?(_?(?<!use|get_)token|username|passwo?rd)=(?<secret>[^&=]+?)(?= |&|$|;)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
             new(@"(?<=authkey = "")(?<secret>[^&=]+?)(?="")", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+
+            // Requestarr: the keys the web app saves in its settings, as the settings store logs them at trace.
+            new(@"Key:'(discordbottoken|tmdbapikey|bugreportsgithubtoken)' Value:'(?<secret>[^']+)'", RegexOptions.Compiled | RegexOptions.IgnoreCase),
             new(@"(?<=beyond-hd\.[a-z]+/api/torrents/)(?<secret>[^&=][a-z0-9]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
             new(@"(?<=beyond-hd\.[a-z]+/torrent/download/[\w\d-]+[.]\d+[.])(?<secret>[a-z0-9]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
             new(@"(?:sharewood)\.[a-z]{2,3}/api/(?<secret>[a-z0-9]{16,})/", RegexOptions.Compiled | RegexOptions.IgnoreCase),

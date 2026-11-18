@@ -6,6 +6,19 @@ import translate from 'Utilities/String/translate';
 import SettingsToolbarConnector from './SettingsToolbarConnector';
 import styles from './Settings.css';
 
+// Each settings page with its one-line summary: the link's words are the title key, the summary its own key.
+const PAGES = [
+  { to: '/settings/tags', title: 'Tags', summary: 'TagsSettingsSummary' },
+  { to: '/settings/general', title: 'General', summary: 'GeneralSettingsSummary' },
+  { to: '/settings/ui', title: 'UI', summary: 'UISettingsSummary' },
+  { to: '/settings/discord', title: 'SettingsDiscord', summary: 'SettingsDiscordSummary' },
+  { to: '/settings/instances', title: 'SettingsInstances', summary: 'SettingsInstancesSummary' },
+  { to: '/settings/requests', title: 'SettingsRequests', summary: 'SettingsRequestsSummary' },
+  { to: '/settings/connections', title: 'SettingsConnections', summary: 'SettingsConnectionsSummary' },
+  { to: '/settings/changes', title: 'SettingsChanges', summary: 'SettingsChangesSummary' },
+  { to: '/setup', title: 'Setup', summary: 'SetupSummary' }
+];
+
 function Settings() {
   return (
     <PageContent title={translate('Settings')}>
@@ -14,38 +27,22 @@ function Settings() {
       />
 
       <PageContentBody>
-        <Link
-          className={styles.link}
-          to="/settings/tags"
-        >
-          {translate('Tags')}
-        </Link>
+        {
+          PAGES.map(({ to, title, summary }) => (
+            <React.Fragment key={to}>
+              <Link
+                className={styles.link}
+                to={to}
+              >
+                {translate(title)}
+              </Link>
 
-        <div className={styles.summary}>
-          {translate('TagsSettingsSummary')}
-        </div>
-
-        <Link
-          className={styles.link}
-          to="/settings/general"
-        >
-          {translate('General')}
-        </Link>
-
-        <div className={styles.summary}>
-          {translate('GeneralSettingsSummary')}
-        </div>
-
-        <Link
-          className={styles.link}
-          to="/settings/ui"
-        >
-          {translate('UI')}
-        </Link>
-
-        <div className={styles.summary}>
-          {translate('UISettingsSummary')}
-        </div>
+              <div className={styles.summary}>
+                {translate(summary)}
+              </div>
+            </React.Fragment>
+          ))
+        }
       </PageContentBody>
     </PageContent>
   );

@@ -35,6 +35,9 @@ namespace Requestarr.Core.Discord.Gateway
         string LastError { get; }
         Task StartAsync(DiscordSettings settings);
         Task StopAsync();
+
+        // Reconnects with the settings as they are now (the web app changed them): stops, then starts if configured.
+        Task RestartAsync();
         Task WaitUntilReadyAsync(TimeSpan timeout);
     }
 
@@ -100,6 +103,17 @@ namespace Requestarr.Core.Discord.Gateway
 
         public void HandleAsync(ProvisioningCompletedEvent message)
         {
+            StartIfConfiguredAsync().GetAwaiter().GetResult();
+        }
+
+        public async Task RestartAsync()
+        {
+            await StopAsync();
+            await StartIfConfiguredAsync();
+        }
+
+        private async Task StartIfConfiguredAsync()
+        {
             var settings = _settings.Current;
 
             if (!settings.IsConfigured)
@@ -108,7 +122,7 @@ namespace Requestarr.Core.Discord.Gateway
                 return;
             }
 
-            StartAsync(settings).GetAwaiter().GetResult();
+            await StartAsync(settings);
         }
 
         public void Handle(ApplicationShutdownRequested message)
@@ -160,7 +174,13 @@ namespace Requestarr.Core.Discord.Gateway
             }
             catch (Exception ex)
             {
+                // A login that failed (a wrong token) never connects: without its client and watchdog, the watchdog
+                // can't restart the app over it. A corrected setting starts a new client.
                 _logger.Error(ex, "Discord bot failed to start");
+                _watchdogTimer?.Dispose();
+                _watchdogTimer = null;
+                Client?.Dispose();
+                Client = null;
                 SetState(DiscordBotState.Failed, ex.Message);
             }
             finally

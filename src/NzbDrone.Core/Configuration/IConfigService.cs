@@ -38,6 +38,18 @@ namespace NzbDrone.Core.Configuration
         int BugReportsPerDay { get; set; }
         int BugReportsMinutesBetween { get; set; }
 
+        // Requestarr's settings that the provisioning file keeps in memory only; saved here when there is no file
+        // (beta and production), read through Requestarr.Core.Settings.StoredSettings
+        string BugReportsGithubToken { get; set; }
+        string DiscordBotToken { get; set; }
+        string DiscordApplicationId { get; set; }
+        string DiscordGuildId { get; set; }
+        string DiscordAdminRoleId { get; set; }
+        string DiscordAdminRoleName { get; set; }
+        string TmdbApiKey { get; set; }
+        string AvailabilityWebhookUrl { get; set; }
+        int AvailabilityPollMinutes { get; set; }
+
         //UI
         int FirstDayOfWeek { get; set; }
         string CalendarWeekColumnHeader { get; set; }

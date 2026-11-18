@@ -60,13 +60,15 @@ namespace Requestarr.Core.Announcements
 
         public string IconSet => IconSetFor(Variable(EnvironmentVariable));
 
+        public const string Production = "production";
+
         // Anything that isn't dev, QA or staging gets production's icons.
         public static string IconSetFor(string environment) => (environment ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "dev" => "dev",
             "qa" => "qa",
             "staging" => "beta",
-            _ => "production"
+            _ => Production
         };
 
         public string Shown(Version version)

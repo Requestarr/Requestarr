@@ -56,7 +56,9 @@ The image runs Requestarr on .NET 10 as a non-root user. It keeps all its data i
 
 ### 3.2 Create an install folder
 
-Put three files in a folder of your choice, for example `requestarr/`.
+**Without a provisioning file** (how the beta server and production run): leave out `provisioning.yml`, `secrets.env` and the provisioning lines below. On the first start the web portal opens its first-run setup (your sign-in, the Discord bot, a first Sonarr or Radarr), and every other setting is under **Settings**, recorded on **Settings → Changes**. [B.6](#b6-set-up-requestarr-in-its-web-app) walks through it. With a provisioning file, its settings are applied on every start and the settings pages show them read-only.
+
+With a provisioning file, put three files in a folder of your choice, for example `requestarr/`.
 
 **`compose.yaml`**
 
@@ -100,7 +102,7 @@ Requestarr reads this on every start, so the configuration lives in a file inste
 - `${NAME}` is replaced with the value from `secrets.env`.
 - `${NAME:-default}` supplies a default when the variable is empty.
 - Keys in the file win over changes made in the web portal; keys you leave out are not touched. The settings pages show the keys the file sets as read-only, with "Set by your provisioning file", so a change there can't be undone silently on the next start.
-- **Changing the web portal password:** change `REQUESTARR_ADMIN_PASSWORD` in `secrets.env` (on the local test stacks, `docker/secrets.env`; on the beta server, `.env`) and restart Requestarr; it's applied on the next start. The same goes for the username and the API key.
+- **Changing the web portal password:** with a provisioning file that sets the login (the local test stacks), change `REQUESTARR_ADMIN_PASSWORD` in `docker/secrets.env` and restart Requestarr; it's applied on the next start, and the same goes for the username and the API key. Without one (the beta server, and any install set up in the web app), change it under **Settings → General**.
 - **Allowed hosts** (`general.allowedHosts`): every name Requestarr is reached by, comma-separated. That's the address you browse, and the name Sonarr and Radarr call it by in their webhooks (in Docker, its service name, such as `requestarr`). A request for any name not on the list is turned away, so a missing name breaks those webhooks. With sign-in required for every address, you can leave it out and every name is accepted. With sign-in only for other networks, the web portal asks for it, and the local test stacks set `localhost, 127.0.0.1, requestarr`.
 - **The port** in Docker is the one inside the container. The address you browse uses the port Docker publishes (in your compose file), so change that instead; the settings page shows the port read-only there.
 
@@ -147,12 +149,11 @@ The image has a built-in health check that calls `/ping`.
 
 Browse to `http://{host}:9797` and sign in with the username and password from `secrets.env`. The portal is for administrators only. Users never log in to it; they use Discord.
 
-What exists today:
+What's there:
 
-- **Settings:** General, UI, and Tags.
+- **Requests, Members and Queue:** every request, every member, and what waits on an admin.
+- **Settings:** General, UI and Tags; Discord, Sonarr and Radarr, Requests and Connections (Requestarr's own settings); Changes (every change to them); and Setup (the first-run setup).
 - **System:** Status, Tasks, Backup, Updates, Events, and Log Files.
-
-Request management arrives with Phase 1.
 
 ### 3.6 Updating
 
@@ -781,7 +782,7 @@ cp -r requestarr-src/deploy/staging requestarr-beta
 cd requestarr-beta
 ```
 
-**Check:** `ls` shows `compose.yaml`, `env.example`, `provisioning.yml`, `check-folders.sh`, `root-folders.sh` and `update.sh`.
+**Check:** `ls` shows `compose.yaml`, `env.example`, `check-folders.sh`, `root-folders.sh` and `update.sh`.
 
 ### B.3 Make the beta media folders
 
@@ -804,18 +805,17 @@ cp env.example .env
 chmod 600 .env
 ```
 
-Open `.env` and fill in every value; the comments say what each is. In particular:
+`.env` holds only what must exist before anything starts: folders, ports, file ownership, and the keys the beta Sonarr and Radarr start with. Requestarr's own settings (its sign-in, the bot, Sonarr and Radarr, the GitHub and The Movie Database keys) are entered in its web app in B.6, not here. Open `.env` and fill in every value; the comments say what each is. In particular:
 
 - **`BETA_TV_FOLDER`, `BETA_MOVIES_FOLDER`:** the two folders from B.3, full paths.
 - **`BETA_DOWNLOADS_FOLDER`, `BETA_DOWNLOADS_PATH`:** the same downloads folder, and the same path inside the container, as your production Sonarr's compose file mounts (look for its downloads line, for example `/srv/downloads:/downloads`). Only the downloads folder: if production mounts one folder that holds both downloads and media (a single `/data`), mount just its downloads subfolder here. Imports then copy instead of hardlinking, which uses extra space only while a download is still seeding.
 - **The three ports:** free ports, different from production's. Use beta's band, 19797, 18989 and 17878 (the standard ports with a 1 in front, so production keeps 9797, 8989 and 7878 and the first digit says which environment you're on). `ss -ltn | grep :<port>` prints nothing for a free port.
 - **`PUID`, `PGID`:** the same as your production Sonarr and Radarr, so Plex can read what beta downloads.
-- **`BETA_SONARR_API_KEY`, `BETA_RADARR_API_KEY`, `REQUESTARR_API_KEY`:** made up here, one each: `openssl rand -hex 16`.
-- **`BETA_DISCORD_BOT_TOKEN`, `BETA_DISCORD_APPLICATION_ID`, `BETA_DISCORD_GUILD_ID`:** the beta bot and the Requestarr Beta server (B.1). This file is the only place they're kept.
-- **`TMDB_API_KEY`:** optional, as in [4.6](#46-cast-from-the-movie-database-optional).
-- **`REQUESTARR_ADMIN_USERNAME`, `REQUESTARR_ADMIN_PASSWORD`:** the web portal's login. Beta requires sign-in for every address, so it needs no allowed hosts. To change the password later, change it here and run `docker compose up -d`; it's applied when Requestarr starts. If you ever add allowed hosts in the provisioning file, include `requestarr` (the name the beta Sonarr and Radarr call it by) and every address you browse.
+- **`BETA_SONARR_API_KEY`, `BETA_RADARR_API_KEY`:** made up here, one each: `openssl rand -hex 16`. You paste them into Requestarr in B.6.
 
 **Check:** `docker compose config --quiet` prints nothing. If it names a variable, fill that one in.
+
+**The provisioning file is retired for beta.** Earlier beta folders had a `provisioning.yml` that set Requestarr's settings on every start, and `.env` held the bot token, the sign-in and the other keys. Beta now runs the way production will: no provisioning file, every setting made and changed in the web app and recorded on **Settings → Changes**. Updating an existing beta folder: take the new `compose.yaml` and `env.example` from the repository, delete `provisioning.yml`, and remove the Requestarr lines from `.env` that the new `env.example` no longer has. Your sign-in, members, requests and the two instances are kept; the web app opens its first-run setup once and asks for the bot again (the file never saved its token), and the GitHub key, The Movie Database key and the webhook address go in under **Settings → Connections** as in B.6.
 
 ### B.5 Start it
 
@@ -831,7 +831,25 @@ docker compose up -d
 
 If the folder check failed, nothing else started; its message says what's wrong. Fix `.env` and run `docker compose up -d` again.
 
-### B.6 Connect the beta Sonarr and Radarr to your downloads
+### B.6 Set up Requestarr in its web app
+
+Open the beta web portal at `http://<server>:<BETA_REQUESTARR_PORT>`. A new install opens its first-run setup:
+
+1. **Your sign-in.** A dialog asks for the web app's sign-in first: choose **Forms (login page)**, keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts), and choose a username and password. Save, then sign in. To change them later: **Settings → General**.
+2. **The Discord bot.** Paste the beta bot's token, its application ID and the Requestarr Beta server's ID (B.1), then **Save**. The bot connects: **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if you haven't added it yet.
+3. **Sonarr or Radarr.** Press **Add Sonarr**: name `Sonarr (beta)`, address `http://sonarr:8989`, API key `BETA_SONARR_API_KEY` from `.env`. Press **Test**, choose quality profile `HD-1080p` and root folder `/tv-beta`, tick **Default**, and **Save**.
+
+The setup then says Requestarr is ready. Finish under **Settings**:
+
+- **Settings → Sonarr and Radarr → Add Radarr:** `Radarr (beta)`, `http://radarr:7878`, `BETA_RADARR_API_KEY`, **Test**, `HD-1080p`, `/movies-beta`, tick **Default**, **Save**.
+- **Settings → Connections:** **Requestarr's address for Sonarr and Radarr** `http://requestarr:9797` (they call it on the beta stack's own network, never through the server's ports) and **Check downloads every** `5` minutes; the **GitHub key** for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr; every report from beta becomes an issue, and until the key is set they wait on the server); and optionally **The Movie Database key** ([4.6](#46-cast-from-the-movie-database-optional)). **Save Changes**.
+- **Settings → Requests:** removal votes and the welcome channel's access requests and spam guard. The defaults are the ones the old provisioning file set; change them any time.
+
+Every change is recorded on **Settings → Changes**: who made it, when, and from what to what. Keys and tokens are kept in Requestarr's own database, never shown again; type a new one to replace one.
+
+**Check:** **Settings → Sonarr and Radarr** shows both instances Connected, and **System → Status** has no Discord, Sonarr, Radarr or webhook warnings.
+
+### B.7 Connect the beta Sonarr and Radarr to your downloads
 
 Open the beta Sonarr at `http://<server>:<BETA_SONARR_PORT>` and set a login when it asks. Then:
 
@@ -843,31 +861,28 @@ Do the same in the beta Radarr (`http://<server>:<BETA_RADARR_PORT>`): root fold
 
 If your download client needs categories made first (SABnzbd does; qBittorrent makes them on first use), add `tv-beta` and `movies-beta` there, each saving into its own folder inside the downloads folder. Beta and production downloads then never mix.
 
-**Check:** in both: **System → Status** has no download client or indexer warnings, **Settings → Indexers** lists the indexers Prowlarr added, and **Settings → Connect** lists a "Requestarr" connection. Requestarr adds that one itself: it's the webhook that tells Requestarr about downloads. Sonarr and Radarr call it as `http://requestarr:9797` on the beta stack's own network, never through the server's ports, so there's nothing to set; **Test** on it should pass.
+**Check:** in both: **System → Status** has no download client or indexer warnings, **Settings → Indexers** lists the indexers Prowlarr added, and **Settings → Connect** lists a "Requestarr" connection. Requestarr adds that one itself once its address is set (B.6): it's the webhook that tells Requestarr about downloads. **Test** on it should pass.
 
-### B.7 Add the beta folders to Plex
+### B.8 Add the beta folders to Plex
 
 Add each beta folder to the matching library you already have, so testers watch in the Plex they already use: **Plex → Settings → Manage → Libraries → (your TV library) → Edit → Add folders →** the `tv-beta` folder, then the same for `movies-beta` in your Movies library. If Plex runs in Docker, first mount the two beta folders into the Plex container (read-only is enough) and pick them by the path Plex sees.
 
 **Check:** both libraries list the beta folder under their folders, and a library scan finishes without errors.
 
-### B.8 Check Requestarr in Discord
-
-Open the beta web portal at `http://<server>:<BETA_REQUESTARR_PORT>` and sign in with `REQUESTARR_ADMIN_USERNAME` and the password.
+### B.9 Check Requestarr in Discord
 
 **Check:**
 
-- **System → Status** has no Discord, provisioning, Sonarr, Radarr or webhook warnings.
 - In the Requestarr Beta server: the bot is online, `#requestarr-admin` (in the Requestarr Admin group) has the admin panel at the bottom, and `#requestarr-welcome` (in the Requestarr Users group) shows the welcome message with **Request access**.
 - `#requestarr-admin` shows "what's new" for every version from 0.1.0 on, oldest first, and `#requestarr-announcements` the members' part. On beta these posts stay for good: each new version is added once.
 
-### B.9 A first real request
+### B.10 A first real request
 
 Add yourself as a member from the admin panel ([5.5](#55-add-your-first-user)), then request a small movie with `/request` in your request channel.
 
 **Check:** in your download client the download has the category `movies-beta`; when it finishes, the files are in your `movies-beta` folder (not your production movies folder); the request message says it's ready to watch; and after Plex's next scan the movie is in your Movies library.
 
-### B.10 Testers
+### B.11 Testers
 
 Add the testers from the admin panel's member picker ([5.5](#55-add-your-first-user)), once they've joined the Requestarr Beta server. Tell them about the known limitation below.
 
