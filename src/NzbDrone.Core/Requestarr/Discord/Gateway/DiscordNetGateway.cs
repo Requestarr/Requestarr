@@ -161,15 +161,19 @@ namespace Requestarr.Core.Discord.Gateway
             return guild.Roles.FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase))?.Id;
         }
 
-        public async Task RenameRoleAsync(ulong roleId, string name)
+        public async Task<bool> RenameRoleAsync(ulong roleId, string name)
         {
             var guild = await Client.Rest.GetGuildAsync(GuildId);
             var role = guild.GetRole(roleId);
 
-            if (role != null)
+            if (role == null || role.Name == name)
             {
-                await role.ModifyAsync(p => p.Name = name);
+                return false;
             }
+
+            await role.ModifyAsync(p => p.Name = name);
+
+            return true;
         }
 
         public async Task DeleteRoleAsync(ulong roleId)

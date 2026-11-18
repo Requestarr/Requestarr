@@ -295,12 +295,13 @@ namespace Requestarr.Core.Discord.Gateway
                 try
                 {
                     var mapped = DiscordInteractionMapper.Map(interaction);
-                    Seen(interaction.User);
 
                     if (mapped != null)
                     {
                         await _dispatcher.Value.DispatchAsync(mapped, new DiscordNetResponder(interaction));
                     }
+
+                    Seen(interaction.User);
                 }
                 catch (Exception ex)
                 {
@@ -382,12 +383,20 @@ namespace Requestarr.Core.Discord.Gateway
             return Task.CompletedTask;
         }
 
-        // Someone in this server, as they are now; a press from a direct message carries no server profile.
+        // Someone in this server, as they are now; a press from a direct message carries no server profile. Never in the
+        // way of anything else: a failure here is only logged.
         private void Seen(IUser user)
         {
-            if (user is SocketGuildUser member && member.Guild.Id == _settings.Current.GuildId && !member.IsBot)
+            try
             {
-                _eventAggregator.PublishEvent(new DiscordMemberSeenEvent(DiscordNetGateway.ToMember(member)));
+                if (user is SocketGuildUser member && member.Guild?.Id == _settings.Current.GuildId && !member.IsBot)
+                {
+                    _eventAggregator.PublishEvent(new DiscordMemberSeenEvent(DiscordNetGateway.ToMember(member)));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Couldn't pass on member {0}'s profile", user?.Id);
             }
         }
 

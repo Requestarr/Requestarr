@@ -90,7 +90,7 @@ namespace Requestarr.Core.Test.Portal
             Db.Insert(new UserIdentity { UserId = _alice.Id, Provider = UserIdentity.DiscordProvider, ExternalId = "1", Username = "alice", Linked = Start });
             Audited("user", _alice.Id, MemberNameService.RenameAction, "discord:1 (alice)", 96, _alice.Id);
             var rename = Mocker.Resolve<IAuditRepository>().All().Last();
-            rename.Detail = "from Ally to Alice; Discord username from @ally to @alice";
+            rename.Detail = "from \"Ally\" to \"Alice\"; Discord username from @ally to @alice";
             Mocker.Resolve<IAuditRepository>().Update(rename);
 
             Subject.Search("1").Members.Should().ContainSingle().Which.DiscordId.Should().Be("1");

@@ -138,7 +138,7 @@ namespace Requestarr.Core.Test.Users
             stored.Should().Be(after);
             topic.Should().Be(ChannelLayout.UserChannelTopic(after));
             renamed.What.Should().Be("Renamed");
-            renamed.Detail.Should().Be($"from {before} to {after}");
+            renamed.Detail.Should().Be($"from \"{before}\" to \"{after}\"");
             detail.Member.Name.Should().Be(after);
             detail.Member.DiscordId.Should().Be(member.Id.ToString());
 

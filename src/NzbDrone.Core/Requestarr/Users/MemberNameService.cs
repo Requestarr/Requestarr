@@ -22,12 +22,14 @@ namespace Requestarr.Core.Users
         public const string RenameAction = "user.rename";
 
         // Discord.Net waits out Discord's rate limits itself (a channel may be renamed twice in ten minutes); this is for a
-        // rename that still failed. After the last attempt the next start tries again.
+        // rename that still failed, tried again later on its own so nothing waits for it. After the last attempt the next
+        // start tries again.
         public const int RenameAttempts = 3;
         public static readonly TimeSpan RenameRetryDelay = TimeSpan.FromMinutes(5);
 
-        // A rename's detail, "from Old to New; Discord username from @old to @new", read back for the names before.
-        private static readonly Regex FormerName = new(@"from @?(?<name>.+?) to ");
+        // A rename's detail, 'from "Old" to "New"; Discord username from @old to @new', read back for the names before.
+        // Display names are quoted, so one with " to " in it reads back whole; usernames have no spaces.
+        private static readonly Regex FormerName = new(@"from (""(?<name>[^""]+)""|@(?<name>\S+)) to ");
 
         private readonly IRequestarrUserRepository _users;
         private readonly IUserIdentityRepository _identities;
@@ -67,7 +69,7 @@ namespace Requestarr.Core.Users
 
             if (renamed)
             {
-                await MatchWithRetriesAsync(user, member);
+                await TryMatchAsync(user, member, attempt: 1);
             }
 
             return renamed;
@@ -83,34 +85,29 @@ namespace Requestarr.Core.Users
             RefreshAsync(message.Member).GetAwaiter().GetResult();
         }
 
-        // Everyone Requestarr shows by name, members and people waiting to join; every member's channel and role are
-        // checked too, for a rename that failed earlier.
+        // Everyone Requestarr shows by name: members, and everyone who asked to join (waiting, paused, turned down); every
+        // member's channel and role are checked too, for a rename that failed earlier.
         public async Task CatchUpAsync()
         {
             var people = _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider).Select(i => i.ExternalId)
-                .Concat(_accessRequests.Pending().Select(r => r.DiscordUserId))
+                .Concat(_accessRequests.All().Select(r => r.DiscordUserId))
                 .Distinct()
                 .Select(id => ulong.TryParse(id, out var parsed) ? parsed : 0)
                 .Where(id => id != 0)
                 .ToList();
             var (renamed, discordRenames) = (0, 0);
 
-            // One at a time: each is a call to Discord.
+            // One at a time: each is a call to Discord. Each person is read from Discord once their turn comes, so a newer
+            // rename handled meanwhile is never undone by an older reading.
             foreach (var id in people)
             {
-                var member = await MemberAsync(id);
-
-                if (member == null)
+                discordRenames += await OneAtATimeAsync(id, async () =>
                 {
-                    continue;
-                }
-
-                discordRenames += await OneAtATimeAsync(member.Id, async () =>
-                {
-                    var (user, wasRenamed) = RefreshNames(member);
+                    var member = await MemberAsync(id);
+                    var (user, wasRenamed) = member == null ? (null, false) : RefreshNames(member);
                     renamed += wasRenamed ? 1 : 0;
 
-                    return user == null ? 0 : await MatchWithRetriesAsync(user, member);
+                    return user == null ? 0 : await TryMatchAsync(user, member, attempt: 1);
                 });
             }
 
@@ -143,14 +140,14 @@ namespace Requestarr.Core.Users
             return user == null ? (null, false) : (user, Rename(user, identity, member));
         }
 
-        // Stores the names Discord has now; a change is a member event: "from X to Y".
+        // Stores the names Discord has now; a change is a member event: 'from "X" to "Y"'.
         private bool Rename(RequestarrUser user, UserIdentity identity, GuildMember member)
         {
             var changes = new List<string>();
 
             if (user.DisplayName != member.DisplayName)
             {
-                changes.Add($"from {user.DisplayName} to {member.DisplayName}");
+                changes.Add($"from \"{user.DisplayName}\" to \"{member.DisplayName}\"");
             }
 
             if (identity.Username != member.Username)
@@ -188,40 +185,61 @@ namespace Requestarr.Core.Users
             }
         }
 
-        private async Task<int> MatchWithRetriesAsync(RequestarrUser user, GuildMember member)
+        // The channel and role renamed to match; a failure is tried again later, on its own. The number renamed now.
+        private async Task<int> TryMatchAsync(RequestarrUser user, GuildMember member, int attempt)
         {
-            for (var attempt = 1; ; attempt++)
+            try
             {
-                try
-                {
-                    return await MatchChannelAndRoleAsync(user, member);
-                }
-                catch (Exception ex) when (attempt < RenameAttempts)
-                {
-                    _logger.Warn(ex, "Renaming member {0}'s channel or role failed, trying again in {1}", user.Id, RetryDelay);
-                    await Task.Delay(RetryDelay);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "Renaming member {0}'s channel or role failed {1} times; the next start tries again", user.Id, RenameAttempts);
+                return await MatchChannelAndRoleAsync(user, member);
+            }
+            catch (Exception ex) when (attempt < RenameAttempts)
+            {
+                _logger.Warn(ex, "Renaming member {0}'s channel or role failed, trying again in {1}", user.Id, RetryDelay);
+                _ = RetryLaterAsync(member.Id, attempt + 1);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Renaming member {0}'s channel or role failed {1} times; the next start tries again", user.Id, RenameAttempts);
+            }
 
-                    return 0;
-                }
+            return 0;
+        }
+
+        // A retry reads the member from Discord again: whatever they're called by then is what their channel gets.
+        private async Task RetryLaterAsync(ulong discordUserId, int attempt)
+        {
+            await Task.Delay(RetryDelay);
+
+            try
+            {
+                await OneAtATimeAsync(discordUserId, async () =>
+                {
+                    var member = await MemberAsync(discordUserId);
+                    var (user, _) = member == null ? (null, false) : RefreshNames(member);
+
+                    return user == null ? 0 : await TryMatchAsync(user, member, attempt);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Trying member {0}'s rename again failed; the next start tries again", discordUserId);
             }
         }
 
         // The channel and role are named after the Discord username, as when the member was added (the channel archived
-        // once they're removed), and the channel's topic after their display name. The number renamed.
+        // once they're removed), and the channel's topic after their display name. Names are compared exactly, so two
+        // members whose names read the same in a channel name never take turns renaming. The number renamed.
         private async Task<int> MatchChannelAndRoleAsync(RequestarrUser user, GuildMember member)
         {
             var renamed = 0;
+            var channel = ulong.TryParse(user.PrivateChannelId, out var channelId) ? (await _gateway.GetTextChannelsAsync()).FirstOrDefault(c => c.Id == channelId) : null;
 
-            if (ulong.TryParse(user.PrivateChannelId, out var channelId) && await _gateway.ChannelExistsAsync(channelId))
+            if (channel != null)
             {
                 var name = ChannelLayout.UserChannelName(member.Username);
                 name = user.Status == UserStatus.Removed ? ChannelLayout.ArchivedName(name) : name;
 
-                if (await _gateway.FindTextChannelAsync(name) != channelId)
+                if (channel.Name != name)
                 {
                     await _gateway.RenameChannelAsync(channelId, name);
                     renamed++;
@@ -230,11 +248,8 @@ namespace Requestarr.Core.Users
                 await _gateway.SetChannelTopicAsync(channelId, ChannelLayout.UserChannelTopic(member.DisplayName));
             }
 
-            var roleName = ChannelLayout.UserRoleName(member.Username);
-
-            if (ulong.TryParse(user.DiscordRoleId, out var roleId) && await _gateway.RoleExistsAsync(roleId) && await _gateway.FindRoleAsync(roleName) != roleId)
+            if (ulong.TryParse(user.DiscordRoleId, out var roleId) && await _gateway.RenameRoleAsync(roleId, ChannelLayout.UserRoleName(member.Username)))
             {
-                await _gateway.RenameRoleAsync(roleId, roleName);
                 renamed++;
             }
 

@@ -41,7 +41,7 @@ namespace Requestarr.Core.Test.Users
             ChannelFor(Alice).Topic.Should().Be(ChannelLayout.UserChannelTopic("Alice Cooper"));
             LastEntry.Action.Should().Be(MemberNameService.RenameAction);
             LastEntry.TargetId.Should().Be(UserFor(Alice).Id.ToString());
-            LastEntry.Detail.Should().Be("from alice to Alice Cooper");
+            LastEntry.Detail.Should().Be("from \"alice\" to \"Alice Cooper\"");
         }
 
         [Test]
@@ -55,6 +55,12 @@ namespace Requestarr.Core.Test.Users
             Discord.Roles[RoleOf(Alice)].Should().Be(ChannelLayout.UserRoleName("alice2"));
             LastEntry.Detail.Should().Be("Discord username from @alice to @alice2");
             MemberNameService.FormerNames(LastEntry.Detail).Should().Equal("alice");
+        }
+
+        [Test]
+        public void a_former_display_name_reads_back_whole()
+        {
+            MemberNameService.FormerNames("from \"Back to Basics\" to \"Basics\"; Discord username from @back to @basics").Should().Equal("Back to Basics", "back");
         }
 
         [Test]
