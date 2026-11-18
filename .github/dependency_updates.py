@@ -25,7 +25,7 @@ SECURITY = "security"
 FOR_ADMINS = "for admins"
 LABELS = {
     AUTOMATIC: ("0e8a16", "Patch or minor dependency update: merges into dev on its own once build passes"),
-    REVIEW: ("d93f0b", "Major dependency update, or one that failed: waits for Claude Code to review"),
+    REVIEW: ("d93f0b", "Major dependency update, or one that failed: waits for a review"),
     SECURITY: ("b60205", "Fixes a published security problem"),
     FOR_ADMINS: ("5319e7", "Security fix in something Requestarr ships: its changelog tells admins"),
 }
@@ -153,8 +153,8 @@ def hold_marker(why):
 def hold(repo, number, why):
     gh("pr", "edit", str(number), "--repo", repo, "--add-label", REVIEW, "--remove-label", AUTOMATIC, check=False)
     gh("pr", "merge", str(number), "--repo", repo, "--disable-auto", check=False)
-    comment_once(repo, number, hold_marker(why), "Held for review: %s Claude Code reviews it, fixes what "
-                 "breaks and merges it in a normal task (docs/development.md#dependency-updates)." % why)
+    comment_once(repo, number, hold_marker(why), "Held for review: %s It's reviewed, anything that breaks "
+                 "is fixed, and it's merged in a normal task (docs/development.md#dependency-updates)." % why)
 
 
 def sort():

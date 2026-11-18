@@ -10,7 +10,7 @@
 #   ./release.sh promote-qa "<who asked, and their words>" [--commit <commit on dev>] [--dry-run]
 #         moves qa to dev (or that commit of dev): a pull request that records who asked, the build check, then a
 #         fast-forward (nothing newer, no merge commit). QA shows it as the next number and its commit: 0.7.0004-qa.4f2a9c1.
-#         First Claude Code's checks must have passed on dev at that commit (docker/qa_checks.py: the full suite, every
+#         First the automated checks must have passed on dev at that commit (docker/qa_checks.py: the full suite, every
 #         live check, its checklist items); without a run it runs them, and any failure stops the promotion.
 #   ./release.sh promote-staging "<who asked, and their words>" [--owner-override "<the owner's words>"]
 #                                [--major "<the owner's words>"] [--dry-run]
@@ -262,7 +262,7 @@ promote_qa() {
 
     echo "Promoting dev @ $short to QA; QA shows it as $label. Commits moving to qa:"
     echo "$commits"
-    # The owner's process: Claude Code's checks first, on dev at this commit; QA gets only a build that passed them all.
+    # The owner's process: the automated checks first, on dev at this commit; QA gets only a build that passed them all.
     checks_passed "$target" || return 1
     if [ "$dry" = 1 ]; then
         echo "Dry run: nothing pushed, no pull request opened; qa stays at $(git rev-parse --short origin/qa)."
@@ -272,7 +272,7 @@ promote_qa() {
     git push -q origin "$target:refs/heads/$branch"
     local url evidence
     evidence=$(python docker/qa_checks.py summary "$target")
-    url=$(open_pull_request "$branch" qa "Promote dev @ $short to QA" "$(printf 'Moves `qa` to `dev` @ `%s`: exactly these commits, nothing newer. Merged as a fast-forward of `qa` once the build check passes. QA shows it as %s.\n\nRequested by: %s\n\n### Claude Code'"'"'s checks on dev @ %s (all passed)\n%s\n\n### Commits\n%s\n' "$short" "$label" "$who" "$short" "$evidence" "$commits")")
+    url=$(open_pull_request "$branch" qa "Promote dev @ $short to QA" "$(printf 'Moves `qa` to `dev` @ `%s`: exactly these commits, nothing newer. Merged as a fast-forward of `qa` once the build check passes. QA shows it as %s.\n\nRequested by: %s\n\n### The automated checks on dev @ %s (all passed)\n%s\n\n### Commits\n%s\n' "$short" "$label" "$who" "$short" "$evidence" "$commits")")
     echo "$url"
     fast_forward "$url" "$target" qa
     git push -q origin --delete "$branch" || true
@@ -280,7 +280,7 @@ promote_qa() {
     echo "QA is now at $short. Next: .\\docker\\dev.ps1 up (or docker/dev.sh up) so the QA stack runs qa: its checklist lists only the owner's items."
 }
 
-# Whether Claude Code's checks passed on dev at this commit (docker/qa_checks.py verify): the full suite, every live check
+# Whether the automated checks passed on dev at this commit (docker/qa_checks.py verify): the full suite, every live check
 # and its checklist items, from one full run. Without a run, a promotion runs them first (the checkout at the commit); a
 # dry run says so. Any failure stops the promotion until it's fixed on dev.
 checks_passed() {
@@ -289,10 +289,10 @@ checks_passed() {
     python docker/qa_checks.py verify "$target" || status=$?
     [ "$status" = 3 ] || return "$status"
     if [ "$dry" = 1 ]; then
-        echo "Dry run: no run of Claude Code's checks on $short yet; the promotion runs them first (python3 docker/qa_checks.py run --commit $short) and goes on only if every check passed."
+        echo "Dry run: no run of the automated checks on $short yet; the promotion runs them first (python3 docker/qa_checks.py run --commit $short) and goes on only if every check passed."
         return 0
     fi
-    echo "Running Claude Code's checks on $short first (about 35 minutes)…"
+    echo "Running the automated checks on $short first (about 35 minutes)…"
     python docker/qa_checks.py run --commit "$target"
     python docker/qa_checks.py verify "$target"
 }

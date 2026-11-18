@@ -9,7 +9,7 @@ namespace Requestarr.Core.Test.Releases
 {
     // Task 4c: the release flow. Pull requests merge to dev; qa moves only on the owner's word; fixes made in QA
     // are merged back so dev and qa never drift. Two local stacks side by side: QA (the owner's manual QA, the
-    // default) and dev (Claude Code's automated testing on its own Discord server and bot).
+    // default) and dev (the automated testing on its own Discord server and bot).
     [TestFixture]
     public class Item4cReleaseFlowFixture
     {
@@ -91,7 +91,6 @@ namespace Requestarr.Core.Test.Releases
             docs.Should().Contain("## Release flow").And.Contain("promote to QA").And.Contain("./release.sh promote-qa").And.Contain("./release.sh merge-back");
             docs.Should().Contain("-Stack dev").And.Contain("reset-qa").And.Contain("reset-dev").And.Contain("DEV_DISCORD_BOT_TOKEN");
             docs.Should().NotContain("reset-uat`:", "QA, not UAT: reset-uat is only mentioned as the old name");
-            Read("CLAUDE.md").Should().Contain("`dev`").And.Contain("`qa`").And.Contain("release.sh");
             Read(".github", "pull_request_template.md").Should().Contain("`dev`");
         }
     }

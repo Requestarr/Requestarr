@@ -152,7 +152,6 @@ namespace Requestarr.Core.Test.Releases
             check.Should().Contain("def self_test").And.Contain("nothing this time").And.Contain("minor fixes");
             Read(".github", "workflows", "build.yml").Should().Contain("python3 .github/changelog_check.py --self-test");
             Read(".github", "pull_request_template.md").Should().Contain("For users").And.Contain("For admins").And.NotContain("Internal");
-            Read("CLAUDE.md").Should().Contain("only **For users** and **For admins**");
         }
 
         [Test]

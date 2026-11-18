@@ -182,7 +182,7 @@ namespace Requestarr.Core.Test.Portal
         public void an_action_without_words_yet_shows_as_recorded()
         {
             PortalText.Action("request.something-new").Should().Be("request.something-new");
-            PortalText.Actor("claude-code").Should().Be(PortalText.Requestarr);
+            PortalText.Actor("automation").Should().Be(PortalText.Requestarr);
         }
 
         [Test]

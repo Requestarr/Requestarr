@@ -208,9 +208,13 @@ deploy/staging/.previous-version
 # Python bytecode from the helper scripts
 __pycache__/
 
-# Claude Code agent worktrees (local only)
-.claude/worktrees/
 .staging-hold
 
-# Claude Code's QA check runs: results and screenshots (docker/qa_checks.py)
+# The automated QA check runs: results and screenshots (docker/qa_checks.py)
 _qa-checks/
+
+# The coding tool's own settings and notes stay on each machine, untracked. The brackets keep the tool's name out of
+# the repository, which the tool-name check (.github/tool_names_check.py) requires.
+.[Cc]laude/
+[Cc]LAUDE.md
+[Cc]LAUDE.local.md

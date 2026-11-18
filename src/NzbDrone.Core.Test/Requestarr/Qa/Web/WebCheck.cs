@@ -7,7 +7,7 @@ using NUnit.Framework;
 
 namespace Requestarr.Core.Test.Qa.Web
 {
-    // One of Claude Code's web app checks: what it saw, in plain words, and the screenshots it took. Its result is
+    // One of the automated web app checks: what it saw, in plain words, and the screenshots it took. Its result is
     // written to QA_CHECKS_DIR/<check>.json for docker/qa_checks.py, passed or not; the screenshots go beside it.
     public sealed class WebCheck
     {

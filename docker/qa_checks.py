@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Claude Code's checks before a promotion to QA (the owner's process, docs/development.md#qa-checklist): the full test
-suite, every live Discord check and Claude Code's checklist items, on dev at the commit to be promoted. QA gets a build
+"""The automated checks before a promotion to QA (the owner's process, docs/development.md#qa-checklist): the full test
+suite, every live Discord check and the automated checklist items, on dev at the commit to be promoted. QA gets a build
 only once all of it passed; QA's checklist shows only the owner's items, and nothing here touches the QA server.
 
     python3 docker/qa_checks.py run [--commit SHA] [--out DIR] [--only web|live]
@@ -14,14 +14,14 @@ run: the checkout must be at the commit (the tests are built from it). It builds
      checks (headless Edge or Chrome, light and dark theme), stops it and runs every live check on the dev server (the
      test Sonarr and Radarr emptied before each, so no check finds another's titles), resets the dev stack and runs the
      read-back of the running stack. Results, read-backs and screenshots go in DIR (default _qa-checks/<short commit>).
-record: after Claude Code has looked at every screenshot against its item's "You should see" (one that doesn't match
-     is --fail), records the results on the dev stack's checklist (Claude Code's server; it must run that commit) and
+record: after the automation has looked at every screenshot against its item's "You should see" (one that doesn't match
+     is --fail), records the results on the dev stack's checklist (the automation's server; it must run that commit) and
      marks the run reviewed. QA never takes them.
 verify: whether the run for SHA is ready for the promotion (release.sh promote-qa): a full run that passed the suite,
      every live check and every item, reviewed. Exit 0 ready, 1 not (the reasons are printed), 3 no run for SHA.
 summary: the run's results in Markdown, for the promotion pull request.
 
-The checks each item may name are CHECKS below ("Checked by Claude Code: the <name> check."); .github/checklist_check.py
+The checks each item may name are CHECKS below ("Checked automatically: the <name> check."); .github/checklist_check.py
 refuses an item naming any other.
 """
 import base64
@@ -80,7 +80,7 @@ CHECKS = {
 }
 
 ITEM = re.compile(r"^- \*\*([^*:]+):\*\* (.+)$")
-CHECKED_BY = re.compile(r"^- Checked by (?:Claude Code: the (?P<check>.+) check|the owner, (?P<reason>needs human eyes|"
+CHECKED_BY = re.compile(r"^- Checked (?:automatically: the (?P<check>.+) check|by the owner, (?P<reason>needs human eyes|"
                         r"unsure of the desired behavior|couldn't verify): (?P<why>.+?))\.?$")
 UNRELEASED = "## Unreleased"
 EVIDENCE_LINES = 25
@@ -137,7 +137,7 @@ def live_result(ran, log, tags):
 
 
 def results_for(items, web, live):
-    """Each Claude Code item's result from what the checks left: web {test: {passed, evidence, screenshots}} and live
+    """Each automated item's result from what the checks left: web {test: {passed, evidence, screenshots}} and live
     {fixture: (passed, log)}. A check that didn't run is a failure that says so."""
     results = []
     for item in [i for i in items if i["check"]]:
@@ -332,7 +332,7 @@ def report(results, out, total):
         shots = ", ".join(os.path.basename(s) for s in r["screenshots"]) or "no screenshots"
         print("%s  %-32s the %s check (%s)" % ("PASS" if r["passed"] else "FAIL", r["name"], r["check"], shots))
     passed = sum(1 for r in results if r["passed"])
-    print("\n%d of %d of Claude Code's items passed in %.0f minutes. Results: %s" % (passed, len(results), total / 60, os.path.join(out, "results.json")))
+    print("\n%d of %d of the automated items passed in %.0f minutes. Results: %s" % (passed, len(results), total / 60, os.path.join(out, "results.json")))
     print("Look at every screenshot against its item's \"You should see\", then record them on dev (QA never takes them):")
     print('  python3 docker/qa_checks.py record [--fail "Item name=what is wrong"]')
 
@@ -356,7 +356,7 @@ def payload(result):
 
 
 def overrides(args):
-    """--fail "Item name=what is wrong": Claude Code's own look at a screenshot found it doesn't match."""
+    """--fail "Item name=what is wrong": The automation's own look at a screenshot found it doesn't match."""
     found = {}
     for i, arg in enumerate(args):
         if arg != "--fail":
@@ -371,7 +371,7 @@ def overrides(args):
 def apply_overrides(results, failed):
     unknown = set(failed) - {r["name"] for r in results}
     if unknown:
-        sys.exit("--fail names no item Claude Code checked: %s" % ", ".join(sorted(unknown)))
+        sys.exit("--fail names no item the automation checked: %s" % ", ".join(sorted(unknown)))
     for r in results:
         if r["name"] in failed:
             r["passed"] = False
@@ -382,7 +382,7 @@ def apply_overrides(results, failed):
 def record(args):
     which = option(args, "--stack") or "dev"
     if which != "dev":
-        sys.exit("QA's checklist is the owner's: Claude Code's results are recorded on dev only.")
+        sys.exit("QA's checklist is the owner's: the automated results are recorded on dev only.")
     env = secrets_env()
     url, key = stack_url(env, which), env["REQUESTARR_API_KEY"]
     out = option(args, "--out") or latest_run()
@@ -393,14 +393,14 @@ def record(args):
         sys.exit("The %s stack runs %s, not the commit that was checked (%s): nothing recorded." % (which, running, run_data["commit"][:7]))
     failed = overrides(args)
     mark_reviewed(out, run_data, failed)
-    on_stack = {i["key"]: i for i in api(url, key, "/api/v1/qa/checklist")["checklist"]["items"] if i.get("checkedBy") == "Claude Code"}
+    on_stack = {i["key"]: i for i in api(url, key, "/api/v1/qa/checklist")["checklist"]["items"] if i.get("checkedBy") == "automation"}
     for result in apply_overrides(run_data["results"], failed):
         item = on_stack.pop(result["key"], None)
         if run_data.get("only") and result["kind"] != run_data["only"]:
             print("SKIP  %s: its %s check wasn't part of this run (--only %s)" % (result["name"], result["kind"], run_data["only"]))
             continue
         if item is None:
-            print("SKIP  %s: not one of Claude Code's items on the %s checklist, in these words" % (result["name"], which))
+            print("SKIP  %s: not one of the automated items on the %s checklist, in these words" % (result["name"], which))
             continue
         try:
             saved = api(url, key, "/api/v1/qa/checklist/%s/result" % item["key"], payload(result))
@@ -408,11 +408,11 @@ def record(args):
         except urllib.error.HTTPError as error:
             print("ERROR %s: HTTP %d %s" % (result["name"], error.code, error.read().decode(errors="replace")))
     for item in on_stack.values():
-        print("MISSING %s (%s): Claude Code's item on the %s checklist had no result in this run" % (item["name"], item["version"], which))
+        print("MISSING %s (%s): the automated item on the %s checklist had no result in this run" % (item["name"], item["version"], which))
 
 
 def mark_reviewed(out, run_data, failed):
-    """Claude Code has looked at the screenshots: the run says so, with any it found don't match, for verify."""
+    """The automation has looked at the screenshots: the run says so, with any it found don't match, for verify."""
     run_data["results"] = apply_overrides(run_data["results"], failed)
     run_data["reviewed"] = True
     with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as handle:
@@ -451,7 +451,7 @@ def verify(args):
     commit = git("rev-parse", args[0] if args else "origin/dev")
     run_data = load_run(commit)
     if run_data is None:
-        print("No run of Claude Code's checks for %s." % commit[:7])
+        print("No run of the automated checks for %s." % commit[:7])
         return 3
     reasons = not_ready(run_data, commit)
     for reason in reasons:
@@ -459,7 +459,7 @@ def verify(args):
     if reasons:
         print("Refused: QA gets %s only once every check passed on dev. Fix it on dev and run the checks again." % commit[:7])
         return 1
-    print("Claude Code's checks passed on dev @ %s: the full suite, %d live checks and %d checklist items." % (commit[:7], len(run_data["live"]), len(run_data["results"])))
+    print("The automated checks passed on dev @ %s: the full suite, %d live checks and %d checklist items." % (commit[:7], len(run_data["live"]), len(run_data["results"])))
     return 0
 
 
@@ -478,7 +478,7 @@ def summary(args):
     commit = git("rev-parse", args[0] if args else "origin/dev")
     run_data = load_run(commit)
     if run_data is None:
-        sys.exit("No run of Claude Code's checks for %s." % commit[:7])
+        sys.exit("No run of the automated checks for %s." % commit[:7])
     print(summary_text(run_data))
     return 0
 
@@ -499,13 +499,13 @@ SAMPLE = """# QA checklist
 
 ## Unreleased
 - **Build number:** Open System, then Status. You should see the number.
-  - Checked by Claude Code: the web app status page check.
+  - Checked automatically: the web app status page check.
 - **Bot picture:** Open the bot's profile. You should see the picture.
   - Checked by the owner, needs human eyes: the profile popout is only in the Discord app.
 - **Passing an item:** Press Passes. You should see it passed.
-  - Checked by Claude Code: the live passing check.
+  - Checked automatically: the live passing check.
 - **Gone:** Do it. You should see it.
-  - Checked by Claude Code: the retired check.
+  - Checked automatically: the retired check.
 
 ## 0.6.0 (2026-11-01)
 - **Old:** Do it. You should see it.

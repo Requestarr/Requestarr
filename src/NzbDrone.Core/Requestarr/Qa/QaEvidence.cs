@@ -8,7 +8,7 @@ namespace Requestarr.Core.Qa
 {
     public record QaEvidenceFile(string Name, byte[] Bytes);
 
-    // The screenshots Claude Code took for a checklist item, kept in the app data folder (qa-evidence/{item key}) so the
+    // The screenshots the automated checks took for a checklist item, kept in the app data folder (qa-evidence/{item key}) so the
     // item's card can show them after a restart. A new result replaces the item's screenshots.
     public interface IQaEvidenceStore
     {

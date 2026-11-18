@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local test stacks for Requestarr: QA (the owner's manual QA, the default) and dev (Claude Code's automated
+# Local test stacks for Requestarr: QA (the owner's manual QA, the default) and dev (automated
 # testing), side by side. Add --stack dev to act on the dev stack; QA is used otherwise.
 #
 #   docker/dev.sh up [--ref <git ref>]            build Requestarr from the stack's branch (qa or dev; --ref for another

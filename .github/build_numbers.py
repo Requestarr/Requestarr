@@ -491,17 +491,17 @@ def self_test():
         (image_plan("workflow_dispatch", "x", "abc1234567", "", {}, first, "test-a").get("label") == "0.7.0004-test.abc1234",
          "a test publish is labelled, not numbered"),
     ]
-    checklist_base = "# QA checklist\n\n## Unreleased\n- **Old:** Do it. You should see it.\n  - Checked by Claude Code: the live bug reports check.\n- **Kept:** Do it. You should see it.\n  - Checked by Claude Code: the live bug reports check.\n"
-    checklist_fix = checklist_base.replace("- **Old:** Do it. You should see it.\n  - Checked by Claude Code: the live bug reports check.\n",
+    checklist_base = "# QA checklist\n\n## Unreleased\n- **Old:** Do it. You should see it.\n  - Checked automatically: the live bug reports check.\n- **Kept:** Do it. You should see it.\n  - Checked automatically: the live bug reports check.\n"
+    checklist_fix = checklist_base.replace("- **Old:** Do it. You should see it.\n  - Checked automatically: the live bug reports check.\n",
                                            "- **New:** Do it. You should see it.\n  - Checked by the owner, needs human eyes: how it looks.\n")
-    checklist_dev = checklist_base + "- **Dev's:** Do it. You should see it.\n  - Checked by Claude Code: the live passing check.\n"
+    checklist_dev = checklist_base + "- **Dev's:** Do it. You should see it.\n  - Checked automatically: the live passing check.\n"
     merged_checklist = merge(checklist_dev, checklist_fix, checklist_base)
     cases += [
         ("- **Old:**" not in merged_checklist and "- **New:** Do it. You should see it.\n  - Checked by the owner" in merged_checklist,
          "a merge-back keeps the fix's rewrite of an item, not the old one"),
-        (merged_checklist.count("  - Checked by Claude Code: the live bug reports check.") == 1 and "- **Dev's:**" in merged_checklist,
+        (merged_checklist.count("  - Checked automatically: the live bug reports check.") == 1 and "- **Dev's:**" in merged_checklist,
          "every item keeps its own Checked by line, even one another item has word for word"),
-        (merge(checklist_base, checklist_base).count("Checked by Claude Code: the live bug reports check.") == 2,
+        (merge(checklist_base, checklist_base).count("Checked automatically: the live bug reports check.") == 2,
          "two items with the same Checked by line both keep it"),
     ]
     try:

@@ -130,7 +130,7 @@ namespace Requestarr.Core.Qa
                     ChannelId = channel.ToString()
                 });
 
-                _audit.Record(Actor.Discord(discordUserId, reporterName), "bugreport.send", "bug-report", report.Id.ToString(), report.Component);
+                _audit.Record(discordUserId == QaChecker.AutomationId ? Actor.Automation : Actor.Discord(discordUserId, reporterName), "bugreport.send", "bug-report", report.Id.ToString(), report.Component);
 
                 // Posted first, so the report is never lost to GitHub being slow or down.
                 report.MessageId = (await _gateway.SendMessageAsync(channel, Card(report))).ToString();

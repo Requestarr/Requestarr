@@ -3,7 +3,7 @@ using NzbDrone.Core.Datastore.Migration.Framework;
 
 namespace NzbDrone.Core.Datastore.Migration
 {
-    // Requestarr: Claude Code's results on the QA checklist carry their evidence: what its check read back, and the
+    // Requestarr: the automated checks' results on the QA checklist carry their evidence: what its check read back, and the
     // screenshots it took, which the item's card shows.
     [Migration(14)]
     public class qa_automated_results : NzbDroneMigrationBase
