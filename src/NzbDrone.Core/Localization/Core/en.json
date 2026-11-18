@@ -699,6 +699,7 @@
   "PortalFulfilled": "Available since",
   "PortalHistory": "History",
   "PortalHistoryTrimmed": "Older history was trimmed after {period}.",
+  "PortalHistoryTrimmedEarlier": "Older history was trimmed earlier.",
   "PortalInstance": "Instance",
   "PortalKeeps": "Keep it",
   "PortalLastDays": "In the last {days} days",

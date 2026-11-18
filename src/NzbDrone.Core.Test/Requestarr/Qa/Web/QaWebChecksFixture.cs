@@ -195,8 +195,10 @@ namespace Requestarr.Core.Test.Qa.Web
                     if (page == "requests")
                     {
                         var keepFor = await browser.EvalAsync<bool>("document.body.innerText.includes('Keep the audit log for') && document.body.innerText.includes('1 year')");
-                        check.Saw($"requests ({theme}): Keep the audit log for {(keepFor ? "shown, 1 year" : "not shown")}");
+                        var locked = await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"EnhancedSelectInput-isDisabled\"]')");
+                        check.Saw($"requests ({theme}): Keep the audit log for {(keepFor ? "shown, 1 year" : "not shown")}, {(locked ? "locked" : "can be changed")}");
                         keepFor.Should().BeTrue("the provisioning file keeps the audit log for 1 year");
+                        locked.Should().BeTrue("a change would be undone on the next start");
                         (await browser.EvalAsync<bool>("(() => { const l = [...document.querySelectorAll('legend')].find(e => e.innerText.includes('Audit log')); l?.scrollIntoView(); return !!l; })()"))
                             .Should().BeTrue("the Audit log section is on the Requests page");
                         await check.ShotAsync(browser, $"settings-requests-audit-log-{theme}");

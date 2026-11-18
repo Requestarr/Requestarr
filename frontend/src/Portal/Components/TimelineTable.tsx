@@ -19,7 +19,7 @@ const columns: Column[] = [
 interface TimelineTableProps {
   events: PortalEvent[];
 
-  // How long the audit log keeps an entry ("1 year"), when this began before that: its oldest events may be gone.
+  // How long the audit log keeps an entry now ("1 year", or "forever"), when a trim removed this one's oldest events.
   trimmedAfter?: string | null;
 }
 
@@ -27,7 +27,9 @@ interface TimelineTableProps {
 function TimelineTable({ events, trimmedAfter }: TimelineTableProps) {
   const trimmed = trimmedAfter ? (
     <div className={styles.empty}>
-      {translate('PortalHistoryTrimmed', { period: trimmedAfter })}
+      {trimmedAfter === 'forever'
+        ? translate('PortalHistoryTrimmedEarlier')
+        : translate('PortalHistoryTrimmed', { period: trimmedAfter })}
     </div>
   ) : null;
 

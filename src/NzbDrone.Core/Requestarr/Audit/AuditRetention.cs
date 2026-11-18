@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using NzbDrone.Core.Configuration;
 using Requestarr.Core.Provisioning;
@@ -39,6 +40,11 @@ namespace Requestarr.Core.Audit
         // One of AuditRetention.Choices.
         string KeepFor { get; }
 
+        // Everything from before this is gone (the latest cutoff a trim removed entries at); null: nothing trimmed yet.
+        DateTime? TrimmedBefore { get; }
+
+        void Trimmed(DateTime cutoff);
+
         void Apply(AuditLogProvisioning provisioning);
     }
 
@@ -61,8 +67,20 @@ namespace Requestarr.Core.Audit
             }
         }
 
-        // A choice the file gets wrong fails provisioning, which the web app's health check shows, rather than quietly
-        // keeping the log for longer or shorter than the admin meant.
+        public DateTime? TrimmedBefore =>
+            DateTime.TryParse(_config.AuditLogTrimmedBefore, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var before) ? before : null;
+
+        public void Trimmed(DateTime cutoff)
+        {
+            if (TrimmedBefore is not { } before || cutoff > before)
+            {
+                _config.AuditLogTrimmedBefore = cutoff.ToString("o", CultureInfo.InvariantCulture);
+            }
+        }
+
+        // The loader refuses a choice the file gets wrong before anything is applied (ProvisioningLoader.Validate), which
+        // the web app's health check shows; this is the backstop. Either way the log is never quietly kept for longer or
+        // shorter than the admin meant.
         public void Apply(AuditLogProvisioning provisioning)
         {
             if (provisioning?.KeepFor is not { } keepFor)

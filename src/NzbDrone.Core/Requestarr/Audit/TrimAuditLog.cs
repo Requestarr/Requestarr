@@ -1,11 +1,13 @@
 using System;
 using NLog;
 using NzbDrone.Core.Housekeeping;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Audit
 {
     // Daily, with Servarr's own housekeeping: audit entries older than "Keep the audit log for" are deleted, and the trim
     // itself is recorded. Only the log is trimmed: requests, members and removals stay, and their pages show what's left.
+    // Renames stay too: they are how the header search still finds someone by a name they had before.
     public class TrimAuditLog : IHousekeepingTask
     {
         public const string TrimAction = "audit.trim";
@@ -32,12 +34,14 @@ namespace Requestarr.Core.Audit
                 return;
             }
 
-            var trimmed = _repository.DeleteOlderThan(cutoff);
+            var trimmed = _repository.DeleteOlderThan(cutoff, MemberNameService.RenameAction);
 
             if (trimmed == 0)
             {
                 return;
             }
+
+            _settings.Trimmed(cutoff);
 
             var detail = $"Trimmed {trimmed} {(trimmed == 1 ? "entry" : "entries")} older than {keepFor}";
             _audit.Record(Actor.Automation, TrimAction, "audit", null, detail);

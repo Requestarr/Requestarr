@@ -182,20 +182,25 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
-        public void a_page_older_than_the_audit_log_keeps_says_its_history_was_trimmed()
+        public void a_page_that_began_before_a_trims_cutoff_says_its_history_was_trimmed()
         {
-            const int TwoYearsAgoInHours = -2 * 365 * 24;
-            var old = Requested("Alien", _alice, RequestStatus.Available, TwoYearsAgoInHours);
-            var carol = Db.Insert(new RequestarrUser { DisplayName = "Carol", Status = UserStatus.Active, Added = Start.AddHours(TwoYearsAgoInHours) });
-            var recent = Requested("Dune", _alice, RequestStatus.Pending, 1);
+            var now = DateTime.UtcNow;
+            var old = Db.Insert(new Request { Title = "Alien", ContentType = ContentType.Movie, OwnerUserId = _alice.Id, Status = RequestStatus.Available, Requested = now.AddYears(-2) });
+            var recent = Db.Insert(new Request { Title = "Dune", ContentType = ContentType.Movie, OwnerUserId = _alice.Id, Status = RequestStatus.Pending, Requested = now.AddDays(-1) });
+            var carol = Db.Insert(new RequestarrUser { DisplayName = "Carol", Status = UserStatus.Active, Added = now.AddYears(-2) });
+            var dave = Db.Insert(new RequestarrUser { DisplayName = "Dave", Status = UserStatus.Active, Added = now.AddDays(-1) });
+
+            Subject.Request(old.Id).HistoryTrimmedAfter.Should().BeNull("nothing has been trimmed yet");
+
+            Mocker.Resolve<AuditSettings>().Trimmed(now.AddYears(-1));
 
             Subject.Request(old.Id).HistoryTrimmedAfter.Should().Be(AuditRetention.OneYear);
             Subject.Member(carol.Id).HistoryTrimmedAfter.Should().Be(AuditRetention.OneYear);
             Subject.Request(recent.Id).HistoryTrimmedAfter.Should().BeNull();
-            Subject.Member(_alice.Id).HistoryTrimmedAfter.Should().BeNull();
+            Subject.Member(dave.Id).HistoryTrimmedAfter.Should().BeNull();
 
             Mocker.GetMock<IConfigService>().Object.AuditLogKeepFor = AuditRetention.Forever;
-            Subject.Request(old.Id).HistoryTrimmedAfter.Should().BeNull("nothing is trimmed");
+            Subject.Request(old.Id).HistoryTrimmedAfter.Should().Be(AuditRetention.Forever, "what was trimmed before stays gone");
         }
 
         [Test]

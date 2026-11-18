@@ -168,13 +168,9 @@ namespace Requestarr.Core.Portal
             return _proposals.All().Where(p => p.RequestId == null && p.IsOpen).OrderBy(p => p.Created).Select(p => new PortalTitleRemoval(p.Label, Removal(p, names))).ToList();
         }
 
-        // Something that began before the audit log's cutoff may have lost its first events to the daily trim.
-        private string HistoryTrimmedAfter(DateTime since)
-        {
-            var keepFor = _auditSettings.KeepFor;
-
-            return AuditRetention.Cutoff(keepFor, DateTime.UtcNow) is { } cutoff && since < cutoff ? keepFor : null;
-        }
+        // Something that began before a trim's cutoff lost its first events to it: how long the log keeps entries now.
+        private string HistoryTrimmedAfter(DateTime since) =>
+            _auditSettings.TrimmedBefore is { } before && since < before ? _auditSettings.KeepFor : null;
 
         // The request's own history and its removals', oldest first. A request made before the audit log recorded
         // requests still starts with when it was asked for.

@@ -6,6 +6,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Provisioning;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.AuditLog
 {
@@ -42,6 +43,18 @@ namespace Requestarr.Core.Test.AuditLog
             var trim = AllStoredModels.Single(e => e.Action == TrimAuditLog.TrimAction);
             trim.Actor.Should().Be(Actor.Automation.Description);
             trim.Detail.Should().Be("Trimmed 2 entries older than 1 year");
+            Mocker.Resolve<AuditSettings>().TrimmedBefore.Should().BeCloseTo(DateTime.UtcNow.AddYears(-1), TimeSpan.FromMinutes(1));
+        }
+
+        [Test]
+        public void renames_are_kept_so_a_former_name_still_finds_its_member()
+        {
+            EntryDaysAgo(800, MemberNameService.RenameAction);
+            EntryDaysAgo(800, "old");
+
+            Subject.Clean();
+
+            AllStoredModels.Select(e => e.Action).Should().BeEquivalentTo(MemberNameService.RenameAction, TrimAuditLog.TrimAction);
         }
 
         [Test]
@@ -76,6 +89,7 @@ namespace Requestarr.Core.Test.AuditLog
             Subject.Clean();
 
             AllStoredModels.Select(e => e.Action).Should().Equal("recent");
+            Mocker.Resolve<AuditSettings>().TrimmedBefore.Should().BeNull("nothing was trimmed");
         }
 
         [TestCase(AuditRetention.NinetyDays, -90, 0)]
