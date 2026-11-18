@@ -189,7 +189,7 @@ namespace Requestarr.Core.Users
 
                 if (channelId == null)
                 {
-                    channelId = await _gateway.CreateTextChannelAsync(name, await _guildSetup.GetCategoryWithRoomAsync(), $"Requestarr requests for {member.DisplayName}", overwrites);
+                    channelId = await _gateway.CreateTextChannelAsync(name, await _guildSetup.GetCategoryWithRoomAsync(), ChannelLayout.UserChannelTopic(member.DisplayName), overwrites);
                     createdChannel = true;
                 }
                 else

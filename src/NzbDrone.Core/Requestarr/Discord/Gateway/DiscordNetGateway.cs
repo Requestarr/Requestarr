@@ -161,6 +161,17 @@ namespace Requestarr.Core.Discord.Gateway
             return guild.Roles.FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase))?.Id;
         }
 
+        public async Task RenameRoleAsync(ulong roleId, string name)
+        {
+            var guild = await Client.Rest.GetGuildAsync(GuildId);
+            var role = guild.GetRole(roleId);
+
+            if (role != null)
+            {
+                await role.ModifyAsync(p => p.Name = name);
+            }
+        }
+
         public async Task DeleteRoleAsync(ulong roleId)
         {
             var guild = await Client.Rest.GetGuildAsync(GuildId);
@@ -290,7 +301,8 @@ namespace Requestarr.Core.Discord.Gateway
                 .ToList();
         }
 
-        private static GuildMember ToMember(IGuildUser member) =>
+        // The gateway's own events carry the member too (a rename, a press).
+        internal static GuildMember ToMember(IGuildUser member) =>
             new(member.Id, member.Username, member.DisplayName ?? member.GlobalName ?? member.Username, member.GetDisplayAvatarUrl(), member.IsBot, member.RoleIds.ToList());
 
         private static ChannelMessage Read(IMessage m) => new(

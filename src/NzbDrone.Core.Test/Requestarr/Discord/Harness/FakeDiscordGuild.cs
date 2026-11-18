@@ -191,6 +191,12 @@ namespace Requestarr.Core.Test.Discord.Harness
         public Task<ulong?> FindRoleAsync(string name) =>
             Task.FromResult<ulong?>(Roles.Where(r => string.Equals(r.Value, name, StringComparison.OrdinalIgnoreCase)).Select(r => (ulong?)r.Key).FirstOrDefault());
 
+        public Task RenameRoleAsync(ulong roleId, string name)
+        {
+            Roles[roleId] = name;
+            return Task.CompletedTask;
+        }
+
         public Task DeleteRoleAsync(ulong roleId)
         {
             Roles.Remove(roleId);

@@ -85,6 +85,7 @@ export interface PortalMember {
   id: number;
   name: string;
   discordName: string | null;
+  discordId: string | null;
   status: MemberStatus;
   added: string;
   access: PortalAccess[];

@@ -28,6 +28,17 @@ namespace Requestarr.Core.Discord.Gateway
     {
     }
 
+    // A person in the server as Discord has them now: their profile changed, or they pressed something.
+    public class DiscordMemberSeenEvent : IEvent
+    {
+        public DiscordMemberSeenEvent(GuildMember member)
+        {
+            Member = member;
+        }
+
+        public GuildMember Member { get; }
+    }
+
     public interface IDiscordClientHost
     {
         DiscordSocketClient Client { get; }
@@ -162,6 +173,7 @@ namespace Requestarr.Core.Discord.Gateway
                 Client.InteractionCreated += OnInteraction;
                 Client.UserLeft += OnUserLeft;
                 Client.GuildMemberUpdated += OnMemberUpdated;
+                Client.UserUpdated += OnUserUpdated;
                 Client.MessageReceived += OnMessage;
 
                 _watchdog = new DiscordWatchdog(() => DateTime.UtcNow, reason => Terminate(reason));
@@ -283,6 +295,7 @@ namespace Requestarr.Core.Discord.Gateway
                 try
                 {
                     var mapped = DiscordInteractionMapper.Map(interaction);
+                    Seen(interaction.User);
 
                     if (mapped != null)
                     {
@@ -333,13 +346,15 @@ namespace Requestarr.Core.Discord.Gateway
             return Task.CompletedTask;
         }
 
-        // A member's roles changed: removing the blocked role by hand unblocks them.
+        // A member's roles changed: removing the blocked role by hand unblocks them. Their names may have changed too.
         private Task OnMemberUpdated(Cacheable<SocketGuildUser, ulong> before, SocketGuildUser after)
         {
             if (after.Guild.Id != _settings.Current.GuildId || after.IsBot)
             {
                 return Task.CompletedTask;
             }
+
+            Seen(after);
 
             _ = Task.Run(async () =>
             {
@@ -357,6 +372,23 @@ namespace Requestarr.Core.Discord.Gateway
             });
 
             return Task.CompletedTask;
+        }
+
+        // A Discord username changed (Discord may tell the server as a member update instead; either is handled).
+        private Task OnUserUpdated(SocketUser before, SocketUser after)
+        {
+            Seen(after as SocketGuildUser ?? Client.GetGuild(_settings.Current.GuildId)?.GetUser(after.Id));
+
+            return Task.CompletedTask;
+        }
+
+        // Someone in this server, as they are now; a press from a direct message carries no server profile.
+        private void Seen(IUser user)
+        {
+            if (user is SocketGuildUser member && member.Guild.Id == _settings.Current.GuildId && !member.IsBot)
+            {
+                _eventAggregator.PublishEvent(new DiscordMemberSeenEvent(DiscordNetGateway.ToMember(member)));
+            }
         }
 
         private Task OnLog(LogMessage message)

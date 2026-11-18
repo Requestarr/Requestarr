@@ -39,6 +39,8 @@ namespace Requestarr.Core.Audit
 
         // Newest first.
         List<AuditEntry> ForTargetTypes(string first, string second);
+
+        List<AuditEntry> ForAction(string action);
     }
 
     public class AuditRepository : BasicRepository<AuditEntry>, IAuditRepository
@@ -56,6 +58,11 @@ namespace Requestarr.Core.Audit
         public List<AuditEntry> ForTargetTypes(string first, string second)
         {
             return Query(a => a.TargetType == first || a.TargetType == second).OrderByDescending(a => a.Id).ToList();
+        }
+
+        public List<AuditEntry> ForAction(string action)
+        {
+            return Query(a => a.Action == action);
         }
     }
 

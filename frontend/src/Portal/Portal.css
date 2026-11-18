@@ -66,6 +66,12 @@
   border-bottom: 1px solid var(--borderColor);
 }
 
+.discordId {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .changes {
   margin: 0 0 15px;
   padding-left: 20px;

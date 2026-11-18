@@ -33,7 +33,7 @@ namespace Requestarr.Core.Portal
     // A member's access to one content type: its level, their limit (requests per so many days) and their instance.
     public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays, string Instance);
 
-    public record PortalMember(int Id, string Name, string DiscordName, UserStatus Status, DateTime Added, IReadOnlyList<PortalAccess> Access,
+    public record PortalMember(int Id, string Name, string DiscordName, string DiscordId, UserStatus Status, DateTime Added, IReadOnlyList<PortalAccess> Access,
                                int Requests, int Active, int Pending, int Following);
 
     // MediaServer: the linked account ("Plex: name"), or null.

@@ -120,6 +120,8 @@ namespace Requestarr.Core.Discord
 
         public static string UserRoleName(string username) => Truncate(UserRolePrefix + Slug(username), DiscordLimits.RoleNameLength);
 
+        public static string UserChannelTopic(string displayName) => $"Requestarr requests for {displayName}";
+
         public static string ArchivedName(string channelName) => Truncate(ArchivedPrefix + channelName, DiscordLimits.ChannelNameLength);
 
         public static string CategoryName(int index) => index <= 1 ? UsersCategoryName : $"{UsersCategoryName} {index}";

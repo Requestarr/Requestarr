@@ -454,7 +454,7 @@ See `src/NzbDrone.Core.Test/Requestarr/Discord/Harness`. `FakeRadarr` and `FakeS
 
 Live checks are tagged `ManualTest`, so they never run in CI. They read their keys from `docker/secrets.env`, and they only ever use the dev environment: the dev Discord server and bot (`DEV_DISCORD_*`) and the dev stack's test Sonarr and Radarr (`LiveDev` in the test harness). Nothing in them reads the QA server's or the QA stack's values, and a unit test keeps it that way, so automated testing never interrupts the owner's QA.
 
-They only ever onboard, suspend or request as the members named in `DISCORD_TEST_MEMBERS` (comma-separated Discord usernames of your test accounts) who are in the dev server. Everyone else is left alone. Set it in your shell, or in `docker/secrets.env`; with no named member in the dev server, the checks that need one are skipped. `LiveAnnouncementsFixture` shortens the outage thresholds to 15 and 30 seconds; set `LIVE_REAL_THRESHOLDS=1` to wait the real 3 and 30 minutes.
+They only ever onboard, suspend or request as the members named in `DISCORD_TEST_MEMBERS` (comma-separated Discord IDs or usernames of your test accounts; an ID keeps working if the account is renamed) who are in the dev server. Everyone else is left alone. Set it in your shell, or in `docker/secrets.env`; with no named member in the dev server, the checks that need one are skipped. `LiveAnnouncementsFixture` shortens the outage thresholds to 15 and 30 seconds; set `LIVE_REAL_THRESHOLDS=1` to wait the real 3 and 30 minutes.
 
 ```bash
 set -a; . docker/secrets.env; set +a
