@@ -61,14 +61,15 @@ namespace Requestarr.Core.Portal
         // "discord:123 (name)" is that member, "web:name" an admin in the web app; anything else is Requestarr itself.
         public static string Actor(string actor)
         {
-            var discord = DiscordName.Match(actor ?? string.Empty);
+            var recorded = actor ?? string.Empty;
+            var discord = DiscordName.Match(recorded);
 
             if (discord.Success)
             {
                 return discord.Groups["name"].Value;
             }
 
-            var web = WebName.Match(actor ?? string.Empty);
+            var web = WebName.Match(recorded);
 
             if (web.Success)
             {

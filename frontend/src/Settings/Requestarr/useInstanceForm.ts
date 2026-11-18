@@ -19,6 +19,20 @@ const NEW_INSTANCE = {
   animePriority: 'dub',
 };
 
+// Nothing chosen yet: the first quality profile and root folder Test found, which requests would use anyway.
+function withFirstChoices(values: InstanceSettings, test: InstanceTestResult) {
+  return {
+    ...values,
+    qualityProfile: values.qualityProfile || test.qualityProfiles[0],
+    rootFolder: values.rootFolder || test.rootFolders[0],
+  };
+}
+
+// A saved instance is tested with its saved API key when none is typed.
+function testPath(instance: Instance | undefined) {
+  return instance ? `instances/test?id=${instance.id}` : 'instances/test';
+}
+
 // A Sonarr or Radarr being added or changed: Test reaches it and lists its quality profiles and root folders; Save
 // keeps it. An existing one keeps its saved API key unless a new one is typed.
 function useInstanceForm(
@@ -40,18 +54,17 @@ function useInstanceForm(
   );
 
   const onTest = useCallback(() => {
-    const query = instance ? `?id=${instance.id}` : '';
-
     run(
       () =>
         callRequestarrApi<InstanceTestResult>(
-          `instances/test${query}`,
+          testPath(instance),
           'POST',
           values
         ),
       (result) => {
         setTest(result);
         setProblem(result.problem);
+        setValues((current) => withFirstChoices(current, result));
       }
     );
   }, [instance, values, run, setProblem]);

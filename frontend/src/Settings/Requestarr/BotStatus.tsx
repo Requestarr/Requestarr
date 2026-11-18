@@ -26,7 +26,7 @@ function BotStatus({ setup }: BotStatusProps) {
 
   return (
     <FieldSet legend={translate('SettingsBotStatus')}>
-      <Alert kind={STATE_KINDS[setup.botState]}>
+      <Alert kind={STATE_KINDS[botState]}>
         {translate(state)}
         {setup.botProblem ? `: ${setup.botProblem}` : ''}
       </Alert>

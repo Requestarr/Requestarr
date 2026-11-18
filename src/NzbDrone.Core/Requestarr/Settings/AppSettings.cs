@@ -252,10 +252,11 @@ namespace Requestarr.Core.Settings
         private static string IdProblem(string label, string value) =>
             value.Length == 0 || DiscordId.IsMatch(value) ? null : $"{label} is the long number Discord shows with Developer Mode on (Copy ID).";
 
+        internal static bool IsWebAddress(string value) =>
+            Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+
         private static string UrlProblem(string value) =>
-            value.Length == 0 || (Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-                ? null
-                : "The address starts with http:// or https://, for example http://requestarr:9797.";
+            value.Length == 0 || IsWebAddress(value) ? null : "The address starts with http:// or https://, for example http://requestarr:9797.";
 
         private static string RepositoryProblem(string value) =>
             value.Length == 0 || Repository.IsMatch(value) ? null : "The repository is written owner/name, for example Requestarr/Requestarr.";

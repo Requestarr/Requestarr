@@ -130,7 +130,7 @@ namespace Requestarr.Core.Settings
                 return "Give the instance a name no other instance has.";
             }
 
-            if (!Uri.TryCreate(input.Url?.Trim(), UriKind.Absolute, out var url) || (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps))
+            if (!AppSettingsService.IsWebAddress(input.Url?.Trim()))
             {
                 return "The address starts with http:// or https://, for example http://sonarr:8989.";
             }

@@ -24,7 +24,8 @@ namespace Requestarr.Http.Settings
             _setup = setup;
         }
 
-        private Actor Admin => Actor.Web(User.Identity?.Name);
+        // Servarr's sign-in keeps the admin's name as the "user" claim; it's "Anonymous" when sign-in is off.
+        private Actor Admin => Actor.Web(User.FindFirst("user")?.Value is { } name && name != "Anonymous" ? name : null);
 
         [HttpGet("/api/v1/requestarr/settings")]
         [Produces("application/json")]

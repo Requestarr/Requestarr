@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { callRequestarrApi } from './requestarrApi';
 import { AppSettings, SettingValue } from './RequestarrSettingsTypes';
+import useApiAction from './useApiAction';
 import useRequestarrApi from './useRequestarrApi';
 
 interface SettingChange {
@@ -12,30 +13,22 @@ interface SettingChange {
 function useSettingsForm(onSaved?: () => void) {
   const { data, error, setData } = useRequestarrApi<AppSettings>('settings');
   const [pending, setPending] = useState<Record<string, SettingValue>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string>();
+  const { isBusy: isSaving, problem: saveError, run } = useApiAction();
 
   const onChange = useCallback(({ name, value }: SettingChange) => {
     setPending((current) => ({ ...current, [name]: value }));
   }, []);
 
   const onSave = useCallback(() => {
-    setIsSaving(true);
-    setSaveError(undefined);
-
-    callRequestarrApi<AppSettings>('settings', 'PUT', pending).then(
+    run(
+      () => callRequestarrApi<AppSettings>('settings', 'PUT', pending),
       (saved) => {
         setData(saved);
         setPending({});
-        setIsSaving(false);
         onSaved?.();
-      },
-      (failure: Error) => {
-        setSaveError(failure.message);
-        setIsSaving(false);
       }
     );
-  }, [pending, setData, onSaved]);
+  }, [pending, run, setData, onSaved]);
 
   const hasChanges = Object.keys(pending).length > 0;
 
