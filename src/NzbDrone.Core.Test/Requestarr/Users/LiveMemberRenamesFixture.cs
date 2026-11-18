@@ -27,23 +27,29 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Users
 {
-    // Live: the test member renamed in the dev server, with the real bot. Their server display name is changed by the
-    // bot, and Discord's own update about it is what Requestarr acts on; the stored name, the channel's topic, their
-    // History and their portal page are read back. A username can only be changed by its owner, so that one is the
-    // rename missed while the bot was offline: their stored username, channel and role are set to an old name, and the
-    // start's catch-up renames the channel and role in Discord back to their username, read back from Discord. Their
-    // display name is put back afterwards. The member stays, active, for the portal's pages.
+    // Live: the test member renamed, with the real bot in the dev server. Discord's own update about the member is what
+    // Requestarr acts on: the bot gives them a nickname when it may (Manage Nicknames); otherwise their stored name is
+    // set to an old one, a rename Requestarr missed, and a role taken and given back makes Discord send the update. The
+    // stored name, the channel's topic, their History and their portal page are read back. A username can only be
+    // changed by the account's owner, so that one is the rename missed while the bot was offline: their stored
+    // username, channel and role are set to an old name, and the start's catch-up renames the channel and role in
+    // Discord back to their username, read back from Discord. A nickname given is taken away afterwards. The member
+    // stays, active, for the portal's pages.
     // Never runs in CI (ManualTest). Needs the stack's Requestarr stopped: docker/dev.sh reset-dev --stopped.
     [TestFixture]
     [ManualTest]
     public class LiveMemberRenamesFixture : DbTest
     {
         private const string NewDisplayName = "Renamed by the live check";
+        private const string OldDisplayName = "Before the live check";
         private const string OldUsername = "renames-check-old";
 
         private static readonly TimeSpan UpdateWait = TimeSpan.FromSeconds(30);
 
         private readonly TaskCompletionSource<GuildMember> _seen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // The display name Discord's update must carry once the rename is staged; null until then.
+        private volatile string _awaited;
 
         [Test]
         public async Task a_rename_reaches_the_stored_name_channel_role_history_and_portal()
@@ -55,7 +61,7 @@ namespace Requestarr.Core.Test.Users
 
             var (host, users) = Start();
             RestGuildUser member = null;
-            string nickname = null;
+            var nicknameGiven = false;
 
             try
             {
@@ -63,22 +69,20 @@ namespace Requestarr.Core.Test.Users
                 await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
                 var guild = await host.Client.Rest.GetGuildAsync(Mocker.Resolve<IDiscordSettingsStore>().Current.GuildId);
                 member = LiveTestMembers.Pick(await guild.GetUsersAsync().FlattenAsync()).First();
-                nickname = member.Nickname;
                 Log($"[member] test member: {member.Username}, display name {member.DisplayName}");
 
                 (await users.AddAsync(member.Id, new Dictionary<ContentType, AccessState> { [ContentType.Movie] = AccessState.NeedsApproval }, Actor.Web("qa-checks"))).Success.Should().BeTrue();
                 var user = users.FindByDiscordId(member.Id);
 
-                await DisplayNameChanged(host, member, user);
+                nicknameGiven = await DisplayNameFollowsDiscord(host, guild, member, user);
                 await UsernameCaughtUp(host, member, user);
             }
             finally
             {
-                if (member != null)
+                if (nicknameGiven)
                 {
-                    // Their own nickname again, or none.
-                    await member.ModifyAsync(p => p.Nickname = nickname);
-                    Log($"[cleanup] display name put back to {nickname ?? "their own, with no server nickname"}");
+                    await member.ModifyAsync(p => p.Nickname = null);
+                    Log("[cleanup] the nickname given is taken away");
                 }
 
                 if (host.Client?.GetGuild(Mocker.Resolve<IDiscordSettingsStore>().Current.GuildId) is { } connected)
@@ -91,11 +95,32 @@ namespace Requestarr.Core.Test.Users
             }
         }
 
-        // The bot changes their display name; Discord tells the bot, and that update is what's acted on.
-        private async Task DisplayNameChanged(DiscordClientHost host, RestGuildUser member, RequestarrUser user)
+        // Discord's update about the member carries their display name now, and Requestarr's stored one follows it. True
+        // when the bot gave them a nickname for it.
+        private async Task<bool> DisplayNameFollowsDiscord(DiscordClientHost host, RestGuild guild, RestGuildUser member, RequestarrUser user)
         {
-            var before = user.DisplayName;
-            await member.ModifyAsync(p => p.Nickname = NewDisplayName);
+            var bot = await guild.GetCurrentUserAsync();
+            var mayRename = bot.GuildPermissions.ManageNicknames && guild.OwnerId != member.Id;
+            Log($"[permission] the dev bot {(mayRename ? "may" : "may not")} change the test member's nickname");
+            var before = mayRename ? user.DisplayName : OldDisplayName;
+            var after = mayRename ? NewDisplayName : member.DisplayName;
+
+            if (mayRename)
+            {
+                _awaited = after;
+                await member.ModifyAsync(p => p.Nickname = NewDisplayName);
+            }
+            else
+            {
+                user.DisplayName = before;
+                Mocker.Resolve<IRequestarrUserRepository>().Update(user);
+                Log($"[before] stored display name set to \"{before}\" (a rename Requestarr missed); Discord says \"{after}\"");
+                _awaited = after;
+                var role = ulong.Parse(user.DiscordRoleId);
+                await host.Client.Rest.RemoveRoleAsync(guild.Id, member.Id, role);
+                await host.Client.Rest.AddRoleAsync(guild.Id, member.Id, role);
+            }
+
             var seen = await _seen.Task.WaitAsync(UpdateWait);
             Log($"[event] Discord's update arrived: display name {seen.DisplayName}");
 
@@ -110,12 +135,14 @@ namespace Requestarr.Core.Test.Users
             Log($"[history] {renamed.What} · {renamed.Who} · {renamed.Detail}");
             Log($"[portal] member page: {detail.Member.Name}, Discord name {detail.Member.DiscordName}, Discord ID {detail.Member.DiscordId}");
 
-            stored.Should().Be(NewDisplayName);
-            topic.Should().Be(ChannelLayout.UserChannelTopic(NewDisplayName));
+            stored.Should().Be(after);
+            topic.Should().Be(ChannelLayout.UserChannelTopic(after));
             renamed.What.Should().Be("Renamed");
-            renamed.Detail.Should().Be($"from {before} to {NewDisplayName}");
-            detail.Member.Name.Should().Be(NewDisplayName);
+            renamed.Detail.Should().Be($"from {before} to {after}");
+            detail.Member.Name.Should().Be(after);
             detail.Member.DiscordId.Should().Be(member.Id.ToString());
+
+            return mayRename;
         }
 
         // A username changed while the bot was offline: the start's catch-up renames their channel and role.
@@ -144,7 +171,7 @@ namespace Requestarr.Core.Test.Users
             channel.Should().Be(ChannelLayout.UserChannelName(member.Username));
             role.Should().Be(ChannelLayout.UserRoleName(member.Username));
             renamed.Detail.Should().Be($"Discord username from @{OldUsername} to @{member.Username}");
-            found.Should().Equal(NewDisplayName);
+            found.Should().Equal(Mocker.Resolve<IUserManagementService>().FindByDiscordId(member.Id).DisplayName);
         }
 
         // The services as the app has them, over a real database and the real bot; as LivePortalActionsFixture builds
@@ -160,7 +187,7 @@ namespace Requestarr.Core.Test.Users
             Mocker.GetMock<IEventAggregator>().Setup(e => e.PublishEvent(It.IsAny<DiscordMemberSeenEvent>()))
                 .Callback<DiscordMemberSeenEvent>(e =>
                 {
-                    if (e.Member.DisplayName == NewDisplayName)
+                    if (_awaited != null && e.Member.DisplayName == _awaited)
                     {
                         _seen.TrySetResult(e.Member);
                     }
