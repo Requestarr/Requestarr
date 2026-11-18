@@ -8,7 +8,7 @@ export interface PortalResult<T> {
   hasError: boolean;
 }
 
-export interface ReloadingPortalResult<T> extends PortalResult<T> {
+interface ReloadingPortalResult<T> extends PortalResult<T> {
   reload: () => void;
 }
 
