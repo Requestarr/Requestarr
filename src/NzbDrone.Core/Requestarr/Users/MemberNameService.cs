@@ -95,20 +95,16 @@ namespace Requestarr.Core.Users
                 .Select(id => ulong.TryParse(id, out var parsed) ? parsed : 0)
                 .Where(id => id != 0)
                 .ToList();
-            var (renamed, discordRenames) = (0, 0);
+            var renamed = 0;
+            var discordRenames = 0;
 
             // One at a time: each is a call to Discord. Each person is read from Discord once their turn comes, so a newer
             // rename handled meanwhile is never undone by an older reading.
             foreach (var id in people)
             {
-                discordRenames += await OneAtATimeAsync(id, async () =>
-                {
-                    var member = await MemberAsync(id);
-                    var (user, wasRenamed) = member == null ? (null, false) : RefreshNames(member);
-                    renamed += wasRenamed ? 1 : 0;
-
-                    return user == null ? 0 : await TryMatchAsync(user, member, attempt: 1);
-                });
+                var (wasRenamed, matched) = await OneAtATimeAsync(id, () => ReadAndMatchAsync(id, attempt: 1));
+                renamed += wasRenamed ? 1 : 0;
+                discordRenames += matched;
             }
 
             _logger.Info("Names caught up: {0} of {1} people renamed since, {2} channels or roles renamed to match", renamed, people.Count, discordRenames);
@@ -212,18 +208,22 @@ namespace Requestarr.Core.Users
 
             try
             {
-                await OneAtATimeAsync(discordUserId, async () =>
-                {
-                    var member = await MemberAsync(discordUserId);
-                    var (user, _) = member == null ? (null, false) : RefreshNames(member);
-
-                    return user == null ? 0 : await TryMatchAsync(user, member, attempt);
-                });
+                await OneAtATimeAsync(discordUserId, () => ReadAndMatchAsync(discordUserId, attempt));
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Trying member {0}'s rename again failed; the next start tries again", discordUserId);
             }
+        }
+
+        // The person read from Discord now: whether their stored names changed, and how many of their channel and role
+        // were renamed to match (none for someone not added, or who can't be read).
+        private async Task<(bool Renamed, int Matched)> ReadAndMatchAsync(ulong discordUserId, int attempt)
+        {
+            var member = await MemberAsync(discordUserId);
+            var (user, renamed) = member == null ? (null, false) : RefreshNames(member);
+
+            return (renamed, user == null ? 0 : await TryMatchAsync(user, member, attempt));
         }
 
         // The channel and role are named after the Discord username, as when the member was added (the channel archived

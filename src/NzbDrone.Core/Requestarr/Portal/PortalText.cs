@@ -155,13 +155,8 @@ namespace Requestarr.Core.Portal
         // Null for nothing left to say (progress with nothing to report).
         public static string Detail(string action, string detail)
         {
-            if (string.IsNullOrEmpty(detail))
-            {
-                return detail;
-            }
-
             // A rename's detail is the member's own names: never reworded.
-            if (action == MemberNameService.RenameAction)
+            if (string.IsNullOrEmpty(detail) || action == MemberNameService.RenameAction)
             {
                 return detail;
             }
