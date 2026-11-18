@@ -114,6 +114,10 @@ const links = [
         to: '/system/updates'
       },
       {
+        title: () => translate('PortalWhatsNew'),
+        to: '/system/whats-new'
+      },
+      {
         title: () => translate('Events'),
         to: '/system/events'
       },

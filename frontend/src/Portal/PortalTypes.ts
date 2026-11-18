@@ -187,3 +187,10 @@ export interface PortalLibraryTitle {
   requester: string | null;
   seasons: number[];
 }
+
+export interface PortalVersion {
+  version: string;
+  date: string | null;
+  users: string[];
+  admins: string[];
+}

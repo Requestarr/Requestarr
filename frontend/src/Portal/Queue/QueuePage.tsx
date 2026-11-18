@@ -1,11 +1,13 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import Link from 'Components/Link/Link';
+import ConfirmModal from 'Components/Modal/ConfirmModal';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import PortalPage from '../Components/PortalPage';
@@ -43,34 +45,6 @@ function TitleCell({ item }: { item: PortalQueueItem }) {
   );
 }
 
-// A media server link request is decided right here, as its card in the admin channel is.
-function LinkActions({
-  item,
-  action,
-}: {
-  item: PortalQueueItem;
-  action: PortalAction;
-}) {
-  const onPress = useCallback(
-    (name: string) => action.act(`media-links/${item.key.slice(1)}/${name}`),
-    [action, item]
-  );
-
-  return (
-    <TableRowCell className={styles.actions}>
-      {item.kind === 'mediaServerLink' &&
-        ['approve', 'deny'].map((name) => (
-          <ActionButton
-            key={name}
-            action={name}
-            isBusy={action.isBusy}
-            onPress={onPress}
-          />
-        ))}
-    </TableRowCell>
-  );
-}
-
 function WhoCell({ item }: { item: PortalQueueItem }) {
   const who = item.who ?? '';
 
@@ -81,6 +55,68 @@ function WhoCell({ item }: { item: PortalQueueItem }) {
       ) : (
         who
       )}
+    </TableRowCell>
+  );
+}
+
+// The actions an item has right here, as its card in the admin channel does: a media server link request is decided,
+// and a removal of a title nobody requested (it has no request page) is forced or dropped.
+function itemActions(item: PortalQueueItem): string[] {
+  if (item.kind === 'mediaServerLink') {
+    return ['approve', 'deny'];
+  }
+
+  return item.kind === 'removal' && !item.requestId
+    ? ['forceRemoval', 'dropRemoval']
+    : [];
+}
+
+interface ItemActionsProps {
+  item: PortalQueueItem;
+  action: PortalAction;
+}
+
+function ItemActions({ item, action }: ItemActionsProps) {
+  const [isForcing, setIsForcing] = useState(false);
+  const id = item.key.slice(1);
+
+  const onPress = useCallback(
+    (name: string) => {
+      if (name === 'forceRemoval') {
+        setIsForcing(true);
+      } else if (name === 'dropRemoval') {
+        action.act(`removals/${id}/drop`);
+      } else {
+        action.act(`media-links/${id}/${name}`);
+      }
+    },
+    [action, id]
+  );
+  const onForce = useCallback(() => {
+    setIsForcing(false);
+    action.act(`removals/${id}/force`);
+  }, [action, id]);
+  const onCancel = useCallback(() => setIsForcing(false), []);
+
+  return (
+    <TableRowCell className={styles.actions}>
+      {itemActions(item).map((name) => (
+        <ActionButton
+          key={name}
+          action={name}
+          isBusy={action.isBusy}
+          onPress={onPress}
+        />
+      ))}
+      <ConfirmModal
+        isOpen={isForcing}
+        kind={kinds.DANGER}
+        title={translate('PortalActionForceRemoval')}
+        message={translate('PortalForceRemovalMessage')}
+        confirmLabel={translate('PortalActionForceRemoval')}
+        onConfirm={onForce}
+        onCancel={onCancel}
+      />
     </TableRowCell>
   );
 }
@@ -109,7 +145,7 @@ function QueueView({
               <TableRowCell>{queueKindText(item.kind)}</TableRowCell>
               <TitleCell item={item} />
               <WhoCell item={item} />
-              <LinkActions item={item} action={action} />
+              <ItemActions item={item} action={action} />
             </TableRow>
           ))}
         </TableBody>

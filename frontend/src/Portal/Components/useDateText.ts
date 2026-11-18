@@ -11,6 +11,17 @@ const DATE_FORMATS: Record<string, string> = {
   'dddd, D MMMM YYYY': 'D MMMM YYYY',
 };
 
+// A day on its own ("November 17, 2026"), in the order chosen under Settings, then UI.
+export function useDayText() {
+  const { longDateFormat } = useSelector(createUISettingsSelector());
+
+  return useCallback(
+    (date: string) =>
+      moment(date).format(DATE_FORMATS[longDateFormat] ?? longDateFormat),
+    [longDateFormat]
+  );
+}
+
 // Dates outside a table cell: "November 17, 2026, 1:28am", in the order and time format chosen under Settings, then UI.
 function useDateText() {
   const { longDateFormat, timeFormat } = useSelector(
@@ -26,6 +37,7 @@ function useDateText() {
       const day = moment(date).format(
         DATE_FORMATS[longDateFormat] ?? longDateFormat
       );
+
       return `${day}, ${formatTime(date, timeFormat, {
         includeMinuteZero: true,
       })}`;

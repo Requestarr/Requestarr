@@ -86,13 +86,14 @@ namespace Requestarr.Core.Test.Qa.Web
                 .And.EndWith("Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)");
         });
 
-        // The admin portal's pages: Requests, Members, Queue, Access requests, Outages and the Audit log load in both themes
+        // The admin portal's pages: Requests, Members, Queue, Access requests, Outages, the Audit log and System, What's
+        // new load in both themes
         // with their tables or their "nothing yet" lines, and a request's and a member's own page open from the lists
         // when there are any, with what an admin can do there.
         [Test]
         public Task portal_pages() => CheckAsync(nameof(portal_pages), async (browser, check) =>
         {
-            const string Loaded = "document.querySelector('table, [class*=\"Portal-empty\"], [class*=\"Alert-\"]')";
+            const string Loaded = "document.querySelector('table, fieldset, [class*=\"Portal-empty\"], [class*=\"Alert-\"]')";
             const string Failed = "!!document.querySelector('[class*=\"Alert-danger\"], [class*=\"Alert-warning\"]')";
             await SignInAsync(browser);
 
@@ -100,14 +101,14 @@ namespace Requestarr.Core.Test.Qa.Web
             {
                 await browser.SetThemeAsync(theme);
 
-                foreach (var page in new[] { "requests", "members", "queue", "access-requests", "outages", "audit" })
+                foreach (var page in new[] { "requests", "members", "queue", "access-requests", "outages", "audit", "system/whats-new" })
                 {
                     await browser.GoAsync($"{Url}/{page}");
                     await browser.WaitForAsync(Loaded);
                     (await browser.EvalAsync<bool>(Failed)).Should().BeFalse($"the {page} page loads");
                     var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
                     check.Saw($"{page} ({theme}): {rows} row(s)");
-                    await check.ShotAsync(browser, $"{page}-{theme}");
+                    await check.ShotAsync(browser, $"{page.Replace('/', '-')}-{theme}");
                     await OpenFirstAsync(browser, check, page, theme);
                 }
             }

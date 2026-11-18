@@ -10,6 +10,7 @@ import OutagesPage from 'Portal/Outages/OutagesPage';
 import QueuePage from 'Portal/Queue/QueuePage';
 import RequestDetailPage from 'Portal/Requests/RequestDetailPage';
 import RequestsPage from 'Portal/Requests/RequestsPage';
+import WhatsNewPage from 'Portal/WhatsNew/WhatsNewPage';
 import DevelopmentSettingsConnector from 'Settings/Development/DevelopmentSettingsConnector';
 import GeneralSettingsConnector from 'Settings/General/GeneralSettingsConnector';
 import ConnectionSettings from 'Settings/Requestarr/ConnectionSettings';
@@ -109,6 +110,8 @@ function AppRoutes() {
       <Route path="/system/backup" component={BackupsConnector} />
 
       <Route path="/system/updates" component={Updates} />
+
+      <Route path="/system/whats-new" component={WhatsNewPage} />
 
       <Route path="/system/events" component={LogsTableConnector} />
 

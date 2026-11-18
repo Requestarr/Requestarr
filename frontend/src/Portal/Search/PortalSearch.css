@@ -15,11 +15,11 @@
 .input {
   padding: 6px 4px;
   width: 210px;
+  outline: 0;
   border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.4);
   background-color: transparent;
   color: var(--white);
-  outline: 0;
 
   &::placeholder {
     color: rgba(255, 255, 255, 0.7);
@@ -37,8 +37,8 @@
   z-index: 5;
   overflow-y: auto;
   margin-top: 6px;
-  width: 400px;
   max-height: 480px;
+  width: 400px;
   border-radius: 4px;
   background-color: var(--pageHeaderBackgroundColor);
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.3);
@@ -47,9 +47,9 @@
 .group {
   padding: 8px 12px 4px;
   color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
   font-weight: bold;
   font-size: 12px;
-  text-transform: uppercase;
 }
 
 .result {

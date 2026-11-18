@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Requestarr.Core.Access;
+using Requestarr.Core.Announcements;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Users;
 
@@ -23,6 +24,9 @@ namespace Requestarr.Core.Portal
 
     public record PortalOutages(IReadOnlyList<PortalOutageNow> Now, IReadOnlyList<PortalOutage> History);
 
+    // One version's changes, as its update card's Read changes has them; Version is its label (0.7.0004-dev.4f2a9c1).
+    public record PortalVersion(string Version, DateTime? Date, IReadOnlyList<string> Users, IReadOnlyList<string> Admins);
+
     // A Sonarr or Radarr a member's requests can go to.
     public record PortalInstance(int Id, string Name, ContentType ContentType, bool Enabled);
 
@@ -31,23 +35,30 @@ namespace Requestarr.Core.Portal
         PortalAccessRequests AccessRequests();
         PortalOutages Outages();
         IReadOnlyList<PortalInstance> Instances();
+        IReadOnlyList<PortalVersion> Changes();
     }
 
-    // The portal's views of what has no page of its own in 5a: people asking to join, outages, and the instances a
-    // member can be given.
+    // The portal's views of what has no page of its own in 5a: people asking to join, outages, the instances a member
+    // can be given, and each version's changes.
     public class PortalRecords : IPortalRecords
     {
         private readonly IAccessRequestRepository _accessRequests;
         private readonly IWelcomeGuardRepository _guards;
         private readonly IBackendRepository _backends;
         private readonly IOutageRepository _outages;
+        private readonly IAnnouncementService _announcements;
 
-        public PortalRecords(IAccessRequestRepository accessRequests, IWelcomeGuardRepository guards, IBackendRepository backends, IOutageRepository outages)
+        public PortalRecords(IAccessRequestRepository accessRequests,
+                             IWelcomeGuardRepository guards,
+                             IBackendRepository backends,
+                             IOutageRepository outages,
+                             IAnnouncementService announcements)
         {
             _accessRequests = accessRequests;
             _guards = guards;
             _backends = backends;
             _outages = outages;
+            _announcements = announcements;
         }
 
         public PortalAccessRequests AccessRequests()
@@ -81,6 +92,9 @@ namespace Requestarr.Core.Portal
                 .OrderBy(b => b.Name)
                 .Select(b => new PortalInstance(b.Id, b.Name, Discord.DiscordText.TypeOf(b), b.Enable))
                 .ToList();
+
+        public IReadOnlyList<PortalVersion> Changes() =>
+            _announcements.VersionNotes().Select(n => new PortalVersion(n.Shown, n.Version.Date, n.Version.Users, n.Version.Admins)).ToList();
 
         // A paused person isn't a member: their name is the one they last asked to join with.
         private string NameOf(string discordId)
