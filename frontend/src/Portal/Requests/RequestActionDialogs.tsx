@@ -14,7 +14,7 @@ import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
 
 export type RequestDialog = 'deny' | 'cancel' | 'seasons' | 'remove' | 'force';
 
-export interface RequestDialogAnswers {
+interface RequestDialogAnswers {
   onReason: (dialog: 'deny' | 'cancel', reason: string) => void;
   onSeasons: (seasons: number[], all: boolean, future: boolean) => void;
   onRemove: (seasons: number[], force: boolean) => void;

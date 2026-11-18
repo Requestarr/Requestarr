@@ -150,7 +150,7 @@ export interface PortalOutageNow {
   announcedBy: string | null;
 }
 
-export interface PortalOutage {
+interface PortalOutage {
   instance: string;
   started: string;
   ended: string | null;
