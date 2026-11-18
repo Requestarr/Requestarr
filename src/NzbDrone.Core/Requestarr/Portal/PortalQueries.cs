@@ -144,7 +144,8 @@ namespace Requestarr.Core.Portal
             var own = all.Values.Where(r => r.OwnerUserId == id).OrderByDescending(r => r.Requested).ToList();
             var following = _subscribers.ForUser(id).Select(s => all.GetValueOrDefault(s.RequestId)).Where(r => r != null).ToList();
             var removals = _proposals.All().Where(p => p.RequesterUserId == id || p.InitiatedByUserId == id).OrderByDescending(p => p.Created).Select(p => Removal(p, names)).ToList();
-            var history = _audit.ForTarget("user", id.ToString()).OrderBy(e => e.Timestamp).Select(e => PortalText.Event(e, names)).ToList();
+            var discordNames = PortalText.DiscordNames(_identities.All(), names);
+            var history = _audit.ForTarget("user", id.ToString()).OrderBy(e => e.Timestamp).Select(e => PortalText.Event(e, names, discordNames)).ToList();
 
             return new PortalMemberDetail(Member(user, own, following.Count, instances), own.Select(rows.Of).ToList(), following.Select(rows.Of).ToList(), removals, MediaServer(id), history);
         }
@@ -168,9 +169,10 @@ namespace Requestarr.Core.Portal
         private List<PortalEvent> Timeline(Request request, Dictionary<int, string> names)
         {
             var requested = PortalText.Action("request.create");
+            var discordNames = PortalText.DiscordNames(_identities.All(), names);
             var events = _audit.ForTarget("request", request.Id.ToString())
                 .Concat(_proposals.ForRequest(request.Id).SelectMany(p => _audit.ForTarget("removal", p.Id.ToString())))
-                .Select(e => PortalText.Event(e, names))
+                .Select(e => PortalText.Event(e, names, discordNames))
                 .ToList();
 
             if (!events.Any(e => e.What == requested))
@@ -188,7 +190,7 @@ namespace Requestarr.Core.Portal
             var active = requests.Count(r => r.IsActive);
             var pending = requests.Count(r => r.Status == RequestStatus.Pending);
 
-            return new PortalMember(user.Id, user.DisplayName, discord?.Username, user.Status, user.Added, access, requests.Count, active, pending, following);
+            return new PortalMember(user.Id, user.DisplayName, discord?.Username, discord?.ExternalId, user.Status, user.Added, access, requests.Count, active, pending, following);
         }
 
         private static PortalAccess Access(UserMediaAccess access, Dictionary<int, string> instances)
@@ -234,17 +236,12 @@ namespace Requestarr.Core.Portal
 
         private PortalRemoval Removal(RemovalProposal proposal, Dictionary<int, string> names)
         {
-            var startedBy = proposal.InitiatedByName;
-
-            if (startedBy == null && proposal.InitiatedByUserId.HasValue)
-            {
-                startedBy = names.GetValueOrDefault(proposal.InitiatedByUserId.Value);
-            }
-
+            var startedBy = NameNow(proposal.InitiatedByUserId, proposal.InitiatedByName, names);
+            var closedBy = NameNow(proposal.ClosedByUserId, proposal.ClosedByName, names);
             var keeps = _flags.ForProposal(proposal.Id).Select(f => names.GetValueOrDefault(f.UserId)).ToList();
             var seasons = proposal.Seasons ?? new List<int>();
 
-            return new PortalRemoval(proposal.Id, proposal.Status, seasons, proposal.Created, proposal.Closed, startedBy, proposal.ClosedByName, keeps, proposal.IsOpen);
+            return new PortalRemoval(proposal.Id, proposal.Status, seasons, proposal.Created, proposal.Closed, startedBy, closedBy, keeps, proposal.IsOpen);
         }
 
         // What the admin channel's queue item is about, in the portal's words; null when it's gone since.
@@ -268,7 +265,7 @@ namespace Requestarr.Core.Portal
         private static PortalQueueItem RemovalItem(QueueItem item, RemovalProposal removal, Dictionary<int, string> names)
         {
             var memberId = removal.RequesterUserId ?? removal.InitiatedByUserId;
-            var who = removal.RequesterUserId.HasValue ? names.GetValueOrDefault(removal.RequesterUserId.Value) : removal.InitiatedByName;
+            var who = removal.RequesterUserId.HasValue ? names.GetValueOrDefault(removal.RequesterUserId.Value) : NameNow(removal.InitiatedByUserId, removal.InitiatedByName, names);
 
             return new PortalQueueItem(item.Key, "removal", item.Since, removal.Label, who, removal.RequestId, memberId);
         }
@@ -277,6 +274,10 @@ namespace Requestarr.Core.Portal
             _requests.Find(item.Id) is { } request
                 ? new PortalQueueItem(item.Key, kind, item.Since, request.Label, names.GetValueOrDefault(request.OwnerUserId), request.Id, request.OwnerUserId)
                 : null;
+
+        // A member by their name now; the recorded name for an admin in the web app (who has no member record).
+        private static string NameNow(int? userId, string recorded, Dictionary<int, string> names) =>
+            userId.HasValue && names.TryGetValue(userId.Value, out var name) ? name : recorded;
 
         private Dictionary<int, string> Names() => _users.All().ToDictionary(u => u.Id, u => u.DisplayName);
 

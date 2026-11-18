@@ -40,6 +40,7 @@ namespace Requestarr.Core.Portal
         private readonly IAuditRepository _audit;
         private readonly IRequestRepository _requests;
         private readonly IRequestarrUserRepository _users;
+        private readonly IUserIdentityRepository _identities;
         private readonly IRemovalProposalRepository _removals;
         private readonly IAccessRequestRepository _accessRequests;
         private readonly IBackendRepository _backends;
@@ -48,6 +49,7 @@ namespace Requestarr.Core.Portal
         public PortalAuditLog(IAuditRepository audit,
                               IRequestRepository requests,
                               IRequestarrUserRepository users,
+                              IUserIdentityRepository identities,
                               IRemovalProposalRepository removals,
                               IAccessRequestRepository accessRequests,
                               IBackendRepository backends,
@@ -56,6 +58,7 @@ namespace Requestarr.Core.Portal
             _audit = audit;
             _requests = requests;
             _users = users;
+            _identities = identities;
             _removals = removals;
             _accessRequests = accessRequests;
             _backends = backends;
@@ -67,11 +70,12 @@ namespace Requestarr.Core.Portal
             var users = _users.All();
             var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.All());
             var names = users.ToDictionary(u => u.Id, u => u.DisplayName);
+            var discordNames = PortalText.DiscordNames(_identities.All(), names);
 
             return _audit.All()
                 .Where(e => (filter.From == null || e.Timestamp >= filter.From.Value.ToUniversalTime()) && (filter.To == null || e.Timestamp < filter.To.Value.ToUniversalTime()))
                 .OrderByDescending(e => e.Id)
-                .Select(e => about.Line(e, PortalText.Event(e, names)))
+                .Select(e => about.Line(e, PortalText.Event(e, names, discordNames)))
                 .Where(l => Contains(l.Entry.Who, filter.Member) || (l.Entry.MemberId.HasValue && Contains(l.Entry.About, filter.Member)))
                 .Where(l => l.IsTitle ? Contains(l.Entry.About, filter.Title) : string.IsNullOrWhiteSpace(filter.Title))
                 .Where(l => Contains(l.Entry.What, filter.Action))
@@ -88,10 +92,15 @@ namespace Requestarr.Core.Portal
             }
 
             var requests = _queries.Requests().Where(r => Contains(r.Title, term)).Take(SearchLimit).ToList();
-            var members = _queries.Members().Where(m => Contains(m.Name, term) || Contains(m.DiscordName, term)).Take(SearchLimit).ToList();
+            var formerNames = _audit.ForAction(MemberNameService.RenameAction).ToLookup(e => e.TargetId, e => MemberNameService.FormerNames(e.Detail));
+            var members = _queries.Members().Where(m => IsMember(m, term, formerNames[m.Id.ToString()].SelectMany(n => n))).Take(SearchLimit).ToList();
 
             return new PortalSearchResults(requests, members);
         }
+
+        // A member is found by their names now, a name they had before, or their Discord ID.
+        private static bool IsMember(PortalMember member, string term, IEnumerable<string> formerNames) =>
+            Contains(member.Name, term) || Contains(member.DiscordName, term) || member.DiscordId == term.Trim() || formerNames.Any(n => Contains(n, term));
 
         // An empty filter matches everything.
         private static bool Contains(string value, string filter) =>

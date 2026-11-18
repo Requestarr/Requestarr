@@ -64,6 +64,6 @@ namespace Requestarr.Core.Settings
         }
 
         public IReadOnlyList<PortalEvent> Changes() =>
-            _audit.ForTargetTypes("settings", "instance").Select(e => PortalText.Event(e, new Dictionary<int, string>())).ToList();
+            _audit.ForTargetTypes("settings", "instance").Select(e => PortalText.Event(e, new Dictionary<int, string>(), new Dictionary<string, string>())).ToList();
     }
 }

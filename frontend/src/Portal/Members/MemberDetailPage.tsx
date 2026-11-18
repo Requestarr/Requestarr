@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
+import ClipboardButton from 'Components/Link/ClipboardButton';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
@@ -13,6 +15,17 @@ import { accessText, contentTypeText, memberStatusText } from '../portalText';
 import { PortalMemberDetail } from '../PortalTypes';
 import usePortal from '../usePortal';
 import MemberActions from './MemberActions';
+import styles from '../Portal.css';
+
+// Their Discord ID, which is how Requestarr knows them whatever they're called, with a button to copy it.
+function DiscordId({ id }: { id: string }) {
+  return (
+    <span className={styles.discordId}>
+      {id}
+      <ClipboardButton value={id} kind={kinds.DEFAULT} />
+    </span>
+  );
+}
 
 // The member's rows, title then value: who they are, then one row per type they have a setting for; a row with
 // nothing to show is left out.
@@ -23,6 +36,10 @@ function memberRows(
   const { member } = detail;
   const rows: [string, ReactNode][] = [
     [translate('PortalDiscordName'), member.discordName],
+    [
+      translate('PortalDiscordId'),
+      member.discordId && <DiscordId id={member.discordId} />,
+    ],
     [translate('PortalStatus'), memberStatusText(member.status)],
     [translate('PortalAdded'), dateText(member.added)],
     [

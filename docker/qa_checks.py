@@ -67,6 +67,7 @@ CHECKS = {
     "web app settings pages": Check("web", "settings_pages", "web-app"),
     "web app header search": Check("web", "header_search", "web-app"),
     "live portal actions": Check("live", "LivePortalActionsFixture", "admin"),
+    "live member renames": Check("live", "LiveMemberRenamesFixture", "admin"),
     "live update cards": Check("live", "LiveAnnouncementsFixture", "admin", ("[qa]",)),
     "live Read changes": Check("live", "LiveWelcomeFixture", "admin", ("[cards]",)),
     "live access requests": Check("live", "LiveWelcomeFixture", "access", ("[spam]", "[block]", "[unblock]")),

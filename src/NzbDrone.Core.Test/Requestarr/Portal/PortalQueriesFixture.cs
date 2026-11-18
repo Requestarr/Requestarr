@@ -223,7 +223,7 @@ namespace Requestarr.Core.Test.Portal
         {
             PortalText.Detail("request.progress", "None").Should().BeNull();
 
-            var sent = PortalText.Event(new AuditEntry { Action = "request.send", Actor = "system", Detail = "Sonarr (test) item 12, profile HD-1080p, root /data/tv, type standard, tag 3" }, new Dictionary<int, string>());
+            var sent = PortalText.Event(new AuditEntry { Action = "request.send", Actor = "system", Detail = "Sonarr (test) item 12, profile HD-1080p, root /data/tv, type standard, tag 3" }, new Dictionary<int, string>(), new Dictionary<string, string>());
 
             sent.What.Should().Be("Sent to Sonarr (test)");
             sent.Detail.Should().Be("quality profile HD-1080p, root folder /data/tv, type standard");

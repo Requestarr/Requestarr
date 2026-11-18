@@ -83,5 +83,28 @@ namespace Requestarr.Core.Test.Portal
             found.Members.Should().BeEmpty();
             Subject.Search("ali").Members.Should().ContainSingle().Which.Name.Should().Be("Alice");
         }
+
+        [Test]
+        public void a_member_is_found_by_their_discord_id_and_by_a_name_they_had_before()
+        {
+            Db.Insert(new UserIdentity { UserId = _alice.Id, Provider = UserIdentity.DiscordProvider, ExternalId = "1", Username = "alice", Linked = Start });
+            Audited("user", _alice.Id, MemberNameService.RenameAction, "discord:1 (alice)", 96, _alice.Id);
+            var rename = Mocker.Resolve<IAuditRepository>().All().Last();
+            rename.Detail = "from \"Ally\" to \"Alice\"; Discord username from @ally to @alice";
+            Mocker.Resolve<IAuditRepository>().Update(rename);
+
+            Subject.Search("1").Members.Should().ContainSingle().Which.DiscordId.Should().Be("1");
+            Subject.Search("ally").Members.Should().ContainSingle().Which.Name.Should().Be("Alice", "a former name finds them as they're called now");
+            Subject.Search("12").Members.Should().BeEmpty("a Discord ID is matched whole");
+        }
+
+        [Test]
+        public void an_entry_that_recorded_only_a_discord_account_shows_that_members_name_now()
+        {
+            Db.Insert(new UserIdentity { UserId = _alice.Id, Provider = UserIdentity.DiscordProvider, ExternalId = "1", Username = "alice", Linked = Start });
+            Audited("settings", 0, "qa.pass", "discord:1 (ally)", 120);
+
+            Subject.Find(Filter())[0].Who.Should().Be("Alice");
+        }
     }
 }

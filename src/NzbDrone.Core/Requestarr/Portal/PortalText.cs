@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
@@ -58,6 +59,7 @@ namespace Requestarr.Core.Portal
             ["user.unsuspend"] = "Unsuspended",
             ["user.remove"] = "Removed",
             ["user.departed"] = "Left the server",
+            [MemberNameService.RenameAction] = "Renamed",
             ["mediaserver.link"] = "Media server linked",
             ["settings.change"] = "Setting changed",
             ["instance.add"] = "Instance added",
@@ -93,7 +95,7 @@ namespace Requestarr.Core.Portal
         // standard, tag 3"; the tag is Requestarr's own number for it, nothing an admin sees elsewhere.
         private static readonly Regex Sent = new(@"^(?<instance>.+?) item \d+, profile (?<profile>.+?), root (?<rest>.+?)(, tag \d+)?$");
 
-        private static readonly Regex DiscordName = new(@"^discord:\d+ \((?<name>.*)\)$");
+        private static readonly Regex DiscordName = new(@"^discord:(?<id>\d+) \((?<name>.*)\)$");
         private static readonly Regex WebName = new(@"^web(:(?<name>.+))?$");
 
         // An action Requestarr doesn't name yet shows as it's recorded.
@@ -120,10 +122,13 @@ namespace Requestarr.Core.Portal
             return Requestarr;
         }
 
-        // Who: a member as Requestarr knows them when the entry says which member it was, else the name it recorded.
-        public static PortalEvent Event(AuditEntry entry, IReadOnlyDictionary<int, string> members)
+        // Members' current names by their Discord ID, for entries that recorded only the Discord account.
+        public static Dictionary<string, string> DiscordNames(IEnumerable<UserIdentity> identities, IReadOnlyDictionary<int, string> members) =>
+            identities.Where(i => i.Provider == UserIdentity.DiscordProvider && members.ContainsKey(i.UserId)).ToDictionary(i => i.ExternalId, i => members[i.UserId]);
+
+        public static PortalEvent Event(AuditEntry entry, IReadOnlyDictionary<int, string> members, IReadOnlyDictionary<string, string> discordNames)
         {
-            var who = entry.ActorUserId is { } id && members.TryGetValue(id, out var name) ? name : Actor(entry.Actor);
+            var who = Who(entry, members, discordNames);
 
             if (entry.Action == "request.send" && Sent.Match(entry.Detail ?? string.Empty) is { Success: true } sent)
             {
@@ -133,10 +138,25 @@ namespace Requestarr.Core.Portal
             return new PortalEvent(entry.Timestamp, Action(entry.Action), who, Detail(entry.Action, entry.Detail));
         }
 
+        // Who: a member by their name now, found by the member or Discord account the entry recorded; else the name it
+        // recorded (an admin in the web app, someone who never became a member).
+        private static string Who(AuditEntry entry, IReadOnlyDictionary<int, string> members, IReadOnlyDictionary<string, string> discordNames)
+        {
+            if (entry.ActorUserId is { } id && members.TryGetValue(id, out var name))
+            {
+                return name;
+            }
+
+            var discord = DiscordName.Match(entry.Actor ?? string.Empty);
+
+            return discord.Success && discordNames.TryGetValue(discord.Groups["id"].Value, out var current) ? current : Actor(entry.Actor);
+        }
+
         // Null for nothing left to say (progress with nothing to report).
         public static string Detail(string action, string detail)
         {
-            if (string.IsNullOrEmpty(detail))
+            // A rename's detail is the member's own names: never reworded.
+            if (string.IsNullOrEmpty(detail) || action == MemberNameService.RenameAction)
             {
                 return detail;
             }

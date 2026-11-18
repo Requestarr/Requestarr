@@ -33,6 +33,8 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked by Claude Code: the live portal actions check.
 - **Header search:** On any page of the web app, press / and type part of a request's title, then part of a member's name, in the light and the dark theme. You should see the search placed and styled like Sonarr's, the request and the member found under Requests and Members, and each opening its page.
   - Checked by Claude Code: the web app header search check.
+- **Renamed members:** Change a test member's server display name in Discord, then open their page in the web app. You should see their new name on their page and their request channel's description, a Renamed line in their History saying from what to what, and their Discord ID with a button to copy it; the header search finds them by their old name and by their Discord ID, and a new Discord username renames their request channel and role to match.
+  - Checked by Claude Code: the live member renames check.
 - **Project links:** In the web app, open System, then Status, and look at More Info. You should see the home page and issue links open the Requestarr project in the Requestarr organization on GitHub.
   - Checked by Claude Code: the web app project links check.
 - **Access requests paused:** With a test account that isn't a member, press Request access in the welcome channel again and again, about fifteen times, until the welcome channel disappears for that account. You should see the blocked channel's message titled Access requests paused, saying an admin can lift the pause, and in the admin channel a notice with Unblock; pressing Unblock brings the welcome channel back for that account.

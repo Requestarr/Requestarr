@@ -5,6 +5,7 @@ interface CssExports {
   'changes': string;
   'count': string;
   'detail': string;
+  'discordId': string;
   'empty': string;
   'filter': string;
   'filterLabel': string;

@@ -55,7 +55,7 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | Provisioning settings (cooldowns, vote and answer windows, spam thresholds, instances, connections) | How Requestarr behaves | Settings: Discord, Sonarr and Radarr, Requests, Connections; Changes | 5b |
 | The audit log (every action, who and when) | Requestarr's own record | Each page's Timeline or History; the Audit log, searchable by member, title, action and day | 5a, 5c |
 
-Finding a request or a member quickly: the search in the header (press `/`) finds requests by title and members by name or Discord username. It only finds what Requestarr has; it never looks up or requests a new title.
+Finding a request or a member quickly: the search in the header (press `/`) finds requests by title and members by name, Discord username, Discord ID or a name they had before. It only finds what Requestarr has; it never looks up or requests a new title.
 
 ## Followers
 
