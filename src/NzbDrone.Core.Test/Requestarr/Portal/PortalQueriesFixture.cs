@@ -186,6 +186,17 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public void open_removals_of_titles_nobody_requested_are_listed_on_their_own()
+        {
+            var dune = Requested("Dune", _alice, RequestStatus.Available, 1);
+            Db.Insert(new RemovalProposal { RequestId = dune.Id, Title = "Dune", Year = 2021, Status = RemovalStatus.Voting, Created = Start });
+            Db.Insert(new RemovalProposal { Title = "Heat", Year = 1995, Status = RemovalStatus.Voting, Created = Start });
+            Db.Insert(new RemovalProposal { Title = "Alien", Year = 1979, Status = RemovalStatus.Kept, Created = Start });
+
+            Subject.TitleRemovals().Should().ContainSingle().Which.Title.Should().Be("Heat (1995)");
+        }
+
+        [Test]
         public void a_request_offers_the_actions_its_feed_card_does()
         {
             var pending = Requested("Dune", _alice, RequestStatus.Pending, 1);

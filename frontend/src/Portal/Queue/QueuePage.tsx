@@ -1,21 +1,21 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import Link from 'Components/Link/Link';
-import ConfirmModal from 'Components/Modal/ConfirmModal';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
-import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import PortalPage from '../Components/PortalPage';
+import RemovalActions from '../Components/RemovalActions';
 import { queueKindText } from '../portalText';
 import { PortalQueueItem } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
 import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';
+import TitleRemovals from './TitleRemovals';
 import styles from '../Portal.css';
 
 const columns: Column[] = [
@@ -59,64 +59,34 @@ function WhoCell({ item }: { item: PortalQueueItem }) {
   );
 }
 
-// The actions an item has right here, as its card in the admin channel does: a media server link request is decided,
-// and a removal of a title nobody requested (it has no request page) is forced or dropped.
-function itemActions(item: PortalQueueItem): string[] {
-  if (item.kind === 'mediaServerLink') {
-    return ['approve', 'deny'];
-  }
-
-  return item.kind === 'removal' && !item.requestId
-    ? ['forceRemoval', 'dropRemoval']
-    : [];
-}
-
 interface ItemActionsProps {
   item: PortalQueueItem;
   action: PortalAction;
 }
 
+// The actions an item has right here, as its card in the admin channel does: a media server link request is decided,
+// and a removal of a title nobody requested (it has no request page) is forced or dropped.
 function ItemActions({ item, action }: ItemActionsProps) {
-  const [isForcing, setIsForcing] = useState(false);
   const id = item.key.slice(1);
-
   const onPress = useCallback(
-    (name: string) => {
-      if (name === 'forceRemoval') {
-        setIsForcing(true);
-      } else if (name === 'dropRemoval') {
-        action.act(`removals/${id}/drop`);
-      } else {
-        action.act(`media-links/${id}/${name}`);
-      }
-    },
+    (name: string) => action.act(`media-links/${id}/${name}`),
     [action, id]
   );
-  const onForce = useCallback(() => {
-    setIsForcing(false);
-    action.act(`removals/${id}/force`);
-  }, [action, id]);
-  const onCancel = useCallback(() => setIsForcing(false), []);
 
   return (
     <TableRowCell className={styles.actions}>
-      {itemActions(item).map((name) => (
-        <ActionButton
-          key={name}
-          action={name}
-          isBusy={action.isBusy}
-          onPress={onPress}
-        />
-      ))}
-      <ConfirmModal
-        isOpen={isForcing}
-        kind={kinds.DANGER}
-        title={translate('PortalActionForceRemoval')}
-        message={translate('PortalForceRemovalMessage')}
-        confirmLabel={translate('PortalActionForceRemoval')}
-        onConfirm={onForce}
-        onCancel={onCancel}
-      />
+      {item.kind === 'mediaServerLink' &&
+        ['approve', 'deny'].map((name) => (
+          <ActionButton
+            key={name}
+            action={name}
+            isBusy={action.isBusy}
+            onPress={onPress}
+          />
+        ))}
+      {item.kind === 'removal' && !item.requestId && (
+        <RemovalActions removalId={id} action={action} />
+      )}
     </TableRowCell>
   );
 }
@@ -131,7 +101,12 @@ function QueueView({
   const action = usePortalAction(onDone);
 
   if (!items.length) {
-    return <div className={styles.empty}>{translate('PortalQueueEmpty')}</div>;
+    return (
+      <>
+        <div className={styles.empty}>{translate('PortalQueueEmpty')}</div>
+        <TitleRemovals />
+      </>
+    );
   }
 
   return (
@@ -150,6 +125,7 @@ function QueueView({
           ))}
         </TableBody>
       </Table>
+      <TitleRemovals />
     </>
   );
 }

@@ -41,6 +41,10 @@ namespace Requestarr.Http.Portal
         [Produces("application/json")]
         public IActionResult Queue() => Json(_portal.Queue());
 
+        [HttpGet("/api/v1/portal/title-removals")]
+        [Produces("application/json")]
+        public IActionResult TitleRemovals() => Json(_portal.TitleRemovals());
+
         [HttpGet("/api/v1/portal/access-requests")]
         [Produces("application/json")]
         public IActionResult AccessRequests() => Json(_records.AccessRequests());

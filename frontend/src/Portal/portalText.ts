@@ -1,3 +1,4 @@
+import moment from 'moment';
 import translate from 'Utilities/String/translate';
 import {
   AccessState,
@@ -99,4 +100,16 @@ export function seasonsText(seasons: number[]) {
   return seasons.length
     ? translate('PortalSeasonsList', { seasons: seasons.join(', ') })
     : '';
+}
+
+// Requestarr answers in Discord's words, with Discord's markup: bold, mentions and times. In the web app those are
+// plain text and a readable time.
+export function plainText(discord: string) {
+  return discord
+    .replace(/<t:(\d+)(:[a-zA-Z])?>/g, (_, seconds: string) =>
+      moment.unix(Number(seconds)).format('MMMM D, YYYY, h:mma')
+    )
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/<#\d+>/g, translate('PortalTheirChannel'))
+    .replace(/<@!?\d+>\s*/g, '');
 }

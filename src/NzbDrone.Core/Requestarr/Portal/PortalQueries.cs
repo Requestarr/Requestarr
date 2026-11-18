@@ -19,6 +19,9 @@ namespace Requestarr.Core.Portal
         IReadOnlyList<PortalMember> Members();
         PortalMemberDetail Member(int id);
         IReadOnlyList<PortalQueueItem> Queue();
+
+        // Open removals of titles nobody requested, oldest first.
+        IReadOnlyList<PortalTitleRemoval> TitleRemovals();
     }
 
     // The admin portal's read views (task 5a). Everything comes from Requestarr's own records; nothing here asks
@@ -151,6 +154,13 @@ namespace Requestarr.Core.Portal
             var names = Names();
 
             return _queue.Items().Select(i => QueueItem(i, names)).Where(i => i != null).ToList();
+        }
+
+        public IReadOnlyList<PortalTitleRemoval> TitleRemovals()
+        {
+            var names = Names();
+
+            return _proposals.All().Where(p => p.RequestId == null && p.IsOpen).OrderBy(p => p.Created).Select(p => new PortalTitleRemoval(p.Label, Removal(p, names))).ToList();
         }
 
         // The request's own history and its removals', oldest first. A request made before the audit log recorded

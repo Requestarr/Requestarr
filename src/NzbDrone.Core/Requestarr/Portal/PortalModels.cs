@@ -23,6 +23,10 @@ namespace Requestarr.Core.Portal
 
     // Actions: what an admin can do to it now, as its feed card in Discord offers (approve, deny, available, cancel,
     // searchAgain, retry, addSeasons, remove, forceRemoval, dropRemoval).
+    // An open removal of a title nobody requested through Requestarr, which has no request page: its own feed card in
+    // Discord.
+    public record PortalTitleRemoval(string Title, PortalRemoval Removal);
+
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,
                                       PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions);
 

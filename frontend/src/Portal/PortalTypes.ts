@@ -194,3 +194,8 @@ export interface PortalVersion {
   users: string[];
   admins: string[];
 }
+
+export interface PortalTitleRemoval {
+  title: string;
+  removal: PortalRemoval;
+}
