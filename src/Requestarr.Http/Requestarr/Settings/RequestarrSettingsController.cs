@@ -3,7 +3,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Requestarr.Core.Audit;
 using Requestarr.Core.Settings;
 
 namespace Requestarr.Http.Settings
@@ -24,9 +23,6 @@ namespace Requestarr.Http.Settings
             _setup = setup;
         }
 
-        // Servarr's sign-in keeps the admin's name as the "user" claim; it's "Anonymous" when sign-in is off.
-        private Actor Admin => Actor.Web(User.FindFirst("user")?.Value is { } name && name != "Anonymous" ? name : null);
-
         [HttpGet("/api/v1/requestarr/settings")]
         [Produces("application/json")]
         public IActionResult GetSettings() => Json(_settings.Get());
@@ -36,7 +32,7 @@ namespace Requestarr.Http.Settings
         [Produces("application/json")]
         public async Task<IActionResult> SaveSettings([FromBody] Dictionary<string, JsonElement> changes)
         {
-            var result = await _settings.SaveAsync(changes.ToDictionary(c => c.Key, c => Text(c.Value)), Admin);
+            var result = await _settings.SaveAsync(changes.ToDictionary(c => c.Key, c => Text(c.Value)), await WebAdmin.ActorAsync(HttpContext));
             return result.Saved ? Json(_settings.Get()) : Refused(result.Problem);
         }
 
@@ -66,7 +62,7 @@ namespace Requestarr.Http.Settings
 
         private async Task<IActionResult> Save(int? id, InstanceInput input)
         {
-            var result = await _instances.SaveAsync(id, input, Admin);
+            var result = await _instances.SaveAsync(id, input, await WebAdmin.ActorAsync(HttpContext));
             return result.Problem == null ? Json(result.Instance) : Refused(result.Problem);
         }
 

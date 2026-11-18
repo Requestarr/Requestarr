@@ -117,7 +117,7 @@ namespace Requestarr.Core.Test.Qa.Web
         [Test]
         public Task settings_pages() => CheckAsync(nameof(settings_pages), async (browser, check) =>
         {
-            const string Loaded = "document.querySelector('fieldset, table, [class*=\"Alert-danger\"]')";
+            const string Loaded = "document.querySelector('fieldset, table, [class*=\"Portal-empty\"], [class*=\"Alert-danger\"]')";
             await SignInAsync(browser);
 
             foreach (var theme in Themes)
