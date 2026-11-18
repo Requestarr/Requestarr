@@ -51,7 +51,15 @@ namespace Requestarr.Core.Audit
             _config = config;
         }
 
-        public string KeepFor => AuditRetention.Choices.Contains(_config.AuditLogKeepFor) ? _config.AuditLogKeepFor : AuditRetention.Default;
+        public string KeepFor
+        {
+            get
+            {
+                var stored = _config.AuditLogKeepFor;
+
+                return AuditRetention.Choices.Contains(stored) ? stored : AuditRetention.Default;
+            }
+        }
 
         // A choice the file gets wrong fails provisioning, which the web app's health check shows, rather than quietly
         // keeping the log for longer or shorter than the admin meant.

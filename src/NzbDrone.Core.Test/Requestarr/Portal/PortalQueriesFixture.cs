@@ -184,9 +184,9 @@ namespace Requestarr.Core.Test.Portal
         [Test]
         public void a_page_older_than_the_audit_log_keeps_says_its_history_was_trimmed()
         {
-            const int TwoYears = -2 * 365 * 24;
-            var old = Requested("Alien", _alice, RequestStatus.Available, TwoYears);
-            var carol = Db.Insert(new RequestarrUser { DisplayName = "Carol", Status = UserStatus.Active, Added = Start.AddHours(TwoYears) });
+            const int TwoYearsAgoInHours = -2 * 365 * 24;
+            var old = Requested("Alien", _alice, RequestStatus.Available, TwoYearsAgoInHours);
+            var carol = Db.Insert(new RequestarrUser { DisplayName = "Carol", Status = UserStatus.Active, Added = Start.AddHours(TwoYearsAgoInHours) });
             var recent = Requested("Dune", _alice, RequestStatus.Pending, 1);
 
             Subject.Request(old.Id).HistoryTrimmedAfter.Should().Be(AuditRetention.OneYear);

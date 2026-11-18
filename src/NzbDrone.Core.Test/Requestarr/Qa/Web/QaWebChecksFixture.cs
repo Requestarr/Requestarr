@@ -197,6 +197,8 @@ namespace Requestarr.Core.Test.Qa.Web
                         var keepFor = await browser.EvalAsync<bool>("document.body.innerText.includes('Keep the audit log for') && document.body.innerText.includes('1 year')");
                         check.Saw($"requests ({theme}): Keep the audit log for {(keepFor ? "shown, 1 year" : "not shown")}");
                         keepFor.Should().BeTrue("the provisioning file keeps the audit log for 1 year");
+                        await browser.EvalAsync<bool>("[...document.querySelectorAll('legend')].find(l => l.innerText.includes('Audit log'))?.scrollIntoView() ?? true");
+                        await check.ShotAsync(browser, $"settings-requests-audit-log-{theme}");
                     }
                 }
             }
