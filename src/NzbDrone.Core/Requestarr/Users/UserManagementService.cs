@@ -370,6 +370,10 @@ namespace Requestarr.Core.Users
             return user;
         }
 
+        // A limit of 0 means none; the member card's form and the portal both ask for at most these.
+        public const int MaxQuotaLimit = 1000;
+        public const int MaxQuotaDays = 365;
+
         public ServiceResult SetQuota(ulong discordUserId, ContentType type, int limit, int days, Actor actor)
         {
             if (!ContentTypes.IsOffered(type))
@@ -384,7 +388,11 @@ namespace Requestarr.Core.Users
                 return ServiceResult.Fail(error);
             }
 
-            days = Math.Clamp(days, 1, 365);
+            if (limit is < 0 or > MaxQuotaLimit || days is < 1 or > MaxQuotaDays)
+            {
+                return ServiceResult.Fail(DiscordText.InvalidLimit);
+            }
+
             var row = GetOrCreateAccess(user.Id, type);
             row.QuotaLimit = limit > 0 ? limit : null;
             row.QuotaWindow = limit > 0 ? TimeSpan.FromDays(days) : null;

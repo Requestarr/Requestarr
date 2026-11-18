@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
@@ -12,6 +12,7 @@ import useDateText from '../Components/useDateText';
 import { accessText, contentTypeText, memberStatusText } from '../portalText';
 import { PortalMemberDetail } from '../PortalTypes';
 import usePortal from '../usePortal';
+import MemberActions from './MemberActions';
 
 // The member's rows, title then value: who they are, then one row per type they have a setting for; a row with
 // nothing to show is left out.
@@ -49,12 +50,19 @@ function Summary({ detail }: { detail: PortalMemberDetail }) {
   );
 }
 
-function renderDetail(detail: PortalMemberDetail) {
+interface MemberDetailProps {
+  detail: PortalMemberDetail;
+  onDone: () => void;
+}
+
+function MemberDetail({ detail, onDone }: MemberDetailProps) {
   return (
     <>
       <FieldSet legend={detail.member.name}>
         <Summary detail={detail} />
       </FieldSet>
+
+      <MemberActions detail={detail} onDone={onDone} />
 
       <FieldSet legend={translate('PortalTheirRequests')}>
         <RequestsTable requests={detail.requests} />
@@ -75,10 +83,18 @@ function renderDetail(detail: PortalMemberDetail) {
   );
 }
 
-// One member: their access and limits, their requests, what they follow, removals they started or got, and their history.
+// One member: their access and limits (and changing them), their requests, what they follow, removals they started or
+// got, and their history.
 function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const result = usePortal<PortalMemberDetail>(`members/${id}`);
+  const onActionDone = result.reload;
+  const renderDetail = useCallback(
+    (detail: PortalMemberDetail) => (
+      <MemberDetail detail={detail} onDone={onActionDone} />
+    ),
+    [onActionDone]
+  );
 
   return (
     <PortalPage title={translate('PortalMember')} result={result}>

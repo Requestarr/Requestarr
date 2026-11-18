@@ -25,6 +25,13 @@ export const shortcuts = {
     }
   },
 
+  FOCUS_SEARCH_BOX: {
+    key: '/',
+    get name() {
+      return translate('FocusSearchBox');
+    }
+  },
+
   SAVE_SETTINGS: {
     key: 'mod+s',
     get name() {

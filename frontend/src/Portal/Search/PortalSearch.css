@@ -1,0 +1,80 @@
+/* Placed and styled like the search in the header of Sonarr, Radarr and Lidarr: an icon and a borderless box on the
+   header's colour, its results dropping below in the same colour. */
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+}
+
+.icon {
+  margin-right: 8px;
+  color: var(--white);
+}
+
+.input {
+  padding: 6px 4px;
+  width: 210px;
+  outline: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  background-color: transparent;
+  color: var(--white);
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  &:focus {
+    border-bottom-color: var(--white);
+  }
+}
+
+.results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  overflow-y: auto;
+  margin-top: 6px;
+  max-height: 480px;
+  width: 400px;
+  border-radius: 4px;
+  background-color: var(--pageHeaderBackgroundColor);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.3);
+}
+
+.group {
+  padding: 8px 12px 4px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.result {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  color: var(--white);
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: var(--white);
+    text-decoration: none;
+  }
+}
+
+.highlighted {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.detail {
+  margin-left: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.nothing {
+  padding: 10px 12px;
+  color: rgba(255, 255, 255, 0.7);
+}

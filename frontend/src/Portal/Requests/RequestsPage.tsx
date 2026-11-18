@@ -1,11 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
+import PortalToolbar from '../Components/PortalToolbar';
 import RequestsTable from '../Components/RequestsTable';
 import { contentTypeText, statusText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import usePortal from '../usePortal';
+import RemoveTitleModal from './RemoveTitleModal';
 import styles from '../Portal.css';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -132,14 +135,37 @@ function renderRequests(requests: PortalRequest[]) {
   return <RequestsList requests={requests} />;
 }
 
-// Every request, filterable by member (requester or follower), type, status, instance and how recent.
+// Every request, filterable by member (requester or follower), type, status, instance and how recent; Remove a title
+// starts a removal of anything in a library.
 function RequestsPage() {
   const result = usePortal<PortalRequest[]>('requests');
+  const onActionDone = result.reload;
+  const [isRemoving, setIsRemoving] = useState(false);
+  const onRemovePress = useCallback(() => setIsRemoving(true), []);
+  const onRemoveClose = useCallback(() => setIsRemoving(false), []);
+  const toolbar = (
+    <PortalToolbar
+      label={translate('PortalRemoveTitle')}
+      iconName={icons.DELETE}
+      onPress={onRemovePress}
+    />
+  );
 
   return (
-    <PortalPage title={translate('PortalRequests')} result={result}>
-      {renderRequests}
-    </PortalPage>
+    <>
+      <PortalPage
+        title={translate('PortalRequests')}
+        result={result}
+        toolbar={toolbar}
+      >
+        {renderRequests}
+      </PortalPage>
+      <RemoveTitleModal
+        isOpen={isRemoving}
+        onClose={onRemoveClose}
+        onDone={onActionDone}
+      />
+    </>
   );
 }
 

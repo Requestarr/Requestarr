@@ -57,6 +57,9 @@ namespace Requestarr.Core.Requests
         public List<int> Seasons { get; set; } = new();
         public bool MonitorFutureSeasons { get; set; }
         public int? DecidedByUserId { get; set; }
+
+        // The deciding admin's name when they aren't a member (the web app); Discord's cards show it.
+        public string DecidedByName { get; set; }
         public string DecisionReason { get; set; }
         public int? ExternalItemId { get; set; }
         public DateTime Requested { get; set; }

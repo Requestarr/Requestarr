@@ -1,3 +1,4 @@
+import moment from 'moment';
 import translate from 'Utilities/String/translate';
 import {
   AccessState,
@@ -46,6 +47,10 @@ export function contentTypeText(type: ContentType) {
   return translate(CONTENT_TYPES[type]);
 }
 
+export function accessStateText(state: AccessState) {
+  return translate(ACCESS[state]);
+}
+
 export function memberStatusText(status: MemberStatus) {
   return translate(MEMBER_STATUS[status]);
 }
@@ -77,7 +82,7 @@ export function removalStatusText(status: string) {
 
 // "Needs approval, 3 every 7 days" or "Off".
 export function accessText(access: PortalAccess) {
-  const level = translate(ACCESS[access.state]);
+  const level = accessStateText(access.state);
 
   if (access.state === 'off' || access.quotaLimit == null) {
     return level;
@@ -99,4 +104,16 @@ export function seasonsText(seasons: number[]) {
   return seasons.length
     ? translate('PortalSeasonsList', { seasons: seasons.join(', ') })
     : '';
+}
+
+// Requestarr answers in Discord's words, with Discord's markup: bold, mentions and times. In the web app those are
+// plain text and a readable time.
+export function plainText(discord: string) {
+  return discord
+    .replace(/<t:(\d+)(:[a-zA-Z])?>/g, (_, seconds: string) =>
+      moment.unix(Number(seconds)).format('MMMM D, YYYY, h:mma')
+    )
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/<#\d+>/g, translate('PortalTheirChannel'))
+    .replace(/<@!?\d+>\s*/g, '');
 }

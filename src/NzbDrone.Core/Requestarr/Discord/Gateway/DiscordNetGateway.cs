@@ -38,9 +38,14 @@ namespace Requestarr.Core.Discord.Gateway
         {
             var member = await Client.Rest.GetGuildUserAsync(GuildId, userId);
 
-            return member == null
-                ? null
-                : new GuildMember(member.Id, member.Username, member.DisplayName ?? member.GlobalName ?? member.Username, member.GetDisplayAvatarUrl(), member.IsBot, member.RoleIds.ToList());
+            return member == null ? null : ToMember(member);
+        }
+
+        public async Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit)
+        {
+            var found = await ((IGuild)RequireGuild()).SearchUsersAsync(query, limit, CacheMode.AllowDownload);
+
+            return found.Select(ToMember).ToList();
         }
 
         public Task<int> GetRoleCountAsync() => Task.FromResult(RequireGuild().Roles.Count);
@@ -284,6 +289,9 @@ namespace Requestarr.Core.Discord.Gateway
                 .Select(Read)
                 .ToList();
         }
+
+        private static GuildMember ToMember(IGuildUser member) =>
+            new(member.Id, member.Username, member.DisplayName ?? member.GlobalName ?? member.Username, member.GetDisplayAvatarUrl(), member.IsBot, member.RoleIds.ToList());
 
         private static ChannelMessage Read(IMessage m) => new(
             m.Id,

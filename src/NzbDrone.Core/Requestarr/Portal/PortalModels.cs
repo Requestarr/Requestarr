@@ -17,10 +17,18 @@ namespace Requestarr.Core.Portal
     // Something that happened, from the audit log: when, what, who did it and any detail (a reason, seasons).
     public record PortalEvent(DateTime At, string What, string Who, string Detail);
 
-    public record PortalRemoval(int Id, RemovalStatus Status, IReadOnlyList<int> Seasons, DateTime Created, DateTime? Closed, string StartedBy, string ClosedBy);
+    // Keeps: the members who pressed Keep it on its vote. IsOpen: an admin can still force or drop it.
+    public record PortalRemoval(int Id, RemovalStatus Status, IReadOnlyList<int> Seasons, DateTime Created, DateTime? Closed, string StartedBy, string ClosedBy,
+                                IReadOnlyList<string> Keeps, bool IsOpen);
 
+    // An open removal of a title nobody requested through Requestarr, which has no request page: its own feed card in
+    // Discord.
+    public record PortalTitleRemoval(string Title, PortalRemoval Removal);
+
+    // Actions: what an admin can do to it now, as its feed card in Discord offers (approve, deny, available, cancel,
+    // searchAgain, retry, addSeasons, remove, forceRemoval, dropRemoval).
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,
-                                      PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline);
+                                      PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions);
 
     // A member's access to one content type: its level, their limit (requests per so many days) and their instance.
     public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays, string Instance);

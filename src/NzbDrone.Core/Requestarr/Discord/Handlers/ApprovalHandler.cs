@@ -153,7 +153,7 @@ namespace Requestarr.Core.Discord.Handlers
                 return;
             }
 
-            var decidedBy = _requests.DisplayName(request.DecidedByUserId);
+            var decidedBy = _requests.DecidedBy(request);
             await responder.UpdateMessageAsync(new InteractionReply { Content = DiscordText.DecidedCard(request, _requests.OwnerName(request), decidedBy), KeepEmbeds = true });
 
             if (!result.Success)

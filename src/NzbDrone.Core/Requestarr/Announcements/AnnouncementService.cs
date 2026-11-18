@@ -33,6 +33,9 @@ namespace Requestarr.Core.Announcements
         // version running now.
         Task PostVersionNotesAsync();
 
+        // Every version with something in it, newest first, labelled as its card is: the web app's What's new.
+        IReadOnlyList<(ChangelogVersion Version, string Shown)> VersionNotes();
+
         // The full card a Read changes button shows, privately; long versions take more than one message.
         IReadOnlyList<InteractionReply> FullCard(VersionAudience audience, Version version);
     }
@@ -195,6 +198,9 @@ namespace Requestarr.Core.Announcements
                 ? new[] { new InteractionReply { Content = DiscordText.VersionNotFound(version), Ephemeral = true } }
                 : VersionCards.Full(found, audience, Shown(found));
         }
+
+        public IReadOnlyList<(ChangelogVersion Version, string Shown)> VersionNotes() =>
+            Versions().Where(v => v.HasNews).OrderByDescending(v => v.Version).Select(v => (v, Shown(v))).ToList();
 
         // Dev and QA read Unreleased as the build they run (the next number); staging and production run numbered builds.
         private IReadOnlyList<ChangelogVersion> Versions() =>
