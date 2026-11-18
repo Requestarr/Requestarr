@@ -53,6 +53,10 @@ namespace Requestarr.Http.Portal
         [Produces("application/json")]
         public IActionResult Outages() => Json(_records.Outages());
 
+        [HttpGet("/api/v1/portal/types")]
+        [Produces("application/json")]
+        public IActionResult Types() => Json(_records.Types());
+
         [HttpGet("/api/v1/portal/changes")]
         [Produces("application/json")]
         public IActionResult Changes() => Json(_records.Changes());

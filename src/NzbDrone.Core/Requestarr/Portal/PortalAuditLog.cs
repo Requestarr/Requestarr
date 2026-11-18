@@ -14,7 +14,8 @@ namespace Requestarr.Core.Portal
     // with the request or member page it opens.
     public record PortalAuditEntry(DateTime At, string What, string Who, string Detail, string About, int? RequestId, int? MemberId);
 
-    // Each filter is optional: words the member, the title or the action contains, and the first and last day.
+    // Each filter is optional: words the member, the title or the action contains, and when it starts and ends (the
+    // web app sends the admin's own days, from midnight to midnight where they are).
     public record PortalAuditFilter(string Member, string Title, string Action, DateTime? From, DateTime? To);
 
     public record PortalSearchResults(IReadOnlyList<PortalRequest> Requests, IReadOnlyList<PortalMember> Members);
@@ -68,7 +69,7 @@ namespace Requestarr.Core.Portal
             var names = users.ToDictionary(u => u.Id, u => u.DisplayName);
 
             return _audit.All()
-                .Where(e => (filter.From == null || e.Timestamp >= filter.From.Value.Date) && (filter.To == null || e.Timestamp < filter.To.Value.Date.AddDays(1)))
+                .Where(e => (filter.From == null || e.Timestamp >= filter.From.Value.ToUniversalTime()) && (filter.To == null || e.Timestamp < filter.To.Value.ToUniversalTime()))
                 .OrderByDescending(e => e.Id)
                 .Select(e => about.Line(e, PortalText.Event(e, names)))
                 .Where(l => Contains(l.Entry.Who, filter.Member) || (l.Entry.MemberId.HasValue && Contains(l.Entry.About, filter.Member)))
@@ -105,12 +106,16 @@ namespace Requestarr.Core.Portal
             private readonly Dictionary<int, AccessRequest> _accessRequests;
             private readonly Dictionary<int, BackendInstance> _instances;
 
+            // Someone who isn't a member (a paused person, by their Discord account): the name they last asked to join with.
+            private readonly Dictionary<string, string> _askedAs;
+
             public Subjects(IEnumerable<Request> requests, IEnumerable<RequestarrUser> users, IEnumerable<RemovalProposal> removals, IEnumerable<AccessRequest> accessRequests, IEnumerable<BackendInstance> instances)
             {
                 _requests = requests.ToDictionary(r => r.Id);
                 _users = users.ToDictionary(u => u.Id);
                 _removals = removals.ToDictionary(r => r.Id);
                 _accessRequests = accessRequests.ToDictionary(r => r.Id);
+                _askedAs = _accessRequests.Values.OrderBy(r => r.Requested).GroupBy(r => r.DiscordUserId ?? string.Empty).ToDictionary(g => g.Key, g => g.Last().DisplayName ?? g.Last().Username);
                 _instances = instances.ToDictionary(i => i.Id);
             }
 
@@ -129,6 +134,7 @@ namespace Requestarr.Core.Portal
                 "removal" when id.HasValue && _removals.TryGetValue(id.Value, out var removal) => (removal.Label, removal.RequestId, null),
                 "user" when id.HasValue && _users.TryGetValue(id.Value, out var user) => (user.DisplayName, null, user.Id),
                 "access-request" when id.HasValue && _accessRequests.TryGetValue(id.Value, out var asked) => (asked.DisplayName ?? asked.Username, null, null),
+                "member" => (_askedAs.GetValueOrDefault(raw, raw), null, null),
                 "instance" when id.HasValue && _instances.TryGetValue(id.Value, out var instance) => (instance.Name, null, null),
                 "settings" => ("Settings", null, null),
                 _ => (raw, null, null)

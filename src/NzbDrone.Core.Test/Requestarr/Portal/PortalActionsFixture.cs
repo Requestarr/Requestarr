@@ -29,6 +29,20 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public async Task add_seasons_refuses_a_season_the_show_doesnt_have()
+        {
+            var request = new Request { Id = 9, Title = "Severance", Year = 2022, ContentType = ContentType.Tv, Seasons = new List<int> { 1 } };
+            Mocker.GetMock<IRequestService>().Setup(r => r.Find(9)).Returns(request);
+            Mocker.GetMock<IRequestService>().Setup(r => r.ItemForAsync(request)).ReturnsAsync(new MediaLookupResult { Seasons = new List<int> { 1, 2 } });
+
+            var result = await Subject.AddSeasonsAsync(9, new SeasonChoice(false, new List<int> { 2, 99 }, false), Admin);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Contain("99").And.Contain("It can add: 2");
+            Mocker.GetMock<IRequestService>().Verify(r => r.AddSeasonsAsync(It.IsAny<int>(), It.IsAny<RequestarrUser>(), It.IsAny<bool>(), It.IsAny<Actor>(), It.IsAny<SeasonChoice>()), Times.Never());
+        }
+
+        [Test]
         public async Task a_removal_from_a_requests_page_starts_on_its_title_in_the_library()
         {
             var instance = new BackendInstance { Id = 3, Name = "Radarr" };

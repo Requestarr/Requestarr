@@ -4,18 +4,11 @@ import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
 import { inputTypes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import parseSeasons from './parseSeasons';
 
 export interface RemovalChoice {
   seasons: string;
   force: boolean;
-}
-
-// "1, 3": seasons 1 and 3; empty: the whole title.
-export function seasonNumbers(text: string) {
-  return text
-    .split(',')
-    .map((part) => parseInt(part.trim()))
-    .filter((season) => !isNaN(season));
 }
 
 interface RemovalScopeProps {
@@ -42,6 +35,11 @@ function RemovalScope({ choice, onChange }: RemovalScopeProps) {
           name="seasons"
           value={choice.seasons}
           helpText={translate('PortalRemovalSeasonsHelpText')}
+          helpTextWarning={
+            parseSeasons(choice.seasons)
+              ? undefined
+              : translate('PortalNotSeasons')
+          }
           onChange={onInputChange}
         />
       </FormGroup>

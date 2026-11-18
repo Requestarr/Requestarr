@@ -43,7 +43,9 @@ function AccessRow({
     { key: 0, value: translate('PortalDefaultInstance') },
     ...instances.map((instance) => ({
       key: instance.id,
-      value: instance.name,
+      value: instance.enabled
+        ? instance.name
+        : translate('PortalTurnedOffInstance', { name: instance.name }),
     })),
   ];
 

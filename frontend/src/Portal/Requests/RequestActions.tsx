@@ -71,8 +71,8 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
     [answer, request]
   );
   const onSeasons = useCallback(
-    (seasons: number[], all: boolean, future: boolean) =>
-      answer(`${request}/seasons`, { seasons, all, future }),
+    (seasons: number[], future: boolean) =>
+      answer(`${request}/seasons`, { seasons, all: false, future }),
     [answer, request]
   );
   const onRemove = useCallback(

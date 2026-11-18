@@ -16,7 +16,6 @@ import {
   ContentType,
   PortalAccessRequest,
   PortalAccessRequests,
-  PortalInstance,
   PortalPaused,
 } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
@@ -171,10 +170,10 @@ function AccessRequestsView({
   onDone: () => void;
 }) {
   const action = usePortalAction(onDone);
-  const { data: instances } = usePortal<PortalInstance[]>('instances');
   const [approving, setApproving] = useState<PortalAccessRequest>();
   const [denying, setDenying] = useState<PortalAccessRequest>();
-  const types = [...new Set((instances ?? []).map((i) => i.contentType))];
+  const { data: offered } = usePortal<ContentType[]>('types');
+  const types = offered ?? [];
 
   const onClose = useCallback(() => {
     setApproving(undefined);

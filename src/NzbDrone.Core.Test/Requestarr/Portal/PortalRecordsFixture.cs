@@ -34,12 +34,13 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
-        public void outages_now_are_the_instances_down_and_history_is_every_outage()
+        public void outages_now_are_the_instances_alerted_as_down_and_history_is_every_outage()
         {
             Mocker.GetMock<IBackendRepository>().Setup(b => b.All()).Returns(new List<BackendInstance>
             {
-                new() { Id = 1, Name = "Radarr", Enable = true, DownSince = Start, DownAnnounceOffered = true, DownAnnounceMessageId = "9" },
-                new() { Id = 2, Name = "Sonarr", Enable = true }
+                new() { Id = 1, Name = "Radarr", Enable = true, DownSince = Start, DownAlertMessageId = "8", DownAnnounceOffered = true, DownAnnounceMessageId = "9" },
+                new() { Id = 2, Name = "Sonarr", Enable = true },
+                new() { Id = 3, Name = "Lidarr", Enable = true, DownSince = Start }
             });
             Mocker.GetMock<IOutageRepository>().Setup(o => o.Ongoing(1)).Returns(new Outage { AnnouncedBy = "owner (web app)" });
             Mocker.GetMock<IOutageRepository>().Setup(o => o.History()).Returns(new List<Outage> { new() { InstanceName = "Radarr", Started = Start } });

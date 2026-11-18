@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -64,27 +65,33 @@ namespace Requestarr.Core.Portal
         };
 
         // Details recorded before they were written for people, and raw values some still carry: the log keeps what
-        // was written, the portal shows it in words. In order; each applies wherever it matches.
-        private static readonly (Regex Raw, string Words)[] Wording =
+        // was written, the portal shows it in words. Each rule applies only to the actions that wrote that value (an
+        // action starting with Actions), so a title or an admin's reason is never reworded. In order.
+        private static readonly (string Actions, Regex Raw, string Words)[] Wording =
         {
-            (new(@"^(Tv|Movie|Music) (?=.+ on )"), string.Empty),
-            (new(@"\bseasons seasons\b"), "seasons"),
-            (new(@"^None(, |$)"), string.Empty),
-            (new(@"\bTv\b"), "TV"),
-            (new(@"\bNeedsApproval\b"), "needs approval"),
-            (new(@"\bAutoApprove\b"), "approved automatically"),
-            (new(@"(?<=\w)=(?=\w)"), ": "),
-            (new(@" -> "), " to "),
-            (new(@"^discord \d+, role \d*, channel \d*, "), string.Empty),
-            (new(@"\b(channel|role) \d+ "), "$1 "),
-            (new(@" at \d{4}-\d\d-\d\d \d\d:\d\d:\d\dZ"), string.Empty),
-            (new(@"\b1 keep flag\(s\)"), "1 Keep it vote"),
-            (new(@"\b(\d+) keep flag\(s\)"), "$1 Keep it votes"),
-            (new(@"\bno keep flags\b"), "no Keep it votes")
+            ("request.create", new(@"^(Tv|Movie|Music) (?=.+ on )"), string.Empty),
+            ("request.create", new(@"\bseasons seasons\b"), "seasons"),
+            ("request.progress", new(@"^None(, |$)"), string.Empty),
+            ("user.", new(@"^discord \d+, role \d*, channel \d*, "), string.Empty),
+            ("user.remove", new(@"\b(channel|role) \d+ "), "$1 "),
+            ("user.", new(@"\bTv\b"), "TV"),
+            ("user.", new(@"\bNeedsApproval\b"), "needs approval"),
+            ("user.", new(@"\bAutoApprove\b"), "approved automatically"),
+            ("user.", new(@"(?<=\w)=(?=\w)"), ": "),
+            ("user.", new(@" -> "), " to "),
+            ("access.approve", new(@"\bTv\b"), "TV"),
+            ("access.approve", new(@"\bNeedsApproval\b"), "needs approval"),
+            ("access.approve", new(@"\bAutoApprove\b"), "approved automatically"),
+            ("access.approve", new(@"(?<=\w)=(?=\w)"), ": "),
+            ("removal.", new(@" at \d{4}-\d\d-\d\d \d\d:\d\d:\d\dZ"), string.Empty),
+            ("removal.", new(@"\b1 keep flag\(s\)"), "1 Keep it vote"),
+            ("removal.", new(@"\b(\d+) keep flag\(s\)"), "$1 Keep it votes"),
+            ("removal.", new(@"\bno keep flags\b"), "no Keep it votes")
         };
 
-        // Where a request was sent, and with what: "Sonarr (test) item 12, profile HD-1080p, root /data/tv".
-        private static readonly Regex Sent = new(@"^(?<instance>.+?) item \d+, profile (?<profile>.+?), root (?<rest>.+)$");
+        // Where a request was sent, and with what: "Sonarr (test) item 12, profile HD-1080p, root /data/tv, type
+        // standard, tag 3"; the tag is Requestarr's own number for it, nothing an admin sees elsewhere.
+        private static readonly Regex Sent = new(@"^(?<instance>.+?) item \d+, profile (?<profile>.+?), root (?<rest>.+?)(, tag \d+)?$");
 
         private static readonly Regex DiscordName = new(@"^discord:\d+ \((?<name>.*)\)$");
         private static readonly Regex WebName = new(@"^web(:(?<name>.+))?$");
@@ -123,18 +130,19 @@ namespace Requestarr.Core.Portal
                 return new PortalEvent(entry.Timestamp, $"Sent to {sent.Groups["instance"].Value}", who, $"quality profile {sent.Groups["profile"].Value}, root folder {sent.Groups["rest"].Value}");
             }
 
-            return new PortalEvent(entry.Timestamp, Action(entry.Action), who, Detail(entry.Detail));
+            return new PortalEvent(entry.Timestamp, Action(entry.Action), who, Detail(entry.Action, entry.Detail));
         }
 
         // Null for nothing left to say (progress with nothing to report).
-        public static string Detail(string detail)
+        public static string Detail(string action, string detail)
         {
             if (string.IsNullOrEmpty(detail))
             {
                 return detail;
             }
 
-            var words = Wording.Aggregate(detail, (text, rule) => rule.Raw.Replace(text, rule.Words));
+            var words = Wording.Where(rule => (action ?? string.Empty).StartsWith(rule.Actions, StringComparison.Ordinal))
+                .Aggregate(detail, (text, rule) => rule.Raw.Replace(text, rule.Words));
             return words.Length == 0 ? null : words;
         }
     }

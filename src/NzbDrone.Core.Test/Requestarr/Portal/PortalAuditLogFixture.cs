@@ -71,7 +71,7 @@ namespace Requestarr.Core.Test.Portal
             Subject.Find(Filter(member: "alice")).Select(e => e.What).Should().Equal("Limit changed", "Requested");
             Subject.Find(Filter(title: "dune")).Select(e => e.What).Should().Equal("Approved", "Requested");
             Subject.Find(Filter(action: "approved")).Should().ContainSingle();
-            Subject.Find(Filter(from: Start.AddDays(1), to: Start.AddDays(2))).Select(e => e.What).Should().Equal("Limit changed", "Approved");
+            Subject.Find(Filter(from: Start.AddHours(24), to: Start.AddHours(49))).Select(e => e.What).Should().Equal("Limit changed", "Approved");
         }
 
         [Test]

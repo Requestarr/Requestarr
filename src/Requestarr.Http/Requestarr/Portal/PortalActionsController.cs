@@ -65,10 +65,11 @@ namespace Requestarr.Http.Portal
 
         [HttpPost("/api/v1/portal/requests/{id:int}/seasons")]
         public Task<IActionResult> AddSeasons(int id, [FromBody] SeasonsBody body) =>
-            Act(admin => _actions.AddSeasonsAsync(id, new SeasonChoice(body.All, body.Seasons ?? new List<int>(), body.Future), admin));
+            body == null ? Missing() : Act(admin => _actions.AddSeasonsAsync(id, new SeasonChoice(body.All, body.Seasons ?? new List<int>(), body.Future), admin));
 
         [HttpPost("/api/v1/portal/requests/{id:int}/removal")]
-        public Task<IActionResult> StartRemoval(int id, [FromBody] RemovalBody body) => Act(admin => _actions.StartRemovalAsync(id, body.Seasons, body.Force, admin));
+        public Task<IActionResult> StartRemoval(int id, [FromBody] RemovalBody body) =>
+            body == null ? Missing() : Act(admin => _actions.StartRemovalAsync(id, body.Seasons, body.Force, admin));
 
         [HttpGet("/api/v1/portal/library")]
         [Produces("application/json")]
@@ -76,7 +77,7 @@ namespace Requestarr.Http.Portal
 
         [HttpPost("/api/v1/portal/library/{instanceId:int}/{itemId:int}/removal")]
         public Task<IActionResult> StartLibraryRemoval(int instanceId, int itemId, [FromBody] RemovalBody body) =>
-            Act(admin => _actions.StartLibraryRemovalAsync(instanceId, itemId, body.Seasons, body.Force, admin));
+            body == null ? Missing() : Act(admin => _actions.StartLibraryRemovalAsync(instanceId, itemId, body.Seasons, body.Force, admin));
 
         [HttpPost("/api/v1/portal/removals/{id:int}/force")]
         public Task<IActionResult> ForceRemoval(int id) => Act(admin => _actions.ForceRemovalAsync(id, admin));
@@ -98,10 +99,12 @@ namespace Requestarr.Http.Portal
         public Task<IActionResult> AddMember([FromBody] AddMemberBody body) => Act(admin => _members.AddAsync(body?.DiscordId, admin));
 
         [HttpPut("/api/v1/portal/members/{id:int}/access")]
-        public Task<IActionResult> SetAccess(int id, [FromBody] AccessBody body) => Act(admin => Task.FromResult(_members.SetAccess(id, body.ContentType, body.State, body.InstanceId, admin)));
+        public Task<IActionResult> SetAccess(int id, [FromBody] AccessBody body) =>
+            body == null ? Missing() : Act(admin => Task.FromResult(_members.SetAccess(id, body.ContentType, body.State, body.InstanceId, admin)));
 
         [HttpPut("/api/v1/portal/members/{id:int}/limit")]
-        public Task<IActionResult> SetLimit(int id, [FromBody] LimitBody body) => Act(admin => Task.FromResult(_members.SetLimit(id, body.ContentType, body.Limit, body.Days, admin)));
+        public Task<IActionResult> SetLimit(int id, [FromBody] LimitBody body) =>
+            body == null ? Missing() : Act(admin => Task.FromResult(_members.SetLimit(id, body.ContentType, body.Limit, body.Days, admin)));
 
         [HttpPost("/api/v1/portal/members/{id:int}/suspend")]
         public Task<IActionResult> Suspend(int id) => Act(admin => _members.SuspendAsync(id, admin));
@@ -130,6 +133,9 @@ namespace Requestarr.Http.Portal
 
         [HttpPost("/api/v1/portal/paused/{discordId}/unblock")]
         public Task<IActionResult> Unblock(string discordId) => Act(admin => _members.UnblockAsync(discordId, admin));
+
+        // The body didn't read as one: a number field left empty, a value Requestarr doesn't know.
+        private Task<IActionResult> Missing() => Task.FromResult<IActionResult>(Conflict(new { message = "Fill in every field with a number or a choice from its list." }));
 
         private async Task<IActionResult> Act(System.Func<Actor, Task<ServiceResult>> action)
         {

@@ -11,7 +11,8 @@ interface Answer {
 }
 
 // An admin action on a portal page (/api/v1/portal/{path}): busy while it runs, then Requestarr's answer in the words
-// Discord would use. onDone runs after one that was done, to show the page as it is now.
+// Discord would use. onDone runs after each, to show the page as it is now: a refused action can still have changed
+// something (an approval Sonarr refused leaves the request failed).
 function usePortalAction(onDone: () => void) {
   const [isBusy, setIsBusy] = useState(false);
   const [outcome, setOutcome] = useState<ActionOutcome>();
@@ -29,6 +30,7 @@ function usePortalAction(onDone: () => void) {
         (failure: Error) => {
           setIsBusy(false);
           setOutcome({ isDone: false, message: failure.message });
+          onDone();
         }
       );
     },

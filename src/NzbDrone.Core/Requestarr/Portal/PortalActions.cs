@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Discord;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Users;
@@ -63,7 +64,29 @@ namespace Requestarr.Core.Portal
 
         public Task<ServiceResult> RetryAsync(int requestId, Actor admin) => _requests.RetrySendAsync(requestId, admin);
 
-        public Task<ServiceResult> AddSeasonsAsync(int requestId, SeasonChoice seasons, Actor admin) => _requests.AddSeasonsAsync(requestId, null, true, admin, seasons);
+        // Typed seasons, so each must be one the show has to add, as Discord's picker only offers those.
+        public async Task<ServiceResult> AddSeasonsAsync(int requestId, SeasonChoice seasons, Actor admin)
+        {
+            if (_requests.Find(requestId) is not { } request)
+            {
+                return ServiceResult.Fail(DiscordText.RequestNotFound);
+            }
+
+            if (await _requests.ItemForAsync(request) is not { } item)
+            {
+                return ServiceResult.Fail(DiscordText.TitleNotFound);
+            }
+
+            var addable = RequestCards.AddableSeasons(request, item);
+            var unknown = seasons.Seasons.Except(addable).ToList();
+
+            if (unknown.Any())
+            {
+                return ServiceResult.Fail($"{request.Label} has no season {string.Join(", ", unknown)} to add. It can add: {(addable.Any() ? string.Join(", ", addable) : "none")}.");
+            }
+
+            return await _requests.AddSeasonsAsync(requestId, null, true, admin, seasons);
+        }
 
         public async Task<ServiceResult> StartRemovalAsync(int requestId, IReadOnlyCollection<int> seasons, bool force, Actor admin)
         {
@@ -101,7 +124,7 @@ namespace Requestarr.Core.Portal
             }
 
             var back = await _monitor.CheckAsync(instance);
-            return new ServiceResult(back, back ? $"{instance.Name} is reachable again." : $"{instance.Name} still can't be reached.");
+            return new ServiceResult(back, back ? DiscordText.InstanceBackNow(instance.Name) : DiscordText.StillDown(instance.Name));
         }
 
         // Announce to users, as the down alert's button has it. The monitor answers in words for the admin; it posted

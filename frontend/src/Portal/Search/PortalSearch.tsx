@@ -9,6 +9,9 @@ import PortalSearchResults from './PortalSearchResults';
 import usePortalSearch, { searchItems } from './usePortalSearch';
 import styles from './PortalSearch.css';
 
+// Long enough for a click on a result to land before the results close.
+const BLUR_DELAY_MS = 200;
+
 // Where a key press is typing, not a shortcut.
 const TYPING = ['INPUT', 'TEXTAREA', 'SELECT'];
 
@@ -43,6 +46,7 @@ function PortalSearch() {
   const input = useRef<HTMLInputElement>(null);
   const [term, setTerm] = useState('');
   const [highlight, setHighlight] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
   const results = usePortalSearch(term);
   const items = searchItems(results);
 
@@ -51,6 +55,12 @@ function PortalSearch() {
   const onOpen = useCallback(() => {
     setTerm('');
     input.current?.blur();
+  }, []);
+
+  // Closed when the box loses focus, a moment later so a click on a result still opens it.
+  const onFocus = useCallback(() => setIsOpen(true), []);
+  const onBlur = useCallback(() => {
+    setTimeout(() => setIsOpen(false), BLUR_DELAY_MS);
   }, []);
 
   const onChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,8 +96,10 @@ function PortalSearch() {
         value={term}
         onChange={onChange}
         onKeyDown={onKeyDown}
+        onFocus={onFocus}
+        onBlur={onBlur}
       />
-      {results && (
+      {isOpen && results && (
         <PortalSearchResults
           items={items}
           highlight={highlight}

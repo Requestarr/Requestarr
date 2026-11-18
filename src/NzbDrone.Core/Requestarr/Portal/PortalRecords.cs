@@ -36,6 +36,9 @@ namespace Requestarr.Core.Portal
         PortalAccessRequests AccessRequests();
         PortalOutages Outages();
         IReadOnlyList<PortalInstance> Instances();
+
+        // The content types members can be given access to, as the member card offers them.
+        IReadOnlyList<ContentType> Types();
         IReadOnlyList<PortalVersion> Changes();
     }
 
@@ -77,7 +80,7 @@ namespace Requestarr.Core.Portal
         public PortalOutages Outages()
         {
             var now = _backends.All()
-                .Where(b => b.Enable && b.DownSince.HasValue)
+                .Where(b => b.Enable && b.DownSince.HasValue && b.DownAlertMessageId != null)
                 .Select(b => (Instance: b, Record: _outages.Ongoing(b.Id)))
                 .Select(d => new PortalOutageNow(d.Instance.Id, d.Instance.Name, d.Instance.DownSince.Value, d.Instance.DownAnnounceOffered, d.Instance.DownAnnounceMessageId != null, d.Record?.AnnouncedBy))
                 .ToList();
@@ -93,6 +96,8 @@ namespace Requestarr.Core.Portal
                 .OrderBy(b => b.Name)
                 .Select(b => new PortalInstance(b.Id, b.Name, Discord.DiscordText.TypeOf(b), b.Enable))
                 .ToList();
+
+        public IReadOnlyList<ContentType> Types() => ContentTypes.Offered;
 
         public IReadOnlyList<PortalVersion> Changes() =>
             _announcements.VersionNotes().Select(n => new PortalVersion(n.Shown, n.Version.Date, n.Version.Users, n.Version.Admins)).ToList();

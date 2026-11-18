@@ -42,6 +42,10 @@ function ApproveAccessModal({
     },
     []
   );
+  const onModalClose = useCallback(() => {
+    setChosen({});
+    onClose();
+  }, [onClose]);
   const onConfirm = useCallback(() => {
     onApprove(
       types.map((contentType) => ({ contentType, state: levelOf(contentType) }))
@@ -55,7 +59,7 @@ function ApproveAccessModal({
       title={translate('PortalApproveAccessTitle', { name: asked?.name ?? '' })}
       confirmLabel={translate('PortalActionApprove')}
       onConfirm={onConfirm}
-      onClose={onClose}
+      onClose={onModalClose}
     >
       {types.map((type) => (
         <FormGroup key={type}>

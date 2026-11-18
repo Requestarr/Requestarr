@@ -4,13 +4,9 @@ import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
-import RemovalScope, {
-  RemovalChoice,
-  seasonNumbers,
-} from '../Components/RemovalScope';
+import RemovalStart from '../Components/RemovalStart';
 import SearchField from '../Components/SearchField';
 import useSearch from '../Components/useSearch';
 import { seasonsText } from '../portalText';
@@ -51,17 +47,15 @@ function RemoveTitleModal({ isOpen, onClose, onDone }: RemoveTitleModalProps) {
   const action = usePortalAction(onDone);
   const search = useSearch<PortalLibraryTitle>('library');
   const [picked, setPicked] = useState<PortalLibraryTitle>();
-  const [choice, setChoice] = useState<RemovalChoice>({
-    seasons: '',
-    force: false,
-  });
-
-  const onStart = useCallback(() => {
-    action.act(`library/${picked?.instanceId}/${picked?.itemId}/removal`, {
-      seasons: seasonNumbers(choice.seasons),
-      force: choice.force,
-    });
-  }, [action, picked, choice]);
+  const onStart = useCallback(
+    (seasons: number[], force: boolean) => {
+      action.act(`library/${picked?.instanceId}/${picked?.itemId}/removal`, {
+        seasons,
+        force,
+      });
+    },
+    [action, picked]
+  );
 
   return (
     <Modal isOpen={isOpen} onModalClose={onClose}>
@@ -83,10 +77,7 @@ function RemoveTitleModal({ isOpen, onClose, onDone }: RemoveTitleModalProps) {
           {picked && (
             <>
               <div className={styles.found}>{picked.title}</div>
-              <RemovalScope choice={choice} onChange={setChoice} />
-              <Button kind={kinds.DANGER} onPress={onStart}>
-                {translate('PortalActionRemove')}
-              </Button>
+              <RemovalStart onStart={onStart} />
             </>
           )}
           <ActionOutcomeAlert outcome={action.outcome} />

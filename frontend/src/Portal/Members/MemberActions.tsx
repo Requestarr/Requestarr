@@ -5,7 +5,11 @@ import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import TextPromptModal from '../Components/TextPromptModal';
-import { PortalInstance, PortalMemberDetail } from '../PortalTypes';
+import {
+  ContentType,
+  PortalInstance,
+  PortalMemberDetail,
+} from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
 import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';
@@ -100,7 +104,8 @@ function MemberActions({ detail, onDone }: MemberActionsProps) {
   const action = usePortalAction(onDone);
   const { data: instances } = usePortal<PortalInstance[]>('instances');
   const { member } = detail;
-  const types = [...new Set((instances ?? []).map((i) => i.contentType))];
+  const { data: offered } = usePortal<ContentType[]>('types');
+  const types = offered ?? [];
 
   if (member.status === 'removed') {
     return null;
@@ -117,9 +122,7 @@ function MemberActions({ detail, onDone }: MemberActionsProps) {
           memberId={member.id}
           type={type}
           access={member.access.find((a) => a.contentType === type)}
-          instances={(instances ?? []).filter(
-            (i) => i.contentType === type && i.enabled
-          )}
+          instances={(instances ?? []).filter((i) => i.contentType === type)}
           action={action}
         />
       ))}

@@ -19,6 +19,21 @@ const FILTERS = ['member', 'title', 'action', 'from', 'to'] as const;
 
 type Filters = Record<(typeof FILTERS)[number], string>;
 
+// From and To are the admin's own days: from the start of From to the end of To where they are, as moments.
+function asSent(filters: Filters): Filters {
+  const midnight = (day: string, plusDays: number) => {
+    const date = new Date(`${day}T00:00`);
+    date.setDate(date.getDate() + plusDays);
+    return date.toISOString();
+  };
+
+  return {
+    ...filters,
+    from: filters.from && midnight(filters.from, 0),
+    to: filters.to && midnight(filters.to, 1),
+  };
+}
+
 const NO_FILTERS: Filters = {
   member: '',
   title: '',
@@ -79,7 +94,7 @@ function AuditLogPage() {
   const [typed, setTyped] = useState(NO_FILTERS);
   const [applied, setApplied] = useState(NO_FILTERS);
   const query = new URLSearchParams(
-    Object.entries(applied).filter(([, value]) => value)
+    Object.entries(asSent(applied)).filter(([, value]) => value)
   ).toString();
   const result = usePortal<PortalAuditEntry[]>(`audit?${query}`);
 

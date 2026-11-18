@@ -5,17 +5,15 @@ import FormLabel from 'Components/Form/FormLabel';
 import { inputTypes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionModal from '../Components/ActionModal';
-import RemovalScope, {
-  RemovalChoice,
-  seasonNumbers,
-} from '../Components/RemovalScope';
+import parseSeasons from '../Components/parseSeasons';
+import RemovalModal from '../Components/RemovalModal';
 import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
 
 export type RequestDialog = 'deny' | 'cancel' | 'seasons' | 'remove';
 
 interface RequestDialogAnswers {
   onReason: (dialog: 'deny' | 'cancel', reason: string) => void;
-  onSeasons: (seasons: number[], all: boolean, future: boolean) => void;
+  onSeasons: (seasons: number[], future: boolean) => void;
   onRemove: (seasons: number[], force: boolean) => void;
 }
 
@@ -24,13 +22,11 @@ interface RequestActionDialogsProps extends RequestDialogAnswers {
   onClose: () => void;
 }
 
-const NO_REMOVAL: RemovalChoice = { seasons: '', force: false };
-const NO_SEASONS = { seasons: '', all: false, future: false };
+const NO_SEASONS = { seasons: '', future: false };
 
-// Add seasons' fields and their words: the seasons, or all of them; and new ones as they air.
+// Add seasons' fields and their words, as Discord's picker has them: the seasons, and new ones as they air.
 const SEASON_FIELDS: [keyof typeof NO_SEASONS, string][] = [
   ['seasons', 'PortalAddSeasonsSeasons'],
-  ['all', 'PortalAddSeasonsAll'],
   ['future', 'PortalAddSeasonsFuture'],
 ];
 
@@ -47,7 +43,6 @@ function promptFor(dialog?: RequestDialog) {
 // The choices a request's actions ask for, as Discord's forms do: a reason, seasons, what a removal covers.
 function RequestActionDialogs(props: RequestActionDialogsProps) {
   const { dialog, onReason, onSeasons, onRemove, onClose } = props;
-  const [removal, setRemoval] = useState(NO_REMOVAL);
   const [seasons, setSeasons] = useState(NO_SEASONS);
 
   const onReasonConfirm = useCallback(
@@ -59,15 +54,14 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
       setSeasons((current) => ({ ...current, [name]: value })),
     []
   );
-  const onSeasonsConfirm = useCallback(
-    () =>
-      onSeasons(seasonNumbers(seasons.seasons), seasons.all, seasons.future),
-    [seasons, onSeasons]
-  );
-  const onRemoveConfirm = useCallback(
-    () => onRemove(seasonNumbers(removal.seasons), removal.force),
-    [removal, onRemove]
-  );
+  // Seasons that don't read as numbers add nothing; the field says why.
+  const onSeasonsConfirm = useCallback(() => {
+    const numbers = parseSeasons(seasons.seasons);
+
+    if (numbers) {
+      onSeasons(numbers, seasons.future);
+    }
+  }, [seasons, onSeasons]);
 
   return (
     <>
@@ -92,21 +86,22 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
               name={name}
               value={seasons[name]}
               helpText={translate(`${key}HelpText`)}
+              helpTextWarning={
+                name === 'seasons' && !parseSeasons(seasons.seasons)
+                  ? translate('PortalNotSeasons')
+                  : undefined
+              }
               onChange={onSeasonsChange}
             />
           </FormGroup>
         ))}
       </ActionModal>
 
-      <ActionModal
+      <RemovalModal
         isOpen={dialog === 'remove'}
-        title={translate('PortalActionRemove')}
-        confirmLabel={translate('PortalActionRemove')}
-        onConfirm={onRemoveConfirm}
+        onStart={onRemove}
         onClose={onClose}
-      >
-        <RemovalScope choice={removal} onChange={setRemoval} />
-      </ActionModal>
+      />
     </>
   );
 }

@@ -206,25 +206,27 @@ namespace Requestarr.Core.Test.Portal
             Subject.Request(failed.Id).Actions.Should().Equal("available", "cancel", "retry");
         }
 
-        [TestCase("Tv Severance (2022) on Sonarr (test), seasons seasons 1–2 only", "Severance (2022) on Sonarr (test), seasons 1–2 only")]
-        [TestCase("None, season 1 available", "season 1 available")]
-        [TestCase("Tv: NeedsApproval -> AutoApprove", "TV: needs approval to approved automatically")]
-        [TestCase("discord 123, role 456, channel 789, access Movie=NeedsApproval, Tv=Off", "access Movie: needs approval, TV: Off")]
-        [TestCase("Dune (2021) forced by Owner at 2026-11-17 01:28:00Z (was Voting, 1 keep flag(s))", "Dune (2021) forced by Owner (was Voting, 1 Keep it vote)")]
-        public void recorded_details_read_in_words(string recorded, string shown)
+        [TestCase("request.create", "Tv Severance (2022) on Sonarr (test), seasons seasons 1–2 only", "Severance (2022) on Sonarr (test), seasons 1–2 only")]
+        [TestCase("request.progress", "None, season 1 available", "season 1 available")]
+        [TestCase("user.access", "Tv: NeedsApproval -> AutoApprove", "TV: needs approval to approved automatically")]
+        [TestCase("user.add", "discord 123, role 456, channel 789, access Movie=NeedsApproval, Tv=Off", "access Movie: needs approval, TV: Off")]
+        [TestCase("removal.force", "Dune (2021) forced by Owner at 2026-11-17 01:28:00Z (was Voting, 1 keep flag(s))", "Dune (2021) forced by Owner (was Voting, 1 Keep it vote)")]
+        [TestCase("request.deny", "None, E=mc2 -> later", "None, E=mc2 -> later")]
+        [TestCase("removal.start", "Movie 43 (2013) on Radarr (test), by the admin", "Movie 43 (2013) on Radarr (test), by the admin")]
+        public void recorded_details_read_in_words_and_only_their_own_actions_are_reworded(string action, string recorded, string shown)
         {
-            PortalText.Detail(recorded).Should().Be(shown);
+            PortalText.Detail(action, recorded).Should().Be(shown);
         }
 
         [Test]
         public void a_progress_with_nothing_to_report_has_no_detail_and_a_sent_request_names_its_instance()
         {
-            PortalText.Detail("None").Should().BeNull();
+            PortalText.Detail("request.progress", "None").Should().BeNull();
 
-            var sent = PortalText.Event(new AuditEntry { Action = "request.send", Actor = "system", Detail = "Sonarr (test) item 12, profile HD-1080p, root /data/tv" }, new Dictionary<int, string>());
+            var sent = PortalText.Event(new AuditEntry { Action = "request.send", Actor = "system", Detail = "Sonarr (test) item 12, profile HD-1080p, root /data/tv, type standard, tag 3" }, new Dictionary<int, string>());
 
             sent.What.Should().Be("Sent to Sonarr (test)");
-            sent.Detail.Should().Be("quality profile HD-1080p, root folder /data/tv");
+            sent.Detail.Should().Be("quality profile HD-1080p, root folder /data/tv, type standard");
         }
     }
 }

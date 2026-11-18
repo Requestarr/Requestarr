@@ -38,9 +38,13 @@ export function searchItems(results?: PortalSearchResults): SearchItem[] {
 }
 
 // What Requestarr has for the words typed in the header: requests by title, members by name or Discord username.
-// Nothing while the box is empty.
+// Nothing while the box is empty or until the answer for what's typed now arrives.
 function usePortalSearch(term: string) {
-  const [results, setResults] = useState<PortalSearchResults>();
+  // Each answer remembers what it was for: a slow answer to an earlier term never replaces a later one.
+  const [answer, setAnswer] = useState<{
+    term: string;
+    results?: PortalSearchResults;
+  }>();
   const wanted = term.trim();
 
   useEffect(() => {
@@ -51,13 +55,16 @@ function usePortalSearch(term: string) {
     const pause = setTimeout(() => {
       callApi<PortalSearchResults>(
         `/portal/search?term=${encodeURIComponent(wanted)}`
-      ).then(setResults, () => setResults(undefined));
+      ).then(
+        (results) => setAnswer({ term: wanted, results }),
+        () => setAnswer({ term: wanted })
+      );
     }, TYPING_PAUSE_MS);
 
     return () => clearTimeout(pause);
   }, [wanted]);
 
-  return wanted ? results : undefined;
+  return answer?.term === wanted ? answer.results : undefined;
 }
 
 export default usePortalSearch;
