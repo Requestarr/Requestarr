@@ -86,8 +86,9 @@ namespace Requestarr.Core.Test.Qa.Web
                 .And.EndWith("Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)");
         });
 
-        // The admin portal's read views: Requests, Members and Queue load in both themes with their table or their
-        // "nothing yet" line, and a request's and a member's own page open from the lists when there are any.
+        // The admin portal's pages: Requests, Members, Queue, Access requests, Outages and the Audit log load in both themes
+        // with their tables or their "nothing yet" lines, and a request's and a member's own page open from the lists
+        // when there are any, with what an admin can do there.
         [Test]
         public Task portal_pages() => CheckAsync(nameof(portal_pages), async (browser, check) =>
         {
@@ -99,7 +100,7 @@ namespace Requestarr.Core.Test.Qa.Web
             {
                 await browser.SetThemeAsync(theme);
 
-                foreach (var page in new[] { "requests", "members", "queue" })
+                foreach (var page in new[] { "requests", "members", "queue", "access-requests", "outages", "audit" })
                 {
                     await browser.GoAsync($"{Url}/{page}");
                     await browser.WaitForAsync(Loaded);
@@ -109,6 +110,49 @@ namespace Requestarr.Core.Test.Qa.Web
                     await check.ShotAsync(browser, $"{page}-{theme}");
                     await OpenFirstAsync(browser, check, page, theme);
                 }
+            }
+        });
+
+        // The header search, as in Sonarr: "/" puts the cursor in it; part of a request's title and of a member's name
+        // each find it, grouped, and the result opens its page. Light and dark.
+        [Test]
+        public Task header_search() => CheckAsync(nameof(header_search), async (browser, check) =>
+        {
+            await SignInAsync(browser);
+            await browser.GoAsync(Url + "/requests");
+            await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
+            var title = await browser.EvalAsync<string>("document.querySelector('tbody a[href*=\"/requests/\"]')?.textContent ?? ''");
+            await browser.GoAsync(Url + "/members");
+            await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
+            var member = await browser.EvalAsync<string>("document.querySelector('tbody a[href*=\"/members/\"]')?.textContent ?? ''");
+
+            if (title.Length == 0 || member.Length == 0)
+            {
+                check.Saw("No request or member to search for on this server.");
+                return;
+            }
+
+            var searches = new[] { ("request", title[..Math.Min(4, title.Length)], "/requests/"), ("member", member[..Math.Min(3, member.Length)], "/members/") };
+
+            foreach (var (kind, words, opens) in searches)
+            {
+                foreach (var theme in Themes)
+                {
+                    await browser.SetThemeAsync(theme);
+                    await browser.GoAsync(Url + "/system/status");
+                    await browser.WaitForAsync("!!document.querySelector('[class*=\"PortalSearch-input\"]')");
+                    await browser.RunAsync("document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }))");
+                    (await browser.EvalAsync<bool>("document.activeElement?.className.includes('PortalSearch-input')")).Should().BeTrue("\"/\" puts the cursor in the search");
+                    await browser.RunAsync($"const e = document.activeElement; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(e, {JsonSerializer.Serialize(words)}); e.dispatchEvent(new Event('input', {{ bubbles: true }}))");
+                    await browser.WaitForAsync($"[...document.querySelectorAll('[class*=\"PortalSearch-result\"]')].some(r => r.getAttribute('href')?.includes('{opens}'))");
+                    var shown = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"PortalSearch-results\"] > *')].map(e => e.textContent.trim()).join(' | ')");
+                    check.Saw($"{kind} \"{words}\" ({theme}): {shown}");
+                    await check.ShotAsync(browser, $"{kind}-{theme}");
+                }
+
+                await browser.RunAsync($"[...document.querySelectorAll('[class*=\"PortalSearch-result\"]')].find(r => r.getAttribute('href')?.includes('{opens}')).click()");
+                await browser.WaitForAsync($"location.pathname.includes('{opens}')");
+                check.Saw($"the {kind} result opened {await browser.EvalAsync<string>("location.pathname")}");
             }
         });
 

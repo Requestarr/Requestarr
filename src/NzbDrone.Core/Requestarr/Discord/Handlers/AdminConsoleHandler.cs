@@ -292,7 +292,8 @@ namespace Requestarr.Core.Discord.Handlers
             interaction.Fields.TryGetValue(AdminRoutes.LimitField, out var limitText);
             interaction.Fields.TryGetValue(AdminRoutes.DaysField, out var daysText);
 
-            if (type == null || !int.TryParse(limitText?.Trim(), out var limit) || limit < 0 || limit > 1000 || !TryReadDays(daysText, out var days))
+            // The service checks the range, for the portal too.
+            if (type == null || !int.TryParse(limitText?.Trim(), out var limit) || !TryReadDays(daysText, out var days))
             {
                 return ServiceResult.Fail(DiscordText.InvalidLimit);
             }
@@ -305,7 +306,7 @@ namespace Requestarr.Core.Discord.Handlers
         {
             days = 7;
 
-            return string.IsNullOrWhiteSpace(text) || (int.TryParse(text.Trim(), out days) && days is >= 1 and <= 365);
+            return string.IsNullOrWhiteSpace(text) || int.TryParse(text.Trim(), out days);
         }
 
         private ServiceResult LinkPlex(DiscordInteraction interaction, ulong member, Actor actor)

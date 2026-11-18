@@ -139,6 +139,9 @@ namespace Requestarr.Core.Requests
         List<Request> List(RequestarrUser user, bool all, RequestStatus? status, ContentType? type);
         string OwnerName(Request request);
         string DisplayName(int? userId);
+
+        // The admin who decided a request: the member, or the name of an admin in the web app.
+        string DecidedBy(Request request);
         string QuotaSummary(RequestarrUser user);
         Request Find(int id);
     }
@@ -419,8 +422,8 @@ namespace Requestarr.Core.Requests
             });
 
             var languageDetail = language.HasValue ? $", {DiscordText.Label(language.Value)}" : string.Empty;
-            var seasonDetail = type == ContentType.Tv ? $", seasons {DiscordText.Seasons(request)}{languageDetail}" : string.Empty;
-            _audit.Record(caller.Actor, "request.create", "request", request.Id.ToString(), $"{type} {request.Label} on {state.Instance.Name}{seasonDetail}");
+            var seasonDetail = type == ContentType.Tv ? $", {DiscordText.Seasons(request)}{languageDetail}" : string.Empty;
+            _audit.Record(caller.Actor, "request.create", "request", request.Id.ToString(), $"{request.Label} on {state.Instance.Name}{seasonDetail}");
 
             if (caller.AsAdmin || access.State == AccessState.AutoApprove)
             {
@@ -513,10 +516,11 @@ namespace Requestarr.Core.Requests
 
             if (current?.LibraryId != null)
             {
-                return await CloseAsAvailable(request, admin, current);
+                return await CloseAsAvailable(request, admin, adminName, current);
             }
 
             request.DecidedByUserId = admin.UserId;
+            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
             _audit.Record(admin, "request.approve", "request", request.Id.ToString());
 
             var (sent, item) = await SendAsync(request, instance, current, admin);
@@ -554,13 +558,14 @@ namespace Requestarr.Core.Requests
 
             if (inLibrary?.LibraryId != null)
             {
-                return await CloseAsAvailable(request, admin, inLibrary);
+                return await CloseAsAvailable(request, admin, adminName, inLibrary);
             }
 
             request.Status = RequestStatus.Denied;
             request.DecisionReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
             request.Decided = Clock();
             request.DecidedByUserId = admin.UserId;
+            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
             _requests.Update(request);
 
             _audit.Record(admin, "request.deny", "request", request.Id.ToString(), request.DecisionReason);
@@ -593,13 +598,14 @@ namespace Requestarr.Core.Requests
 
             if (!wasSent && await TryLookup(instance, request) is { LibraryId: not null } available)
             {
-                return await CloseAsAvailable(request, admin, available);
+                return await CloseAsAvailable(request, admin, adminName, available);
             }
 
             request.Status = RequestStatus.Cancelled;
             request.DecisionReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
             request.Decided = Clock();
             request.DecidedByUserId = admin.UserId;
+            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
             _requests.Update(request);
 
             var reasonDetail = request.DecisionReason != null ? "; " + request.DecisionReason : string.Empty;
@@ -638,18 +644,19 @@ namespace Requestarr.Core.Requests
                 return ServiceResult.Fail(DiscordText.NotPending(request.Id, request.Status));
             }
 
-            return await CloseAsAvailable(request, admin, null);
+            return await CloseAsAvailable(request, admin, adminName, null);
         }
 
         // The title is already there: the request ends as available (never "denied"), the user's
         // message and the approval card say so, and the user is told.
-        private async Task<ServiceResult> CloseAsAvailable(Request request, Actor admin, MediaLookupResult item)
+        private async Task<ServiceResult> CloseAsAvailable(Request request, Actor admin, string adminName, MediaLookupResult item)
         {
             request.Status = RequestStatus.Available;
             request.DecisionReason = null;
             request.Decided = Clock();
             request.Fulfilled = Clock();
             request.DecidedByUserId = admin.UserId;
+            request.DecidedByName = admin.UserId.HasValue ? null : adminName;
             _requests.Update(request);
 
             _audit.Record(admin, "request.available", "request", request.Id.ToString(), item?.LibraryId != null ? "already in the library" : "marked by the admin");
@@ -1225,6 +1232,8 @@ namespace Requestarr.Core.Requests
 
         public string DisplayName(int? userId) => userId.HasValue ? _users.Find(userId.Value)?.DisplayName : null;
 
+        public string DecidedBy(Request request) => DisplayName(request.DecidedByUserId) ?? request.DecidedByName;
+
         public string OwnerName(Request request) => _users.Find(request.OwnerUserId)?.DisplayName ?? $"user {request.OwnerUserId}";
 
         public string QuotaSummary(RequestarrUser user)
@@ -1368,7 +1377,7 @@ namespace Requestarr.Core.Requests
             {
                 try
                 {
-                    var decidedBy = DisplayName(request.DecidedByUserId);
+                    var decidedBy = DecidedBy(request);
                     await _gateway.EditMessageAsync(adminChannel, card, new InteractionReply { Content = DiscordText.DecidedCard(request, OwnerName(request), decidedBy), KeepEmbeds = true });
                 }
                 catch (Exception ex)

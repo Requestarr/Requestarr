@@ -1,0 +1,130 @@
+import React, { useCallback, useState } from 'react';
+import FieldSet from 'Components/FieldSet';
+import ConfirmModal from 'Components/Modal/ConfirmModal';
+import { kinds } from 'Helpers/Props';
+import translate from 'Utilities/String/translate';
+import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
+import TextPromptModal from '../Components/TextPromptModal';
+import { PortalInstance, PortalMemberDetail } from '../PortalTypes';
+import ActionButton from '../Requests/ActionButton';
+import usePortal from '../usePortal';
+import usePortalAction, { PortalAction } from '../usePortalAction';
+import AccessRow from './AccessRow';
+import styles from '../Portal.css';
+
+function plexPrompt() {
+  return {
+    title: translate('PortalActionLinkPlex'),
+    label: translate('PortalPlexUsername'),
+    helpText: translate('PortalPlexUsernameHelpText'),
+    confirmLabel: translate('PortalActionLinkPlex'),
+  };
+}
+
+interface StatusActionsProps {
+  member: PortalMemberDetail['member'];
+  action: PortalAction;
+}
+
+// Suspend or unsuspend, remove (after asking), and link a Plex account (asking its username).
+function StatusActions({ member, action }: StatusActionsProps) {
+  const [dialog, setDialog] = useState<'remove' | 'plex'>();
+  const path = `members/${member.id}`;
+  const status = member.status === 'suspended' ? 'unsuspend' : 'suspend';
+
+  const onClose = useCallback(() => setDialog(undefined), []);
+  const onPress = useCallback(
+    (name: string) => {
+      if (name === 'remove-member') {
+        setDialog('remove');
+      } else if (name === 'link-plex') {
+        setDialog('plex');
+      } else {
+        action.act(`${path}/${name}`);
+      }
+    },
+    [action, path]
+  );
+  const onRemove = useCallback(() => {
+    setDialog(undefined);
+    action.act(`${path}/remove`);
+  }, [action, path]);
+  const onPlex = useCallback(
+    (username: string) => {
+      setDialog(undefined);
+      action.act(`${path}/plex`, { username });
+    },
+    [action, path]
+  );
+
+  return (
+    <>
+      <div className={styles.actions}>
+        {[status, 'remove-member', 'link-plex'].map((name) => (
+          <ActionButton
+            key={name}
+            action={name}
+            isBusy={action.isBusy}
+            onPress={onPress}
+          />
+        ))}
+      </div>
+
+      <ConfirmModal
+        isOpen={dialog === 'remove'}
+        kind={kinds.DANGER}
+        title={translate('PortalActionRemoveMember')}
+        message={translate('PortalRemoveMemberMessage', { name: member.name })}
+        confirmLabel={translate('PortalActionRemoveMember')}
+        onConfirm={onRemove}
+        onCancel={onClose}
+      />
+
+      <TextPromptModal
+        prompt={dialog === 'plex' ? plexPrompt() : undefined}
+        onConfirm={onPlex}
+        onClose={onClose}
+      />
+    </>
+  );
+}
+
+interface MemberActionsProps {
+  detail: PortalMemberDetail;
+  onDone: () => void;
+}
+
+// What the member card in Discord can do: access, instance and limit per type, suspend or unsuspend, remove, and
+// link a Plex account.
+function MemberActions({ detail, onDone }: MemberActionsProps) {
+  const action = usePortalAction(onDone);
+  const { data: instances } = usePortal<PortalInstance[]>('instances');
+  const { member } = detail;
+  const types = [...new Set((instances ?? []).map((i) => i.contentType))];
+
+  if (member.status === 'removed') {
+    return null;
+  }
+
+  return (
+    <FieldSet legend={translate('PortalActions')}>
+      <StatusActions member={member} action={action} />
+      <ActionOutcomeAlert outcome={action.outcome} />
+
+      {types.map((type) => (
+        <AccessRow
+          key={type}
+          memberId={member.id}
+          type={type}
+          access={member.access.find((a) => a.contentType === type)}
+          instances={(instances ?? []).filter(
+            (i) => i.contentType === type && i.enabled
+          )}
+          action={action}
+        />
+      ))}
+    </FieldSet>
+  );
+}
+
+export default MemberActions;

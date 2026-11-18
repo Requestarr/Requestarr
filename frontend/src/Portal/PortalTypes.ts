@@ -58,6 +58,8 @@ export interface PortalRemoval {
   closed: string | null;
   startedBy: string | null;
   closedBy: string | null;
+  keeps: string[];
+  isOpen: boolean;
 }
 
 export interface PortalRequestDetail {
@@ -68,6 +70,7 @@ export interface PortalRequestDetail {
   posterUrl: string | null;
   latestRemoval: PortalRemoval | null;
   timeline: PortalEvent[];
+  actions: string[];
 }
 
 export interface PortalAccess {
@@ -108,4 +111,79 @@ export interface PortalQueueItem {
   who: string | null;
   requestId: number | null;
   memberId: number | null;
+}
+
+export interface PortalInstance {
+  id: number;
+  name: string;
+  contentType: ContentType;
+  enabled: boolean;
+}
+
+export interface PortalAccessRequest {
+  id: number;
+  discordId: string;
+  name: string;
+  username: string;
+  contentTypes: ContentType[];
+  note: string | null;
+  requested: string;
+}
+
+export interface PortalPaused {
+  discordId: string;
+  name: string;
+  since: string;
+}
+
+export interface PortalAccessRequests {
+  waiting: PortalAccessRequest[];
+  paused: PortalPaused[];
+}
+
+export interface PortalOutageNow {
+  instanceId: number;
+  instance: string;
+  since: string;
+  announced: boolean;
+  announcedBy: string | null;
+}
+
+export interface PortalOutage {
+  instance: string;
+  started: string;
+  ended: string | null;
+  announced: string | null;
+  announcedBy: string | null;
+}
+
+export interface PortalOutages {
+  now: PortalOutageNow[];
+  history: PortalOutage[];
+}
+
+export interface PortalAuditEntry extends PortalEvent {
+  about: string | null;
+  requestId: number | null;
+  memberId: number | null;
+}
+
+export interface PortalSearchResults {
+  requests: PortalRequest[];
+  members: PortalMember[];
+}
+
+export interface PortalServerMember {
+  discordId: string;
+  name: string;
+  username: string;
+}
+
+export interface PortalLibraryTitle {
+  instanceId: number;
+  itemId: number;
+  instance: string;
+  title: string;
+  requester: string | null;
+  seasons: number[];
 }

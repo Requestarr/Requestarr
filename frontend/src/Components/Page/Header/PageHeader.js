@@ -4,6 +4,7 @@ import keyboardShortcuts, { shortcuts } from 'Components/keyboardShortcuts';
 import IconButton from 'Components/Link/IconButton';
 import Link from 'Components/Link/Link';
 import { icons } from 'Helpers/Props';
+import PortalSearch from 'Portal/Search/PortalSearch';
 import HeaderLogo from './HeaderLogo';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import PageHeaderActionsMenu from './PageHeaderActionsMenu';
@@ -63,6 +64,8 @@ class PageHeader extends Component {
             onPress={onSidebarToggle}
           />
         </div>
+
+        <PortalSearch />
 
         <div className={styles.right}>
           <PageHeaderActionsMenu

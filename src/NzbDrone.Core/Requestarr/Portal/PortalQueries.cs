@@ -39,6 +39,7 @@ namespace Requestarr.Core.Portal
         private readonly IAuditRepository _audit;
         private readonly IRemovalService _removals;
         private readonly IRemovalProposalRepository _proposals;
+        private readonly IRemovalFlagRepository _flags;
         private readonly IMediaServerAccountRepository _mediaAccounts;
         private readonly IMediaServerAccessRequestRepository _mediaRequests;
         private readonly IAccessRequestRepository _accessRequests;
@@ -54,6 +55,7 @@ namespace Requestarr.Core.Portal
             IAuditRepository audit,
             IRemovalService removals,
             IRemovalProposalRepository proposals,
+            IRemovalFlagRepository flags,
             IMediaServerAccountRepository mediaAccounts,
             IMediaServerAccessRequestRepository mediaRequests,
             IAccessRequestRepository accessRequests,
@@ -68,6 +70,7 @@ namespace Requestarr.Core.Portal
             _audit = audit;
             _removals = removals;
             _proposals = proposals;
+            _flags = flags;
             _mediaAccounts = mediaAccounts;
             _mediaRequests = mediaRequests;
             _accessRequests = accessRequests;
@@ -95,7 +98,15 @@ namespace Requestarr.Core.Portal
             var row = new Rows(names, Instances(), _subscribers.ForRequest(id)).Of(request);
             var removal = latest == null ? null : Removal(latest, names);
 
-            return new PortalRequestDetail(row, request.DecisionReason, request.ProgressDetail, request.AvailableSeasons ?? new List<int>(), request.PosterUrl, removal, Timeline(request, names));
+            return new PortalRequestDetail(
+                row,
+                request.DecisionReason,
+                request.ProgressDetail,
+                request.AvailableSeasons ?? new List<int>(),
+                request.PosterUrl,
+                removal,
+                Timeline(request, names),
+                Actions(request, latest));
         }
 
         public IReadOnlyList<PortalMember> Members()
@@ -185,7 +196,33 @@ namespace Requestarr.Core.Portal
             return linked == null ? null : $"{linked.Provider}: {linked.Username}";
         }
 
-        private static PortalRemoval Removal(RemovalProposal proposal, Dictionary<int, string> names)
+        // The feed card's rules (RequestCards, RequestService): one place decides each, Discord and the portal ask it.
+        private static List<string> Actions(Request request, RemovalProposal removal)
+        {
+            var actions = new List<string>();
+            var trouble = TroubleSource.InTrouble(request);
+
+            Add(actions, request.Status == RequestStatus.Pending, "approve", "deny");
+            Add(actions, request.Status == RequestStatus.Pending || trouble, "available");
+            Add(actions, RequestService.AdminCanCancel(request), "cancel");
+            Add(actions, trouble && request.Status == RequestStatus.Approved && request.ExternalItemId.HasValue, "searchAgain");
+            Add(actions, request.Status == RequestStatus.Failed, "retry");
+            Add(actions, request is { ContentType: ContentType.Tv, IsActive: true }, "addSeasons");
+            Add(actions, removal?.IsOpen == true, "forceRemoval", "dropRemoval");
+            Add(actions, removal?.IsOpen != true && RequestCards.Downloaded(request), "remove");
+
+            return actions;
+        }
+
+        private static void Add(List<string> actions, bool when, params string[] names)
+        {
+            if (when)
+            {
+                actions.AddRange(names);
+            }
+        }
+
+        private PortalRemoval Removal(RemovalProposal proposal, Dictionary<int, string> names)
         {
             var startedBy = proposal.InitiatedByName;
 
@@ -194,7 +231,11 @@ namespace Requestarr.Core.Portal
                 startedBy = names.GetValueOrDefault(proposal.InitiatedByUserId.Value);
             }
 
-            return new PortalRemoval(proposal.Id, proposal.Status, proposal.Seasons ?? new List<int>(), proposal.Created, proposal.Closed, startedBy, proposal.ClosedByName);
+            var keeps = _flags.ForProposal(proposal.Id).Select(f => names.GetValueOrDefault(f.UserId)).ToList();
+
+            var seasons = proposal.Seasons ?? new List<int>();
+
+            return new PortalRemoval(proposal.Id, proposal.Status, seasons, proposal.Created, proposal.Closed, startedBy, proposal.ClosedByName, keeps, proposal.IsOpen);
         }
 
         // What the admin channel's queue item is about, in the portal's words; null when it's gone since.

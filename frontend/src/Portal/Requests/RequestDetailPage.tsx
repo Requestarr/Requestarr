@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
@@ -17,6 +17,7 @@ import {
 } from '../portalText';
 import { PortalPerson, PortalRequestDetail } from '../PortalTypes';
 import usePortal from '../usePortal';
+import RequestActions from './RequestActions';
 import styles from '../Portal.css';
 
 function People({ people }: { people: PortalPerson[] }) {
@@ -76,7 +77,12 @@ function Summary({ detail }: { detail: PortalRequestDetail }) {
   );
 }
 
-function renderDetail(detail: PortalRequestDetail) {
+interface RequestDetailProps {
+  detail: PortalRequestDetail;
+  onDone: () => void;
+}
+
+function RequestDetail({ detail, onDone }: RequestDetailProps) {
   const { request, latestRemoval } = detail;
 
   return (
@@ -89,6 +95,8 @@ function renderDetail(detail: PortalRequestDetail) {
           <Summary detail={detail} />
         </div>
       </FieldSet>
+
+      <RequestActions detail={detail} onDone={onDone} />
 
       <FieldSet legend={translate('PortalTimeline')}>
         <TimelineTable events={detail.timeline} />
@@ -103,10 +111,18 @@ function renderDetail(detail: PortalRequestDetail) {
   );
 }
 
-// One request: what it is, where it stands, who asked and followed, and everything that happened to it.
+// One request: what it is, where it stands, who asked and followed, everything that happened to it, and what an admin
+// can do to it now.
 function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const result = usePortal<PortalRequestDetail>(`requests/${id}`);
+  const onActionDone = result.reload;
+  const renderDetail = useCallback(
+    (detail: PortalRequestDetail) => (
+      <RequestDetail detail={detail} onDone={onActionDone} />
+    ),
+    [onActionDone]
+  );
 
   return (
     <PortalPage title={translate('PortalRequest')} result={result}>

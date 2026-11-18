@@ -5,15 +5,15 @@ interface FailedRequest {
   responseJSON?: { message?: string };
 }
 
-// Requestarr's settings API (/api/v1/requestarr/{path}): its answer, or why it refused, in the API's own words.
-export function callRequestarrApi<T>(
-  path: string,
+// One of Requestarr's own API calls (/api/v1{url}): its answer, or why it refused, in the API's own words.
+export function callApi<T>(
+  url: string,
   method = 'GET',
   body?: unknown
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const { request } = createAjaxRequest({
-      url: `/requestarr/${path}`,
+      url,
       method,
       data: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -25,4 +25,13 @@ export function callRequestarrApi<T>(
       )
     );
   });
+}
+
+// Requestarr's settings API (/api/v1/requestarr/{path}).
+export function callRequestarrApi<T>(
+  path: string,
+  method = 'GET',
+  body?: unknown
+): Promise<T> {
+  return callApi<T>(`/requestarr/${path}`, method, body);
 }

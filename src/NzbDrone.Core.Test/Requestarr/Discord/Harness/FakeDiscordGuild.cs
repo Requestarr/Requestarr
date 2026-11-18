@@ -92,6 +92,12 @@ namespace Requestarr.Core.Test.Discord.Harness
 
         public Task<GuildMember> GetMemberAsync(ulong userId) => Task.FromResult(Members.TryGetValue(userId, out var m) ? m : null);
 
+        public Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit) =>
+            Task.FromResult<IReadOnlyList<GuildMember>>(Members.Values
+                .Where(m => m.Username.StartsWith(query, StringComparison.OrdinalIgnoreCase) || (m.DisplayName ?? string.Empty).StartsWith(query, StringComparison.OrdinalIgnoreCase))
+                .Take(limit)
+                .ToList());
+
         public Task<int> GetRoleCountAsync() => Task.FromResult(Roles.Count + 1); // + @everyone
 
         public Task<bool> ChannelExistsAsync(ulong channelId) => Task.FromResult(Channels.ContainsKey(channelId));

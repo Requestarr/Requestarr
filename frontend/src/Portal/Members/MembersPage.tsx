@@ -6,13 +6,16 @@ import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
+import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
+import PortalToolbar from '../Components/PortalToolbar';
 import { accessText, contentTypeText, memberStatusText } from '../portalText';
 import { ContentType, PortalMember } from '../PortalTypes';
 import usePortal from '../usePortal';
 import useSortedRows, { SortValues } from '../useSortedRows';
+import AddMemberModal from './AddMemberModal';
 import styles from '../Portal.css';
 
 const ACCESS_PREFIX = 'access-';
@@ -162,14 +165,37 @@ function renderMembers(members: PortalMember[]) {
   );
 }
 
-// Every member Requestarr knows: their access to each type with its limit, and how many requests they have.
+// Every member Requestarr knows: their access to each type with its limit, and how many requests they have; Add member
+// onboards someone from the Discord server.
 function MembersPage() {
   const result = usePortal<PortalMember[]>('members');
+  const onActionDone = result.reload;
+  const [isAdding, setIsAdding] = useState(false);
+  const onAddPress = useCallback(() => setIsAdding(true), []);
+  const onAddClose = useCallback(() => setIsAdding(false), []);
+  const toolbar = (
+    <PortalToolbar
+      label={translate('PortalActionAddMember')}
+      iconName={icons.ADD}
+      onPress={onAddPress}
+    />
+  );
 
   return (
-    <PortalPage title={translate('PortalMembers')} result={result}>
-      {renderMembers}
-    </PortalPage>
+    <>
+      <PortalPage
+        title={translate('PortalMembers')}
+        result={result}
+        toolbar={toolbar}
+      >
+        {renderMembers}
+      </PortalPage>
+      <AddMemberModal
+        isOpen={isAdding}
+        onClose={onAddClose}
+        onDone={onActionDone}
+      />
+    </>
   );
 }
 

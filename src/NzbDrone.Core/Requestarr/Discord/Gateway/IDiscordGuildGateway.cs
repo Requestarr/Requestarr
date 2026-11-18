@@ -53,6 +53,9 @@ namespace Requestarr.Core.Discord.Gateway
         ulong OwnerId { get; }
 
         Task<GuildMember> GetMemberAsync(ulong userId);
+
+        // Server members whose username or server name starts with the query, as Discord searches them.
+        Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit);
         Task<int> GetRoleCountAsync();
 
         Task<bool> ChannelExistsAsync(ulong channelId);
