@@ -197,6 +197,7 @@ namespace Requestarr.Core.Backends
 
         // Production's connection, and the name every Requestarr used before each environment had its own.
         public const string WebhookName = "Requestarr (availability)";
+        private const string WebhookPrefix = "Requestarr";
 
         // Each environment's own connection, so two Requestarrs sharing a Sonarr or Radarr (beta and production) can be
         // told apart there: "Requestarr Beta (availability)". By the web app's icon set (IReleaseEnvironment.IconSet).
@@ -324,15 +325,15 @@ namespace Requestarr.Core.Backends
         protected static string PosterOf(Newtonsoft.Json.Linq.JObject item) =>
             Poster(item["images"]?.ToObject<List<ImageResource>>(), (string)item["remotePoster"]);
 
-        // Ours by its name; failing that, one under the name used before that already calls this Requestarr (its URL),
-        // which is then renamed rather than doubled.
+        // Ours by its name; failing that, one of Requestarr's under another name (the name used before, or the server's
+        // role changed) that already calls this Requestarr (its URL), which is then renamed rather than doubled.
         private async Task<Newtonsoft.Json.Linq.JObject> FindWebhookAsync(BackendSettings settings, string name, string url)
         {
             var webhooks = (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification"))?.Where(n => (string)n["implementation"] == "Webhook").ToList()
                            ?? new List<Newtonsoft.Json.Linq.JObject>();
 
             return webhooks.FirstOrDefault(n => (string)n["name"] == name)
-                   ?? webhooks.FirstOrDefault(n => url != null && (string)n["name"] == WebhookName && (string)n["fields"]?.FirstOrDefault(f => (string)f["name"] == "url")?["value"] == url);
+                   ?? webhooks.FirstOrDefault(n => url != null && ((string)n["name"])?.StartsWith(WebhookPrefix, StringComparison.Ordinal) == true && (string)n["fields"]?.FirstOrDefault(f => (string)f["name"] == "url")?["value"] == url);
         }
 
         private static string QueueMessage(Newtonsoft.Json.Linq.JObject record)

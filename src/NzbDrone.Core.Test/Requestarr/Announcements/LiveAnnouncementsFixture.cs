@@ -141,7 +141,7 @@ namespace Requestarr.Core.Test.Announcements
             var stack = "dev";
             var shownAs = label;
             string staged = null;
-            Mocker.SetConstant<IReleaseEnvironment>(new ReleaseEnvironment
+            Mocker.SetConstant<IReleaseEnvironment>(new ReleaseEnvironment(Moq.Mock.Of<NzbDrone.Core.Configuration.IConfigService>())
             {
                 Variable = v => v switch
                 {

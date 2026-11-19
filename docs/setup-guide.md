@@ -56,7 +56,7 @@ The image runs Requestarr on .NET 10 as a non-root user. It keeps all its data i
 
 ### 3.2 Create an install folder
 
-**Without a provisioning file** (how the beta server and production run): leave out `provisioning.yml`, `secrets.env` and the provisioning lines below. On the first start the web portal opens its first-run setup (your sign-in, the Discord bot, a first Sonarr or Radarr), and every other setting is under **Settings**, recorded on **Settings → Changes**. [B.6](#b6-set-up-requestarr-in-its-web-app) walks through it. With a provisioning file, its settings are applied on every start and the settings pages show them read-only.
+**Without a provisioning file** (how the beta server and production run): leave out `provisioning.yml`, `secrets.env` and the provisioning lines below. On the first start the web portal opens its first-run setup (your sign-in, the Discord bot, a first Sonarr or Radarr), and every other setting is under **Settings**, recorded on **Settings → Changes**. [B.3](#b3-the-first-run-setup) walks through it. With a provisioning file, its settings are applied on every start and the settings pages show them read-only.
 
 With a provisioning file, put three files in a folder of your choice, for example `requestarr/`.
 
@@ -761,9 +761,9 @@ Working on Requestarr itself, or testing a build by hand? Two local stacks, each
 
 For the project owner: an always-on Requestarr for early access testers, on its own Discord server (Requestarr Beta). It uses **your production Sonarr and Radarr**: one library, so testers request from the titles you already have, and nothing downloads twice. It runs the published `beta` image, which only ever holds builds you passed in QA ([release flow](development.md#release-flow)).
 
-It's one Container Manager project with one container, Requestarr. No other files, no shell. Its settings are made in its web app.
+It's one container, installed the way you'd install Sonarr or Radarr from a registry: the image from GitHub's registry, then a name, a port, a folder and your time zone. No compose file, no other files, no shell. Everything else is set in its web app.
 
-**Production's files are safe by default.** Requestarr deletes nothing in Sonarr or Radarr until you turn on **Delete files** (B.3). Until then a removal that's agreed only waits in the admin queue for you to delete it by hand.
+**Production's files are safe by default.** Requestarr deletes nothing in Sonarr or Radarr until you turn on **Delete files** (B.4). Until then a removal that's agreed only waits in the admin queue for you to delete it by hand.
 
 **Titles Requestarr didn't add.** Your Sonarr and Radarr already hold titles added by hand or by the old Requestrr bot, and Requestrr may still add more. Requestarr shares the library with them: a request for one answers "already in the library" and adds nothing, Sonarr and Radarr's download events for them are ignored quietly, and a removal of one only starts from the admin panel's **Remove a title**.
 
@@ -774,26 +774,41 @@ Do the steps in order; each ends with what to check before going on.
 - Your Synology with **Container Manager** (DSM 7.2 or newer).
 - Your production Sonarr and Radarr, and their API keys (each one's **Settings → General → API Key**).
 - The Requestarr Beta Discord server, and a Discord application with a bot for it, set up as in [section 2](#2-create-your-discord-bot) (Server Members Intent on, invited with the same permissions). You need its bot token, application ID and the server's ID.
-- **The image** is `ghcr.io/requestarr/requestarr`. Once the package is public on GitHub it downloads without a login. While it's private, give Container Manager a GitHub token that can only read packages: GitHub → Settings → Developer settings → Personal access tokens → classic, **read:packages**; then in Container Manager, **Registry → Settings → Add**: name `GitHub`, address `https://ghcr.io`, your GitHub user, the token as the password, and **Use** it.
+- **GitHub's registry in Container Manager.** The image is `ghcr.io/requestarr/requestarr`, on GitHub's registry only. In **Container Manager → Registry → Settings**, `ghcr.io` should be listed; if it isn't, **Add**: name `GitHub`, address `https://ghcr.io`. Once the package is public on GitHub it needs no login. While it's private, give that entry your GitHub user and, as the password, a token that can only read packages (GitHub → Settings → Developer settings → Personal access tokens → classic, **read:packages**).
+- **A folder for Requestarr's data.** In **File Station**, in the `docker` shared folder, create `requestarr-beta`. Its settings, database and backups live there, where you can see and back them up. Requestarr runs as its own user inside the container, not as you, so let it write there: right-click the folder, **Properties → Permission → Create**, user or group **Everyone**, tick **Read** and **Write**, apply to this folder, sub-folders and files, **Done**, **Save**.
 
-### B.1 Create the project
+### B.1 Download the image
 
-1. Open **Container Manager**, then **Project**, then **Create**.
-2. **Project name:** `requestarr-beta`.
-3. **Path:** a new folder for it, for example `/docker/requestarr-beta` (**Set path**, then **Create folder**).
-4. **Source:** **Create docker-compose.yml**.
-5. Paste the whole of [`deploy/beta/compose.yaml`](../deploy/beta/compose.yaml) into the editor.
-6. Fill in its **values block**, at the top: the **port** you'll open Requestarr on (beta's is `19797`: the standard 9797 with a 1 in front, so production keeps 9797) and your **time zone**. Nothing else in the file needs changing.
-7. **Next.** Leave the web portal settings off, **Next**, then **Done**. Container Manager downloads the image and starts the project.
+1. **Container Manager → Registry → Settings**: select `ghcr.io` and press **Use**. Container Manager searches only the registry in use, so this is what lets it find the image. Close **Settings**.
+2. In **Registry**, search for `requestarr/requestarr`, select it and press **Download**.
+3. Choose the tag **`beta`** and **Apply**.
 
-**Check:** **Project** shows `requestarr-beta` running with one container, `requestarr-beta-requestarr-1`, and its log ends with "Application started".
+If the search finds nothing (some versions of Container Manager can't search GitHub's registry), use **Image → Add → Add from URL** with `ghcr.io/requestarr/requestarr:beta` instead. If that won't download either, set it up as a project with the compose file instead (B.9), which always downloads.
 
-### B.2 The first-run setup
+When you're done, put **Use** back on Docker Hub (Registry → Settings) if you install other things from there.
+
+**Check:** **Image** lists `ghcr.io/requestarr/requestarr` with the tag `beta`.
+
+### B.2 Run it
+
+In **Image**, select `ghcr.io/requestarr/requestarr:beta` and press **Run**. Each screen:
+
+1. **General settings:** **Container name** `requestarr-beta`. Tick **Enable auto-restart**. Leave the resources as they are. **Next.**
+2. **Advanced settings:**
+   - **Port settings:** the container's port `9797` (TCP) gets the local port **`19797`** (beta's: the standard 9797 with a 1 in front, so production keeps 9797). Remove any other ports listed.
+   - **Volume settings:** **Add Folder**, choose `docker/requestarr-beta`, and mount it at **`/config`**, read and write.
+   - **Environment:** add the variable **`TZ`** with your time zone, for example `Europe/London` ([the list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)). Nothing else is needed.
+   - Leave the network as **bridge**. **Next.**
+3. **Summary:** tick **Run this container after the wizard is finished**, then **Done**.
+
+**Check:** **Container** shows `requestarr-beta` running, and its **Log** (Details, then Log) ends with "Application started". If the log says access to a path under `/config` is denied, the folder's permission (What you need) is missing: add it, then start the container again.
+
+### B.3 The first-run setup
 
 Open `http://<your server's address>:19797`. A new install opens its first-run setup:
 
 1. **Your sign-in.** Choose **Forms (login page)**, keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts), and choose a username and password. Save, then sign in.
-2. **The Discord bot.** Paste the beta bot's token, its application ID and the Requestarr Beta server's ID, then **Save**. **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if it isn't there yet.
+2. **This server and the Discord bot.** **This server is:** choose **Beta**. It gives the web app the BETA strip and beta's icons (from the next page you open), keeps every "what's new" post for good, and names Requestarr's connection in Sonarr and Radarr for beta. Then paste the beta bot's token, its application ID and the Requestarr Beta server's ID, and **Save**. **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if it isn't there yet.
 3. **Production's Sonarr.** Press **Add Sonarr**: a name (`Sonarr`), its address as the Synology reaches it (`http://<your server's address>:8989`, the server's own address, never a container name), its API key. Press **Test**, choose its quality profile and the root folder your TV is in, tick **Default**, and **Save**.
 
 The setup then says Requestarr is ready. Finish under **Settings**:
@@ -801,11 +816,11 @@ The setup then says Requestarr is ready. Finish under **Settings**:
 - **Settings → Sonarr and Radarr → Add Radarr:** production's Radarr the same way (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
 - **Settings → Connections:** **Requestarr's address for Sonarr and Radarr** `http://<your server's address>:19797` (Sonarr and Radarr call it there), **Check downloads every** `5` minutes; the **GitHub key** for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr); and optionally **The Movie Database key** ([4.6](#46-cast-from-the-movie-database-optional)). **Save Changes**.
 
-Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again.
+Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again. **This server is** stays under **Settings → Discord**.
 
-**Check:** **Settings → Sonarr and Radarr** shows both Connected; **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
+**Check:** the web app shows the BETA strip; **Settings → Sonarr and Radarr** shows both Connected; **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
 
-### B.3 Delete files, and why it starts off
+### B.4 Delete files, and why it starts off
 
 **Settings → Requests → Delete files in Sonarr and Radarr** decides whether Requestarr may delete anything in your Sonarr and Radarr: a removal vote that passes, **Force removal**, **Delete** on a feed card, and **Remove a title**. It starts **off**, because beta runs new code against your real library, and a beta bug must never delete production's files.
 
@@ -815,7 +830,7 @@ Turn it on once you trust removals on beta. The change is recorded on **Settings
 
 **Check:** **Settings → Requests** shows **Delete files in Sonarr and Radarr** off.
 
-### B.4 Check Requestarr in Discord
+### B.5 Check Requestarr in Discord
 
 **Check:**
 
@@ -824,31 +839,34 @@ Turn it on once you trust removals on beta. The change is recorded on **Settings
 
 Then add yourself and the testers from the admin panel's member picker ([5.5](#55-add-your-first-user)), once they've joined the Requestarr Beta server.
 
-### B.5 Updating
+### B.6 Updating
 
 Updates happen only when you ask, never on a schedule. When a new build reaches beta:
 
-1. **Container Manager → Project → `requestarr-beta` → Action → Build.**
+1. **Container Manager → Image.** Container Manager checks its images now and then, and `ghcr.io/requestarr/requestarr:beta` shows **Update available**.
+2. Select it and press **Update**. Container Manager downloads the new build and recreates `requestarr-beta` from it with the same settings: name, port, folder and time zone. Everything in the folder carries over.
 
-The compose file asks for the newest `beta` image every time (`pull_policy: always`), so Build downloads the new build and restarts Requestarr on it. If Container Manager's **Image** list shows **Update available** for `ghcr.io/requestarr/requestarr:beta`, you can **Update** there first, then **Build** the project: updating an image alone doesn't restart a project's container.
+**If Update doesn't appear** (Container Manager doesn't always check other registries than Docker Hub): download the tag again (**Registry**, `requestarr/requestarr`, **Download**, tag `beta`, which replaces the old image), then in **Container**, stop `requestarr-beta`, **Action → Delete** it (its folder keeps all its data), and **Run** the image again as in B.2.
 
 **Before it changes anything, Requestarr backs up its data.** When it starts on a newer build than the one that last ran, it takes a backup first; the web app lists it under **System → Backup** as an **Update** backup.
 
 **Check:** `#requestarr-admin` gets the new build's "what's new", and **System → Status** shows its number.
 
-**When a build needs a new compose file,** its "what's new" in `#requestarr-admin` says so and links the file. Open the project, **Action → Stop**, then **YAML configurations**, paste the new file over the old one, keep your values block, **Save**, then **Build**.
+**When a build needs a change to how the container runs** (a new port or folder), its "what's new" in `#requestarr-admin` says so in plain words: recreate the container with the change (stop it, delete it, Run the image again with the new settings).
 
 Each build sent to the beta has its own number, counting every build: 0.7.0005 is the fifth. A release is that same build, with the same number, so what production runs is exactly what the beta testers ran.
 
-### B.6 Going to a specific build
+### B.7 Going to a specific build
 
-To run one particular build, for example to skip a bad one: open the project's **YAML configurations**, change `:beta` on the `image:` line to the build number (`ghcr.io/requestarr/requestarr:0.7.0004`), **Save**, then **Build**. It stays on that build until you put `:beta` back and **Build** again.
+To run one particular build, for example to skip a bad one: **Registry**, `requestarr/requestarr`, **Download**, and choose that build's number as the tag (for example `0.7.0004`). Then in **Container**, stop `requestarr-beta`, **Action → Delete** it, and **Run** `ghcr.io/requestarr/requestarr:0.7.0004` as in B.2, with the same name, port, folder and time zone. It stays on that build until you run the `beta` image again the same way.
 
-### B.7 Rolling back
+**Check:** **System → Status** shows that build's number.
+
+### B.8 Rolling back
 
 Going back means the older build **and** the data from before the update, because a newer build may have changed the database in ways an older one can't read:
 
-1. Set the older build's number on the `image:` line (B.6), then **Build**.
+1. Run the older build (B.7).
 2. In the web app, **System → Backup**: on the **Update** backup taken just before you moved past this build (the one from when the next build first started; the newest one if you went back one build), press **Restore**. Requestarr restarts on that data.
 
 Anything done since that update (new requests, votes) is lost with the restore.
@@ -857,9 +875,13 @@ If an older build starts on a newer database without the restore, Requestarr kee
 
 **Check:** **System → Status** shows the older number and no database warning.
 
+### B.9 With a compose file instead
+
+If you'd rather keep the container's settings in a file, [`deploy/beta/compose.yaml`](../deploy/beta/compose.yaml) runs the same container: **Container Manager → Project → Create**, name `requestarr-beta`, a path for the project (for example `/docker/requestarr-beta-project`), **Create docker-compose.yml**, paste the whole file and fill in its values block (port, time zone, and the data folder made in What you need, with its permission), then **Next** and **Done**. Then the first-run setup (B.3) as above. To update, the project's **Action → Build** downloads the newest `beta` and restarts on it; a specific build is its number in place of `beta` on the `image:` line, then **Build**.
+
 ### Taking the beta down
 
-**Container Manager → Project → `requestarr-beta` → Action → Stop** stops it and keeps everything. **Delete** removes the project; Requestarr's data stays in the volume `requestarr-beta-config` (**Container Manager → Volume**) until you delete that too. Your Sonarr and Radarr keep everything; remove the **Requestarr Beta (availability)** connection from each if you won't run beta again.
+**Container Manager → Container → `requestarr-beta` → Action → Stop** stops it and keeps everything. **Delete** removes the container; Requestarr's data stays in `docker/requestarr-beta` until you delete that folder too. Your Sonarr and Radarr keep everything; remove the **Requestarr Beta (availability)** connection from each if you won't run beta again.
 
 ### Earlier beta setups
 

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Configuration;
 using Requestarr.Core.Announcements;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Interactions;
@@ -69,7 +70,7 @@ namespace Requestarr.Core.Test.Announcements
 
         private void Environment(string name, string staged = null)
         {
-            var environment = new ReleaseEnvironment
+            var environment = new ReleaseEnvironment(Mock.Of<IConfigService>())
             {
                 Variable = v => v switch
                 {
@@ -96,13 +97,13 @@ namespace Requestarr.Core.Test.Announcements
         [Test]
         public void the_environment_decides_how_posts_are_kept()
         {
-            VersionPostMode Mode(string name) => new ReleaseEnvironment { Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? name : null }.VersionPosts;
+            VersionPostMode Mode(string name) => new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? name : null }.VersionPosts;
 
             (Mode("dev"), Mode("qa"), Mode(" QA "), Mode("staging"), Mode(null), Mode("anything else"))
                 .Should().Be((VersionPostMode.CurrentOnly, VersionPostMode.NotYetStaged, VersionPostMode.NotYetStaged, VersionPostMode.Standing, VersionPostMode.Standing, VersionPostMode.Standing));
-            new ReleaseEnvironment { Variable = v => v == ReleaseEnvironment.StagedVersionsVariable ? "0.1.0, 0.2.0,junk" : null }.Staged
+            new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.StagedVersionsVariable ? "0.1.0, 0.2.0,junk" : null }.Staged
                 .Should().BeEquivalentTo(new[] { new Version(0, 1, 0), new Version(0, 2, 0) });
-            new ReleaseEnvironment { Variable = _ => null }.Staged.Should().BeEmpty();
+            new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = _ => null }.Staged.Should().BeEmpty();
         }
 
         [Test]
@@ -255,7 +256,7 @@ namespace Requestarr.Core.Test.Announcements
         public void a_version_shows_as_the_build_label_only_for_the_version_the_build_runs()
         {
             string Shown(string label, string version) =>
-                new ReleaseEnvironment { Variable = v => v == ReleaseEnvironment.ReleaseVersionVariable ? label : null }.Shown(new Version(version));
+                new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.ReleaseVersionVariable ? label : null }.Shown(new Version(version));
 
             Shown("0.7.0004-dev.4f2a9c1", "0.7.4.11354").Should().Be("0.7.0004-dev.4f2a9c1");
             Shown(" 0.7.0004-qa.4f2a9c1 ", "0.7.4").Should().Be("0.7.0004-qa.4f2a9c1");
@@ -270,7 +271,7 @@ namespace Requestarr.Core.Test.Announcements
         public async Task dev_shows_unreleased_as_the_build_it_runs_under_its_label()
         {
             Environment("dev");
-            var environment = new ReleaseEnvironment { Variable = v => v == ReleaseEnvironment.ReleaseVersionVariable ? "0.7.0004-dev.4f2a9c1" : null };
+            var environment = new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.ReleaseVersionVariable ? "0.7.0004-dev.4f2a9c1" : null };
             Mocker.GetMock<IReleaseEnvironment>().Setup(e => e.Shown(It.IsAny<Version>())).Returns<Version>(environment.Shown);
 
             await StartOn("0.7.4", Pending);

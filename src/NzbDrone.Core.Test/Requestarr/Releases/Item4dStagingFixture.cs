@@ -17,18 +17,18 @@ namespace Requestarr.Core.Test.Releases
         private static string Read(params string[] path) => File.ReadAllText(Item4To6Fixture.RepoFile(path)).Replace("\r", string.Empty);
 
         [Test]
-        public void the_beta_is_one_compose_file_that_runs_requestarr_only()
+        public void the_beta_compose_file_runs_the_same_one_container()
         {
             var compose = Read("deploy", "beta", "compose.yaml");
 
             compose.Should().Contain("name: requestarr-beta").And.Contain("image: ghcr.io/requestarr/requestarr:beta").And.Contain("pull_policy: always");
-            compose.Should().Contain("REQUESTARR_ENVIRONMENT: staging", "beta keeps every what's new post, like production");
             Regex.Matches(compose, @"^  (?<service>[\w-]+):\n    image:", RegexOptions.Multiline).Select(m => m.Groups["service"].Value).Should().Equal("requestarr");
 
-            // Pasted into Container Manager with nothing else: no other file, no .env, no folder made first.
-            compose.Should().NotContain("env_file").And.NotContain("${").And.NotContain("./").And.NotContain("PROVISIONING");
+            // The same four settings as Container Manager's Run screens, nothing else: the image needs no variable to run
+            // as beta (the first-run setup's role says so), and its data is a folder on the server, not a volume.
+            compose.Should().NotContain("REQUESTARR_ENVIRONMENT").And.NotContain("env_file").And.NotContain("${").And.NotContain("./").And.NotContain("PROVISIONING");
             compose.Should().Contain("x-values:").And.Contain("port: &port 19797").And.Contain("timezone: &timezone").And.Contain("published: *port").And.Contain("TZ: *timezone");
-            compose.Should().Contain("- config:/config").And.Contain("name: requestarr-beta-config");
+            compose.Should().Contain("type: bind").And.Contain("source: *folder").And.Contain("target: /config").And.NotContain("\nvolumes:");
 
             foreach (var retired in new[] { "update.sh", "check-folders.sh", "root-folders.sh", "env.example", "compose.yaml" })
             {
@@ -117,9 +117,14 @@ namespace Requestarr.Core.Test.Releases
             start.Should().BeGreaterThan(0);
             var section = guide.Substring(start, guide.IndexOf("\n## ", start + 10) - start);
             var steps = Regex.Matches(section, @"^### B\.(\d+) (?<title>.+)$", RegexOptions.Multiline).Select(m => m.Groups["title"].Value.Trim()).ToList();
-            steps.Should().Equal("Create the project", "The first-run setup", "Delete files, and why it starts off", "Check Requestarr in Discord", "Updating", "Going to a specific build", "Rolling back");
-            Regex.Matches(section, @"\*\*Check:\*\*").Count.Should().BeGreaterOrEqualTo(6, "each step says what to check");
-            section.Should().Contain("**Container Manager**").And.Contain("**Create docker-compose.yml**").And.Contain("values block").And.Contain("Action → Build");
+            steps.Should().Equal(
+                "Download the image", "Run it", "The first-run setup", "Delete files, and why it starts off", "Check Requestarr in Discord", "Updating", "Going to a specific build", "Rolling back", "With a compose file instead");
+            Regex.Matches(section, @"\*\*Check:\*\*").Count.Should().BeGreaterOrEqualTo(8, "each step says what to check");
+
+            // The registry route leads: Registry, Use, Download, then Image, Run with a name, a port, a folder and the time zone.
+            section.Should().Contain("**Container Manager**").And.Contain("**Use**").And.Contain("**Download**").And.Contain("**Run**").And.Contain("Add from URL");
+            section.Should().Contain("`requestarr-beta`").And.Contain("**`19797`**").And.Contain("**`/config`**").And.Contain("**`TZ`**").And.Contain("**This server is:** choose **Beta**");
+            section.Should().Contain("**Update available**").And.Contain("**Create docker-compose.yml**").And.Contain("values block").And.Contain("Action → Build");
             section.Should().Contain("**Requestarr Beta (availability)**").And.Contain("**System → Backup**").And.Contain("**Restore**").And.Contain("ghcr.io/requestarr/requestarr:0.7.0004");
             section.Should().NotContain("update.sh rollback").And.NotContain("http://requestarr:9797");
 

@@ -64,6 +64,7 @@ namespace Requestarr.Core.Settings
         public const string ProvisionedProblem = "These settings come from the provisioning file on this server; change them there.";
 
         private const string WebhookAddress = "availabilityWebhookUrl";
+        public const string ServerRoleKey = "serverRole";
 
         private static readonly Regex DiscordId = new(@"^\d{15,21}$");
         private static readonly Regex Repository = new(@"^[\w.-]+/[\w.-]+$");
@@ -230,6 +231,7 @@ namespace Requestarr.Core.Settings
 
         private IEnumerable<SettingDefinition> DiscordDefinitions() => new[]
         {
+            new SettingDefinition(ServerRoleKey, "This server is", SettingKind.Text, () => _config.ServerRole, v => _config.ServerRole = v, Check: ServerRoleProblem),
             new SettingDefinition("discordBotToken", "Bot token", SettingKind.Secret, () => _discord.Current.BotToken, v => _config.DiscordBotToken = v),
             new SettingDefinition("discordApplicationId", "Application ID", SettingKind.Text, () => Id(_discord.Current.ApplicationId), v => _config.DiscordApplicationId = v, Check: v => IdProblem("Application ID", v)),
             new SettingDefinition("discordGuildId", "Server ID", SettingKind.Text, () => Id(_discord.Current.GuildId), v => _config.DiscordGuildId = v, Check: v => IdProblem("Server ID", v)),
@@ -288,6 +290,16 @@ namespace Requestarr.Core.Settings
         // The dev, QA and beta servers file every report, so the gate before staging sees them (BugReportSettings).
         private string FileIssuesProblem(string value) =>
             value == "false" && _environment.IconSet != ReleaseEnvironment.Production ? "Test servers (dev, QA and beta) always file bug reports on GitHub." : null;
+
+        private string ServerRoleProblem(string value)
+        {
+            if (!ReleaseEnvironment.Roles.Contains(value))
+            {
+                return "This server is production or beta.";
+            }
+
+            return _environment.SetByStack ? "This server's stack says which server it is (dev or QA), so the role can't be changed here." : null;
+        }
 
         private static string RepositoryProblem(string value) =>
             value.Length == 0 || Repository.IsMatch(value) ? null : "The repository is written owner/name, for example Requestarr/Requestarr.";

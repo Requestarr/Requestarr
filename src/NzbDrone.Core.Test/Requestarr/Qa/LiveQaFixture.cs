@@ -72,7 +72,7 @@ namespace Requestarr.Core.Test.Qa
             Mocker.SetConstant<IAccessRequestRepository>(Mocker.Resolve<AccessRequestRepository>());
             Mocker.SetConstant<IWelcomeGuardRepository>(Mocker.Resolve<WelcomeGuardRepository>());
             string build = null;
-            Mocker.SetConstant<IReleaseEnvironment>(new ReleaseEnvironment
+            Mocker.SetConstant<IReleaseEnvironment>(new ReleaseEnvironment(Moq.Mock.Of<NzbDrone.Core.Configuration.IConfigService>())
             {
                 Variable = v => v switch
                 {
