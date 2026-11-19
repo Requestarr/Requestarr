@@ -11,7 +11,7 @@ namespace Requestarr.Core.Imports
     // Someone who asked in the old channel: by Discord ID; UserId when Requestarr already knows them.
     public record ImportPerson([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong DiscordId, string Name, int? UserId);
 
-    public record ImportFollower(ImportPerson Person, DateTime Asked, [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong MessageId);
+    public record ImportFollower(ImportPerson Person, DateTime Asked);
 
     // A request the import would create: matched to an item in a Sonarr or Radarr. Seasons: empty for every season.
     // Available: when it finished downloading, as the old bot announced it; HasFiles: whether the library has it now.
@@ -26,7 +26,6 @@ namespace Requestarr.Core.Imports
         int ItemId,
         ImportPerson Requester,
         DateTime Requested,
-        [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong MessageId,
         [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong ChannelId,
         IReadOnlyList<int> Seasons,
         IReadOnlyList<int> LibrarySeasons,
@@ -155,7 +154,7 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
-                var follower = new ImportFollower(person, message.Message.Timestamp, message.Message.Id);
+                var follower = new ImportFollower(person, message.Message.Timestamp);
 
                 if (Existing(entry) is { } existing)
                 {
@@ -227,7 +226,6 @@ namespace Requestarr.Core.Imports
                     title.Id,
                     person,
                     message.Message.Timestamp,
-                    message.Message.Id,
                     message.Message.ChannelId,
                     message.Seasons,
                     title.Seasons ?? Array.Empty<int>(),

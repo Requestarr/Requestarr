@@ -35,3 +35,16 @@ Requestarr.Core.Settings.InstanceView.Id  # sent in the settings API's list of i
 Requestarr.Core.Settings.InstanceView.Problem  # sent in the settings API's list of instances, which the web app shows
 Requestarr.Core.Settings.SetupStatus.BotProblem  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Settings.SetupStatus.BotState  # sent in the first-run setup's answer, which the web app shows
+Requestarr.Core.Imports.ChannelHistory  # the import's IChannelHistory, made by the container (Discord's channels, or recorded ones on dev)
+Requestarr.Core.Imports.HistoryMessage.AuthorId  # part of the Discord message this record mirrors
+Requestarr.Core.Imports.ImportChannel.Server  # sent in the import API's channel check, which the Import page shows
+Requestarr.Core.Imports.ImportPlan.MessagesRead  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.ImportProgress.ChannelId  # sent in the import API's progress, which the Import page shows
+Requestarr.Core.Imports.ImportProgress.Name  # sent in the import API's progress, which the Import page shows
+Requestarr.Core.Imports.PlannedFollow.Title  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.SkippedMessage.At  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.SkippedMessage.MessageId  # sent in the import API's preview, which the Import page keys its rows on
+Requestarr.Core.Imports.SkippedMessage.What  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.SkippedMessage.Who  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.UnmatchedTitle.Link  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.UnmatchedTitle.Title  # sent in the import API's preview, which the Import page shows
