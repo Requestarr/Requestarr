@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -191,7 +192,8 @@ namespace Requestarr.Core.Test.Qa.Web
                 return;
             }
 
-            var searches = new[] { ("request", title[..Math.Min(4, title.Length)], "/requests/"), ("member", member[..Math.Min(3, member.Length)], "/members/") };
+            // The first few letters of each (a name may start with emoji, which aren't typed).
+            var searches = new[] { ("request", FirstLetters(title, 4), "/requests/"), ("member", FirstLetters(member, 3), "/members/") };
 
             foreach (var (kind, words, opens) in searches)
             {
@@ -390,6 +392,13 @@ namespace Requestarr.Core.Test.Qa.Web
         });
 
         // A list's first title or name opens its own page, which shows what it is and its history.
+        private static string FirstLetters(string text, int count)
+        {
+            var start = text.TakeWhile(c => !char.IsLetterOrDigit(c)).Count();
+
+            return text.Substring(start, Math.Min(count, text.Length - start));
+        }
+
         private static async Task OpenFirstAsync(HeadlessBrowser browser, WebCheck check, string page, string theme)
         {
             var link = await browser.EvalAsync<string>($"document.querySelector('[class*=\"PageContentBody\"] a[href*=\"/{page}/\"]')?.getAttribute('href') ?? ''");
