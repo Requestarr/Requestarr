@@ -68,6 +68,8 @@ CHECKS = {
     "web app header search": Check("web", "header_search", "web-app"),
     "live portal actions": Check("live", "LivePortalActionsFixture", "admin"),
     "live member renames": Check("live", "LiveMemberRenamesFixture", "admin"),
+    "live shared library": Check("live", "LiveRemovalFixture", "admin", ("[shared]",)),
+    "live deleting turned off": Check("live", "LiveRemovalFixture", "admin", ("[by-hand]",)),
     "live update cards": Check("live", "LiveAnnouncementsFixture", "admin", ("[qa]",)),
     "live Read changes": Check("live", "LiveWelcomeFixture", "admin", ("[cards]",)),
     "live access requests": Check("live", "LiveWelcomeFixture", "access", ("[spam]", "[block]", "[unblock]")),

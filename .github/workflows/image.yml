@@ -2,7 +2,7 @@ name: Image
 
 # Publishes Requestarr's container image to GitHub's container registry (docs/development.md#published-images):
 #   push to staging (a promotion, or a fix into staging): builds the number on top of the changelog,
-#     ghcr.io/requestarr/requestarr:staging and :0.7.0004, and tags the commit v0.7.0004 (docs/development.md#versions)
+#     ghcr.io/requestarr/requestarr:beta and :0.7.0004, and tags the commit v0.7.0004 (docs/development.md#versions)
 #   push to main (only on the owner's "ship it"): builds nothing; adds :0.7 and :latest to the image staging published
 #     from the same commit, so production runs the exact file the testers ran
 #   Run workflow on any branch with a tag starting "test-": that tag only, for trying the workflow (delete it after).

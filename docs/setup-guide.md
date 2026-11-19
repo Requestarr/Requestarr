@@ -644,7 +644,10 @@ removal:
   voteDays: 7              # how long a vote is open
   requesterTimeoutDays: 7  # how long the requester has to answer an admin's removal
   reminderDay: 5           # the day of that the requester is reminded (0: no reminder)
+  deleteFiles: false       # whether Requestarr may delete in Sonarr and Radarr (default off)
 ```
+
+**Delete files** (Settings → Requests, or `deleteFiles` above) starts **off**: Requestarr deletes nothing in Sonarr or Radarr. A removal that's agreed (a vote with no keeps, or **Force**) then does everything else (the outcome is recorded and everyone asked is told) and waits in `/admin requests` and the web app's **Queue** as **Delete it yourself**, naming the title and the Sonarr or Radarr it's in. Delete it there, then press **I deleted it**: its requests close. **Drop removal** keeps it. Every card that starts a removal says deleting is turned off on this server. Turn it on once you trust removals on your server; the change is recorded on **Settings → Changes**.
 
 ### 5.10 Where everything is
 
@@ -754,173 +757,113 @@ _Coming in Phase 2._
 
 Working on Requestarr itself, or testing a build by hand? Two local stacks, each with test Sonarr and Radarr instances and its own Discord server and bot, run side by side: QA (the `qa` branch, for testing by hand) is started with `.\docker\dev.ps1 up` from PowerShell in the repo folder (or `docker/dev.sh up` with Git Bash), and dev (the `dev` branch, for automated testing) with `.\docker\dev.ps1 -Stack dev up`. Changes merge to `dev` first and reach `qa` only when promoted ([release flow](development.md#release-flow)). Their helpers stop and start a test instance, make a requested title look downloaded (`fake-download`), and make removal votes take minutes instead of days (`fast-votes on`). If PowerShell says running scripts is disabled, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once (or use `.\docker\dev.cmd`). Everything is in [development](development.md#docker-stack).
 
-## Running the beta (staging) environment
+## Running the beta
 
-For the project owner: an always-on Requestarr for early access testers, on its own Discord server (Requestarr Beta), whose requests really download and show up in your existing Plex, without any risk to your production Sonarr, Radarr or their files. It runs the published `staging` image: only versions you passed in QA ([release flow](development.md#release-flow)).
+For the project owner: an always-on Requestarr for early access testers, on its own Discord server (Requestarr Beta). It uses **your production Sonarr and Radarr**: one library, so testers request from the titles you already have, and nothing downloads twice. It runs the published `beta` image, which only ever holds builds you passed in QA ([release flow](development.md#release-flow)).
 
-What runs: its own Requestarr, Sonarr and Radarr, all separate from production: own containers, own settings volumes, own ports, own Docker network (`requestarr-beta`), and two media folders of its own. They share only your download client and indexer manager, each beta download in a category of its own.
+It's one Container Manager project with one container, Requestarr. No other files, no shell. Its settings are made in its web app.
 
-**How beta is kept away from production's files.** The beta Sonarr and Radarr see only the two beta media folders (as `/tv-beta` and `/movies-beta`) and the downloads folder. Production's media folders aren't mounted at all, so nothing in beta can read, change or delete them, and a beta removal vote can only ever delete beta files. Before Sonarr and Radarr start, a folder check refuses to start the stack unless both media folders are named `…-beta`, each holds a `.requestarr-beta` file you create once, they differ from each other, and neither is inside the downloads folder (nor it inside them). Requestarr's only root folders are `/tv-beta` and `/movies-beta`.
+**Production's files are safe by default.** Requestarr deletes nothing in Sonarr or Radarr until you turn on **Delete files** (B.3). Until then a removal that's agreed only waits in the admin queue for you to delete it by hand.
+
+**Titles Requestarr didn't add.** Your Sonarr and Radarr already hold titles added by hand or by the old Requestrr bot, and Requestrr may still add more. Requestarr shares the library with them: a request for one answers "already in the library" and adds nothing, Sonarr and Radarr's download events for them are ignored quietly, and a removal of one only starts from the admin panel's **Remove a title**.
 
 Do the steps in order; each ends with what to check before going on.
 
-### B.1 What you need
+### What you need
 
-- The server with Docker and Compose 2.17 or newer, and Git.
-- Your download client and indexer manager (for example Prowlarr), as production uses them.
-- Your Plex server.
+- Your Synology with **Container Manager** (DSM 7.2 or newer).
+- Your production Sonarr and Radarr, and their API keys (each one's **Settings → General → API Key**).
 - The Requestarr Beta Discord server, and a Discord application with a bot for it, set up as in [section 2](#2-create-your-discord-bot) (Server Members Intent on, invited with the same permissions). You need its bot token, application ID and the server's ID.
-- The image: `ghcr.io/requestarr/requestarr` downloads without a login once the package is public on GitHub. While it's private, log Docker in on the server once with a GitHub token that can only read packages (GitHub → Settings → Developer settings → Personal access tokens → classic, **read:packages**): `docker login ghcr.io -u <your GitHub user>`, with the token as the password. The project moved to the Requestarr organization in November 2026: the first image at this address is published with the next beta release, and beta images published before the move stay at the old address without updates.
+- **The image** is `ghcr.io/requestarr/requestarr`. Once the package is public on GitHub it downloads without a login. While it's private, give Container Manager a GitHub token that can only read packages: GitHub → Settings → Developer settings → Personal access tokens → classic, **read:packages**; then in Container Manager, **Registry → Settings → Add**: name `GitHub`, address `https://ghcr.io`, your GitHub user, the token as the password, and **Use** it.
 
-**Check:** `docker compose version` prints 2.17 or newer, and `docker pull ghcr.io/requestarr/requestarr:staging` downloads the image.
+### B.1 Create the project
 
-### B.2 Get the files
+1. Open **Container Manager**, then **Project**, then **Create**.
+2. **Project name:** `requestarr-beta`.
+3. **Path:** a new folder for it, for example `/docker/requestarr-beta` (**Set path**, then **Create folder**).
+4. **Source:** **Create docker-compose.yml**.
+5. Paste the whole of [`deploy/beta/compose.yaml`](../deploy/beta/compose.yaml) into the editor.
+6. Fill in its **values block**, at the top: the **port** you'll open Requestarr on (beta's is `19797`: the standard 9797 with a 1 in front, so production keeps 9797) and your **time zone**. Nothing else in the file needs changing.
+7. **Next.** Leave the web portal settings off, **Next**, then **Done**. Container Manager downloads the image and starts the project.
 
-The beta stack is the `deploy/staging` folder of the repository. Put it in a folder of its own, outside any media folder:
+**Check:** **Project** shows `requestarr-beta` running with one container, `requestarr-beta-requestarr-1`, and its log ends with "Application started".
 
-```bash
-git clone --depth 1 --branch staging https://github.com/Requestarr/Requestarr.git requestarr-src
-cp -r requestarr-src/deploy/staging requestarr-beta
-cd requestarr-beta
-```
+### B.2 The first-run setup
 
-**Check:** `ls` shows `compose.yaml`, `env.example`, `check-folders.sh`, `root-folders.sh` and `update.sh`.
+Open `http://<your server's address>:19797`. A new install opens its first-run setup:
 
-### B.3 Make the beta media folders
-
-Make two new, empty folders beside your production TV and movie folders (same disk, so Plex reads them the same way), named so they end in `-beta`. Create a `.requestarr-beta` file in each, which confirms the folder is for beta only, and give both to the user your production Sonarr and Radarr run as:
-
-```bash
-mkdir -p /path/to/media/tv-beta /path/to/media/movies-beta
-touch /path/to/media/tv-beta/.requestarr-beta /path/to/media/movies-beta/.requestarr-beta
-chown -R <media user>:<media group> /path/to/media/tv-beta /path/to/media/movies-beta
-```
-
-Never put the `.requestarr-beta` file in a production folder.
-
-**Check:** `ls -la /path/to/media/tv-beta /path/to/media/movies-beta` shows the `.requestarr-beta` file in each, owned by your media user.
-
-### B.4 Fill in the settings
-
-```bash
-cp env.example .env
-chmod 600 .env
-```
-
-`.env` holds only what must exist before anything starts: folders, ports, file ownership, and the keys the beta Sonarr and Radarr start with. Requestarr's own settings (its sign-in, the bot, Sonarr and Radarr, the GitHub and The Movie Database keys) are entered in its web app in B.6, not here. Open `.env` and fill in every value; the comments say what each is. In particular:
-
-- **`BETA_TV_FOLDER`, `BETA_MOVIES_FOLDER`:** the two folders from B.3, full paths.
-- **`BETA_DOWNLOADS_FOLDER`, `BETA_DOWNLOADS_PATH`:** the same downloads folder, and the same path inside the container, as your production Sonarr's compose file mounts (look for its downloads line, for example `/srv/downloads:/downloads`). Only the downloads folder: if production mounts one folder that holds both downloads and media (a single `/data`), mount just its downloads subfolder here. Imports then copy instead of hardlinking, which uses extra space only while a download is still seeding.
-- **The three ports:** free ports, different from production's. Use beta's band, 19797, 18989 and 17878 (the standard ports with a 1 in front, so production keeps 9797, 8989 and 7878 and the first digit says which environment you're on). `ss -ltn | grep :<port>` prints nothing for a free port.
-- **`PUID`, `PGID`:** the same as your production Sonarr and Radarr, so Plex can read what beta downloads.
-- **`BETA_SONARR_API_KEY`, `BETA_RADARR_API_KEY`:** made up here, one each: `openssl rand -hex 16`. You paste them into Requestarr in B.6.
-
-**Check:** `docker compose config --quiet` prints nothing. If it names a variable, fill that one in.
-
-**The provisioning file is retired for beta.** Earlier beta folders had a `provisioning.yml` that set Requestarr's settings on every start, and `.env` held the bot token, the sign-in and the other keys. Beta now runs the way production will: no provisioning file, every setting made and changed in the web app and recorded on **Settings → Changes**. Updating an existing beta folder: take the new `compose.yaml` and `env.example` from the repository, delete `provisioning.yml`, and remove the Requestarr lines from `.env` that the new `env.example` no longer has. Your sign-in, members, requests and the two instances are kept; the web app opens its first-run setup once and asks for the bot again (the file never saved its token), and the GitHub key, The Movie Database key and the webhook address go in under **Settings → Connections** as in B.6.
-
-### B.5 Start it
-
-```bash
-docker compose up -d
-```
-
-**Check:**
-
-- `docker compose ps -a` shows `requestarr`, `sonarr` and `radarr` running (Sonarr and Radarr healthy), and `folder-check` and `root-folders` exited with 0.
-- `docker compose logs folder-check` ends with "folder check passed".
-- `docker compose logs root-folders` shows `/tv-beta` and `/movies-beta` added (or already there).
-
-If the folder check failed, nothing else started; its message says what's wrong. Fix `.env` and run `docker compose up -d` again.
-
-### B.6 Set up Requestarr in its web app
-
-Open the beta web portal at `http://<server>:<BETA_REQUESTARR_PORT>`. A new install opens its first-run setup:
-
-1. **Your sign-in.** A dialog asks for the web app's sign-in first: choose **Forms (login page)**, keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts), and choose a username and password. Save, then sign in. To change them later: **Settings → General**.
-2. **The Discord bot.** Paste the beta bot's token, its application ID and the Requestarr Beta server's ID (B.1), then **Save**. The bot connects: **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if you haven't added it yet.
-3. **Sonarr or Radarr.** Press **Add Sonarr**: name `Sonarr (beta)`, address `http://sonarr:8989`, API key `BETA_SONARR_API_KEY` from `.env`. Press **Test**, choose quality profile `HD-1080p` and root folder `/tv-beta`, tick **Default**, and **Save**.
+1. **Your sign-in.** Choose **Forms (login page)**, keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts), and choose a username and password. Save, then sign in.
+2. **The Discord bot.** Paste the beta bot's token, its application ID and the Requestarr Beta server's ID, then **Save**. **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if it isn't there yet.
+3. **Production's Sonarr.** Press **Add Sonarr**: a name (`Sonarr`), its address as the Synology reaches it (`http://<your server's address>:8989`, the server's own address, never a container name), its API key. Press **Test**, choose its quality profile and the root folder your TV is in, tick **Default**, and **Save**.
 
 The setup then says Requestarr is ready. Finish under **Settings**:
 
-- **Settings → Sonarr and Radarr → Add Radarr:** `Radarr (beta)`, `http://radarr:7878`, `BETA_RADARR_API_KEY`, **Test**, `HD-1080p`, `/movies-beta`, tick **Default**, **Save**.
-- **Settings → Connections:** **Requestarr's address for Sonarr and Radarr** `http://requestarr:9797` (they call it on the beta stack's own network, never through the server's ports) and **Check downloads every** `5` minutes; the **GitHub key** for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr; every report from beta becomes an issue, and until the key is set they wait on the server); and optionally **The Movie Database key** ([4.6](#46-cast-from-the-movie-database-optional)). **Save Changes**.
-- **Settings → Requests:** removal votes and the welcome channel's access requests and spam guard. The defaults are the ones the old provisioning file set; change them any time.
+- **Settings → Sonarr and Radarr → Add Radarr:** production's Radarr the same way (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
+- **Settings → Connections:** **Requestarr's address for Sonarr and Radarr** `http://<your server's address>:19797` (Sonarr and Radarr call it there), **Check downloads every** `5` minutes; the **GitHub key** for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr); and optionally **The Movie Database key** ([4.6](#46-cast-from-the-movie-database-optional)). **Save Changes**.
 
-Every change is recorded on **Settings → Changes**: who made it, when, and from what to what. Keys and tokens are kept in Requestarr's own database, never shown again; type a new one to replace one.
+Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again.
 
-**Check:** **Settings → Sonarr and Radarr** shows both instances Connected, and **System → Status** has no Discord, Sonarr, Radarr or webhook warnings.
+**Check:** **Settings → Sonarr and Radarr** shows both Connected; **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
 
-### B.7 Connect the beta Sonarr and Radarr to your downloads
+### B.3 Delete files, and why it starts off
 
-Open the beta Sonarr at `http://<server>:<BETA_SONARR_PORT>` and set a login when it asks. Then:
+**Settings → Requests → Delete files in Sonarr and Radarr** decides whether Requestarr may delete anything in your Sonarr and Radarr: a removal vote that passes, **Force removal**, **Delete** on a feed card, and **Remove a title**. It starts **off**, because beta runs new code against your real library, and a beta bug must never delete production's files.
 
-1. **Settings → Media Management → Root Folders:** only `/tv-beta` is there. Don't add another.
-2. **Settings → Download Clients → +:** your download client, with the same host, port and login as in your production Sonarr, and **Category `tv-beta`**. If production uses remote path mappings, add the same ones. **Test**, then **Save**.
-3. **Your indexer manager:** add the beta Sonarr as a new app. In Prowlarr: **Settings → Apps → + → Sonarr**, name it "Sonarr (beta)", Sonarr Server `http://<server>:<BETA_SONARR_PORT>`, API Key `BETA_SONARR_API_KEY` from `.env`, the rest as for production. **Test**, then **Save**. Prowlarr adds its indexers to the beta Sonarr.
+While it's off, a removal still runs as usual: the requester is asked, the vote is held and closed, the outcome is recorded and everyone who was asked is told. Then, instead of deleting, it puts **Delete it yourself** in the admin queue (`/admin requests`, and the web app's **Queue**), with the title and the Sonarr or Radarr it's in. Delete it there yourself, then press **I deleted it**: its requests close and everyone is told. **Drop removal** keeps it after all. Every card that starts a removal says deleting is turned off on this server.
 
-Do the same in the beta Radarr (`http://<server>:<BETA_RADARR_PORT>`): root folder `/movies-beta` only, the download client with **Category `movies-beta`**, and "Radarr (beta)" as an app in Prowlarr.
+Turn it on once you trust removals on beta. The change is recorded on **Settings → Changes**.
 
-If your download client needs categories made first (SABnzbd does; qBittorrent makes them on first use), add `tv-beta` and `movies-beta` there, each saving into its own folder inside the downloads folder. Beta and production downloads then never mix.
+**Check:** **Settings → Requests** shows **Delete files in Sonarr and Radarr** off.
 
-**Check:** in both: **System → Status** has no download client or indexer warnings, **Settings → Indexers** lists the indexers Prowlarr added, and **Settings → Connect** lists a "Requestarr" connection. Requestarr adds that one itself once its address is set (B.6): it's the webhook that tells Requestarr about downloads. **Test** on it should pass.
-
-### B.8 Add the beta folders to Plex
-
-Add each beta folder to the matching library you already have, so testers watch in the Plex they already use: **Plex → Settings → Manage → Libraries → (your TV library) → Edit → Add folders →** the `tv-beta` folder, then the same for `movies-beta` in your Movies library. If Plex runs in Docker, first mount the two beta folders into the Plex container (read-only is enough) and pick them by the path Plex sees.
-
-**Check:** both libraries list the beta folder under their folders, and a library scan finishes without errors.
-
-### B.9 Check Requestarr in Discord
+### B.4 Check Requestarr in Discord
 
 **Check:**
 
 - In the Requestarr Beta server: the bot is online, `#requestarr-admin` (in the Requestarr Admin group) has the admin panel at the bottom, and `#requestarr-welcome` (in the Requestarr Users group) shows the welcome message with **Request access**.
-- `#requestarr-admin` shows "what's new" for every version from 0.1.0 on, oldest first, and `#requestarr-announcements` the members' part. On beta these posts stay for good: each new version is added once.
+- `#requestarr-admin` shows "what's new" for every build, and `#requestarr-announcements` the members' part. On beta these posts stay for good.
 
-### B.10 A first real request
+Then add yourself and the testers from the admin panel's member picker ([5.5](#55-add-your-first-user)), once they've joined the Requestarr Beta server.
 
-Add yourself as a member from the admin panel ([5.5](#55-add-your-first-user)), then request a small movie with `/request` in your request channel.
+### B.5 Updating
 
-**Check:** in your download client the download has the category `movies-beta`; when it finishes, the files are in your `movies-beta` folder (not your production movies folder); the request message says it's ready to watch; and after Plex's next scan the movie is in your Movies library.
+Updates happen only when you ask, never on a schedule. When a new build reaches beta:
 
-### B.11 Testers
+1. **Container Manager → Project → `requestarr-beta` → Action → Build.**
 
-Add the testers from the admin panel's member picker ([5.5](#55-add-your-first-user)), once they've joined the Requestarr Beta server. Tell them about the known limitation below.
+The compose file asks for the newest `beta` image every time (`pull_policy: always`), so Build downloads the new build and restarts Requestarr on it. If Container Manager's **Image** list shows **Update available** for `ghcr.io/requestarr/requestarr:beta`, you can **Update** there first, then **Build** the project: updating an image alone doesn't restart a project's container.
 
-### Updating the beta
+**Before it changes anything, Requestarr backs up its data.** When it starts on a newer build than the one that last ran, it takes a backup first; the web app lists it under **System → Backup** as an **Update** backup.
 
-When a new version reaches staging, update with one command in the beta folder:
+**Check:** `#requestarr-admin` gets the new build's "what's new", and **System → Status** shows its number.
 
-```bash
-./update.sh
-```
+**When a build needs a new compose file,** its "what's new" in `#requestarr-admin` says so and links the file. Open the project, **Action → Stop**, then **YAML configurations**, paste the new file over the old one, keep your values block, **Save**, then **Build**.
 
-It pulls the newest `staging` image. If it's newer than what runs, it stops Requestarr, backs up its data to `backups/`, and starts the new version (Sonarr and Radarr are left alone). It prints the old and new versions.
+Each build sent to the beta has its own number, counting every build: 0.7.0005 is the fifth. A release is that same build, with the same number, so what production runs is exactly what the beta testers ran.
 
-**Check:** it ends with "Requestarr updated: 0.7.0004 -> 0.7.0005" (your versions), and `#requestarr-admin` gets the new version's "what's new".
+### B.6 Going to a specific build
 
-Each build sent to the beta has its own number, counting every build: 0.7.0005 is the fifth. A release is that same build, with the same number, so what production runs is exactly what the beta testers ran. Builds from before build numbers reached the beta as 0.3.1, 0.3.3 and 0.3.4.
+To run one particular build, for example to skip a bad one: open the project's **YAML configurations**, change `:beta` on the `image:` line to the build number (`ghcr.io/requestarr/requestarr:0.7.0004`), **Save**, then **Build**. It stays on that build until you put `:beta` back and **Build** again.
 
-**Going back** means restoring the data from before the update, not only running the older version: a newer version may change Requestarr's database in ways an older one can't read. The update above backs the data up first every time (and doesn't update if it can't), and the rollback below puts that backup back.
+### B.7 Rolling back
 
-To go back to the version that ran before the last update, with the data as it was then:
+Going back means the older build **and** the data from before the update, because a newer build may have changed the database in ways an older one can't read:
 
-```bash
-./update.sh rollback
-```
+1. Set the older build's number on the `image:` line (B.6), then **Build**.
+2. In the web app, **System → Backup**: on the **Update** backup taken just before you moved past this build (the one from when the next build first started; the newest one if you went back one build), press **Restore**. Requestarr restarts on that data.
 
-Anything done in Discord since that update (new requests, votes) is lost with the rollback. It pins that version (`REQUESTARR_TAG` in `.env`), so a restart keeps it; the next `./update.sh` returns to the newest `staging` image. `./update.sh status` shows which version runs and what a rollback would go back to.
+Anything done since that update (new requests, votes) is lost with the restore.
 
-**Automatic updates:** not recommended. Promotions to staging happen when you say "QA passed", so you know when to run it, and an update tool such as Watchtower would skip the backup that makes a rollback safe. If you'd rather not think about it, a nightly cron job is safe, because `./update.sh` does nothing when there's no new version: `0 4 * * * cd /path/to/requestarr-beta && ./update.sh >> update.log 2>&1`.
+If an older build starts on a newer database without the restore, Requestarr keeps running, and **System → Status** and its log say, in plain words, that the database was last used by a newer Requestarr and to restore the Update backup from before that update.
 
-### Known limitation: beta can download a second copy
-
-Beta only knows what the beta Sonarr and Radarr have. A title that's already in your production Plex can still be requested on beta, and it downloads a second copy into the beta folders. Plex shows both copies under one title (as two versions). Tell testers to check Plex first. Removing it on beta deletes only the beta copy.
+**Check:** **System → Status** shows the older number and no database warning.
 
 ### Taking the beta down
 
-`docker compose down` stops it and keeps everything. `docker compose down -v` also deletes the beta Requestarr's, Sonarr's and Radarr's settings. The beta media folders are yours to delete; remove them from the Plex libraries first.
+**Container Manager → Project → `requestarr-beta` → Action → Stop** stops it and keeps everything. **Delete** removes the project; Requestarr's data stays in the volume `requestarr-beta-config` (**Container Manager → Volume**) until you delete that too. Your Sonarr and Radarr keep everything; remove the **Requestarr Beta (availability)** connection from each if you won't run beta again.
+
+### Earlier beta setups
+
+The first beta folder (with its own Sonarr and Radarr, `-beta` media folders and `update.sh`) is retired: beta now shares production's Sonarr and Radarr. No beta server ran it, so there's nothing to move.
 
 ## 8. Troubleshooting
 

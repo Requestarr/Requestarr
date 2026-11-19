@@ -36,6 +36,9 @@ namespace Requestarr.Core.Test.Removals
     // A movie removed by its requester's vote with no keeps (read back: gone from Radarr with its file,
     // not excluded); a TV season removed by the admin's Force (its files gone, the season unmonitored,
     // the show still there); a title nobody requested, from the panel's Remove a title, kept by one keep.
+    // Then beta's setup (production's Sonarr and Radarr, deleting files off): Heat, added straight to Radarr, answers
+    // "already in the library" with no second copy, and with deleting off a passed vote deletes nothing and waits in the
+    // admin queue until the admin says it's deleted by hand. The steps before run with deleting on.
     // The vote window is passed by moving the removal service's clock forward 7 days, not by waiting.
     // Uses only the test accounts in DISCORD_TEST_MEMBERS. Never runs in CI (ManualTest). Needs the
     // stack's Requestarr stopped: docker/dev.sh reset-dev --stopped.
@@ -82,8 +85,13 @@ namespace Requestarr.Core.Test.Removals
             Mocker.SetConstant<IRemovalFlagRepository>(Mocker.Resolve<RemovalFlagRepository>());
             Mocker.SetConstant<IRemovalPromptRepository>(Mocker.Resolve<RemovalPromptRepository>());
             Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigRepository>(Mocker.Resolve<NzbDrone.Core.Configuration.ConfigRepository>());
-            Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigService>(Mocker.Resolve<NzbDrone.Core.Configuration.ConfigService>());
+
+            // Built here on the real settings store: one resolved earlier (for real HTTP) would keep a stand-in store, and a
+            // setting written to it would be lost.
+            Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigService>(new NzbDrone.Core.Configuration.ConfigService(Mocker.Resolve<NzbDrone.Core.Configuration.IConfigRepository>(), Mocker.Resolve<IEventAggregator>(), LogManager.GetLogger("LiveConfig")));
             Mocker.SetConstant<IRemovalSettings>(Mocker.Resolve<RemovalSettings>());
+            var settingsStore = Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>();
+            settingsStore.RemovalDeleteFiles = true;
             Mocker.SetConstant<IRadarrApi>(Mocker.Resolve<RadarrApi>());
             Mocker.SetConstant<ISonarrApi>(Mocker.Resolve<SonarrApi>());
             Mocker.SetConstant<IBackendService>(Mocker.Resolve<BackendService>());
@@ -175,7 +183,7 @@ namespace Requestarr.Core.Test.Removals
                 await Send(dispatcher, AsOwner(FakeInteraction.SelectMenu($"{AdminRoutes.Access}:{member.Id}:tv", "auto")));
                 var channel = ulong.Parse(users.FindByDiscordId(member.Id).PrivateChannelId);
                 var rest = (IMessageChannel)await host.Client.Rest.GetChannelAsync(channel);
-                Log($"[setup] {member.Username} added with Movies and TV auto-approve; vote window {Mocker.Resolve<IRemovalSettings>().VoteDays} days");
+                Log($"[setup] {member.Username} added with Movies and TV auto-approve; vote window {Mocker.Resolve<IRemovalSettings>().VoteDays} days; deleting files {(Mocker.Resolve<IRemovalSettings>().DeleteFiles ? "on" : "off")}");
 
                 async Task<string> LatestIn(IMessageChannel c) => (await c.GetMessagesAsync(1).FlattenAsync()).Single().Content.Replace("\n", " | ");
                 async Task<IMessage> Feed(Request r) => await feedRest.GetMessageAsync(ulong.Parse(requests.Get(r.Id).FeedMessageId));
@@ -303,6 +311,44 @@ namespace Requestarr.Core.Test.Removals
                 ((bool)heatAfter["hasFile"]).Should().BeTrue();
                 outcome.Content.Should().Contain("**Kept**");
 
+                // 4. Beta: the library is shared with titles Requestarr didn't add, and deleting files is off.
+                var answer = await RequestInRealMessage(dispatcher, gateway, guild.Id, channel, member.Id, $"req-make:movie:{Heat}", $"🎬 **Movies request** · details (tmdb:{Heat})");
+                var copies = ((JArray)await Get(http, RadarrUrl, RadarrKey, $"movie?tmdbId={Heat}")).Count;
+                Log($"[shared] a request for Heat, in Radarr but not added by Requestarr: \"{answer}\"; Radarr has {copies} cop{(copies == 1 ? "y" : "ies")}; Requestarr requests for it: {requests.All().Count(r => r.TmdbId == Heat)}");
+                answer.Should().Contain("already in the library");
+                copies.Should().Be(1);
+                requests.All().Should().NotContain(r => r.TmdbId == Heat);
+
+                settingsStore.RemovalDeleteFiles = false;
+                await Send(dispatcher, InFeed(FakeInteraction.Button($"{RemovalRoutes.Drop}:{proposal.Id}")));
+                var offForm = await Send(dispatcher, AsOwner(FakeInteraction.Button(RemovalRoutes.Search)));
+                var offResults = await Send(dispatcher, AsOwner(FakeInteraction.ModalSubmit(offForm.Responder.LastModal.CustomId).WithField(RemovalRoutes.SearchField, "heat")));
+                var offPick = await Send(dispatcher, AsOwner(FakeInteraction.SelectMenu(RemovalRoutes.Pick, offResults.LastReply.SelectMenu.Options.First(o => o.Label.StartsWith("Heat (1995)")).Value)));
+                Log($"[by-hand] with deleting off, Heat's removal card: \"{offPick.LastReply.Content.Replace("\n", " | ")}\"");
+                offPick.LastReply.Content.Should().Contain(DiscordText.DeletingOffNote);
+                await Send(dispatcher, AsOwner(FakeInteraction.Button(offPick.LastReply.Buttons.Single(b => b.Label == DiscordText.StartRemovalLabel).CustomId)));
+                var byHand = Mocker.Resolve<IRemovalProposalRepository>().All().Where(p => p.TmdbId == Heat).OrderBy(p => p.Id).Last();
+                await CloseVote();
+
+                byHand = Mocker.Resolve<IRemovalProposalRepository>().Get(byHand.Id);
+                var heatKept = (JObject)await Get(http, RadarrUrl, RadarrKey, $"movie/{(int)heatMovie["id"]}");
+                var told = await rest.GetMessageAsync(ulong.Parse(Mocker.Resolve<IRemovalPromptRepository>().ForProposal(byHand.Id).Single().MessageId));
+                var waiting = Mocker.Resolve<IAdminQueue>().Items().Any(i => i.Key == $"x{byHand.Id}");
+                Log($"[by-hand] vote closed with no keeps: removal {byHand.Status}; Heat still in Radarr: {(string)heatKept["title"]}, hasFile={(bool)heatKept["hasFile"]}; in the admin queue: {waiting}");
+                Log($"[by-hand] {member.Username}'s prompt reposted, read back: \"{told.Content.Replace("\n", " | ")}\"");
+                byHand.Status.Should().Be(RemovalStatus.DeleteByHand);
+                ((bool)heatKept["hasFile"]).Should().BeTrue("nothing is deleted while deleting is off");
+                waiting.Should().BeTrue();
+                told.Content.Should().Contain("Deleting is turned off on this server");
+
+                var walk = await Send(dispatcher, AsOwner(FakeInteraction.SlashCommand("admin requests")));
+                var item = walk.Responder.Replies.Last(r => r.Content?.Contains("Delete it yourself") == true);
+                Log($"[by-hand] /admin requests: \"{item.Content.Replace("\n", " | ")}\" buttons=[{string.Join("] [", item.Buttons.Select(b => b.Label))}]");
+                await Delete(http, RadarrUrl, RadarrKey, $"movie/{(int)heatMovie["id"]}?deleteFiles=true&addImportExclusion=false");
+                var done = await Send(dispatcher, AsOwner(FakeInteraction.Button(item.Buttons.Single(b => b.Label == DiscordText.DeletedByHandLabel).CustomId)));
+                Log($"[by-hand] the admin deleted Heat in Radarr, then {DiscordText.DeletedByHandLabel}: \"{done.LastReply.Content}\"; removal now {Mocker.Resolve<IRemovalProposalRepository>().Get(byHand.Id).Status}; in the admin queue: {Mocker.Resolve<IAdminQueue>().Items().Any(i => i.Key == $"x{byHand.Id}")}");
+                Mocker.Resolve<IRemovalProposalRepository>().Get(byHand.Id).Status.Should().Be(RemovalStatus.Deleted);
+
                 // Images travel with the message: the feed card's spacer was uploaded with it, so Discord serves
                 // it from the message's own attachments (no GitHub link anywhere).
                 var image = new Uri((await Feed(show)).Embeds.First().Image.Value.Url);
@@ -375,17 +421,25 @@ namespace Requestarr.Core.Test.Removals
             await http.ExecuteAsync(request);
         }
 
+        private static async Task Delete(IHttpClient http, string url, string key, string resource)
+        {
+            var request = new HttpRequestBuilder($"{url}/api/v3/{resource}").SetHeader("X-Api-Key", key).Build();
+            request.Method = System.Net.Http.HttpMethod.Delete;
+            await http.ExecuteAsync(request);
+        }
+
         private static List<string> Buttons(IMessage message) =>
             message.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components).OfType<ButtonComponent>().Select(b => b.Label).ToList();
 
         // Posts the request's message as the bot (as /request leaves it), then presses its button on it.
-        private static async Task RequestInRealMessage(InteractionDispatcher dispatcher, IDiscordGuildGateway gateway, ulong guild, ulong channel, ulong user, string customId, string text)
+        private static async Task<string> RequestInRealMessage(InteractionDispatcher dispatcher, IDiscordGuildGateway gateway, ulong guild, ulong channel, ulong user, string customId, string text)
         {
             var message = await gateway.SendMessageAsync(channel, new InteractionReply { Content = text });
             var responder = new RecordingResponder(null, channel, message, false);
             await dispatcher.DispatchAsync(FakeInteraction.Button(customId).By(user).InGuild(guild).InChannel(channel).OnMessage(message).Build(), responder);
             await gateway.EditMessageAsync(channel, message, responder.LastReply);
             Log($"[request] {customId} -> {responder.LastReply.Content.Replace("\n", " | ")}");
+            return responder.LastReply.Content.Replace("\n", " | ");
         }
 
         private static async Task<InteractionRun> Send(InteractionDispatcher dispatcher, FakeInteraction interaction)

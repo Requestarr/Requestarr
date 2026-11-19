@@ -26,6 +26,7 @@ namespace NzbDrone.Core.Datastore
         private readonly IConnectionStringFactory _connectionStringFactory;
         private readonly IDiskProvider _diskProvider;
         private readonly IRestoreDatabase _restoreDatabaseService;
+        private readonly Requestarr.Core.Updates.IUpdateBackup _updateBackup;
 
         static DbFactory()
         {
@@ -46,12 +47,14 @@ namespace NzbDrone.Core.Datastore
         public DbFactory(IMigrationController migrationController,
                          IConnectionStringFactory connectionStringFactory,
                          IDiskProvider diskProvider,
-                         IRestoreDatabase restoreDatabaseService)
+                         IRestoreDatabase restoreDatabaseService,
+                         Requestarr.Core.Updates.IUpdateBackup updateBackup)
         {
             _migrationController = migrationController;
             _connectionStringFactory = connectionStringFactory;
             _diskProvider = diskProvider;
             _restoreDatabaseService = restoreDatabaseService;
+            _updateBackup = updateBackup;
         }
 
         public IDatabase Create(MigrationType migrationType = MigrationType.Main)
@@ -113,6 +116,9 @@ namespace NzbDrone.Core.Datastore
             try
             {
                 _restoreDatabaseService.Restore();
+
+                // Requestarr: a backup before an update changes the database, and a warning (not a crash) for a newer one.
+                _updateBackup.BeforeMigrating(connectionString, databaseType);
                 _migrationController.Migrate(connectionString, migrationContext, databaseType);
             }
             catch (SQLiteException e)

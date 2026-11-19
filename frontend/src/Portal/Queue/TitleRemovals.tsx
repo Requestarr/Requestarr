@@ -49,7 +49,11 @@ function TitleRemovals() {
               <TableRowCell>{removal.startedBy ?? ''}</TableRowCell>
               <TableRowCell>{removal.keeps.join(', ')}</TableRowCell>
               <TableRowCell className={styles.actions}>
-                <RemovalActions removalId={removal.id} action={action} />
+                <RemovalActions
+                  removalId={removal.id}
+                  action={action}
+                  byHand={removal.status === 'deleteByHand'}
+                />
               </TableRowCell>
             </TableRow>
           ))}

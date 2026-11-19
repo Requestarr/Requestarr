@@ -85,6 +85,9 @@ namespace Requestarr.Http.Portal
         [HttpPost("/api/v1/portal/removals/{id:int}/drop")]
         public Task<IActionResult> DropRemoval(int id) => Act(admin => _actions.DropRemovalAsync(id, admin));
 
+        [HttpPost("/api/v1/portal/removals/{id:int}/deleted-by-hand")]
+        public Task<IActionResult> DeletedByHand(int id) => Act(admin => _actions.DeletedByHandAsync(id, admin));
+
         [HttpPost("/api/v1/portal/instances/{id:int}/check")]
         public Task<IActionResult> CheckInstance(int id) => Act(_ => _actions.CheckInstanceAsync(id));
 

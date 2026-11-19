@@ -40,6 +40,19 @@ namespace Requestarr.Core.Announcements
 
         private static readonly Regex BoldLead = new(@"^\*\*(?<lead>[^*]+?):?\*\*");
 
+        // A build whose servers need a new compose file says so in a For admins line led by this; its cards link the
+        // file as it was published with that build (docs/development.md#changelog).
+        public const string ComposeLead = "**New compose file:**";
+
+        public static string ComposeFile(Version version) => $"https://github.com/Requestarr/Requestarr/blob/v{Changelog.Display(version)}/deploy/beta/compose.yaml";
+
+        private static bool IsComposeLine(string line) => line.StartsWith(ComposeLead, StringComparison.Ordinal);
+
+        private static bool NeedsCompose(ChangelogVersion version) => version.Admins.Any(IsComposeLine);
+
+        private static string WithComposeLink(string line, Version version) =>
+            IsComposeLine(line) ? $"{line} [The new compose file]({ComposeFile(version)})" : line;
+
         // shown: how the version reads in the title (the build label for the version running), its number when null.
         // Readers see the main change in a few words, so they know whether to open it: the admin channel's card covers
         // both sections, admins' lines first.
@@ -48,6 +61,11 @@ namespace Requestarr.Core.Announcements
             var title = DiscordText.VersionCardTitle(shown ?? Changelog.Display(version.Version), version.Date, thisYear);
             var lines = audience == VersionAudience.Admins ? version.Admins.Concat(version.Users).ToList() : version.Users.ToList();
             var description = DiscordText.VersionCardSummary(MainChange(lines[0]), lines.Count - 1);
+
+            if (audience == VersionAudience.Admins && NeedsCompose(version))
+            {
+                description += "\n" + DiscordText.NewComposeFile(ComposeFile(version.Version));
+            }
 
             var reply = new InteractionReply
             {
@@ -86,7 +104,7 @@ namespace Requestarr.Core.Announcements
 
             if (audience == VersionAudience.Admins && version.Admins.Count > 0)
             {
-                sections.Add((Changelog.AdminsHeading, version.Admins, AdminsColor));
+                sections.Add((Changelog.AdminsHeading, version.Admins.Select(l => WithComposeLink(l, version.Version)).ToList(), AdminsColor));
             }
 
             var title = $"## {DiscordText.VersionCardFullTitle(shown ?? Changelog.Display(version.Version), version.Date)}\n";
