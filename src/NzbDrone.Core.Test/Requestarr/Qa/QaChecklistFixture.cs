@@ -306,7 +306,7 @@ namespace Requestarr.Core.Test.Qa
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
             unreleased.Where(i => !i.Checker.Automated).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Only your items on QA", "Bot picture and banner", "Installing the beta in Container Manager");
+            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Only your items on QA", "Bot picture and banner", "Installing the beta in Container Manager", "Importing from Requestrr");
         }
 
         [Test]

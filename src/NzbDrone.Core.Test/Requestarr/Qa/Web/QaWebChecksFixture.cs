@@ -157,6 +157,44 @@ namespace Requestarr.Core.Test.Qa.Web
             }
         });
 
+        // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
+        // both channels found and readable, then the preview of what would be imported, in both themes. A stack without
+        // recordings says so and passes: reading a real server is the owner's run, on beta.
+        [Test]
+        public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
+        {
+            const string Channels = "900000000000100001\n900000000000100002";
+            await SignInAsync(browser);
+
+            foreach (var theme in Themes)
+            {
+                await browser.SetThemeAsync(theme);
+                await browser.GoAsync($"{Url}/settings/import");
+                await browser.WaitForAsync("document.body.innerText.includes('Channel IDs')");
+
+                try
+                {
+                    await browser.WaitForAsync("document.body.innerText.includes('Recorded channels (dev)')", TimeSpan.FromSeconds(10));
+                }
+                catch (TimeoutException)
+                {
+                    check.Saw($"import ({theme}): no recorded channels on this stack, nothing to preview");
+                    continue;
+                }
+
+                await browser.RunAsync($"const e = document.querySelector('textarea[name=\"channelIds\"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(e, {JsonSerializer.Serialize(Channels)}); e.dispatchEvent(new Event('input', {{ bubbles: true }}))");
+                await browser.WaitForAsync("document.body.innerText.split('the bot can read it').length > 2");
+                await check.ShotAsync(browser, $"import-channels-{theme}");
+                await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Preview').click()");
+                await browser.WaitForAsync("document.body.innerText.includes('Requests to import')");
+                var summary = await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Read ')) ?? ''");
+                check.Saw($"import ({theme}): {summary}");
+                await browser.RunAsync("[...document.querySelectorAll('legend')].find(l => l.innerText.includes('Requests to import')).scrollIntoView()");
+                await check.ShotAsync(browser, $"import-preview-{theme}");
+                summary.Should().Contain("Requests to import:");
+            }
+        });
+
         // Requestarr's own settings pages load in both themes. QA and dev take their settings from the provisioning file,
         // so each page says so and its fields can't be changed; the instances page lists the stack's Sonarr and Radarr.
         [Test]

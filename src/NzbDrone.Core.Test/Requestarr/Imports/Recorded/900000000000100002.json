@@ -1,0 +1,128 @@
+[
+  {
+    "id": "900000000001000011",
+    "channel_id": "900000000000100002",
+    "type": 20,
+    "timestamp": "2026-11-18T13:00:00.000000+00:00",
+    "edited_timestamp": "2026-11-18T13:00:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Your request for **The Crow** was sent successfully!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "The Crow (1994)",
+        "url": "https://www.themoviedb.org/movie/9495",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000018",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200001",
+        "username": "riley",
+        "global_name": "Riley"
+      }
+    }
+  },
+  {
+    "id": "900000000001000010",
+    "channel_id": "900000000000100002",
+    "type": 0,
+    "timestamp": "2026-11-18T12:00:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "The movie **The Crow** has finished downloading!\n<@900000000000200001> <@900000000000200002>",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "The Crow (1994)",
+        "url": "https://www.themoviedb.org/movie/9495",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [
+      {
+        "id": "900000000000200001",
+        "username": "riley",
+        "global_name": "Riley"
+      },
+      {
+        "id": "900000000000200002",
+        "username": "sam",
+        "global_name": "Sam"
+      }
+    ],
+    "components": []
+  },
+  {
+    "id": "900000000001000009",
+    "channel_id": "900000000000100002",
+    "type": 20,
+    "timestamp": "2026-11-18T10:12:00.000000+00:00",
+    "edited_timestamp": "2026-11-18T10:12:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Your request for **The Crow** was sent successfully!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "The Crow (1994)",
+        "url": "https://www.themoviedb.org/movie/9495",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000016",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200002",
+        "username": "sam",
+        "global_name": "Sam"
+      }
+    }
+  }
+]

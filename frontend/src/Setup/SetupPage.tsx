@@ -47,7 +47,10 @@ function SetupPage() {
             {isReady ? (
               <Alert kind={kinds.SUCCESS}>
                 {translate('SetupReady')}{' '}
-                <Link to="/settings">{translate('Settings')}</Link>
+                <Link to="/settings">{translate('Settings')}</Link>.{' '}
+                <Link to="/settings/import">
+                  {translate('SetupImportFromRequestrr')}
+                </Link>
               </Alert>
             ) : (
               <Button onPress={reload}>{translate('SetupCheckAgain')}</Button>

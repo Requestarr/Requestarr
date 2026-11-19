@@ -1,0 +1,16 @@
+.intro {
+  margin-bottom: 20px;
+  color: var(--helpTextColor);
+}
+
+.readable {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  gap: 8px;
+}
+
+.summary {
+  margin: 20px 0;
+}

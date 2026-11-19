@@ -15,6 +15,8 @@ namespace Requestarr.Core.Portal
         private static readonly Dictionary<string, string> Actions = new()
         {
             ["request.create"] = "Requested",
+            [Imports.ImportService.ImportedAction] = "Imported from Requestrr",
+            [Imports.ImportService.ImportAction] = "Imported from Requestrr",
             ["request.subscribe"] = "Followed",
             ["request.approve"] = "Approved",
             ["request.deny"] = "Denied",

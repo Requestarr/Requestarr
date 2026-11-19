@@ -173,7 +173,7 @@ namespace Requestarr.Core.Portal
             _auditSettings.TrimmedBefore is { } before && since < before ? _auditSettings.KeepFor : null;
 
         // The request's own history and its removals', oldest first. A request made before the audit log recorded
-        // requests still starts with when it was asked for.
+        // requests still starts with when it was asked for; an imported one starts with its import, dated then.
         private List<PortalEvent> Timeline(Request request, Dictionary<int, string> names)
         {
             var requested = PortalText.Action("request.create");
@@ -183,7 +183,9 @@ namespace Requestarr.Core.Portal
                 .Select(e => PortalText.Event(e, names, discordNames))
                 .ToList();
 
-            if (!events.Any(e => e.What == requested))
+            var imported = PortalText.Action(Imports.ImportService.ImportedAction);
+
+            if (!events.Any(e => e.What == requested || e.What == imported))
             {
                 events.Add(new PortalEvent(request.Requested, requested, names.GetValueOrDefault(request.OwnerUserId), null));
             }
