@@ -153,7 +153,6 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
-                Record(message);
                 var follower = new ImportFollower(person, message.Message.Timestamp, message.Message.Id);
 
                 if (Existing(entry) is { } existing)
@@ -166,6 +165,7 @@ namespace Requestarr.Core.Imports
 
                 if (!_requests.TryGetValue(key, out var planned))
                 {
+                    Record(message);
                     _requests[key] = NewRequest(message, entry, person);
                     return;
                 }
@@ -176,6 +176,7 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
+                Record(message);
                 _requests[key] = planned with { Followers = planned.Followers.Append(follower).ToList() };
             }
 
@@ -190,6 +191,7 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
+                Record(message);
                 _follows.Add(new PlannedFollow(existing.Id, existing.Label, follower));
             }
 

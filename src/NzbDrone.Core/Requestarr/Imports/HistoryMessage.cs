@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Requestarr.Core.Imports
@@ -32,7 +33,11 @@ namespace Requestarr.Core.Imports
     // these fields and nothing else.
     public static class DiscordMessageJson
     {
-        public static IReadOnlyList<HistoryMessage> ParseAll(string json) => JArray.Parse(json).OfType<JObject>().Select(Parse).ToList();
+        // Timestamps stay as Discord wrote them (with their offset), never turned into this machine's time on the way.
+        private static readonly JsonSerializerSettings AsWritten = new() { DateParseHandling = DateParseHandling.None };
+
+        public static IReadOnlyList<HistoryMessage> ParseAll(string json) =>
+            JsonConvert.DeserializeObject<JArray>(json, AsWritten).OfType<JObject>().Select(Parse).ToList();
 
         public static HistoryMessage Parse(JObject message)
         {

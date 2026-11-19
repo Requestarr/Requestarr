@@ -179,32 +179,41 @@ namespace Requestarr.Core.Imports
         }
     }
 
-    // Discord's channels, or the recorded ones on a dev stack that has them.
+    // Discord's channels, or the recorded ones on a dev stack whose recordings folder has some (looked at each time, so
+    // recordings can be added while it runs).
     public class ChannelHistory : IChannelHistory
     {
         private readonly DiscordChannelHistory _discord;
-        private readonly RecordedChannelHistory _recorded;
+        private readonly IReleaseEnvironment _environment;
         private readonly Settings.ISetupService _setup;
 
         public ChannelHistory(IDiscordClientHost host, IReleaseEnvironment environment, Settings.ISetupService setup)
         {
             _discord = new DiscordChannelHistory(host);
-            _recorded = Recordings(environment);
+            _environment = environment;
             _setup = setup;
         }
 
         public Task<ImportChannel> DescribeAsync(ulong channelId) =>
-            _recorded != null ? Task.FromResult(_recorded.Describe(channelId)) : _discord.DescribeAsync(channelId, _setup.Status().InviteUrl);
+            Recorded() is { } recorded ? Task.FromResult(recorded.Describe(channelId)) : _discord.DescribeAsync(channelId, _setup.Status().InviteUrl);
 
         public Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync() =>
-            _recorded != null ? Task.FromResult(_recorded.Channels()) : _discord.ReadableChannelsAsync();
+            Recorded() is { } recorded ? Task.FromResult(recorded.Channels()) : _discord.ReadableChannelsAsync();
 
         public Task<IReadOnlyList<HistoryMessage>> ReadAsync(ulong channelId, ulong? before) =>
-            _recorded != null ? Task.FromResult(_recorded.Read(channelId, before)) : _discord.ReadAsync(channelId, before);
+            Recorded() is { } recorded ? Task.FromResult(recorded.Read(channelId, before)) : _discord.ReadAsync(channelId, before);
 
-        private static RecordedChannelHistory Recordings(IReleaseEnvironment environment) =>
-            environment.IconSet == "dev" && Environment.GetEnvironmentVariable(RecordedChannelHistory.FolderVariable) is { Length: > 0 } folder
-                ? new RecordedChannelHistory(folder)
-                : null;
+        private RecordedChannelHistory Recorded()
+        {
+            var folder = Environment.GetEnvironmentVariable(RecordedChannelHistory.FolderVariable);
+
+            if (_environment.IconSet != "dev" || string.IsNullOrEmpty(folder))
+            {
+                return null;
+            }
+
+            var recorded = new RecordedChannelHistory(folder);
+            return recorded.Channels().Count > 0 ? recorded : null;
+        }
     }
 }
