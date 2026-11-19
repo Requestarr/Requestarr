@@ -23,9 +23,13 @@ namespace Requestarr.Core.Updates
         public static readonly long BuildSchema = typeof(DbFactory).Assembly.GetTypes()
             .Select(t => t.GetCustomAttribute<MigrationAttribute>()?.Version ?? 0).Max();
 
-        public bool IsNewerThan(Version build) => (LastRunBy != null && LastRunBy > build) || Schema > BuildSchema;
+        // The build as people know it (0.7.0005): MAJOR.MINOR.BUILD. A build's fourth part is only the time of day it was
+        // made, so two dev or QA builds of the same number are the same here; their schema tells them apart.
+        public static Version Build(Version version) => new(version.Major, version.Minor, Math.Max(0, version.Build));
 
-        public bool IsOlderThan(Version build) => LastRunBy == null || LastRunBy < build || Schema < BuildSchema;
+        public bool IsNewerThan(Version build) => (LastRunBy != null && Build(LastRunBy) > Build(build)) || Schema > BuildSchema;
+
+        public bool IsOlderThan(Version build) => LastRunBy == null || Build(LastRunBy) < Build(build) || Schema < BuildSchema;
     }
 
     public interface IUpdateBackup
@@ -78,9 +82,27 @@ namespace Requestarr.Core.Updates
 
             if (origin.IsOlderThan(BuildInfo.Version))
             {
-                Logger.Info("Backed up the database before updating it from {0} to {1}: {2}", origin.LastRunBy?.ToString() ?? "an earlier version", BuildInfo.Version, Backup(connection));
+                BackUp(connection, origin);
             }
         }
+
+        // A backup that fails (a full disk, a backup folder that's gone) is said in the log, and Requestarr starts all the
+        // same: a restart loop would leave no way to fix it in the web app.
+        private void BackUp(SQLiteConnection connection, DatabaseOrigin origin)
+        {
+            var from = origin.LastRunBy != null ? Shown(origin.LastRunBy) : "an earlier version";
+
+            try
+            {
+                Logger.Info("Backed up the database before updating it from {0} to {1}: {2}", from, Shown(BuildInfo.Version), Backup(connection));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SQLiteException)
+            {
+                Logger.Error(ex, "Couldn't back up the database before updating it from {0} to {1}; Requestarr carries on. Take a backup now under System, then Backup.", from, Shown(BuildInfo.Version));
+            }
+        }
+
+        public static string Shown(Version version) => Announcements.Changelog.Display(DatabaseOrigin.Build(version));
 
         // Null for a new database, which has nothing to back up.
         public static DatabaseOrigin Origin(SQLiteConnection connection)
@@ -121,13 +143,17 @@ namespace Requestarr.Core.Updates
             var database = Path.Combine(temp, "requestarr.db");
             connection.Execute($"VACUUM INTO '{database.Replace("'", "''")}'");
 
-            var files = new List<string> { database, Path.Combine(temp, "INFO") };
-            File.WriteAllText(files[1], $"v{BuildInfo.Version}\n{DateTime.Now:yyyy-MM-dd HH:mm:ss}\nTaken before updating the database\n");
+            var info = Path.Combine(temp, "INFO");
+            File.WriteAllText(info, $"v{BuildInfo.Version}\n{DateTime.Now:yyyy-MM-dd HH:mm:ss}\nTaken before updating the database\n");
+            var files = new List<string> { database, info };
 
-            if (File.Exists(_appFolderInfo.GetConfigPath()))
+            var configPath = _appFolderInfo.GetConfigPath();
+
+            if (File.Exists(configPath))
             {
-                files.Add(Path.Combine(temp, Path.GetFileName(_appFolderInfo.GetConfigPath())));
-                File.Copy(_appFolderInfo.GetConfigPath(), files[^1]);
+                var config = Path.Combine(temp, Path.GetFileName(configPath));
+                File.Copy(configPath, config);
+                files.Add(config);
             }
 
             var zip = Path.Combine(folder, $"requestarr_backup_v{BuildInfo.Version}_{DateTime.Now:yyyy.MM.dd_HH.mm.ss}.zip");
@@ -142,8 +168,8 @@ namespace Requestarr.Core.Updates
     {
         // The log line and the health check say the same thing, in plain words.
         public static string Message(DatabaseOrigin origin) =>
-            $"This database was last used by a newer Requestarr ({origin.LastRunBy?.ToString() ?? $"database version {origin.Schema}"}) than this one ({BuildInfo.Version}), " +
-            "so some things may not work. To go back to this version, restore the backup Requestarr took before that update: " +
-            "System, then Backup, the newest Update backup, then Restore. Or go back to the newer build.";
+            $"This database was last used by a newer Requestarr ({(origin.LastRunBy != null ? UpdateBackup.Shown(origin.LastRunBy) : $"database version {origin.Schema}")}) " +
+            $"than this one ({UpdateBackup.Shown(BuildInfo.Version)}), so some things may not work. To go back to this version, restore the backup Requestarr " +
+            "took when you first moved past it: System, then Backup, the Update backup from just before that update, then Restore. Or go back to the newer build.";
     }
 }

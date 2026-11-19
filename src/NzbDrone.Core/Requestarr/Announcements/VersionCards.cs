@@ -46,10 +46,12 @@ namespace Requestarr.Core.Announcements
 
         public static string ComposeFile(Version version) => $"https://github.com/Requestarr/Requestarr/blob/v{Changelog.Display(version)}/deploy/beta/compose.yaml";
 
-        private static bool NeedsCompose(ChangelogVersion version) => version.Admins.Any(l => l.StartsWith(ComposeLead, StringComparison.Ordinal));
+        private static bool IsComposeLine(string line) => line.StartsWith(ComposeLead, StringComparison.Ordinal);
+
+        private static bool NeedsCompose(ChangelogVersion version) => version.Admins.Any(IsComposeLine);
 
         private static string WithComposeLink(string line, Version version) =>
-            line.StartsWith(ComposeLead, StringComparison.Ordinal) ? $"{line} [The new compose file]({ComposeFile(version)})" : line;
+            IsComposeLine(line) ? $"{line} [The new compose file]({ComposeFile(version)})" : line;
 
         // shown: how the version reads in the title (the build label for the version running), its number when null.
         // Readers see the main change in a few words, so they know whether to open it: the admin channel's card covers

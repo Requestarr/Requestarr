@@ -240,7 +240,7 @@ namespace Requestarr.Core.Discord.Help
                 Key = "downloads",
                 Title = "Downloads, webhooks and polling",
                 Summary = "How Requestarr hears about downloads",
-                Intro = _ => $"With `availability.webhookUrl` set (the address Sonarr and Radarr use to reach Requestarr), Requestarr adds its own connection, \"{Requestarr.Core.Backends.ArrApiBase.WebhookName}\", to each Sonarr and Radarr; it never changes your own connections. " +
+                Intro = _ => $"With `availability.webhookUrl` set (the address Sonarr and Radarr use to reach Requestarr), Requestarr adds its own connection, \"{Requestarr.Core.Backends.ArrApiBase.WebhookName}\" (on beta \"{Requestarr.Core.Backends.ArrApiBase.WebhookNameFor("beta")}\", so each server's is told apart), to each Sonarr and Radarr; it never changes your own connections. " +
                              "It also checks every few minutes (`availability.pollMinutes`, 15 by default) in case a call is missed, and `pollingOnly: true` on an instance skips the webhook. If an instance can't reach Requestarr, System → Status says so and the poll still works. " +
                              "A download counts as stuck when Sonarr or Radarr flag it (stalled, import blocked) or it doesn't move for 6 hours."
             },

@@ -849,7 +849,7 @@ To run one particular build, for example to skip a bad one: open the project's *
 Going back means the older build **and** the data from before the update, because a newer build may have changed the database in ways an older one can't read:
 
 1. Set the older build's number on the `image:` line (B.6), then **Build**.
-2. In the web app, **System → Backup**: on the newest **Update** backup (the one taken when the newer build first started), press **Restore**. Requestarr restarts on that data.
+2. In the web app, **System → Backup**: on the **Update** backup taken just before you moved past this build (the one from when the next build first started; the newest one if you went back one build), press **Restore**. Requestarr restarts on that data.
 
 Anything done since that update (new requests, votes) is lost with the restore.
 

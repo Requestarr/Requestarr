@@ -71,6 +71,31 @@ namespace Requestarr.Core.Test.Removals
         }
 
         [Test]
+        public async Task force_on_one_already_waiting_is_refused_until_deleting_is_turned_on()
+        {
+            var request = await DownloadedMovie();
+            await UserStartVote(Alice, request.Id);
+            await Tick(TimeSpan.FromDays(7));
+            var told = AuditTrail.Count;
+
+            (await Removals.ForceAsync(1, Requestarr.Core.Audit.Actor.System, "owner", null)).Message.Should().Be(DiscordText.RemovalAlreadyByHand(Proposal()));
+            AuditTrail.Count.Should().Be(told, "nothing happens a second time");
+
+            Mocker.Resolve<IConfigService>().RemovalDeleteFiles = true;
+            await Removals.ForceAsync(1, Requestarr.Core.Audit.Actor.System, "owner", null);
+
+            Radarr.Deletes.Should().Equal((Instance("Radarr").Settings.Url, request.ExternalItemId.Value));
+            Proposal().Status.Should().Be(RemovalStatus.Forced);
+        }
+
+        [Test]
+        public void forcing_says_what_happens_with_deleting_off()
+        {
+            DiscordText.RemovalConfirmForce("**Dune (2021)**", Array.Empty<int>(), false).Should().Contain("Deleting is turned off on this server, so nothing is deleted").And.NotContain("this can't be undone");
+            DiscordText.RemovalConfirmForce("**Dune (2021)**", Array.Empty<int>(), true).Should().Contain("Its files are deleted");
+        }
+
+        [Test]
         public async Task every_card_that_starts_a_removal_says_deleting_is_off()
         {
             var request = await DownloadedMovie();

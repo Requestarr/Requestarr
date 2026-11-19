@@ -24,9 +24,9 @@ namespace Requestarr.Core.Updates
 
         public void Handle(ApplicationStartedEvent message)
         {
-            if (Read(_config) is not { } stored || stored < BuildInfo.Version)
+            if (Read(_config) is not { } stored || DatabaseOrigin.Build(stored) < DatabaseOrigin.Build(BuildInfo.Version))
             {
-                _config.LastRunVersion = BuildInfo.Version.ToString();
+                _config.LastRunVersion = DatabaseOrigin.Build(BuildInfo.Version).ToString();
             }
         }
     }

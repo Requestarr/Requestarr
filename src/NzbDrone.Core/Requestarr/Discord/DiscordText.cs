@@ -945,8 +945,14 @@ namespace Requestarr.Core.Discord
         public static string RemovalUserCard(Request request, IReadOnlyCollection<int> seasons) =>
             $"**Remove {RemovalScope(request.Label, seasons)}?** Everyone who can watch it gets to keep it, and nothing changes until the vote closes. If nobody keeps it, it's removed from the library and its files are deleted.";
 
-        public static string RemovalConfirmForce(string label, IReadOnlyCollection<int> seasons) =>
-            $"Delete {RemovalScope(label, seasons)} **now**? Its files are deleted; this can't be undone. Nobody is asked.";
+        // deletesFiles: whether deleting files is on for the server; off, Force only skips asking and goes to the queue.
+        public static string RemovalConfirmForce(string label, IReadOnlyCollection<int> seasons, bool deletesFiles) =>
+            deletesFiles
+                ? $"Delete {RemovalScope(label, seasons)} **now**? Its files are deleted; this can't be undone. Nobody is asked."
+                : $"Remove {RemovalScope(label, seasons)} **now**? Nobody is asked. Deleting is turned off on this server, so nothing is deleted: it waits in `/admin requests` for you to delete it by hand.";
+
+        public static string RemovalAlreadyByHand(Removals.RemovalProposal proposal) =>
+            $"Removing {RemovalScope(proposal)} is already agreed and waits for you to delete it by hand (deleting is turned off on this server). Delete it, then press **{DeletedByHandLabel}**.";
 
         public static string RemovalSearchResults(string term, int count) => $"**Remove a title** · {count} match{(count == 1 ? string.Empty : "es")} for \"{term}\". Pick one.";
 

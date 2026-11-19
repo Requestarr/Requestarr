@@ -61,7 +61,7 @@ namespace Requestarr.Core.Test.Updates
         [Test]
         public void a_database_an_older_build_used_is_backed_up_first_as_an_update_backup_the_web_app_can_restore()
         {
-            GivenDatabase(DatabaseOrigin.BuildSchema, "0.0.0.0");
+            GivenDatabase(DatabaseOrigin.BuildSchema - 1, "0.0.0.0");
 
             Subject.BeforeMigrating(ConnectionString, DatabaseType.SQLite);
 
@@ -97,7 +97,7 @@ namespace Requestarr.Core.Test.Updates
         public void a_backup_folder_set_in_the_web_app_is_used()
         {
             var folder = Path.Combine(TempFolder, "elsewhere");
-            GivenDatabase(DatabaseOrigin.BuildSchema, "0.0.0.0", folder);
+            GivenDatabase(DatabaseOrigin.BuildSchema - 1, "0.0.0.0", folder);
 
             Subject.BeforeMigrating(ConnectionString, DatabaseType.SQLite);
 
@@ -113,7 +113,20 @@ namespace Requestarr.Core.Test.Updates
 
             Backups().Should().BeEmpty();
             ExceptionVerification.ExpectedErrors(1);
-            NewerDatabase.Message(new DatabaseOrigin(new Version(999, 0), 16)).Should().Contain("restore the backup Requestarr took before that update: System, then Backup, the newest Update backup, then Restore");
+            NewerDatabase.Message(new DatabaseOrigin(new Version(999, 0), 16)).Should().Contain("System, then Backup, the Update backup from just before that update, then Restore");
+        }
+
+        [Test]
+        public void two_builds_of_the_same_number_are_the_same_version_whatever_time_they_were_built()
+        {
+            var build = new Version(0, 7, 5, 16200);
+            var sameNumberEarlierInTheDay = new DatabaseOrigin(new Version(0, 7, 5, 36000), DatabaseOrigin.BuildSchema);
+
+            sameNumberEarlierInTheDay.IsNewerThan(build).Should().BeFalse();
+            sameNumberEarlierInTheDay.IsOlderThan(build).Should().BeFalse();
+            new DatabaseOrigin(new Version(0, 7, 4, 50000), DatabaseOrigin.BuildSchema).IsOlderThan(build).Should().BeTrue();
+            (sameNumberEarlierInTheDay with { Schema = DatabaseOrigin.BuildSchema - 1 }).IsOlderThan(build).Should().BeTrue("a migration still to run takes a backup");
+            UpdateBackup.Shown(build).Should().Be("0.7.0005");
         }
 
         [Test]
@@ -125,7 +138,7 @@ namespace Requestarr.Core.Test.Updates
             Mocker.GetMock<IConfigService>().SetupGet(c => c.LastRunVersion).Returns("999.0");
             var newer = check.Check();
             newer.Type.Should().Be(HealthCheckResult.Error);
-            newer.Message.Should().Contain("last used by a newer Requestarr (999.0)");
+            newer.Message.Should().Contain("last used by a newer Requestarr (");
 
             Mocker.GetMock<IConfigService>().SetupGet(c => c.LastRunVersion).Returns(BuildInfo.Version.ToString());
             check.Check().Type.Should().Be(HealthCheckResult.Ok);
@@ -138,10 +151,10 @@ namespace Requestarr.Core.Test.Updates
         public void each_start_records_its_version_but_never_lowers_it()
         {
             var config = new Mock<IConfigService>();
-            config.SetupProperty(c => c.LastRunVersion, "0.0.0.0");
+            config.SetupProperty(c => c.LastRunVersion, string.Empty);
 
             new LastRunVersion(config.Object).Handle(null);
-            config.Object.LastRunVersion.Should().Be(BuildInfo.Version.ToString());
+            config.Object.LastRunVersion.Should().Be(DatabaseOrigin.Build(BuildInfo.Version).ToString());
 
             config.Object.LastRunVersion = "999.0";
             new LastRunVersion(config.Object).Handle(null);

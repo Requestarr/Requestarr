@@ -61,6 +61,9 @@ namespace Requestarr.Core.Removals
         Task<ServiceResult> DeletedByHandAsync(int proposalId, Actor admin, string adminName, int? adminUserId);
 
         Task TickAsync();
+
+        // Whether removals may delete in Sonarr or Radarr on this server (IRemovalSettings.DeleteFiles).
+        bool DeletesFiles { get; }
     }
 
     public class RemovalService : IRemovalService, IExecute<RemovalCheckCommand>
@@ -346,6 +349,11 @@ namespace Requestarr.Core.Removals
             if (proposal == null || !proposal.IsOpen)
             {
                 return ServiceResult.Fail(proposal == null ? DiscordText.RemovalNotFound : DiscordText.RemovalAlreadyMoved(proposal));
+            }
+
+            if (proposal.Status == RemovalStatus.DeleteByHand && !_settings.DeleteFiles)
+            {
+                return ServiceResult.Fail(DiscordText.RemovalAlreadyByHand(proposal));
             }
 
             _audit.Record(admin, "removal.force", "removal", proposal.Id.ToString(), $"{Scope(proposal)} forced by {adminName} at {Clock():u} (was {proposal.Status}, {_flags.ForProposal(proposal.Id).Count} keep flag(s))");
@@ -639,6 +647,8 @@ namespace Requestarr.Core.Removals
             await Changed(proposal);
             return ServiceResult.Ok(DiscordText.RemovalDeleteByHand(proposal, instance.Name));
         }
+
+        public bool DeletesFiles => _settings.DeleteFiles;
 
         public async Task<ServiceResult> DeletedByHandAsync(int proposalId, Actor admin, string adminName, int? adminUserId)
         {

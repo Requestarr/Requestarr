@@ -217,7 +217,7 @@ namespace Requestarr.Core.Discord.Handlers
 
                     await responder.UpdateMessageAsync(new InteractionReply
                     {
-                        Content = DiscordText.RemovalConfirmForce(target.Value?.Label ?? "it", seasons),
+                        Content = DiscordText.RemovalConfirmForce(target.Value?.Label ?? "it", seasons, _settings.DeleteFiles),
                         Buttons = new List<InteractionButton>
                         {
                             new() { CustomId = $"{RemovalRoutes.AdminForceYes}:{IntAt(args, 0)}:{IntAt(args, 1)}:{RemovalRoutes.Encode(seasons)}", Label = DiscordText.ConfirmDeleteLabel, Style = ButtonStyle.Danger },
@@ -325,7 +325,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             await responder.RespondAsync(new InteractionReply
             {
-                Content = DiscordText.RemovalConfirmForce(proposal.Label, proposal.Seasons),
+                Content = DiscordText.RemovalConfirmForce(proposal.Label, proposal.Seasons, _settings.DeleteFiles),
                 Ephemeral = true,
                 Buttons = new List<InteractionButton> { new() { CustomId = $"{RemovalRoutes.ForceYes}:{proposal.Id}", Label = DiscordText.ConfirmDeleteLabel, Style = ButtonStyle.Danger } }
             });
