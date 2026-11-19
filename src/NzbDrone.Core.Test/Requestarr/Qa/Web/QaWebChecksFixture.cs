@@ -182,7 +182,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await SignInAsync(browser);
             await browser.GoAsync(Url + "/requests");
             await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"], [class*=\"RequestViews-\"]')");
-            var title = await browser.EvalAsync<string>("document.querySelector('[class*=\"PageContentBody\"] a[href*=\"/requests/\"]')?.textContent ?? ''");
+            var title = await browser.EvalAsync<string>("document.querySelector('[class*=\"PageContentBody\"] a[href*=\"/requests/\"]:not(:has(img))')?.textContent ?? ''");
             await browser.GoAsync(Url + "/members");
             await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
             var member = await browser.EvalAsync<string>("document.querySelector('tbody a[href*=\"/members/\"]')?.textContent ?? ''");

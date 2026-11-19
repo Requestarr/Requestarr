@@ -31,7 +31,7 @@ export function RequestPoster({ url, className }: RequestPosterProps) {
 
 function dated(key: string, date?: string | null) {
   return date
-    ? translate(key, { date: moment(date).format('MMM D, YYYY') })
+    ? translate(key, { date: moment.utc(date).format('MMM D, YYYY') })
     : null;
 }
 

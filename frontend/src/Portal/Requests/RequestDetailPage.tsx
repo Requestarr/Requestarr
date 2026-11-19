@@ -74,7 +74,12 @@ function summaryRows(
   const rows: [string, ReactNode][] = [
     ['PortalOverview', request.media?.overview],
     ['PortalReleased', releaseText(request.media)],
-    ['PortalLinks', <TitleLinks key="l" request={request} />],
+    [
+      'PortalLinks',
+      (request.media?.page || request.media?.openUrl) && (
+        <TitleLinks key="l" request={request} />
+      ),
+    ],
     ['PortalType', contentTypeText(request.contentType)],
     ['PortalStatus', requestStatusText(request)],
     ['PortalProgress', detail.progressDetail],

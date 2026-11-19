@@ -101,7 +101,11 @@ interface RequestsTableProps {
 }
 
 // Requests in a table, newest first until a column is pressed: each title opens its request, each name its member.
-function RequestsTable({ requests, withPosters, sort }: RequestsTableProps) {
+function RequestsTable({
+  requests,
+  withPosters = false,
+  sort,
+}: RequestsTableProps) {
   const own = useSortedRows(
     requests,
     sortValues,
@@ -128,7 +132,7 @@ function RequestsTable({ requests, withPosters, sort }: RequestsTableProps) {
           <RequestRow
             key={request.id}
             request={request}
-            withPoster={withPosters ?? false}
+            withPoster={withPosters}
           />
         ))}
       </TableBody>

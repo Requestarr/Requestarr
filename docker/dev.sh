@@ -151,6 +151,11 @@ build_image() {
     number=$( (cd "$REPO" && python -I .github/build_numbers.py next) 2>/dev/null) || number=0.0.0
     version="$number-$STACK.${sha:0:7}"
     echo "Building requestarr:$STACK from $ref @ ${sha:0:7} (version $version)"
+    # The stack's own provisioning file, as that commit has it (compose.yaml mounts it).
+    mkdir -p "$DIR/.stacks"
+    STACK_PROVISIONING_FILE="$DIR/.stacks/$STACK-provisioning.yml"
+    git -C "$REPO" show "$sha:docker/provisioning.yml" > "$STACK_PROVISIONING_FILE" || die "couldn't read docker/provisioning.yml at $ref"
+    export STACK_PROVISIONING_FILE
     git -C "$REPO" archive --format=tar "$sha" | docker build --quiet -t "requestarr:$STACK" -f docker/Dockerfile \
         --build-arg "BUILD_NUMBER=$number" --build-arg "RELEASE_VERSION=$version" \
         --label "org.opencontainers.image.revision=$sha" --label "org.opencontainers.image.ref.name=$ref" \

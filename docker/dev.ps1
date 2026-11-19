@@ -225,6 +225,14 @@ function Build-Image {
     $version = "$number-$Stack.$($sha.Substring(0, 7))"
     Write-Host "Building requestarr:$Stack from $ref @ $($sha.Substring(0, 7)) (version $version)"
 
+    # The stack's own provisioning file, as that commit has it (compose.yaml mounts it).
+    $stackFile = Join-Path $Dir ".stacks\$Stack-provisioning.yml"
+    New-Item -ItemType Directory -Force (Split-Path $stackFile) | Out-Null
+    Push-Location $Repo
+    try { cmd /c "git show ${sha}:docker/provisioning.yml > `"$stackFile`"" } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { Fail "couldn't read docker/provisioning.yml at $ref" }
+    $script:Info.Env.STACK_PROVISIONING_FILE = $stackFile
+
     # cmd's pipe keeps the archive binary (Windows PowerShell's pipe would turn it into text).
     Push-Location $Repo
     try {

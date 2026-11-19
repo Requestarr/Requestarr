@@ -29,9 +29,6 @@ services:
       REQUESTARR_API_KEY: ${REQUESTARR_API_KEY}
       SONARR_TEST_API_KEY: ${SONARR_TEST_API_KEY}
       RADARR_TEST_API_KEY: ${RADARR_TEST_API_KEY}
-      # Where this machine's browser reaches the test Sonarr and Radarr, for "Open in Sonarr" links.
-      SONARR_TEST_BROWSER_URL: http://localhost:${STACK_SONARR_TEST_PORT}
-      RADARR_TEST_BROWSER_URL: http://localhost:${STACK_RADARR_TEST_PORT}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       # This stack's bot and server only (QA: DISCORD_*, dev: DEV_DISCORD_* in secrets.env).
       DISCORD_BOT_TOKEN: ${STACK_DISCORD_BOT_TOKEN:-}
@@ -42,7 +39,9 @@ services:
       REQUESTARR_GITHUB_ISSUES_TOKEN: ${STACK_GITHUB_ISSUES_TOKEN:-}
     volumes:
       - requestarr-config:/config
-      - ./provisioning.yml:/provisioning/provisioning.yml:ro
+      # The stack's own copy, from the commit it was built from (dev.ps1, dev.sh): a restart of its container never
+      # picks up another branch's file from this checkout, which an older build might not read.
+      - ${STACK_PROVISIONING_FILE:-./provisioning.yml}:/provisioning/provisioning.yml:ro
     ports:
       - "127.0.0.1:${STACK_REQUESTARR_PORT:?run through docker/dev.ps1 or docker/dev.sh}:9797"
     depends_on:

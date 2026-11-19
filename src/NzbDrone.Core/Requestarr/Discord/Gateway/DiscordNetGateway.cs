@@ -199,6 +199,38 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task<ulong> SendMessageAsync(ulong channelId, InteractionReply message)
         {
+            try
+            {
+                return await SendOnceAsync(channelId, message);
+            }
+            catch (HttpException) when (HasLinks(message))
+            {
+                DropLinks(message);
+                return await SendOnceAsync(channelId, message);
+            }
+        }
+
+        public async Task<bool> EditMessageAsync(ulong channelId, ulong messageId, InteractionReply message)
+        {
+            try
+            {
+                return await EditOnceAsync(channelId, messageId, message);
+            }
+            catch (HttpException) when (HasLinks(message))
+            {
+                DropLinks(message);
+                return await EditOnceAsync(channelId, messageId, message);
+            }
+        }
+
+        // Discord refuses a whole message over a link button whose address it won't take (one only this network knows,
+        // say): the message goes without its links rather than not at all.
+        private static bool HasLinks(InteractionReply message) => message.Buttons?.Any(b => b.Url != null) == true;
+
+        private static void DropLinks(InteractionReply message) => message.Buttons.RemoveAll(b => b.Url != null);
+
+        private async Task<ulong> SendOnceAsync(ulong channelId, InteractionReply message)
+        {
             if (await ChannelAsync(channelId) is not IMessageChannel channel)
             {
                 throw new InvalidOperationException($"Channel {channelId} is not a text channel");
@@ -223,7 +255,7 @@ namespace Requestarr.Core.Discord.Gateway
             }
         }
 
-        public async Task<bool> EditMessageAsync(ulong channelId, ulong messageId, InteractionReply message)
+        private async Task<bool> EditOnceAsync(ulong channelId, ulong messageId, InteractionReply message)
         {
             if (await ChannelAsync(channelId) is not IMessageChannel channel ||
                 await channel.GetMessageAsync(messageId) is not IUserMessage existing)

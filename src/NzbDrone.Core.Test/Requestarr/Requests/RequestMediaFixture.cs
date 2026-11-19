@@ -63,14 +63,30 @@ namespace Requestarr.Core.Test.Requests
         }
 
         [Test]
-        public async Task a_sonarr_or_radarr_that_cant_be_reached_is_tried_again_next_time()
+        public async Task a_sonarr_or_radarr_that_cant_be_reached_is_asked_once_a_run_and_tried_again_next_time()
         {
             var movie = Insert(ContentType.Movie, 9495, null);
+            Insert(ContentType.Movie, 603, null);
             Mocker.GetMock<IRadarrApi>().Setup(r => r.LookupTmdbAsync(It.IsAny<BackendSettings>(), It.IsAny<int>())).ThrowsAsync(new BackendException("unreachable"));
 
             (await Subject.FillAsync()).Should().Be(0);
 
             Mocker.Resolve<IRequestRepository>().Get(movie.Id).Media.Should().BeNull();
+            Mocker.GetMock<IRadarrApi>().Verify(r => r.LookupTmdbAsync(It.IsAny<BackendSettings>(), It.IsAny<int>()), Times.Once(), "the rest of its requests wait for the next run");
+        }
+
+        [Test]
+        public async Task a_title_radarr_answers_it_cant_find_is_marked_looked_up()
+        {
+            var movie = Insert(ContentType.Movie, 999999901, null);
+            var request = new NzbDrone.Common.Http.HttpRequest("http://radarr:7878/api/v3/movie/lookup/tmdb");
+            var answer = new NzbDrone.Common.Http.HttpResponse(request, new NzbDrone.Common.Http.HttpHeader(), new System.Net.CookieCollection(), "Not found", statusCode: System.Net.HttpStatusCode.NotFound);
+            Mocker.GetMock<IRadarrApi>().Setup(r => r.LookupTmdbAsync(It.IsAny<BackendSettings>(), It.IsAny<int>()))
+                .ThrowsAsync(new BackendException("not found", new NzbDrone.Common.Http.HttpException(answer)));
+
+            (await Subject.FillAsync()).Should().Be(1);
+
+            Mocker.Resolve<IRequestRepository>().Get(movie.Id).Media.Should().NotBeNull("Radarr answered: never asked again");
         }
 
         [Test]
@@ -86,6 +102,10 @@ namespace Requestarr.Core.Test.Requests
             var reachable = new BackendInstance { Implementation = BackendImplementations.Radarr, Settings = new BackendSettings { Url = "http://192.168.1.5:7878" } };
             TitleLinks.Open(reachable, movie).Should().Be("http://192.168.1.5:7878/movie/9495", "an older request without a slug goes by its The Movie Database ID");
             TitleLinks.Open(SonarrInstance, new Request { ContentType = ContentType.Tv, TvdbId = 1, Status = RequestStatus.NotInLibrary, Media = media }).Should().BeNull("not in the library");
+            TitleLinks.Open(SonarrInstance, new Request { ContentType = ContentType.Tv, TvdbId = 1, ExternalItemId = 22, Status = RequestStatus.Removed, Media = media }).Should().BeNull("removed from the library");
+
+            var withBase = new BackendInstance { Implementation = BackendImplementations.Sonarr, Settings = new BackendSettings { Url = "http://sonarr:8989", BrowserUrl = "https://nas.example/sonarr/?x=1" } };
+            TitleLinks.Open(withBase, show).Should().Be("https://nas.example/sonarr/series/breaking-bad", "the URL base is kept and any query left out");
 
             TitleLinks.Page(show).Should().Be("https://www.thetvdb.com/?tab=series&id=81189");
             TitleLinks.Page(movie).Should().Be("https://www.themoviedb.org/movie/9495");

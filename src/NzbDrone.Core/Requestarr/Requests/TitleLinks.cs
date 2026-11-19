@@ -8,13 +8,13 @@ namespace Requestarr.Core.Requests
     // Where an admin opens a request's title: its page in Sonarr or Radarr, and on The Movie Database or TheTVDB.
     public static class TitleLinks
     {
-        // The instance's page for the title, when it's in that library and a browser can reach the instance: its
+        // The instance's page for the title, while it's in that library and a browser can reach the instance: its
         // browser address when set, else its own address unless that's a bare container name (http://sonarr:8989).
         public static string Open(BackendInstance instance, Request request)
         {
             var root = instance == null ? null : BrowserRoot(instance.Settings);
 
-            if (root == null || request.ExternalItemId == null || request.Status == RequestStatus.NotInLibrary)
+            if (root == null || request.ExternalItemId == null || request.Status is RequestStatus.NotInLibrary or RequestStatus.Removed)
             {
                 return null;
             }
@@ -31,14 +31,16 @@ namespace Requestarr.Core.Requests
 
         public static string BrowserRoot(BackendSettings settings)
         {
-            var address = string.IsNullOrWhiteSpace(settings?.BrowserUrl) ? settings?.Url : settings.BrowserUrl;
+            var hasBrowserUrl = !string.IsNullOrWhiteSpace(settings?.BrowserUrl);
+            var address = hasBrowserUrl ? settings.BrowserUrl : settings?.Url;
 
-            if (!Uri.TryCreate(address?.Trim(), UriKind.Absolute, out var uri) || (string.IsNullOrWhiteSpace(settings.BrowserUrl) && !Reachable(uri)))
+            if (!Uri.TryCreate(address?.Trim(), UriKind.Absolute, out var uri) || (!hasBrowserUrl && !Reachable(uri)))
             {
                 return null;
             }
 
-            return uri.ToString().TrimEnd('/');
+            // Its address up to the path (a URL base kept, any query left out), still escaped.
+            return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
         }
 
         // The title on The Movie Database (movies, and shows known only there) or TheTVDB.

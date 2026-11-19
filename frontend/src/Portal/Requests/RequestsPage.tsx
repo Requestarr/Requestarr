@@ -105,15 +105,16 @@ interface RequestsListProps {
 
 // The requests, already sorted, in the view chosen.
 function Shown({ requests, view, sort }: RequestsListProps) {
-  if (view === 'overview') {
-    return <RequestsOverview requests={requests} />;
+  switch (view) {
+    case 'overview':
+      return <RequestsOverview requests={requests} />;
+    case 'posters':
+      return <RequestsPosters requests={requests} />;
+    default:
+      return (
+        <RequestsTable requests={requests} withPosters={true} sort={sort} />
+      );
   }
-
-  return view === 'posters' ? (
-    <RequestsPosters requests={requests} />
-  ) : (
-    <RequestsTable requests={requests} withPosters={true} sort={sort} />
-  );
 }
 
 function RequestsList({ requests, view, sort }: RequestsListProps) {
