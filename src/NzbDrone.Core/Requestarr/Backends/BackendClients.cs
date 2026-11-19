@@ -239,7 +239,7 @@ namespace Requestarr.Core.Backends
             var webhooks = await WebhooksAsync(settings);
             var ours = webhooks.FirstOrDefault(n => IsOurs(n, TokenOf(url))) ?? webhooks.FirstOrDefault(n => IsRequestarrNamed(n) && AddressOf(UrlOf(n)) == AddressOf(url));
 
-            if (ours == null && webhooks.Any(n => (string)n["name"] == name))
+            if (webhooks.Any(n => n != ours && (string)n["name"] == name))
             {
                 throw new BackendException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, choose Beta under Settings, then Discord: This server is.");
             }
