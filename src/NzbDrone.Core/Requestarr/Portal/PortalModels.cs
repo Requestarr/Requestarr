@@ -26,7 +26,7 @@ namespace Requestarr.Core.Portal
     public record PortalTitleRemoval(string Title, PortalRemoval Removal);
 
     // Actions: what an admin can do to it now, as its feed card in Discord offers (approve, deny, available, cancel,
-    // searchAgain, retry, addSeasons, remove, forceRemoval, dropRemoval). HistoryTrimmedAfter: how long the audit log keeps
+    // searchAgain, retry, addSeasons, remove, forceRemoval or deletedByHand, dropRemoval). HistoryTrimmedAfter: how long the audit log keeps
     // an entry now ("1 year", or "forever" once trimmed before) when its first events were trimmed; otherwise null.
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,
                                       PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions, string HistoryTrimmedAfter);

@@ -29,6 +29,7 @@ namespace Requestarr.Core.Portal
         Task<IReadOnlyList<PortalLibraryTitle>> SearchLibraryAsync(string term);
         Task<ServiceResult> ForceRemovalAsync(int removalId, Actor admin);
         Task<ServiceResult> DropRemovalAsync(int removalId, Actor admin);
+        Task<ServiceResult> DeletedByHandAsync(int removalId, Actor admin);
 
         Task<ServiceResult> CheckInstanceAsync(int instanceId);
         Task<ServiceResult> AnnounceOutageAsync(int instanceId, Actor admin);
@@ -114,6 +115,8 @@ namespace Requestarr.Core.Portal
         public Task<ServiceResult> ForceRemovalAsync(int removalId, Actor admin) => _removals.ForceAsync(removalId, admin, NameOf(admin), admin.UserId);
 
         public Task<ServiceResult> DropRemovalAsync(int removalId, Actor admin) => _removals.DropAsync(removalId, admin, NameOf(admin), admin.UserId);
+
+        public Task<ServiceResult> DeletedByHandAsync(int removalId, Actor admin) => _removals.DeletedByHandAsync(removalId, admin, NameOf(admin), admin.UserId);
 
         // Check now, as the waiting instance's card has it in Discord.
         public async Task<ServiceResult> CheckInstanceAsync(int instanceId)

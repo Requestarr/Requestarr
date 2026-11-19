@@ -51,6 +51,8 @@ removal:
   voteDays: 7
   requesterTimeoutDays: 7
   reminderDay: 5
+  # The test stacks' Sonarr and Radarr hold only test titles, so removals delete there (off by default elsewhere).
+  deleteFiles: true
 
 # How long the audit log keeps an entry: 90 days, 6 months, 1 year (the default), 2 years or forever. Older entries
 # are removed once a day; requests, members and removals stay.

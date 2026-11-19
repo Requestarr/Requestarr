@@ -30,6 +30,7 @@ export const REQUEST_SECTIONS: SettingsSection[] = [
       ['removalVoteDays', 'number'],
       ['removalRequesterTimeoutDays', 'number'],
       ['removalReminderDay', 'number'],
+      ['removalDeleteFiles', 'check'],
     ],
   },
   {

@@ -57,7 +57,13 @@ namespace Requestarr.Core.Removals
         Task<ServiceResult> ForceAsync(int proposalId, Actor admin, string adminName, int? adminUserId);
         Task<ServiceResult> DropAsync(int proposalId, Actor admin, string adminName, int? adminUserId);
 
+        // An agreed removal waiting while deleting files is off: the admin deleted it by hand.
+        Task<ServiceResult> DeletedByHandAsync(int proposalId, Actor admin, string adminName, int? adminUserId);
+
         Task TickAsync();
+
+        // Whether removals may delete in Sonarr or Radarr on this server (IRemovalSettings.DeleteFiles).
+        bool DeletesFiles { get; }
     }
 
     public class RemovalService : IRemovalService, IExecute<RemovalCheckCommand>
@@ -345,6 +351,11 @@ namespace Requestarr.Core.Removals
                 return ServiceResult.Fail(proposal == null ? DiscordText.RemovalNotFound : DiscordText.RemovalAlreadyMoved(proposal));
             }
 
+            if (proposal.Status == RemovalStatus.DeleteByHand && !_settings.DeleteFiles)
+            {
+                return ServiceResult.Fail(DiscordText.RemovalAlreadyByHand(proposal));
+            }
+
             _audit.Record(admin, "removal.force", "removal", proposal.Id.ToString(), $"{Scope(proposal)} forced by {adminName} at {Clock():u} (was {proposal.Status}, {_flags.ForProposal(proposal.Id).Count} keep flag(s))");
             return await DeleteNow(proposal, admin, adminName, adminUserId);
         }
@@ -471,7 +482,7 @@ namespace Requestarr.Core.Removals
 
             // One open removal per title and season scope: the whole title overlaps everything, and
             // seasons overlap when they share one; different seasons can run side by side.
-            var open = _proposals.WithStatus(RemovalStatus.AwaitingRequester, RemovalStatus.Voting, RemovalStatus.Declined, RemovalStatus.Flagged, RemovalStatus.Failed)
+            var open = _proposals.WithStatus(RemovalStatus.AwaitingRequester, RemovalStatus.Voting, RemovalStatus.Declined, RemovalStatus.Flagged, RemovalStatus.Failed, RemovalStatus.DeleteByHand)
                 .FirstOrDefault(p => p.Overlaps(target.Instance.Id, target.Title.Id, scope));
 
             if (open != null)
@@ -574,6 +585,11 @@ namespace Requestarr.Core.Removals
                     throw new BackendException(DiscordText.RemovalInstanceGone);
                 }
 
+                if (!_settings.DeleteFiles)
+                {
+                    return await WaitForDeleteByHand(proposal, instance, admin, adminName, adminUserId);
+                }
+
                 if (proposal.WholeTitle)
                 {
                     await _backends.ApiFor(instance).DeleteItemAsync(instance.Settings, proposal.ExternalItemId.Value);
@@ -612,6 +628,52 @@ namespace Requestarr.Core.Removals
             await PostResults(proposal);
             await Changed(proposal);
             return ServiceResult.Ok(DiscordText.RemovalDone(proposal, instance.Name));
+        }
+
+        // Deleting files is off on this server: everything a deletion does except deleting. The vote is closed, the
+        // outcome recorded and everyone asked is told, and the admin queue gets it to delete by hand. The requests stay
+        // until the admin says it's gone.
+        private async Task<ServiceResult> WaitForDeleteByHand(RemovalProposal proposal, Backends.BackendInstance instance, Actor admin, string adminName, int? adminUserId)
+        {
+            proposal.Status = RemovalStatus.DeleteByHand;
+            proposal.Closed = Clock();
+            proposal.ClosedByUserId = adminUserId;
+            proposal.ClosedByName = adminName;
+            Save(proposal);
+            var how = admin != null ? $"forced by {adminName}" : "by vote";
+            _audit.Record(admin ?? Actor.System, "removal.delete-by-hand", "removal", proposal.Id.ToString(), $"{Scope(proposal)} agreed ({how}); deleting files is off on this server, so it waits for an admin to delete it from {instance.Name}");
+
+            await PostResults(proposal);
+            await Changed(proposal);
+            return ServiceResult.Ok(DiscordText.RemovalDeleteByHand(proposal, instance.Name));
+        }
+
+        public bool DeletesFiles => _settings.DeleteFiles;
+
+        public async Task<ServiceResult> DeletedByHandAsync(int proposalId, Actor admin, string adminName, int? adminUserId)
+        {
+            var proposal = _proposals.Find(proposalId);
+
+            if (proposal?.Status != RemovalStatus.DeleteByHand)
+            {
+                return ServiceResult.Fail(proposal == null ? DiscordText.RemovalNotFound : DiscordText.RemovalAlreadyMoved(proposal));
+            }
+
+            // Who forced it, if anyone, stays on it; otherwise it was the vote.
+            proposal.Status = proposal.ClosedByName != null ? RemovalStatus.Forced : RemovalStatus.Deleted;
+            proposal.Closed = Clock();
+            Save(proposal);
+            var instance = _backends.Find(proposal.BackendId ?? 0);
+            _audit.Record(admin, "removal.deleted-by-hand", "removal", proposal.Id.ToString(), $"{Scope(proposal)} deleted from {instance?.Name ?? "Sonarr or Radarr"} by hand, said {adminName}");
+
+            foreach (var request in _requests.ForTitle(proposal.ContentType, proposal.ExternalId ?? 0).Where(r => r.BackendId == proposal.BackendId && r.IsActive).ToList())
+            {
+                await _requestService.ApplyRemovalAsync(request, proposal.Seasons, DiscordText.RemovalNote(proposal));
+            }
+
+            await PostResults(proposal);
+            await Changed(proposal);
+            return ServiceResult.Ok(DiscordText.RemovalDeletedByHand(proposal));
         }
 
         // Everyone prompted, and the requester, get their message reposted with the outcome, no buttons.

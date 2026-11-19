@@ -73,6 +73,7 @@ namespace Requestarr.Core.Availability
         private readonly IConfigFileProvider _config;
         private readonly IDiscordGuildGateway _gateway;
         private readonly IEventAggregator _events;
+        private readonly Announcements.IReleaseEnvironment _environment;
         private readonly Logger _logger;
 
         // One check at a time, so a webhook and the poll arriving together report a change once.
@@ -89,6 +90,7 @@ namespace Requestarr.Core.Availability
                                    IConfigFileProvider config,
                                    IDiscordGuildGateway gateway,
                                    IEventAggregator events,
+                                   Announcements.IReleaseEnvironment environment,
                                    Logger logger)
         {
             _requests = requests;
@@ -100,6 +102,7 @@ namespace Requestarr.Core.Availability
             _config = config;
             _gateway = gateway;
             _events = events;
+            _environment = environment;
             _logger = logger;
         }
 
@@ -293,6 +296,9 @@ namespace Requestarr.Core.Availability
             _events.PublishEvent(new AvailabilityWebhooksCheckedEvent());
         }
 
+        // This Requestarr's connection in Sonarr and Radarr: "Requestarr Beta (availability)" on beta.
+        private string WebhookName => ArrApiBase.WebhookNameFor(_environment.IconSet);
+
         // One instance: polling only (or no address for Requestarr) removes the webhook; otherwise
         // it's created or updated and tested, and a failed test is recorded as a problem.
         private async Task SetUpWebhookAsync(BackendInstance instance, string baseUrl)
@@ -303,7 +309,7 @@ namespace Requestarr.Core.Availability
             {
                 _problems.TryRemove(instance.Name, out _);
 
-                if (await api.RemoveWebhookAsync(instance.Settings))
+                if (await api.RemoveWebhookAsync(instance.Settings, WebhookName))
                 {
                     _logger.Info("Removed Requestarr's webhook from {0} (polling only)", instance.Name);
                 }
@@ -311,14 +317,14 @@ namespace Requestarr.Core.Availability
                 return;
             }
 
-            var change = await api.EnsureWebhookAsync(instance.Settings, WebhookTokens.Url(baseUrl, _config.ApiKey, instance.Id));
+            var change = await api.EnsureWebhookAsync(instance.Settings, WebhookName, WebhookTokens.Url(baseUrl, _config.ApiKey, instance.Id));
 
             if (change != WebhookChange.Unchanged)
             {
                 _logger.Info("{0} Requestarr's webhook on {1}", change, instance.Name);
             }
 
-            var error = await api.TestWebhookAsync(instance.Settings);
+            var error = await api.TestWebhookAsync(instance.Settings, WebhookName);
 
             if (error == null)
             {

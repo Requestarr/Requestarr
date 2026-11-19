@@ -156,7 +156,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             return new InteractionReply
             {
-                Content = DiscordText.RemovalConfirmForce(proposal.Label, proposal.Seasons),
+                Content = DiscordText.RemovalConfirmForce(proposal.Label, proposal.Seasons, _removals.DeletesFiles),
                 Buttons = new List<InteractionButton>
                 {
                     new() { CustomId = $"{WalkRoutes.Do}:rm-force-yes:{at.Ticks}:{at.Key}", Label = DiscordText.ConfirmDeleteLabel, Style = ButtonStyle.Danger },
@@ -190,6 +190,8 @@ namespace Requestarr.Core.Discord.Handlers
                     return await _removals.ForceAsync(id, actor, adminName, actor.UserId);
                 case "rm-drop":
                     return await _removals.DropAsync(id, actor, adminName, actor.UserId);
+                case "rm-hand":
+                    return await _removals.DeletedByHandAsync(id, actor, adminName, actor.UserId);
                 case "check":
                 {
                     var instance = _backends.Find(id);
@@ -387,9 +389,11 @@ namespace Requestarr.Core.Discord.Handlers
             var flaggers = _removals.FlagsOn(proposal.Id).Select(f => _userStore.Find(f.UserId)?.DisplayName ?? $"user {f.UserId}").ToList();
             var requester = proposal.RequesterUserId.HasValue ? _userStore.Find(proposal.RequesterUserId.Value)?.DisplayName : null;
 
-            lines.Add(DiscordText.RemovalWaiting(proposal, requester ?? "the requester", flaggers));
+            lines.Add(DiscordText.RemovalWaiting(proposal, requester ?? "the requester", flaggers, _backends.Find(proposal.BackendId ?? 0)?.Name));
             reply.Embeds.Add(new InteractionEmbed { Title = proposal.Label, ThumbnailUrl = proposal.PosterUrl, Color = RequestCards.PendingColor, Footer = DiscordText.RemovalFeedFooter(proposal) });
-            reply.Buttons.Add(ActionButton("rm-force", at, DiscordText.ForceRemovalLabel, ButtonStyle.Danger));
+            reply.Buttons.Add(proposal.Status == RemovalStatus.DeleteByHand
+                ? ActionButton("rm-hand", at, DiscordText.DeletedByHandLabel, ButtonStyle.Primary)
+                : ActionButton("rm-force", at, DiscordText.ForceRemovalLabel, ButtonStyle.Danger));
             reply.Buttons.Add(ActionButton("rm-drop", at, DiscordText.DropRemovalLabel, ButtonStyle.Secondary));
         }
 

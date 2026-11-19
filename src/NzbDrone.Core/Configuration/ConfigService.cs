@@ -93,6 +93,19 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("RemovalRequesterTimeoutDays", value); }
         }
 
+        // Off until an admin turns it on: a server sharing its Sonarr and Radarr must never lose files to a mistake.
+        public bool RemovalDeleteFiles
+        {
+            get { return GetValueBoolean("RemovalDeleteFiles", false); }
+            set { SetValue("RemovalDeleteFiles", value); }
+        }
+
+        public string LastRunVersion
+        {
+            get { return GetValue("LastRunVersion"); }
+            set { SetValue("LastRunVersion", value ?? string.Empty); }
+        }
+
         public int RemovalReminderDay
         {
             get { return GetValueInt("RemovalReminderDay", Requestarr.Core.Removals.RemovalSettings.DefaultReminderDay); }
