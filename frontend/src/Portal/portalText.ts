@@ -5,6 +5,7 @@ import {
   ContentType,
   MemberStatus,
   PortalAccess,
+  PortalMember,
   PortalRequest,
   RequestStatus,
 } from './PortalTypes';
@@ -64,6 +65,13 @@ export function contentTypeText(type: ContentType) {
 
 export function accessStateText(state: AccessState) {
   return translate(ACCESS[state]);
+}
+
+// "Movies 80 · TV 21": how many of a member's requests are of each type.
+export function byTypeText(member: PortalMember) {
+  return member.byType
+    .map((t) => `${contentTypeText(t.contentType)} ${t.count}`)
+    .join(' · ');
 }
 
 export function memberStatusText(status: MemberStatus) {

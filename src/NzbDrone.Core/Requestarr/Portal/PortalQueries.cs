@@ -85,7 +85,7 @@ namespace Requestarr.Core.Portal
 
         public IReadOnlyList<PortalRequest> Requests()
         {
-            var rows = new Rows(Names(), Backends(), _subscribers.All());
+            var rows = new Rows(Names(), Avatars(), Backends(), _subscribers.All());
 
             return _requests.All().OrderByDescending(r => r.Requested).Select(rows.Of).ToList();
         }
@@ -101,7 +101,7 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var latest = _removals.LatestFor(id);
-            var row = new Rows(names, Backends(), _subscribers.ForRequest(id)).Of(request);
+            var row = new Rows(names, Avatars(), Backends(), _subscribers.ForRequest(id)).Of(request);
             var removal = latest == null ? null : Removal(latest, names);
 
             return new PortalRequestDetail(
@@ -125,10 +125,11 @@ namespace Requestarr.Core.Portal
             // Only follows of requests that still exist, as the member's own page lists them.
             var following = _subscribers.All().Where(s => ids.Contains(s.RequestId)).ToLookup(s => s.UserId);
             var instances = Instances();
+            var avatars = Avatars();
 
             return _users.All()
                 .OrderBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .Select(u => Member(u, requests[u.Id].ToList(), following[u.Id].Count(), instances))
+                .Select(u => Member(u, requests[u.Id].ToList(), following[u.Id].ToList(), instances, avatars))
                 .ToList();
         }
 
@@ -143,10 +144,12 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var instances = Instances();
-            var rows = new Rows(names, Backends(), _subscribers.All());
+            var avatars = Avatars();
+            var rows = new Rows(names, avatars, Backends(), _subscribers.All());
             var all = _requests.All().ToDictionary(r => r.Id);
             var own = all.Values.Where(r => r.OwnerUserId == id).OrderByDescending(r => r.Requested).ToList();
-            var following = _subscribers.ForUser(id).Select(s => all.GetValueOrDefault(s.RequestId)).Where(r => r != null).ToList();
+            var follows = _subscribers.ForUser(id).Where(s => all.ContainsKey(s.RequestId)).ToList();
+            var following = follows.Select(s => all[s.RequestId]).ToList();
             var removals = _proposals.All().Where(p => p.RequesterUserId == id || p.InitiatedByUserId == id).OrderByDescending(p => p.Created).Select(p => Removal(p, names)).ToList();
             var discordNames = PortalText.DiscordNames(_identities.All(), names);
             var history = _audit.ForTarget("user", id.ToString()).OrderBy(e => e.Timestamp).Select(e => PortalText.Event(e, names, discordNames)).ToList();
@@ -154,7 +157,7 @@ namespace Requestarr.Core.Portal
             var importedFrom = user.IsImported ? user.ImportedFrom ?? Imports.RequestrrSource.SourceName : null;
 
             return new PortalMemberDetail(
-                Member(user, own, following.Count, instances),
+                Member(user, own, follows, instances, avatars),
                 own.Select(rows.Of).ToList(),
                 following.Select(rows.Of).ToList(),
                 removals,
@@ -167,8 +170,11 @@ namespace Requestarr.Core.Portal
         public IReadOnlyList<PortalQueueItem> Queue()
         {
             var names = Names();
+            var avatars = Avatars();
 
-            return _queue.Items().Select(i => QueueItem(i, names)).Where(i => i != null).ToList();
+            return _queue.Items().Select(i => QueueItem(i, names)).Where(i => i != null)
+                .Select(i => i.MemberId.HasValue ? i with { WhoAvatar = avatars.GetValueOrDefault(i.MemberId.Value) } : i)
+                .ToList();
         }
 
         public IReadOnlyList<PortalTitleRemoval> TitleRemovals()
@@ -203,14 +209,44 @@ namespace Requestarr.Core.Portal
             return events.OrderBy(e => e.At).ToList();
         }
 
-        private PortalMember Member(RequestarrUser user, IReadOnlyCollection<Request> requests, int following, Dictionary<int, string> instances)
+        private PortalMember Member(
+            RequestarrUser user,
+            IReadOnlyCollection<Request> requests,
+            IReadOnlyCollection<RequestSubscriber> follows,
+            Dictionary<int, string> instances,
+            Dictionary<int, string> avatars)
         {
             var discord = _identities.GetForUser(user.Id).FirstOrDefault(i => i.Provider == UserIdentity.DiscordProvider);
             var access = _access.GetForUser(user.Id).OrderBy(a => a.ContentType).Select(a => Access(a, instances)).ToList();
             var active = requests.Count(r => r.IsActive);
             var pending = requests.Count(r => r.Status == RequestStatus.Pending);
+            var asked = requests.Select(r => r.Requested).ToList();
+            var byType = requests.GroupBy(r => r.ContentType).OrderBy(g => g.Key).Select(g => new PortalTypeCount(g.Key, g.Count())).ToList();
 
-            return new PortalMember(user.Id, user.DisplayName, discord?.Username, discord?.ExternalId, user.Status, user.Added, access, requests.Count, active, pending, following);
+            return new PortalMember(
+                user.Id,
+                user.DisplayName,
+                discord?.Username,
+                discord?.ExternalId,
+                user.Status,
+                FirstSeen(user, asked, follows),
+                access,
+                requests.Count,
+                active,
+                pending,
+                follows.Count,
+                avatars.GetValueOrDefault(user.Id),
+                asked.Count > 0 ? asked.Min() : null,
+                asked.Count > 0 ? asked.Max() : null,
+                byType);
+        }
+
+        // Someone known only from an import first appears in Requestarr's history with their earliest request or follow.
+        private static DateTime FirstSeen(RequestarrUser user, IReadOnlyCollection<DateTime> asked, IEnumerable<RequestSubscriber> follows)
+        {
+            var dates = asked.Concat(follows.Select(f => f.Added)).ToList();
+
+            return user.IsImported && dates.Count > 0 ? dates.Min() : user.Added;
         }
 
         private static PortalAccess Access(UserMediaAccess access, Dictionary<int, string> instances)
@@ -309,6 +345,10 @@ namespace Requestarr.Core.Portal
 
         private Dictionary<int, string> Names() => _users.All().ToDictionary(u => u.Id, u => u.DisplayName);
 
+        // Each member's Discord picture, by member.
+        private Dictionary<int, string> Avatars() =>
+            _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider && i.AvatarUrl != null).GroupBy(i => i.UserId).ToDictionary(g => g.Key, g => g.First().AvatarUrl);
+
         private Dictionary<int, string> Instances() => _backends.All().ToDictionary(b => b.Id, b => b.Name);
 
         private Dictionary<int, BackendInstance> Backends() => _backends.All().ToDictionary(b => b.Id);
@@ -317,12 +357,14 @@ namespace Requestarr.Core.Portal
         private sealed class Rows
         {
             private readonly Dictionary<int, string> _names;
+            private readonly Dictionary<int, string> _avatars;
             private readonly Dictionary<int, BackendInstance> _instances;
             private readonly ILookup<int, RequestSubscriber> _followers;
 
-            public Rows(Dictionary<int, string> names, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers)
+            public Rows(Dictionary<int, string> names, Dictionary<int, string> avatars, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers)
             {
                 _names = names;
+                _avatars = avatars;
                 _instances = instances;
                 _followers = followers.ToLookup(s => s.RequestId);
             }
@@ -368,7 +410,7 @@ namespace Requestarr.Core.Portal
                     open == null ? null : instance.Implementation);
             }
 
-            private PortalPerson Person(int userId) => new(userId, _names.GetValueOrDefault(userId));
+            private PortalPerson Person(int userId) => new(userId, _names.GetValueOrDefault(userId), _avatars.GetValueOrDefault(userId));
         }
     }
 }

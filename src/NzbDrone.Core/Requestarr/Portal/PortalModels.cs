@@ -8,7 +8,8 @@ namespace Requestarr.Core.Portal
 {
     // What the admin portal's pages show (docs/admin-portal.md): read views of requests, members and the queue, built
     // from Requestarr's own records. Names are as Discord shows them.
-    public record PortalPerson(int Id, string Name);
+    // Avatar: their Discord picture's address, or null for Discord's default one.
+    public record PortalPerson(int Id, string Name, string Avatar);
 
     // One request: its requester, and everyone who asked for the same title after them (its followers).
     public record PortalRequest(int Id, string Title, int? Year, ContentType ContentType, RequestStatus Status, DownloadProgress Progress, PortalPerson Requester,
@@ -40,8 +41,14 @@ namespace Requestarr.Core.Portal
     // A member's access to one content type: its level, their limit (requests per so many days) and their instance.
     public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays, string Instance);
 
+    // Added: when they were added, or for someone known only from an import, when they first asked for anything (the
+    // import itself is just when Requestarr heard of it). FirstRequest and LastRequest: their own requests'; ByType: how
+    // many of their requests are of each type.
     public record PortalMember(int Id, string Name, string DiscordName, string DiscordId, UserStatus Status, DateTime Added, IReadOnlyList<PortalAccess> Access,
-                               int Requests, int Active, int Pending, int Following);
+                               int Requests, int Active, int Pending, int Following, string Avatar, DateTime? FirstRequest, DateTime? LastRequest,
+                               IReadOnlyList<PortalTypeCount> ByType);
+
+    public record PortalTypeCount(ContentType ContentType, int Count);
 
     // MediaServer: the linked account ("Plex: name"), or null. HistoryTrimmedAfter: as on a request's page.
     // ImportedFrom: where an imported person's history came from ("#media-requests in The CheaZiest"), or null.
@@ -51,5 +58,5 @@ namespace Requestarr.Core.Portal
 
     // One thing waiting on an admin, as the admin channel's queue has it. Kind: request, trouble, mediaServerLink,
     // instanceDown, removal or accessRequest; RequestId or MemberId says which page it opens.
-    public record PortalQueueItem(string Key, string Kind, DateTime Since, string Title, string Who, int? RequestId, int? MemberId);
+    public record PortalQueueItem(string Key, string Kind, DateTime Since, string Title, string Who, int? RequestId, int? MemberId, string WhoAvatar = null);
 }

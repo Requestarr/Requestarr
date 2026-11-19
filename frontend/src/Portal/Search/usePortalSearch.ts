@@ -13,6 +13,7 @@ export interface SearchItem {
   detail: string | null;
   path: string;
   media?: PortalMedia | null;
+  avatar?: string | null;
 }
 
 // The header search's results as one list, requests first then members, each with the page it opens.
@@ -34,6 +35,7 @@ export function searchItems(results?: PortalSearchResults): SearchItem[] {
     label: member.name,
     detail: member.discordName ? `@${member.discordName}` : null,
     path: `/members/${member.id}`,
+    avatar: member.avatar,
   }));
 
   return [...requests, ...members];

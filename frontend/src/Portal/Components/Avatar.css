@@ -1,0 +1,13 @@
+.small {
+  margin-right: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.large {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+}

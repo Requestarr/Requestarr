@@ -29,7 +29,7 @@ namespace Requestarr.Core.Test.Polish
             Field(card, "Runtime").Should().Be("2 h 35 min");
             Field(card, "Studio").Should().Be("Legendary Pictures");
             Field(card, "Status").Should().Be("Released");
-            Field(card, "Released").Should().Be("In cinemas 15 Sep 2021\nDigital 21 Oct 2021\nPhysical 22 Dec 2021");
+            Field(card, "Released").Should().Be("In theaters 15 Sep 2021\nDigital 21 Oct 2021\nPhysical 22 Dec 2021");
             Field(card, "Goes to").Should().Be("Radarr");
             embed.Footer.Should().BeNull();
         }
@@ -89,6 +89,14 @@ namespace Requestarr.Core.Test.Polish
 
             embed.ThumbnailUrl.Should().Be(item.PosterUrl);
             embed.ImageUrl.Should().BeNull();
+        }
+
+        [Test]
+        public void release_dates_read_in_theaters_and_in_date_order()
+        {
+            DiscordText.Released(new System.DateTime(2021, 9, 15), new System.DateTime(2021, 12, 22), new System.DateTime(2021, 10, 21))
+                .Should().Be("In theaters 15 Sep 2021\nPhysical 21 Oct 2021\nDigital 22 Dec 2021");
+            DiscordText.Capitalize("inCinemas").Should().Be("In theaters");
         }
     }
 }

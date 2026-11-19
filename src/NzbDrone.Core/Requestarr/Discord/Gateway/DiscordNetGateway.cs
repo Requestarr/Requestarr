@@ -41,6 +41,13 @@ namespace Requestarr.Core.Discord.Gateway
             return member == null ? null : ToMember(member);
         }
 
+        public async Task<GuildMember> GetUserAsync(ulong userId)
+        {
+            var user = await Client.Rest.GetUserAsync(userId);
+
+            return user == null ? null : new GuildMember(user.Id, user.Username, user.GlobalName ?? user.Username, user.GetDisplayAvatarUrl(), user.IsBot, Array.Empty<ulong>());
+        }
+
         public async Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit)
         {
             var found = await ((IGuild)RequireGuild()).SearchUsersAsync(query, limit, CacheMode.AllowDownload);

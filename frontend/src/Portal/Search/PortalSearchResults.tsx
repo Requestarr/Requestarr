@@ -2,6 +2,7 @@ import classNames from 'classnames';
 import React from 'react';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
+import Avatar from '../Components/Avatar';
 import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
 import { SearchItem } from './usePortalSearch';
 import styles from './PortalSearch.css';
@@ -10,6 +11,17 @@ interface ResultProps {
   item: SearchItem;
   isHighlighted: boolean;
   onOpen: () => void;
+}
+
+// A request's poster, or a member's Discord picture.
+function ResultPicture({ item }: { item: SearchItem }) {
+  if (item.media) {
+    return <RequestPoster url={item.media.poster} className={styles.poster} />;
+  }
+
+  return item.group === translate('PortalMembers') ? (
+    <Avatar url={item.avatar} />
+  ) : null;
 }
 
 // A request also shows its poster, and its page in Sonarr or Radarr beside it when a browser can reach that.
@@ -24,7 +36,7 @@ function Result({ item, isHighlighted, onOpen }: ResultProps) {
         to={item.path}
         onPress={onOpen}
       >
-        <RequestPoster url={item.media?.poster} className={styles.poster} />
+        <ResultPicture item={item} />
         <span className={styles.label}>{item.label}</span>
         {item.detail && <span className={styles.detail}>{item.detail}</span>}
       </Link>

@@ -17,7 +17,16 @@ namespace Requestarr.Core.Users
 {
     // Everything that identifies a person is their Discord ID; their names are only for showing, so they follow Discord:
     // on a rename, on any press, and at every start for a rename missed while the bot was offline.
-    public class MemberNameService : IHandleAsync<DiscordReadyEvent>, IHandleAsync<DiscordMemberSeenEvent>
+    public interface IMemberNameService
+    {
+        Task<bool> RefreshAsync(GuildMember member);
+
+        // Everyone's names and pictures read from Discord again (after a start, after an import); asked for while a
+        // catch-up is going, it runs once more when that one is done.
+        Task CatchUpAsync();
+    }
+
+    public class MemberNameService : IMemberNameService, IHandleAsync<DiscordReadyEvent>, IHandleAsync<DiscordMemberSeenEvent>
     {
         public const string RenameAction = "user.rename";
 
@@ -40,6 +49,10 @@ namespace Requestarr.Core.Users
 
         // One person's renames one at a time, so two events for the same rename record it once.
         private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _memberLocks = new();
+        private readonly SemaphoreSlim _catchingUp = new(1, 1);
+
+        // Asked for while a catch-up was going: it runs once more when that one is done.
+        private int _again;
 
         public MemberNameService(IRequestarrUserRepository users,
                                  IUserIdentityRepository identities,
@@ -88,6 +101,28 @@ namespace Requestarr.Core.Users
         // Everyone Requestarr shows by name: members, and everyone who asked to join (waiting, paused, turned down); every
         // member's channel and role are checked too, for a rename that failed earlier.
         public async Task CatchUpAsync()
+        {
+            Interlocked.Exchange(ref _again, 1);
+
+            if (!await _catchingUp.WaitAsync(0))
+            {
+                return;
+            }
+
+            try
+            {
+                while (Interlocked.Exchange(ref _again, 0) == 1)
+                {
+                    await CatchUpOnceAsync();
+                }
+            }
+            finally
+            {
+                _catchingUp.Release();
+            }
+        }
+
+        private async Task CatchUpOnceAsync()
         {
             var people = _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider).Select(i => i.ExternalId)
                 .Concat(_accessRequests.All().Select(r => r.DiscordUserId))
@@ -143,9 +178,44 @@ namespace Requestarr.Core.Users
             return user == null ? (null, false) : (user, Rename(user, identity, member));
         }
 
-        // Stores the names Discord has now; a change is a member event: 'from "X" to "Y"'.
+        // Someone not in this server. Known only from an import: their @handle, name and picture as Discord has them, so
+        // they're shown like everyone else; nothing they did, so no member event. Anyone else (a member who left) keeps
+        // the names they had here, and only their picture follows.
+        private async Task RefreshElsewhereAsync(ulong discordUserId)
+        {
+            var identity = _identities.Find(UserIdentity.DiscordProvider, discordUserId.ToString());
+
+            if (identity == null || await UserAsync(discordUserId) is not { } found)
+            {
+                return;
+            }
+
+            identity.AvatarUrl = found.AvatarUrl ?? identity.AvatarUrl;
+
+            if (_users.Find(identity.UserId) is { IsImported: true } user)
+            {
+                identity.Username = found.Username;
+                identity.DisplayName = found.DisplayName;
+
+                if (user.DisplayName != found.DisplayName)
+                {
+                    user.DisplayName = found.DisplayName;
+                    _users.SetFields(user, u => u.DisplayName);
+                }
+            }
+
+            _identities.SetFields(identity, i => i.Username, i => i.DisplayName, i => i.AvatarUrl);
+        }
+
+        // Stores the names Discord has now; a change is a member event: 'from "X" to "Y"'. A new picture is kept quietly.
         private bool Rename(RequestarrUser user, UserIdentity identity, GuildMember member)
         {
+            if (member.AvatarUrl != null && identity.AvatarUrl != member.AvatarUrl)
+            {
+                identity.AvatarUrl = member.AvatarUrl;
+                _identities.SetFields(identity, i => i.AvatarUrl);
+            }
+
             var changes = new List<string>();
 
             if (user.DisplayName != member.DisplayName)
@@ -228,8 +298,20 @@ namespace Requestarr.Core.Users
         // were renamed to match (none for someone not added, or who can't be read).
         private async Task<(bool Renamed, int Matched)> ReadAndMatchAsync(ulong discordUserId, int attempt)
         {
-            var member = await MemberAsync(discordUserId);
-            var (user, renamed) = member == null ? (null, false) : RefreshNames(member);
+            var (member, read) = await MemberAsync(discordUserId);
+
+            // Not read (Discord didn't answer): nothing changes. Not in this server: their details from Discord itself.
+            if (member == null)
+            {
+                if (read)
+                {
+                    await RefreshElsewhereAsync(discordUserId);
+                }
+
+                return (false, 0);
+            }
+
+            var (user, renamed) = RefreshNames(member);
 
             return (renamed, user == null ? 0 : await TryMatchAsync(user, member, attempt));
         }
@@ -264,18 +346,34 @@ namespace Requestarr.Core.Users
             return renamed;
         }
 
-        // Someone who left the server (or can't be read now) keeps the names they had.
-        private async Task<GuildMember> MemberAsync(ulong id)
+        // Someone Discord can't read now keeps the names and picture they had.
+        private async Task<GuildMember> UserAsync(ulong id)
         {
             try
             {
-                return await _gateway.GetMemberAsync(id);
+                return await _gateway.GetUserAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Couldn't read Discord user {0}", id);
+
+                return null;
+            }
+        }
+
+        // Someone who left the server (or can't be read now) keeps the names they had.
+        // Read: whether Discord answered (a member, or that they aren't one).
+        private async Task<(GuildMember Member, bool Read)> MemberAsync(ulong id)
+        {
+            try
+            {
+                return (await _gateway.GetMemberAsync(id), true);
             }
             catch (Exception ex)
             {
                 _logger.Warn(ex, "Couldn't read Discord member {0} to catch up their names", id);
 
-                return null;
+                return (null, false);
             }
         }
     }

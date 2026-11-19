@@ -35,17 +35,25 @@ function dated(key: string, date?: string | null) {
     : null;
 }
 
-// "In cinemas Nov 7, 2025 · Digital Dec 1, 2025" for a movie, "First aired Jan 20, 2008 · AMC" for a show.
+// "In theaters Nov 7, 2025 · Digital Dec 1, 2025" for a movie, in date order; "First aired Jan 20, 2008 · AMC" for a
+// show.
 export function releaseText(media?: PortalMedia | null) {
   if (!media) {
     return '';
   }
 
+  const releases: [string, string | null | undefined][] = [
+    ['PortalInTheaters', media.inCinemas],
+    ['PortalDigitalRelease', media.digitalRelease],
+    ['PortalPhysicalRelease', media.physicalRelease],
+    ['PortalFirstAired', media.firstAired],
+  ];
+
   return [
-    dated('PortalInCinemas', media.inCinemas),
-    dated('PortalDigitalRelease', media.digitalRelease),
-    dated('PortalPhysicalRelease', media.physicalRelease),
-    dated('PortalFirstAired', media.firstAired),
+    ...releases
+      .filter(([, date]) => date)
+      .sort(([, a], [, b]) => String(a).localeCompare(String(b)))
+      .map(([key, date]) => dated(key, date)),
     media.network,
   ]
     .filter(Boolean)

@@ -45,14 +45,17 @@ namespace Requestarr.Core.Test.Requests
             var missing = Insert(ContentType.Movie, 999999901, null);
             var known = Insert(ContentType.Movie, 603, null, new RequestMedia { Overview = "Kept", Checked = DateTime.UtcNow });
             Mocker.GetMock<IRadarrApi>().Setup(r => r.LookupTmdbAsync(It.IsAny<BackendSettings>(), 9495))
-                .ReturnsAsync(new MediaLookupResult { Overview = "A man returns.", PosterUrl = "https://image/crow.jpg", InCinemas = new DateTime(1994, 5, 11), TitleSlug = "the-crow-9495" });
+                .ReturnsAsync(new MediaLookupResult { Overview = "A man returns.", PosterUrl = "https://image/crow.jpg", InCinemas = new DateTime(1994, 5, 11, 0, 0, 0, DateTimeKind.Utc), TitleSlug = "the-crow-9495" });
             Mocker.GetMock<ISonarrApi>().Setup(s => s.LookupTvdbAsync(It.IsAny<BackendSettings>(), 81189))
-                .ReturnsAsync(new MediaLookupResult { Overview = "A teacher turns.", Network = "AMC", FirstAired = new DateTime(2008, 1, 20), TitleSlug = "breaking-bad" });
+                .ReturnsAsync(new MediaLookupResult { Overview = "A teacher turns.", Network = "AMC", FirstAired = new DateTime(2008, 1, 20, 0, 0, 0, DateTimeKind.Utc), TitleSlug = "breaking-bad" });
 
             (await Subject.FillAsync()).Should().Be(3);
 
             var stored = Mocker.Resolve<IRequestRepository>().All().ToDictionary(r => r.Id);
-            stored[movie.Id].Media.Should().BeEquivalentTo(new { Overview = "A man returns.", InCinemas = new DateTime(1994, 5, 11), TitleSlug = "the-crow-9495" }, o => o.ExcludingMissingMembers());
+            stored[movie.Id].Media.Should().BeEquivalentTo(new { Overview = "A man returns.", TitleSlug = "the-crow-9495" }, o => o.ExcludingMissingMembers());
+
+            // The same moment, however the stored date comes back (UTC or this machine's time).
+            stored[movie.Id].Media.InCinemas.Value.ToUniversalTime().Should().Be(new DateTime(1994, 5, 11, 0, 0, 0, DateTimeKind.Utc));
             stored[movie.Id].PosterUrl.Should().Be("https://image/crow.jpg");
             stored[show.Id].Media.Network.Should().Be("AMC");
             stored[missing.Id].Media.Overview.Should().BeNull("nothing found: looked up, never asked again");

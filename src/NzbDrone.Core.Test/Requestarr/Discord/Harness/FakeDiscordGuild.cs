@@ -92,6 +92,11 @@ namespace Requestarr.Core.Test.Discord.Harness
 
         public Task<GuildMember> GetMemberAsync(ulong userId) => Task.FromResult(Members.TryGetValue(userId, out var m) ? m : null);
 
+        // Users Discord knows who aren't in this server (someone known from an import).
+        public Dictionary<ulong, GuildMember> Users { get; } = new();
+
+        public Task<GuildMember> GetUserAsync(ulong userId) => Task.FromResult(Members.TryGetValue(userId, out var m) ? m : Users.GetValueOrDefault(userId));
+
         public Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit) =>
             Task.FromResult<IReadOnlyList<GuildMember>>(Members.Values
                 .Where(m => m.Username.StartsWith(query, StringComparison.OrdinalIgnoreCase) || (m.DisplayName ?? string.Empty).StartsWith(query, StringComparison.OrdinalIgnoreCase))
