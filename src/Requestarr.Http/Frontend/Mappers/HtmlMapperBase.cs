@@ -18,7 +18,10 @@ namespace Requestarr.Http.Frontend.Mappers
         private static readonly Regex ReplaceRegex = new Regex(@"(?:(?<attribute>href|src)=\"")(?<path>.*?(?<extension>css|js|png|ico|ics|svg|json))(?:\"")(?:\s(?<nohash>data-no-hash))?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private string _urlBase;
-        private string _generatedContent;
+
+        // The page as last made, and the icon set and theme it was made for: a change of either (the server's role, the
+        // UI theme) makes it again.
+        private (string For, string Text) _generated;
 
         protected HtmlMapperBase(IDiskProvider diskProvider,
                                  IConfigFileProvider configFileProvider,
@@ -51,9 +54,11 @@ namespace Requestarr.Http.Frontend.Mappers
 
         protected virtual string GetHtmlText()
         {
-            if (RuntimeInfo.IsProduction && _generatedContent != null)
+            var madeFor = $"{_environment.IconSet}:{_configFileProvider.Theme}";
+
+            if (RuntimeInfo.IsProduction && _generated.Text != null && _generated.For == madeFor)
             {
-                return _generatedContent;
+                return _generated.Text;
             }
 
             var text = WebIcons.Apply(_diskProvider.ReadAllText(HtmlPath), _environment, _configFileProvider);
@@ -77,9 +82,9 @@ namespace Requestarr.Http.Frontend.Mappers
 
             text = text.Replace("__URL_BASE__", _urlBase);
 
-            _generatedContent = text;
+            _generated = (madeFor, text);
 
-            return _generatedContent;
+            return text;
         }
     }
 }
