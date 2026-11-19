@@ -29,6 +29,12 @@
   border-radius: 4px;
 }
 
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
 .muted {
   color: var(--helpTextColor);
 }

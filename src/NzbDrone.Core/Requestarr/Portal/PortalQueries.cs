@@ -85,7 +85,7 @@ namespace Requestarr.Core.Portal
 
         public IReadOnlyList<PortalRequest> Requests()
         {
-            var rows = new Rows(Names(), Instances(), _subscribers.All());
+            var rows = new Rows(Names(), Backends(), _subscribers.All());
 
             return _requests.All().OrderByDescending(r => r.Requested).Select(rows.Of).ToList();
         }
@@ -101,7 +101,7 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var latest = _removals.LatestFor(id);
-            var row = new Rows(names, Instances(), _subscribers.ForRequest(id)).Of(request);
+            var row = new Rows(names, Backends(), _subscribers.ForRequest(id)).Of(request);
             var removal = latest == null ? null : Removal(latest, names);
 
             return new PortalRequestDetail(
@@ -143,7 +143,7 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var instances = Instances();
-            var rows = new Rows(names, instances, _subscribers.All());
+            var rows = new Rows(names, Backends(), _subscribers.All());
             var all = _requests.All().ToDictionary(r => r.Id);
             var own = all.Values.Where(r => r.OwnerUserId == id).OrderByDescending(r => r.Requested).ToList();
             var following = _subscribers.ForUser(id).Select(s => all.GetValueOrDefault(s.RequestId)).Where(r => r != null).ToList();
@@ -311,14 +311,16 @@ namespace Requestarr.Core.Portal
 
         private Dictionary<int, string> Instances() => _backends.All().ToDictionary(b => b.Id, b => b.Name);
 
-        // A request as a row: its requester and followers by name, and its instance.
+        private Dictionary<int, BackendInstance> Backends() => _backends.All().ToDictionary(b => b.Id);
+
+        // A request as a row: its requester and followers by name, its instance, and what the title is.
         private sealed class Rows
         {
             private readonly Dictionary<int, string> _names;
-            private readonly Dictionary<int, string> _instances;
+            private readonly Dictionary<int, BackendInstance> _instances;
             private readonly ILookup<int, RequestSubscriber> _followers;
 
-            public Rows(Dictionary<int, string> names, Dictionary<int, string> instances, IEnumerable<RequestSubscriber> followers)
+            public Rows(Dictionary<int, string> names, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers)
             {
                 _names = names;
                 _instances = instances;
@@ -340,11 +342,30 @@ namespace Requestarr.Core.Portal
                     Person(request.OwnerUserId),
                     followers,
                     request.BackendId,
-                    instance,
+                    instance?.Name,
                     request.Seasons ?? new List<int>(),
                     request.Requested,
                     request.Decided,
-                    request.Fulfilled);
+                    request.Fulfilled,
+                    Media(request, instance));
+            }
+
+            private static PortalMedia Media(Request request, BackendInstance instance)
+            {
+                var media = request.Media;
+                var open = TitleLinks.Open(instance, request);
+
+                return new PortalMedia(
+                    request.PosterUrl,
+                    media?.Overview,
+                    media?.InCinemas,
+                    media?.DigitalRelease,
+                    media?.PhysicalRelease,
+                    media?.FirstAired,
+                    media?.Network,
+                    TitleLinks.Page(request),
+                    open,
+                    open == null ? null : instance.Implementation);
             }
 
             private PortalPerson Person(int userId) => new(userId, _names.GetValueOrDefault(userId));

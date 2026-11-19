@@ -70,6 +70,7 @@ namespace Requestarr.Core.Imports
         private readonly IAuditService _audit;
         private readonly IRequestarrUserRepository _records;
         private readonly IDiscordGuildGateway _discord;
+        private readonly IRequestMediaService _media;
         private readonly Logger _logger;
 
         public ImportService(IChannelHistory history,
@@ -83,6 +84,7 @@ namespace Requestarr.Core.Imports
                              IAuditService audit,
                              IRequestarrUserRepository records,
                              IDiscordGuildGateway discord,
+                             IRequestMediaService media,
                              Logger logger)
         {
             _history = history;
@@ -97,6 +99,7 @@ namespace Requestarr.Core.Imports
             _audit = audit;
             _records = records;
             _discord = discord;
+            _media = media;
             _logger = logger;
         }
 
@@ -148,6 +151,9 @@ namespace Requestarr.Core.Imports
                     var plan = ImportPlanner.Plan(job.Messages, Context(job.Library));
                     var members = await MembersAsync(plan);
                     job.Done(plan, Write(plan, job.Channels, members, admin));
+
+                    // What the imported titles are, looked up in the background.
+                    _media.FillInBackground();
                 }
 
                 return job.View();

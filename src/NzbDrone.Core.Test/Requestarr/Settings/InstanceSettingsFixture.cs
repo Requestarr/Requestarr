@@ -74,6 +74,19 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
+        public async Task should_keep_and_record_the_address_in_your_browser_and_refuse_one_that_isnt_a_web_address()
+        {
+            var bad = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { BrowserUrl = "nas.local:8989" }, Admin);
+            bad.Problem.Should().Contain("address in your browser");
+
+            await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { BrowserUrl = " http://nas.local:8989 " }, Admin);
+
+            _instances[0].Settings.BrowserUrl.Should().Be("http://nas.local:8989");
+            Subject.All().Single(i => i.Id == 1).Settings.BrowserUrl.Should().Be("http://nas.local:8989");
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", It.Is<string>(d => d.Contains("address in your browser from none to http://nas.local:8989"))), Times.Once());
+        }
+
+        [Test]
         public async Task should_keep_the_saved_api_key_when_none_is_given()
         {
             await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true), Admin);

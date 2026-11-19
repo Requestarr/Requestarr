@@ -49,6 +49,9 @@ namespace Requestarr.Core.Backends
         public string Overview { get; set; }
         public string PosterUrl { get; set; }
 
+        // The title's address in Sonarr's or Radarr's own web app (/series/{slug}, /movie/{slug}).
+        public string TitleSlug { get; set; }
+
         // Movies: the request ID. TV: Sonarr's link to The Movie Database (cast lookups only).
         public int? TmdbId { get; set; }
         public int? TvdbId { get; set; }
@@ -590,6 +593,7 @@ namespace Requestarr.Core.Backends
                 Title = (string)json["title"],
                 Year = (int?)json["year"] is > 0 ? (int?)json["year"] : null,
                 Overview = (string)json["overview"],
+                TitleSlug = Text(json["titleSlug"]),
                 PosterUrl = Poster(images, (string)json["remotePoster"]),
                 TmdbId = (int?)json["tmdbId"],
                 ImdbId = Text(json["imdbId"]),
@@ -829,6 +833,7 @@ namespace Requestarr.Core.Backends
                 Title = (string)json["title"],
                 Year = (int?)json["year"] is > 0 ? (int?)json["year"] : null,
                 Overview = (string)json["overview"],
+                TitleSlug = Text(json["titleSlug"]),
                 PosterUrl = Poster(images, (string)json["remotePoster"]),
                 TvdbId = (int?)json["tvdbId"],
                 TmdbId = tmdbId is > 0 ? tmdbId : null,

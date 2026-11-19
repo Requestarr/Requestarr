@@ -6,8 +6,12 @@ interface CssExports {
   'highlighted': string;
   'icon': string;
   'input': string;
+  'label': string;
   'nothing': string;
+  'open': string;
+  'poster': string;
   'result': string;
+  'resultRow': string;
   'results': string;
   'search': string;
 }

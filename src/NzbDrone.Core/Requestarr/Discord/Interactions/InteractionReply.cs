@@ -106,5 +106,8 @@ namespace Requestarr.Core.Discord.Interactions
         public string Label { get; init; }
         public ButtonStyle Style { get; init; } = ButtonStyle.Secondary;
         public bool Disabled { get; init; }
+
+        // A link button: opens this address instead of coming back to Requestarr (no CustomId).
+        public string Url { get; init; }
     }
 }

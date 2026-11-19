@@ -33,6 +33,20 @@ export interface PortalPerson {
   name: string | null;
 }
 
+// What a request's title is (src/NzbDrone.Core/Requestarr/Portal/PortalModels.cs); values not known are null.
+export interface PortalMedia {
+  poster?: string | null;
+  overview?: string | null;
+  inCinemas?: string | null;
+  digitalRelease?: string | null;
+  physicalRelease?: string | null;
+  firstAired?: string | null;
+  network?: string | null;
+  page?: string | null;
+  openUrl?: string | null;
+  openIn?: string | null;
+}
+
 export interface PortalRequest {
   id: number;
   title: string;
@@ -48,6 +62,7 @@ export interface PortalRequest {
   requested: string;
   decided: string | null;
   fulfilled: string | null;
+  media?: PortalMedia;
 }
 
 export interface PortalEvent {

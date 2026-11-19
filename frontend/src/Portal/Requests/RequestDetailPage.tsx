@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
+import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
 import MemberLink from '../Components/MemberLink';
 import PortalPage from '../Components/PortalPage';
@@ -15,9 +16,14 @@ import {
   seasonsText,
   titleText,
 } from '../portalText';
-import { PortalPerson, PortalRequestDetail } from '../PortalTypes';
+import {
+  PortalPerson,
+  PortalRequest,
+  PortalRequestDetail,
+} from '../PortalTypes';
 import usePortal from '../usePortal';
 import RequestActions from './RequestActions';
+import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
 import styles from '../Portal.css';
 
 function People({ people }: { people: PortalPerson[] }) {
@@ -37,6 +43,28 @@ function People({ people }: { people: PortalPerson[] }) {
   );
 }
 
+// The title on The Movie Database or TheTVDB, and its page in Sonarr or Radarr when a browser can reach it.
+function TitleLinks({ request }: { request: PortalRequest }) {
+  const page = request.media?.page;
+
+  if (!page && !request.media?.openUrl) {
+    return null;
+  }
+
+  return (
+    <span className={styles.links}>
+      {page && (
+        <Link to={page}>
+          {translate(
+            page.includes('thetvdb') ? 'PortalOnTvdb' : 'PortalOnTmdb'
+          )}
+        </Link>
+      )}
+      <OpenInLink media={request.media} />
+    </span>
+  );
+}
+
 // The summary's rows, title then value; a row with nothing to show is left out.
 function summaryRows(
   detail: PortalRequestDetail,
@@ -44,6 +72,9 @@ function summaryRows(
 ): [string, ReactNode][] {
   const { request } = detail;
   const rows: [string, ReactNode][] = [
+    ['PortalOverview', request.media?.overview],
+    ['PortalReleased', releaseText(request.media)],
+    ['PortalLinks', <TitleLinks key="l" request={request} />],
     ['PortalType', contentTypeText(request.contentType)],
     ['PortalStatus', requestStatusText(request)],
     ['PortalProgress', detail.progressDetail],
@@ -89,9 +120,7 @@ function RequestDetail({ detail, onDone }: RequestDetailProps) {
     <>
       <FieldSet legend={titleText(request)}>
         <div className={styles.detail}>
-          {detail.posterUrl && (
-            <img className={styles.poster} src={detail.posterUrl} alt="" />
-          )}
+          <RequestPoster url={detail.posterUrl} className={styles.poster} />
           <Summary detail={detail} />
         </div>
       </FieldSet>

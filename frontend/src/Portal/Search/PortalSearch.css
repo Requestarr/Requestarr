@@ -52,8 +52,15 @@
   font-size: 12px;
 }
 
+.resultRow {
+  display: flex;
+  align-items: center;
+}
+
 .result {
   display: flex;
+  flex: 1 1 auto;
+  align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
   color: var(--white);
@@ -67,6 +74,27 @@
 
 .highlighted {
   background-color: rgba(255, 255, 255, 0.18);
+}
+
+.poster {
+  flex: 0 0 auto;
+  margin-right: 10px;
+  width: 30px;
+  border-radius: 2px;
+}
+
+.label {
+  flex: 1 1 auto;
+}
+
+.open {
+  padding-right: 12px;
+  white-space: nowrap;
+  font-size: 12px;
+
+  a {
+    color: rgba(255, 255, 255, 0.85);
+  }
 }
 
 .detail {

@@ -37,6 +37,7 @@ function InstanceFields({ form, isReadOnly }: InstanceFieldsProps) {
       >
         <InstanceField name="name" type={inputTypes.TEXT} {...field} />
         <InstanceField name="url" type={inputTypes.TEXT} {...field} />
+        <InstanceField name="browserUrl" type={inputTypes.TEXT} {...field} />
         <InstanceField name="apiKey" type={inputTypes.PASSWORD} {...field} />
 
         {apiKeySet && (

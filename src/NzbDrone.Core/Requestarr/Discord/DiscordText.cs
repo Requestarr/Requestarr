@@ -467,6 +467,8 @@ namespace Requestarr.Core.Discord
             return $"• {Label(type)}: {Label(state)}, {used} of {limit} used in the last {days} days{next}";
         }
 
+        public static string OpenIn(string implementation) => $"Open in {implementation}";
+
         public static string Label(RequestStatus status) => status == RequestStatus.NotInLibrary ? "not in library" : status.ToString().ToLowerInvariant();
 
         // Anime: sub or dub

@@ -12,7 +12,13 @@ namespace Requestarr.Core.Portal
 
     // One request: its requester, and everyone who asked for the same title after them (its followers).
     public record PortalRequest(int Id, string Title, int? Year, ContentType ContentType, RequestStatus Status, DownloadProgress Progress, PortalPerson Requester,
-                                IReadOnlyList<PortalPerson> Followers, int? InstanceId, string Instance, IReadOnlyList<int> Seasons, DateTime Requested, DateTime? Decided, DateTime? Fulfilled);
+                                IReadOnlyList<PortalPerson> Followers, int? InstanceId, string Instance, IReadOnlyList<int> Seasons, DateTime Requested, DateTime? Decided, DateTime? Fulfilled,
+                                PortalMedia Media);
+
+    // What the title is, as the feed card shows it: the poster, overview and dates, its page on The Movie Database or
+    // TheTVDB, and (when it's in a Sonarr or Radarr a browser can reach) its page there. Values not known are left out.
+    public record PortalMedia(string Poster, string Overview, DateTime? InCinemas, DateTime? DigitalRelease, DateTime? PhysicalRelease, DateTime? FirstAired,
+                              string Network, string Page, string OpenUrl, string OpenIn);
 
     // Something that happened, from the audit log: when, what, who did it and any detail (a reason, seasons).
     public record PortalEvent(DateTime At, string What, string Who, string Detail);

@@ -29,6 +29,9 @@ services:
       REQUESTARR_API_KEY: ${REQUESTARR_API_KEY}
       SONARR_TEST_API_KEY: ${SONARR_TEST_API_KEY}
       RADARR_TEST_API_KEY: ${RADARR_TEST_API_KEY}
+      # Where this machine's browser reaches the test Sonarr and Radarr, for "Open in Sonarr" links.
+      SONARR_TEST_BROWSER_URL: http://localhost:${STACK_SONARR_TEST_PORT}
+      RADARR_TEST_BROWSER_URL: http://localhost:${STACK_RADARR_TEST_PORT}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       # This stack's bot and server only (QA: DISCORD_*, dev: DEV_DISCORD_* in secrets.env).
       DISCORD_BOT_TOKEN: ${STACK_DISCORD_BOT_TOKEN:-}

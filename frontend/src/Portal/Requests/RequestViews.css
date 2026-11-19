@@ -1,0 +1,63 @@
+/* The Requests page's Overview and Posters views, laid out like Sonarr's and Radarr's own. */
+.overviewRow {
+  display: flex;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--borderColor);
+  gap: 15px;
+}
+
+.overviewPoster {
+  flex: 0 0 auto;
+  width: 80px;
+  border-radius: 4px;
+}
+
+.overviewBody {
+  min-width: 0;
+}
+
+.overviewTitle {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.overviewText {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 4px 0;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.posters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.posterCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.posterImage {
+  width: 100%;
+  border-radius: 4px;
+}
+
+.posterMissing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  aspect-ratio: 2 / 3;
+  border-radius: 4px;
+  background-color: var(--inputBackgroundColor);
+  text-align: center;
+}
+
+.tablePoster {
+  width: 34px;
+  border-radius: 2px;
+}

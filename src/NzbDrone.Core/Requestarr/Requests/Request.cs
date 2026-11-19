@@ -93,6 +93,9 @@ namespace Requestarr.Core.Requests
         // The poster as the backend gave it when the request was made, for the feed card thumbnail.
         public string PosterUrl { get; set; }
 
+        // What the title is (overview, dates, its slug in Sonarr or Radarr); null until it has been looked up.
+        public RequestMedia Media { get; set; }
+
         public int? ExternalId => ContentType == ContentType.Tv ? TvdbId : TmdbId;
 
         public bool IsActive => Status == RequestStatus.Pending || Status == RequestStatus.Approved || Status == RequestStatus.Available;

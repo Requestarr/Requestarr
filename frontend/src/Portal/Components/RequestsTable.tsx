@@ -15,9 +15,11 @@ import {
   titleText,
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
+import { RequestPoster } from '../Requests/RequestMedia';
 import useSortedRows, { SortValues } from '../useSortedRows';
 import MemberLink from './MemberLink';
 import styles from '../Portal.css';
+import viewStyles from '../Requests/RequestViews.css';
 
 const columns: Column[] = [
   { name: 'title', label: () => translate('PortalTitle') },
@@ -29,7 +31,14 @@ const columns: Column[] = [
   { name: 'requested', label: () => translate('PortalRequested') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: true }));
 
-const sortValues: SortValues<PortalRequest> = {
+const posterColumn: Column = {
+  name: 'poster',
+  label: '',
+  isVisible: true,
+  isSortable: false,
+};
+
+export const sortValues: SortValues<PortalRequest> = {
   title: (r) => r.title,
   type: (r) => contentTypeText(r.contentType),
   status: (r) => requestStatusText(r),
@@ -39,11 +48,24 @@ const sortValues: SortValues<PortalRequest> = {
   requested: (r) => r.requested,
 };
 
-function RequestRow({ request }: { request: PortalRequest }) {
+interface RequestRowProps {
+  request: PortalRequest;
+  withPoster: boolean;
+}
+
+function RequestRow({ request, withPoster }: RequestRowProps) {
   const seasons = seasonsText(request.seasons);
 
   return (
     <TableRow>
+      {withPoster && (
+        <TableRowCell>
+          <RequestPoster
+            url={request.media?.poster}
+            className={viewStyles.tablePoster}
+          />
+        </TableRowCell>
+      )}
       <TableRowCell>
         <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
         {seasons && <div className={styles.muted}>{seasons}</div>}
@@ -67,14 +89,27 @@ function RequestRow({ request }: { request: PortalRequest }) {
   );
 }
 
+export type RequestsSort = ReturnType<typeof useSortedRows<PortalRequest>>;
+
+interface RequestsTableProps {
+  requests: PortalRequest[];
+  withPosters?: boolean;
+
+  // The sorting of a page that also shows the requests other ways (already applied to requests).
+  sort?: RequestsSort;
+}
+
 // Requests in a table, newest first until a column is pressed: each title opens its request, each name its member.
-function RequestsTable({ requests }: { requests: PortalRequest[] }) {
-  const { sorted, sortKey, sortDirection, onSortPress } = useSortedRows(
+function RequestsTable({ requests, withPosters, sort }: RequestsTableProps) {
+  const own = useSortedRows(
     requests,
     sortValues,
     'requested',
     sortDirections.DESCENDING
   );
+  const { sorted, sortKey, sortDirection, onSortPress } = sort
+    ? { ...sort, sorted: requests }
+    : own;
 
   if (!requests.length) {
     return <div className={styles.empty}>{translate('PortalNoRequests')}</div>;
@@ -82,14 +117,18 @@ function RequestsTable({ requests }: { requests: PortalRequest[] }) {
 
   return (
     <Table
-      columns={columns}
+      columns={withPosters ? [posterColumn, ...columns] : columns}
       sortKey={sortKey}
       sortDirection={sortDirection}
       onSortPress={onSortPress}
     >
       <TableBody>
         {sorted.map((request) => (
-          <RequestRow key={request.id} request={request} />
+          <RequestRow
+            key={request.id}
+            request={request}
+            withPoster={withPosters ?? false}
+          />
         ))}
       </TableBody>
     </Table>

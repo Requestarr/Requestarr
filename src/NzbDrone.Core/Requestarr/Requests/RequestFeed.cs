@@ -67,7 +67,16 @@ namespace Requestarr.Core.Requests
             var all = _removals.ForRequest(request.Id);
             var removal = all.Where(p => p.IsOpen).OrderByDescending(p => p.Id).FirstOrDefault() ?? all.OrderByDescending(p => p.Id).FirstOrDefault();
 
-            return RequestCards.FeedCard(request, null, owner, _backends.Find(request.BackendId ?? 0)?.Name, followers, removal, removal == null ? 0 : _flags.ForProposal(removal.Id).Count);
+            var instance = _backends.Find(request.BackendId ?? 0);
+            var card = RequestCards.FeedCard(request, null, owner, instance?.Name, followers, removal, removal == null ? 0 : _flags.ForProposal(removal.Id).Count);
+
+            // The feed is the admins' channel: the title's page in Sonarr or Radarr, where a browser can reach it.
+            if (TitleLinks.Open(instance, request) is { } open)
+            {
+                card.Buttons.Add(new InteractionButton { Label = DiscordText.OpenIn(instance.Implementation), Url = open });
+            }
+
+            return card;
         }
 
         public async Task PostRemovalAsync(Removals.RemovalProposal removal)

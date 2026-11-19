@@ -322,6 +322,11 @@ namespace Requestarr.Core.Provisioning
                 yield return $"{label}: url must be an absolute http or https URL";
             }
 
+            if (!instance.BrowserUrl.IsNullOrWhiteSpace() && !IsHttpUrl(instance.BrowserUrl))
+            {
+                yield return $"{label}: browserUrl must be an absolute http or https URL";
+            }
+
             if (instance.ApiKey.IsNullOrWhiteSpace())
             {
                 yield return $"{label}: apiKey is required";

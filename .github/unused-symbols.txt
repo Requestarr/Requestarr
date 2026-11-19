@@ -31,7 +31,6 @@ Requestarr.Core.Settings.InstanceTestResult.Problem  # sent in the settings API'
 Requestarr.Core.Settings.InstanceTestResult.QualityProfiles  # sent in the settings API's answer to Test, which the web app shows
 Requestarr.Core.Settings.InstanceTestResult.RootFolders  # sent in the settings API's answer to Test, which the web app shows
 Requestarr.Core.Settings.InstanceView.Connected  # sent in the settings API's list of instances, which the web app shows
-Requestarr.Core.Settings.InstanceView.Id  # sent in the settings API's list of instances, which the web app shows
 Requestarr.Core.Settings.InstanceView.Problem  # sent in the settings API's list of instances, which the web app shows
 Requestarr.Core.Settings.SetupStatus.BotProblem  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Settings.SetupStatus.BotState  # sent in the first-run setup's answer, which the web app shows

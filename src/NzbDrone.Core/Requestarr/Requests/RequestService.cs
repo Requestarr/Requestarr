@@ -418,6 +418,7 @@ namespace Requestarr.Core.Requests
                 MonitorFutureSeasons = future,
                 Language = language,
                 PosterUrl = item.PosterUrl,
+                Media = RequestMedia.From(item, Clock()),
                 Requested = Clock()
             });
 

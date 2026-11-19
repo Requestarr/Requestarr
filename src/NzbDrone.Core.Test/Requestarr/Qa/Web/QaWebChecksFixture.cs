@@ -93,7 +93,7 @@ namespace Requestarr.Core.Test.Qa.Web
         [Test]
         public Task portal_pages() => CheckAsync(nameof(portal_pages), async (browser, check) =>
         {
-            const string Loaded = "document.querySelector('table, fieldset, [class*=\"Portal-empty\"], [class*=\"Alert-\"]')";
+            const string Loaded = "document.querySelector('table, fieldset, [class*=\"Portal-empty\"], [class*=\"Alert-\"], [class*=\"RequestViews-\"]')";
             const string Failed = "!!document.querySelector('[class*=\"Alert-danger\"], [class*=\"Alert-warning\"]')";
             await SignInAsync(browser);
 
@@ -114,6 +114,64 @@ namespace Requestarr.Core.Test.Qa.Web
             }
         });
 
+        // The Requests page's three views, as Sonarr's and Radarr's lists have them, in both themes: Overview (the
+        // default) with posters and what each title is, Posters, and Table with a poster column. Then an "Open in
+        // Sonarr" link is followed to the title's page in that Sonarr. A server with no requests says so and passes.
+        [Test]
+        public Task request_views() => CheckAsync(nameof(request_views), async (browser, check) =>
+        {
+            const string Shown = "document.querySelector('[class*=\"RequestViews-\"], table, [class*=\"Portal-empty\"]')";
+            await SignInAsync(browser);
+
+            foreach (var theme in Themes)
+            {
+                await browser.SetThemeAsync(theme);
+                await browser.GoAsync($"{Url}/requests");
+                await browser.WaitForAsync(Shown);
+
+                if (await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"Portal-empty\"]')"))
+                {
+                    check.Saw($"requests ({theme}): no requests on this server");
+                    return;
+                }
+
+                foreach (var (view, shows) in new[] { ("Overview", "[class*=\"RequestViews-overviewRow\"]"), ("Posters", "[class*=\"RequestViews-posters\"]"), ("Table", "table") })
+                {
+                    await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
+                    await browser.RunAsync($"[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === '{view}' && e.closest('[class*=\"MenuContent\"]')).click()");
+                    await browser.WaitForAsync($"!!document.querySelector('{shows}')");
+                    var posters = await browser.EvalAsync<int>("[...document.querySelectorAll('[class*=\"PageContentBody\"] img')].filter(i => i.complete && i.naturalWidth > 0).length");
+                    var opens = await browser.EvalAsync<int>("[...document.querySelectorAll('a')].filter(a => a.innerText.startsWith('Open in ')).length");
+                    check.Saw($"requests, {view} ({theme}): {posters} posters shown, {opens} Open in links");
+                    await check.ShotAsync(browser, $"requests-{view.ToLowerInvariant()}-{theme}");
+                }
+            }
+
+            await OpenInSonarrAsync(browser, check);
+        });
+
+        // From the Overview view, the first "Open in Sonarr" link lands on that series' page in the Sonarr it names.
+        private static async Task OpenInSonarrAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
+            await browser.RunAsync("[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === 'Overview' && e.closest('[class*=\"MenuContent\"]')).click()");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-overviewRow\"]')");
+            var link = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestViews-overviewRow\"] a')].find(a => a.innerText === 'Open in Sonarr')?.href ?? ''");
+
+            if (string.IsNullOrEmpty(link))
+            {
+                check.Saw("no request in a Sonarr a browser can reach: nothing to open");
+                return;
+            }
+
+            var title = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestViews-overviewRow\"]')].find(r => [...r.querySelectorAll('a')].some(a => a.innerText === 'Open in Sonarr')).querySelector('a').innerText");
+            await browser.GoAsync(link);
+            var series = title.Contains(" (", StringComparison.Ordinal) ? title[..title.LastIndexOf(" (", StringComparison.Ordinal)] : title;
+            await browser.WaitForAsync($"document.title.includes({JsonSerializer.Serialize(series)}) || document.body.innerText.includes({JsonSerializer.Serialize(series)})", TimeSpan.FromSeconds(30));
+            check.Saw($"Open in Sonarr for {title}: {link} shows \"{await browser.EvalAsync<string>("document.title")}\"");
+            await check.ShotAsync(browser, "open-in-sonarr");
+        }
+
         // The header search, as in Sonarr: "/" puts the cursor in it; part of a request's title and of a member's name
         // each find it, grouped, and the result opens its page. Light and dark.
         [Test]
@@ -121,8 +179,8 @@ namespace Requestarr.Core.Test.Qa.Web
         {
             await SignInAsync(browser);
             await browser.GoAsync(Url + "/requests");
-            await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
-            var title = await browser.EvalAsync<string>("document.querySelector('tbody a[href*=\"/requests/\"]')?.textContent ?? ''");
+            await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"], [class*=\"RequestViews-\"]')");
+            var title = await browser.EvalAsync<string>("document.querySelector('[class*=\"PageContentBody\"] a[href*=\"/requests/\"]')?.textContent ?? ''");
             await browser.GoAsync(Url + "/members");
             await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
             var member = await browser.EvalAsync<string>("document.querySelector('tbody a[href*=\"/members/\"]')?.textContent ?? ''");
@@ -334,7 +392,7 @@ namespace Requestarr.Core.Test.Qa.Web
         // A list's first title or name opens its own page, which shows what it is and its history.
         private static async Task OpenFirstAsync(HeadlessBrowser browser, WebCheck check, string page, string theme)
         {
-            var link = await browser.EvalAsync<string>($"document.querySelector('tbody a[href*=\"/{page}/\"]')?.getAttribute('href') ?? ''");
+            var link = await browser.EvalAsync<string>($"document.querySelector('[class*=\"PageContentBody\"] a[href*=\"/{page}/\"]')?.getAttribute('href') ?? ''");
 
             if (page == "queue" || string.IsNullOrEmpty(link))
             {
