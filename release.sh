@@ -354,7 +354,7 @@ promote_staging() {
     sed -n "/^## $number /,/^## [0-9]/p" "$work/release/CHANGELOG.md" | sed '$d' | sed 's/^/    /'
     echo "Versions staging gets:"
     echo "$versions"
-    echo "Published as ghcr.io/requestarr/requestarr:staging and :$number; the commit is tagged v$number. qa is merged back into dev."
+    echo "Published as ghcr.io/requestarr/requestarr:beta and :$number; the commit is tagged v$number. qa is merged back into dev."
     [ -z "$major" ] || echo "Major roll-up: $major"
     [ -z "$security" ] || echo "A security fix in something Requestarr ships is in this build: its For admins section says so."
     echo "$gate"
@@ -390,9 +390,9 @@ promote_staging() {
     fetch
     merge_into qa dev
     echo "Staging is now build $number ($(git rev-parse --short origin/staging)). Next: the Image workflow publishes"
-    echo "      ghcr.io/requestarr/requestarr:staging and :$number and tags the commit v$number (gh run list --workflow image.yml);"
+    echo "      ghcr.io/requestarr/requestarr:beta and :$number and tags the commit v$number (gh run list --workflow image.yml);"
     echo "      .\\docker\\dev.ps1 up (or docker/dev.sh up) so QA drops what staging now has;"
-    echo "      on the server: ./update.sh in the staging folder (docs/setup-guide.md, the beta environment)."
+    echo "      on the server: Container Manager, the requestarr-beta project, Action then Build (docs/setup-guide.md, Running the beta)."
 }
 
 ship_it() {

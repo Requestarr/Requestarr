@@ -20,6 +20,10 @@ namespace Requestarr.Core.Removals
         TimeSpan RequesterTimeout { get; }
         TimeSpan? ReminderAfter { get; }
 
+        // Whether a removal may delete anything in Sonarr or Radarr. Off: an agreed removal deletes nothing and waits in
+        // the admin queue for an admin to delete it by hand.
+        bool DeleteFiles { get; }
+
         void Apply(RemovalProvisioning provisioning);
     }
 
@@ -63,6 +67,8 @@ namespace Requestarr.Core.Removals
 
         public int ReminderDay => _config.RemovalReminderDay is var day && day >= 1 && day < RequesterTimeoutDays ? day : 0;
 
+        public bool DeleteFiles => _config.RemovalDeleteFiles;
+
         public void Apply(RemovalProvisioning provisioning)
         {
             if (provisioning?.VoteDays is { } vote)
@@ -78,6 +84,11 @@ namespace Requestarr.Core.Removals
             if (provisioning?.ReminderDay is { } reminder)
             {
                 _config.RemovalReminderDay = Math.Max(0, reminder);
+            }
+
+            if (provisioning?.DeleteFiles is { } deleteFiles)
+            {
+                _config.RemovalDeleteFiles = deleteFiles;
             }
         }
 

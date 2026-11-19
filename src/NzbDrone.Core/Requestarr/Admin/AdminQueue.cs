@@ -46,7 +46,8 @@ namespace Requestarr.Core.Admin
     }
 
     // Removals waiting on the admin: a requester's No, a vote kept by keep flags, a deletion Sonarr or
-    // Radarr refused (Force or drop each), and an owned removal still waiting on its requester.
+    // Radarr refused (Force or drop each), an owned removal still waiting on its requester, and one agreed while deleting
+    // files is off (delete it by hand).
     public class RemovalSource : IAdminQueueSource
     {
         private readonly IRemovalProposalRepository _proposals;
@@ -57,11 +58,11 @@ namespace Requestarr.Core.Admin
         }
 
         public IEnumerable<QueueItem> Items() =>
-            _proposals.WithStatus(RemovalStatus.AwaitingRequester, RemovalStatus.Declined, RemovalStatus.Flagged, RemovalStatus.Failed)
+            _proposals.WithStatus(RemovalStatus.AwaitingRequester, RemovalStatus.Declined, RemovalStatus.Flagged, RemovalStatus.Failed, RemovalStatus.DeleteByHand)
                 .Select(p => new QueueItem($"x{p.Id}", p.Status switch
                 {
                     RemovalStatus.Declined => p.Answered ?? p.Created,
-                    RemovalStatus.Flagged or RemovalStatus.Failed => p.Closed ?? p.Created,
+                    RemovalStatus.Flagged or RemovalStatus.Failed or RemovalStatus.DeleteByHand => p.Closed ?? p.Created,
                     _ => p.Created
                 }));
     }

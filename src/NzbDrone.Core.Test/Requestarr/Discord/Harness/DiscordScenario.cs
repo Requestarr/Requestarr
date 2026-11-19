@@ -71,6 +71,9 @@ namespace Requestarr.Core.Test.Discord.Harness
             Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigRepository>(Mocker.Resolve<NzbDrone.Core.Configuration.ConfigRepository>());
             Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigService>(Mocker.Resolve<NzbDrone.Core.Configuration.ConfigService>());
             Mocker.SetConstant<Requestarr.Core.Removals.IRemovalSettings>(Mocker.Resolve<Requestarr.Core.Removals.RemovalSettings>());
+
+            // The backends here are fakes, so removals delete in them, as on the test stacks; Item5DeleteFilesFixture turns it off.
+            Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>().RemovalDeleteFiles = true;
             Mocker.SetConstant<Requestarr.Core.Access.IAccessRequestRepository>(Mocker.Resolve<Requestarr.Core.Access.AccessRequestRepository>());
             Mocker.SetConstant<Requestarr.Core.Access.IWelcomeGuardRepository>(Mocker.Resolve<Requestarr.Core.Access.WelcomeGuardRepository>());
             Mocker.SetConstant<Requestarr.Core.Access.IAccessSettings>(Mocker.Resolve<Requestarr.Core.Access.AccessSettings>());

@@ -116,9 +116,10 @@ namespace Requestarr.Core.Backends
         // Requestarr's own webhook connection (found by its name only; the owner's connections are
         // never changed). Ensure creates or updates it; Test asks the instance to call it and
         // returns the instance's error, or null when the call got through.
-        Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string url);
-        Task<bool> RemoveWebhookAsync(BackendSettings settings);
-        Task<string> TestWebhookAsync(BackendSettings settings);
+        // name: the connection's name in Sonarr or Radarr, which says which Requestarr it is (ArrApiBase.WebhookNameFor).
+        Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string name, string url);
+        Task<bool> RemoveWebhookAsync(BackendSettings settings, string name);
+        Task<string> TestWebhookAsync(BackendSettings settings, string name);
 
         // Stops (or resumes) searching for a library item. Nothing is deleted.
         Task SetMonitoredAsync(BackendSettings settings, int itemId, bool monitored);
@@ -194,7 +195,18 @@ namespace Requestarr.Core.Backends
             return ((await GetAsync<List<RootFolderResource>>(settings, "rootfolder")) ?? new List<RootFolderResource>()).Select(r => r.Path).ToList();
         }
 
+        // Production's connection, and the name every Requestarr used before each environment had its own.
         public const string WebhookName = "Requestarr (availability)";
+
+        // Each environment's own connection, so two Requestarrs sharing a Sonarr or Radarr (beta and production) can be
+        // told apart there: "Requestarr Beta (availability)". By the web app's icon set (IReleaseEnvironment.IconSet).
+        public static string WebhookNameFor(string iconSet) => iconSet switch
+        {
+            "beta" => "Requestarr Beta (availability)",
+            "qa" => "Requestarr QA (availability)",
+            "dev" => "Requestarr Dev (availability)",
+            _ => WebhookName
+        };
 
         // The events that can change a request: grabbed, imported, upgraded, and a download that
         // needs a person ("manual interaction required"). Flags an instance's version lacks are skipped.
@@ -219,14 +231,14 @@ namespace Requestarr.Core.Backends
                 QueueMessage(r))).ToList();
         }
 
-        public async Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string url)
+        public async Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string name, string url)
         {
-            var ours = await FindWebhookAsync(settings);
+            var ours = await FindWebhookAsync(settings, name, url);
             var body = ours ?? (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification/schema"))?.FirstOrDefault(n => (string)n["implementation"] == "Webhook")
                        ?? throw new BackendException($"{settings.Url}: no Webhook connection type");
-            var changed = ours == null;
+            var changed = ours == null || (string)ours["name"] != name;
 
-            body["name"] = WebhookName;
+            body["name"] = name;
             changed |= SetField(body, "url", url);
             changed |= SetField(body, "method", 1);
 
@@ -259,9 +271,9 @@ namespace Requestarr.Core.Backends
             return WebhookChange.Updated;
         }
 
-        public async Task<bool> RemoveWebhookAsync(BackendSettings settings)
+        public async Task<bool> RemoveWebhookAsync(BackendSettings settings, string name)
         {
-            var ours = await FindWebhookAsync(settings);
+            var ours = await FindWebhookAsync(settings, name, null);
 
             if (ours == null)
             {
@@ -272,9 +284,9 @@ namespace Requestarr.Core.Backends
             return true;
         }
 
-        public async Task<string> TestWebhookAsync(BackendSettings settings)
+        public async Task<string> TestWebhookAsync(BackendSettings settings, string name)
         {
-            var ours = await FindWebhookAsync(settings) ?? throw new BackendException($"{settings.Url}: Requestarr's webhook connection is missing");
+            var ours = await FindWebhookAsync(settings, name, null) ?? throw new BackendException($"{settings.Url}: Requestarr's webhook connection is missing");
 
             try
             {
@@ -312,8 +324,16 @@ namespace Requestarr.Core.Backends
         protected static string PosterOf(Newtonsoft.Json.Linq.JObject item) =>
             Poster(item["images"]?.ToObject<List<ImageResource>>(), (string)item["remotePoster"]);
 
-        private async Task<Newtonsoft.Json.Linq.JObject> FindWebhookAsync(BackendSettings settings) =>
-            (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification"))?.FirstOrDefault(n => (string)n["name"] == WebhookName && (string)n["implementation"] == "Webhook");
+        // Ours by its name; failing that, one under the name used before that already calls this Requestarr (its URL),
+        // which is then renamed rather than doubled.
+        private async Task<Newtonsoft.Json.Linq.JObject> FindWebhookAsync(BackendSettings settings, string name, string url)
+        {
+            var webhooks = (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification"))?.Where(n => (string)n["implementation"] == "Webhook").ToList()
+                           ?? new List<Newtonsoft.Json.Linq.JObject>();
+
+            return webhooks.FirstOrDefault(n => (string)n["name"] == name)
+                   ?? webhooks.FirstOrDefault(n => url != null && (string)n["name"] == WebhookName && (string)n["fields"]?.FirstOrDefault(f => (string)f["name"] == "url")?["value"] == url);
+        }
 
         private static string QueueMessage(Newtonsoft.Json.Linq.JObject record)
         {

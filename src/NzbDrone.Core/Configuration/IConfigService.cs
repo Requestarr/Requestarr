@@ -16,6 +16,11 @@ namespace NzbDrone.Core.Configuration
         // Requestarr removal votes (days); read through Requestarr.Core.Removals.RemovalSettings
         int RemovalVoteDays { get; set; }
         int RemovalRequesterTimeoutDays { get; set; }
+        bool RemovalDeleteFiles { get; set; }
+
+        // The Requestarr version that last started on this database (Requestarr.Core.Updates.UpdateBackup reads it
+        // before migrating)
+        string LastRunVersion { get; set; }
         int RemovalReminderDay { get; set; }
         int AccessDenialCooldownDays { get; set; }
         int AccessSpamWindowMinutes { get; set; }

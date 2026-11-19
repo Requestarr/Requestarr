@@ -70,6 +70,17 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
+        public async Task should_start_with_deleting_files_off_and_record_turning_it_on()
+        {
+            Subject.Get().Values["removalDeleteFiles"].Should().Be(false);
+
+            (await Save("removalDeleteFiles", "true")).Saved.Should().BeTrue();
+
+            Mocker.GetMock<IConfigService>().Object.RemovalDeleteFiles.Should().BeTrue();
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "removalDeleteFiles", "Delete files in Sonarr and Radarr: from off to on"), Times.Once());
+        }
+
+        [Test]
         public async Task should_record_nothing_when_a_value_is_unchanged()
         {
             await Save("removalVoteDays", "7");

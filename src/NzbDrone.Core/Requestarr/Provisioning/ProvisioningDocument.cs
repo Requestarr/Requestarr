@@ -116,6 +116,10 @@ namespace Requestarr.Core.Provisioning
 
         // Which day of that the requester is reminded (default 5).
         public int? ReminderDay { get; set; }
+
+        // Whether a removal deletes the title and its files in Sonarr or Radarr (default false: an admin deletes it by
+        // hand, from the admin queue).
+        public bool? DeleteFiles { get; set; }
     }
 
     public class TmdbProvisioning

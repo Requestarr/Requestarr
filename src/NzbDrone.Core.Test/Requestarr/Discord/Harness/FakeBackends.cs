@@ -44,7 +44,7 @@ namespace Requestarr.Core.Test.Discord.Harness
 
         public Task<List<QueueEntry>> GetQueueAsync(BackendSettings settings, int itemId) => Run(() => Queues.GetValueOrDefault(itemId)?.ToList() ?? new List<QueueEntry>());
 
-        public Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string url) => Run(() =>
+        public Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string name, string url) => Run(() =>
         {
             if (Webhooks.TryGetValue(settings.Url, out var current) && current == url)
             {
@@ -57,14 +57,14 @@ namespace Requestarr.Core.Test.Discord.Harness
             return change;
         });
 
-        public Task<bool> RemoveWebhookAsync(BackendSettings settings) => Run(() =>
+        public Task<bool> RemoveWebhookAsync(BackendSettings settings, string name) => Run(() =>
         {
             var removed = Webhooks.Remove(settings.Url);
             WebhookWrites += removed ? 1 : 0;
             return removed;
         });
 
-        public Task<string> TestWebhookAsync(BackendSettings settings) =>
+        public Task<string> TestWebhookAsync(BackendSettings settings, string name) =>
             Run(() => WebhookUnreachable ? $"Unable to send test message: Connection refused ({Webhooks.GetValueOrDefault(settings.Url)})" : null);
 
         public Task SetMonitoredAsync(BackendSettings settings, int itemId, bool monitored) => Run(() =>

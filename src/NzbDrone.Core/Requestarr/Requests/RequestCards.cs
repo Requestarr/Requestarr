@@ -581,9 +581,12 @@ namespace Requestarr.Core.Requests
         public static bool Downloaded(Request request) =>
             request.ExternalItemId.HasValue && (request.Status == RequestStatus.Available || (request.Status == RequestStatus.Approved && request.AvailableSeasons?.Any() == true));
 
+        // An open removal's buttons; one agreed while deleting is off is deleted by hand instead of forced.
         public static List<InteractionButton> RemovalButtons(Removals.RemovalProposal removal) => new()
         {
-            new() { CustomId = $"{Removals.RemovalRoutes.Force}:{removal.Id}", Label = DiscordText.ForceRemovalLabel, Style = ButtonStyle.Danger },
+            removal.Status == Removals.RemovalStatus.DeleteByHand
+                ? new() { CustomId = $"{Removals.RemovalRoutes.ByHand}:{removal.Id}", Label = DiscordText.DeletedByHandLabel, Style = ButtonStyle.Primary }
+                : new() { CustomId = $"{Removals.RemovalRoutes.Force}:{removal.Id}", Label = DiscordText.ForceRemovalLabel, Style = ButtonStyle.Danger },
             new() { CustomId = $"{Removals.RemovalRoutes.Drop}:{removal.Id}", Label = DiscordText.DropRemovalLabel, Style = ButtonStyle.Secondary }
         };
 

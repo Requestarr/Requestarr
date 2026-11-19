@@ -84,9 +84,14 @@ function ItemActions({ item, action }: ItemActionsProps) {
             onPress={onPress}
           />
         ))}
-      {item.kind === 'removal' && !item.requestId && (
-        <RemovalActions removalId={id} action={action} />
-      )}
+      {(item.kind === 'removal' || item.kind === 'deleteByHand') &&
+        !item.requestId && (
+          <RemovalActions
+            removalId={id}
+            action={action}
+            byHand={item.kind === 'deleteByHand'}
+          />
+        )}
     </TableRowCell>
   );
 }

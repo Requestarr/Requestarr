@@ -769,6 +769,16 @@ namespace Requestarr.Core.Discord
         public const string DeleteLabel = "Delete";
         public const string ForceRemovalLabel = "Force removal";
         public const string DropRemovalLabel = "Drop removal";
+        public const string DeletedByHandLabel = "I deleted it";
+
+        // Said wherever a removal starts or ends while deleting files is off on the server.
+        public const string DeletingOffNote = "**Deleting is turned off on this server:** once a removal is agreed, nothing is deleted; it waits in `/admin requests` for an admin to delete it by hand.";
+
+        public static string RemovalDeleteByHand(Removals.RemovalProposal proposal, string instance) =>
+            $"Removing {RemovalScope(proposal)} is agreed. Deleting is turned off on this server, so nothing was deleted: delete it from {instance} yourself, then press **{DeletedByHandLabel}** (it's waiting in `/admin requests`).";
+
+        public static string RemovalDeletedByHand(Removals.RemovalProposal proposal) =>
+            $"Noted: {RemovalScope(proposal)} is deleted. Its requests are closed and everyone who was asked has been told.";
         public const string StartRemovalLabel = "Start removal";
         public const string StartVoteLabel = "Start the vote";
         public const string ForceNowLabel = "Force: delete now";
@@ -830,6 +840,7 @@ namespace Requestarr.Core.Discord
         {
             Removals.RemovalStatus.Deleted => $"🗑️ **Removed** · {RemovalScope(proposal)} was removed from the library: nobody asked to keep it.{AgainNote(proposal)}",
             Removals.RemovalStatus.Forced => $"🗑️ **Removed by the admin** · {RemovalScope(proposal)} was removed from the library.{AgainNote(proposal)}",
+            Removals.RemovalStatus.DeleteByHand => $"🗑️ **Removal agreed** · {RemovalScope(proposal)} will be removed from the library. Deleting is turned off on this server, so an admin deletes it by hand.",
             Removals.RemovalStatus.Flagged or Removals.RemovalStatus.Kept => $"✅ **Kept** · {RemovalScope(proposal)} stays: someone still watches it.",
             _ => $"✅ **Kept** · The removal of {RemovalScope(proposal)} was called off."
         };
@@ -893,6 +904,7 @@ namespace Requestarr.Core.Discord
             Removals.RemovalStatus.Declined => "the requester said keep",
             Removals.RemovalStatus.Flagged => "kept by a vote",
             Removals.RemovalStatus.Failed => "failed",
+            Removals.RemovalStatus.DeleteByHand => "agreed, waiting for an admin to delete it by hand",
             Removals.RemovalStatus.Forced => "removed by the admin",
             Removals.RemovalStatus.Deleted => "removed by vote",
             Removals.RemovalStatus.Kept => "kept",
@@ -913,6 +925,7 @@ namespace Requestarr.Core.Discord
             Removals.RemovalStatus.Forced => $"🗑️ Removed by {proposal.ClosedByName ?? "the admin"} (forced)",
             Removals.RemovalStatus.Deleted => "🗑️ Removed by vote",
             Removals.RemovalStatus.Failed => $"🗑️ Removal failed: {proposal.Detail}",
+            Removals.RemovalStatus.DeleteByHand => "🗑️ Removal agreed: deleting is turned off on this server, so it waits for an admin to delete it by hand",
             _ => $"🗑️ Removal cancelled{(proposal.ClosedByName != null ? $" by {proposal.ClosedByName}" : string.Empty)}"
         };
 
@@ -941,11 +954,12 @@ namespace Requestarr.Core.Discord
             DiscordLimits.Truncate($"{target.Label} · {target.Instance.Name} · {(target.Requester != null ? $"requested by {target.Requester.DisplayName}" : "not requested")}", DiscordLimits.OptionLabelLength);
 
         // In /admin requests.
-        public static string RemovalWaiting(Removals.RemovalProposal proposal, string requester, IReadOnlyCollection<string> flaggers) => proposal.Status switch
+        public static string RemovalWaiting(Removals.RemovalProposal proposal, string requester, IReadOnlyCollection<string> flaggers, string instance) => proposal.Status switch
         {
             Removals.RemovalStatus.AwaitingRequester => $"🗑️ The removal of {RemovalScope(proposal)} is waiting on **{requester}**, asked {DiscordTimestamp(proposal.Created)}. No answer by {Closing(proposal.AnswerBy ?? DateTime.UtcNow)} counts as yes and starts the vote. **{ForceRemovalLabel}** skips both.",
             Removals.RemovalStatus.Declined => $"🗑️ **{requester}** said keep {RemovalScope(proposal)}. **{ForceRemovalLabel}** removes it anyway; **{DropRemovalLabel}** leaves it.",
             Removals.RemovalStatus.Flagged => $"🗑️ The vote kept {RemovalScope(proposal)}: {flaggers.Count} keep ({string.Join(", ", flaggers)}). **{ForceRemovalLabel}** removes it anyway; **{DropRemovalLabel}** leaves it.",
+            Removals.RemovalStatus.DeleteByHand => $"🗑️ **Delete it yourself:** removing {RemovalScope(proposal)} is agreed, but deleting is turned off on this server. Delete it from {instance ?? "Sonarr or Radarr"}, then **{DeletedByHandLabel}**; **{DropRemovalLabel}** keeps it after all.",
             _ => $"🗑️ Removing {RemovalScope(proposal)} failed: {proposal.Detail}. **{ForceRemovalLabel}** tries again; **{DropRemovalLabel}** leaves it."
         };
 
@@ -1071,6 +1085,8 @@ namespace Requestarr.Core.Discord
             var format = date.Value.Year == thisYear ? "MMMM d" : "MMMM d, yyyy";
             return $"Requestarr {version} · {date.Value.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}";
         }
+
+        public static string NewComposeFile(string link) => $"📄 **This build needs a new compose file:** [get it here]({link}), paste it over the old one, then Build.";
 
         public static string VersionCardSummary(string mainChange, int others) =>
             others > 0 ? $"{mainChange}, and {others} more" : mainChange;

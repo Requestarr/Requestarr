@@ -36,6 +36,7 @@ const QUEUE_KINDS: Record<string, string> = {
   mediaServerLink: 'PortalQueueMediaServerLink',
   instanceDown: 'PortalQueueInstanceDown',
   removal: 'PortalQueueRemoval',
+  deleteByHand: 'PortalQueueDeleteByHand',
   accessRequest: 'PortalQueueAccessRequest',
 };
 

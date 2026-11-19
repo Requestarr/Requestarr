@@ -89,6 +89,7 @@ namespace NzbDrone.Core.HealthCheck
         UpdateStartupTranslocation,
         UpdateUiNotWritable,
         ProvisioningFailed,
+        DatabaseNewerThanBuild,
         DiscordNotConfigured,
         DiscordDisconnected,
         DiscordMissingPermission,

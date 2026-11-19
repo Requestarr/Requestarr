@@ -25,6 +25,7 @@ namespace Requestarr.Core.Removals
         public const string Force = "rm-force";         // rm-force:{proposal}, on feed cards (asks first)
         public const string ForceYes = "rm-force-yes";  // rm-force-yes:{proposal}
         public const string Drop = "rm-drop";           // rm-drop:{proposal}
+        public const string ByHand = "rm-by-hand";      // rm-by-hand:{proposal}, "I deleted it" while deleting is off
         public const string Search = "rm-search";       // the admin panel's Remove a title
         public const string SearchForm = "rm-search-form";
         public const string SearchField = "term";
@@ -64,7 +65,11 @@ namespace Requestarr.Core.Removals
         Kept = 7,
 
         // Sonarr or Radarr refused the deletion: waits on the admin (Force retries, or drop).
-        Failed = 8
+        Failed = 8,
+
+        // Agreed (by vote or Force) while deleting files is off on this server: nothing was deleted, and it waits on the
+        // admin to delete it by hand (then "I deleted it"), or to drop it.
+        DeleteByHand = 9
     }
 
     public enum RequesterResponse
@@ -128,7 +133,7 @@ namespace Requestarr.Core.Removals
         public int? ExternalId => ContentType == ContentType.Tv ? TvdbId : TmdbId;
 
         // Still in progress, or waiting on the admin: blocks another removal of the same seasons.
-        public bool IsOpen => Status is RemovalStatus.AwaitingRequester or RemovalStatus.Voting or RemovalStatus.Declined or RemovalStatus.Flagged or RemovalStatus.Failed;
+        public bool IsOpen => Status is RemovalStatus.AwaitingRequester or RemovalStatus.Voting or RemovalStatus.Declined or RemovalStatus.Flagged or RemovalStatus.Failed or RemovalStatus.DeleteByHand;
 
         // Same title on the same instance, and the scopes share a season (the whole title shares all).
         public bool Overlaps(int backendId, int itemId, IReadOnlyCollection<int> seasons) =>

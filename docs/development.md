@@ -161,7 +161,7 @@ A version is **MAJOR.MINOR.BUILD**, with BUILD a running four-digit number: **0.
 
 So the first build under build numbers is **0.7.0004** (MINOR 7, the first not used before). The image published by hand as `test-org-move`, and every dev and QA build, ran only on the owner's machine or went to nobody, so they don't count.
 
-**Going back.** Database migrations only go forward, and Requestarr doesn't refuse a database a newer release has changed: an older release opening it may misbehave. So going back to an earlier build means restoring the backup taken before the upgrade, never only running the older image. On the beta server, `./update.sh` stops Requestarr and backs up its data before every update, and stops the update (starting the old version again) if the backup fails; `./update.sh rollback` puts that backup back and runs the version it came from. The same holds for production when it's packaged.
+**Going back.** Database migrations only go forward, and Requestarr doesn't refuse a database a newer release has changed: an older release opening it may misbehave. So going back to an earlier build means restoring the backup taken before the upgrade, never only running the older image. Requestarr takes that backup itself: when it starts on a newer build than the one that last ran (the version it records on every start) or on a database its migrations will change, it backs the database and `config.xml` up first, as an **Update** backup under System → Backup, before migrating (`Requestarr.Core.Updates.UpdateBackup`). An older build on a newer database keeps running and says so, in its log and as a health warning on System → Status, with how to restore (`NewerDatabaseCheck`). Rolling back is the older tag, then that restore in the web app (the setup guide's "Running the beta", B.7). The same holds for production when it's packaged.
 
 **Worked example.**
 
@@ -239,7 +239,7 @@ Four branches, each with its own environment.
 |---|---|---|
 | `dev` | Every pull request merges here once the `build` check passes. Automated and live testing. | The dev stack, on the dev Discord server and bot (`DEV_DISCORD_*`). |
 | `qa` | The owner's manual QA of a version picked from `dev`. Moves only on the owner's word ("promote to QA"). | The QA stack, on the QA Discord server and bot (`DISCORD_*`). Never touched by automated testing. |
-| `staging` | Early access testers, on a version the owner passed in QA. Moves only on "QA passed". | The beta stack on the owner's server (`deploy/staging`), the Requestarr Beta server and bot, with its own Sonarr and Radarr that really download. Runs the published `staging` image. |
+| `staging` | Early access testers, on a version the owner passed in QA. Moves only on "QA passed". | Beta on the owner's server: one Container Manager project from `deploy/beta/compose.yaml` (Requestarr only), the Requestarr Beta server and bot, using production's Sonarr and Radarr with deleting files off until the owner turns it on. Runs the published `beta` image. |
 | `main` | Production: only released code. Moves only on the owner's "ship it". | Published as `latest` and version tags. |
 
 `dev` is the repository's default branch, so Dependabot's pull requests (security fixes included) land there and move up like any other change (see [Dependency updates](#dependency-updates)). All four branches have the same rules on GitHub (one ruleset): a pull request is required, `build` must pass, no force push, no deletion, nobody bypasses.
@@ -273,7 +273,7 @@ Staging takes QA as it is, as the next build number ([Versions](#versions)):
 2. **Two pull requests from it,** into `qa` and into `staging`, each with `Requested by:`. Once `build` passes on both, `qa` and then `staging` are fast-forwarded to the release commit, so QA and staging run the same commit.
 3. **`qa` is merged back into `dev`** (the merge-back below), so `dev` has the numbered sections and keeps only its newer lines under Unreleased.
 
-The push to `staging` runs the Image workflow, which builds that number, publishes `ghcr.io/requestarr/requestarr:staging` and `:0.7.0004`, and tags the commit `v0.7.0004`. `--dry-run` prints the number, the new section, the versions staging gets and the QA gate's verdict, and changes nothing. Then `.\docker\dev.ps1 up` so the QA stack drops what staging now has from its posts, and on the owner's server `./update.sh` in the staging folder (the setup guide's "Running the beta (staging) environment").
+The push to `staging` runs the Image workflow, which builds that number, publishes `ghcr.io/requestarr/requestarr:beta` and `:0.7.0004`, and tags the commit `v0.7.0004`. `--dry-run` prints the number, the new section, the versions staging gets and the QA gate's verdict, and changes nothing. Then `.\docker\dev.ps1 up` so the QA stack drops what staging now has from its posts, and on the owner's server the beta project's Build in Container Manager (the setup guide's "Running the beta").
 
 **Ship it** (staging to `main`, only on the owner's "ship it"):
 
@@ -307,7 +307,7 @@ It lists any commit a lower branch is missing and fails; the Drift workflow runs
 
 | When | Tags |
 |---|---|
-| a push to `staging` (a promotion, or a fix into `staging`) | builds the number on top of the changelog: `staging` and `0.7.0004` ([Versions](#versions)), and tags the commit `v0.7.0004`. It refuses a changelog with Unreleased on top, a number another commit already has, or one that isn't the next. The earlier staging images (`0.3.1`, `0.3.3`, `0.3.4`) keep their tags |
+| a push to `staging` (a promotion, or a fix into `staging`) | builds the number on top of the changelog: `beta` and `0.7.0004` ([Versions](#versions)), and tags the commit `v0.7.0004`. It refuses a changelog with Unreleased on top, a number another commit already has, or one that isn't the next. The earlier staging images (`0.3.1`, `0.3.3`, `0.3.4`) keep their tags |
 | a push to `main` ("ship it") | builds nothing: adds `0.7` and `latest` to the image staging published as `0.7.0004`, after checking it was built from this same commit |
 | Actions → Image → Run workflow on any branch, with a tag starting `test-` | that tag only, labelled `0.7.0004-test.<commit>`, to try the workflow (delete it afterwards from the package's page) |
 

@@ -29,6 +29,10 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app settings pages check.
 - **Followers:** On a request's page in the web app, look at Followers. You should see every member who asked for the title after its requester.
   - Checked automatically: the web app portal pages check.
+- **Titles Requestarr didn't add:** In your request channel, request a movie that's already in the test Radarr but wasn't requested through Requestarr. You should see that it's already in the library, ready for you, and no second copy in Radarr.
+  - Checked automatically: the live shared library check.
+- **Deleting turned off:** With deleting files turned off, start a removal of a title, let the vote pass with no keeps, then open the admin queue. You should see the removal card say deleting is turned off, the title still in Radarr with its file, everyone asked told it will be deleted by hand, a Delete it yourself item naming the title and the Radarr it's in, and after I deleted it, the removal closed.
+  - Checked automatically: the live deleting turned off check.
 - **Acting from the web app:** As an admin in the web app, deny a pending request with a reason, approve another, suspend and then unsuspend a member, start and then drop a removal, and approve someone asking to join. You should see each done as it is from Discord: the member's request messages, their channel's notices and the admin channel's cards change the same way, naming you with (web app).
   - Checked automatically: the live portal actions check.
 - **Header search:** On any page of the web app, press / and type part of a request's title, then part of a member's name, in the light and the dark theme. You should see the search placed and styled like Sonarr's, the request and the member found under Requests and Members, and each opening its page.

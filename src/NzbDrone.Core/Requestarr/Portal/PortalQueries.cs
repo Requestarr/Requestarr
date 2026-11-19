@@ -228,7 +228,8 @@ namespace Requestarr.Core.Portal
             Add(actions, trouble && request.Status == RequestStatus.Approved && request.ExternalItemId.HasValue, "searchAgain");
             Add(actions, request.Status == RequestStatus.Failed, "retry");
             Add(actions, request is { ContentType: ContentType.Tv, IsActive: true }, "addSeasons");
-            Add(actions, removal?.IsOpen == true, "forceRemoval", "dropRemoval");
+            Add(actions, removal?.IsOpen == true && removal.Status != RemovalStatus.DeleteByHand, "forceRemoval", "dropRemoval");
+            Add(actions, removal?.Status == RemovalStatus.DeleteByHand, "deletedByHand", "dropRemoval");
             Add(actions, removal?.IsOpen != true && RequestCards.Downloaded(request), "remove");
 
             return actions;
@@ -261,7 +262,7 @@ namespace Requestarr.Core.Portal
                 ? new PortalQueueItem(item.Key, "mediaServerLink", item.Since, $"{link.Provider}: {link.Username}", names.GetValueOrDefault(link.UserId), null, link.UserId)
                 : null,
             'i' => _backends.Find(item.Id) is { } instance ? new PortalQueueItem(item.Key, "instanceDown", item.Since, instance.Name, null, null, null) : null,
-            'x' => _proposals.Find(item.Id) is { } removal ? RemovalItem(item, removal, names) : null,
+            'x' => _proposals.Find(item.Id) is { } removal ? RemovalItem(item, removal, names, Instances()) : null,
             'a' => _accessRequests.Find(item.Id) is { } access
                 ? new PortalQueueItem(item.Key, "accessRequest", item.Since, access.Note ?? NoNote, access.DisplayName ?? access.Username, null, null)
                 : null,
@@ -269,11 +270,18 @@ namespace Requestarr.Core.Portal
         };
 
         // A removal waits on the admin about its requester's title (their No, a vote they lost); one with no requester
-        // names whoever started it. The name and the member page it opens are always the same person.
-        private static PortalQueueItem RemovalItem(QueueItem item, RemovalProposal removal, Dictionary<int, string> names)
+        // names whoever started it. The name and the member page it opens are always the same person. One agreed while
+        // deleting files is off is "delete it yourself", with the instance to delete it from.
+        private static PortalQueueItem RemovalItem(QueueItem item, RemovalProposal removal, Dictionary<int, string> names, Dictionary<int, string> instances)
         {
             var memberId = removal.RequesterUserId ?? removal.InitiatedByUserId;
             var who = removal.RequesterUserId.HasValue ? names.GetValueOrDefault(removal.RequesterUserId.Value) : NameNow(removal.InitiatedByUserId, removal.InitiatedByName, names);
+
+            if (removal.Status == RemovalStatus.DeleteByHand)
+            {
+                var instance = removal.BackendId.HasValue ? instances.GetValueOrDefault(removal.BackendId.Value) : null;
+                return new PortalQueueItem(item.Key, "deleteByHand", item.Since, instance != null ? $"{removal.Label} · {instance}" : removal.Label, who, removal.RequestId, memberId);
+            }
 
             return new PortalQueueItem(item.Key, "removal", item.Since, removal.Label, who, removal.RequestId, memberId);
         }

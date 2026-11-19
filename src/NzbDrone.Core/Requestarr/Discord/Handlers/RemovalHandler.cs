@@ -16,12 +16,14 @@ namespace Requestarr.Core.Discord.Handlers
         private readonly ICallerResolver _callers;
         private readonly IRemovalService _removals;
         private readonly IRequestService _requests;
+        private readonly IRemovalSettings _settings;
 
-        public RemovalHandler(ICallerResolver callers, IRemovalService removals, IRequestService requests)
+        public RemovalHandler(ICallerResolver callers, IRemovalService removals, IRequestService requests, IRemovalSettings settings)
         {
             _callers = callers;
             _removals = removals;
             _requests = requests;
+            _settings = settings;
         }
 
         public IEnumerable<(InteractionKind Kind, string Route)> Routes => new[]
@@ -41,6 +43,7 @@ namespace Requestarr.Core.Discord.Handlers
             (InteractionKind.Button, RemovalRoutes.Force),
             (InteractionKind.Button, RemovalRoutes.ForceYes),
             (InteractionKind.Button, RemovalRoutes.Drop),
+            (InteractionKind.Button, RemovalRoutes.ByHand),
             (InteractionKind.Button, RemovalRoutes.Search),
             (InteractionKind.ModalSubmit, RemovalRoutes.SearchForm),
             (InteractionKind.SelectMenu, RemovalRoutes.Pick)
@@ -248,6 +251,10 @@ namespace Requestarr.Core.Discord.Handlers
                 case RemovalRoutes.Drop:
                     await responder.Reply(await _removals.DropAsync(IntAt(args, 0), actor, adminName, caller.User?.Id));
                     return;
+
+                case RemovalRoutes.ByHand:
+                    await responder.Reply(await _removals.DeletedByHandAsync(IntAt(args, 0), actor, adminName, caller.User?.Id));
+                    return;
             }
         }
 
@@ -335,13 +342,13 @@ namespace Requestarr.Core.Discord.Handlers
         }
 
         // The admin's removal card: who's asked, what's removed (TV: the whole show or chosen seasons), Start or Force.
-        private static InteractionReply AdminCard(RemovalTarget target, List<int> seasons)
+        private InteractionReply AdminCard(RemovalTarget target, List<int> seasons)
         {
             var at = $"{target.Instance.Id}:{target.Title.Id}";
             var scope = RemovalRoutes.Encode(seasons);
             var reply = new InteractionReply
             {
-                Content = DiscordText.RemovalStartCard(target, seasons),
+                Content = DiscordText.RemovalStartCard(target, seasons) + DeletingOff(),
                 Ephemeral = true,
                 SelectMenu = ScopeMenu($"{RemovalRoutes.AdminScope}:{at}", target, seasons),
                 Buttons = new List<InteractionButton>
@@ -354,9 +361,12 @@ namespace Requestarr.Core.Discord.Handlers
             return reply;
         }
 
-        private static InteractionReply UserCard(Request request, RemovalTarget target, List<int> seasons) => new()
+        // Said on every card that starts a removal while deleting files is off on this server.
+        private string DeletingOff() => _settings.DeleteFiles ? string.Empty : "\n" + DiscordText.DeletingOffNote;
+
+        private InteractionReply UserCard(Request request, RemovalTarget target, List<int> seasons) => new()
         {
-            Content = DiscordText.RemovalUserCard(request, seasons),
+            Content = DiscordText.RemovalUserCard(request, seasons) + DeletingOff(),
             Ephemeral = true,
             SelectMenu = ScopeMenu($"{RemovalRoutes.UserScope}:{request.Id}", target, seasons),
             Buttons = new List<InteractionButton>

@@ -26,7 +26,7 @@ const ASKING: Record<string, RequestDialog> = {
 };
 
 // An open removal's actions, which come last in the request's: its own buttons, as on the Queue page.
-const REMOVAL_ACTIONS = ['forceRemoval', 'dropRemoval'];
+const REMOVAL_ACTIONS = ['forceRemoval', 'deletedByHand', 'dropRemoval'];
 
 interface RequestActionsProps {
   detail: PortalRequestDetail;
@@ -39,7 +39,7 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
   const { act, isBusy, outcome } = action;
   const [dialog, setDialog] = useState<RequestDialog>();
   const request = `requests/${detail.request.id}`;
-  const removal = detail.actions.includes('forceRemoval')
+  const removal = detail.actions.includes('dropRemoval')
     ? detail.latestRemoval
     : null;
   const own = detail.actions.filter((name) => !REMOVAL_ACTIONS.includes(name));
@@ -96,7 +96,13 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
             onPress={onPress}
           />
         ))}
-        {removal && <RemovalActions removalId={removal.id} action={action} />}
+        {removal && (
+          <RemovalActions
+            removalId={removal.id}
+            action={action}
+            byHand={removal.status === 'deleteByHand'}
+          />
+        )}
       </div>
 
       <ActionOutcomeAlert outcome={outcome} />
