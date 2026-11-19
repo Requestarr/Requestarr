@@ -40,7 +40,6 @@ Requestarr.Core.Imports.HistoryMessage.AuthorId  # part of the Discord message t
 Requestarr.Core.Imports.ImportAccess.MessageContent  # sent in the import API's access check, which the Import page shows
 Requestarr.Core.Imports.ImportAccess.PortalUrl  # sent in the import API's access check, which the Import page links to
 Requestarr.Core.Imports.ImportAccess.ReadInviteUrl  # sent in the import API's access check, which the Import page links to
-Requestarr.Core.Imports.ImportChannel.Server  # sent in the import API's channel check, which the Import page shows
 Requestarr.Core.Imports.ImportPlan.MessagesRead  # sent in the import API's preview, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.ChannelId  # sent in the import API's progress, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.Name  # sent in the import API's progress, which the Import page shows

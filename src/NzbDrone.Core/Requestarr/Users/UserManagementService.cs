@@ -32,8 +32,9 @@ namespace Requestarr.Core.Users
         // A record without a role or channel, so something someone asks for has an owner before they're added.
         RequestarrUser EnsureRecord(ulong discordUserId, string username, string displayName);
 
-        // Someone an import names. InServer: whether they're in the Discord server now, or null when unknown.
-        RequestarrUser EnsureImported(ulong discordUserId, string name, bool? inServer);
+        // Someone an import names. InServer: whether they're in the Discord server now, or null when unknown. Source:
+        // where their history came from.
+        RequestarrUser EnsureImported(ulong discordUserId, string name, bool? inServer, string source);
         ServiceResult SetQuota(ulong discordUserId, ContentType type, int limit, int days, Actor actor);
         ServiceResult Info(ulong discordUserId);
         Task HandleMemberLeftAsync(ulong discordUserId);
@@ -365,35 +366,61 @@ namespace Requestarr.Core.Users
             return FindByDiscordId(discordUserId) ?? CreateRecord(discordUserId, username, displayName, "user.record");
         }
 
-        // Members and earlier records as they are. Anyone else is recorded once as Imported (ImportedLeft when they aren't
-        // in the server): no role, channel or access. A later import refreshes an imported record's name and whether
-        // they're in the server; onboarding them makes them a member with their history.
-        public RequestarrUser EnsureImported(ulong discordUserId, string name, bool? inServer)
+        // Members and earlier records as they are. Anyone else is recorded once as Imported (ImportedElsewhere when they
+        // aren't known to be in the server): no role, channel or access. A later import refreshes an imported record's
+        // name and whether they're in the server; onboarding them makes them a member with their history.
+        public RequestarrUser EnsureImported(ulong discordUserId, string name, bool? inServer, string source)
         {
-            var status = inServer == false ? UserStatus.ImportedLeft : UserStatus.Imported;
             var user = FindByDiscordId(discordUserId);
 
             if (user == null)
             {
-                return CreateRecord(discordUserId, name, name, ImportedAction, status);
+                user = CreateRecord(discordUserId, name, name, ImportedAction, inServer == true ? UserStatus.Imported : UserStatus.ImportedElsewhere);
+                user.ImportedFrom = source;
+                _users.SetFields(user, u => u.ImportedFrom);
+
+                return user;
             }
 
-            var imported = user.Status is UserStatus.Imported or UserStatus.ImportedLeft;
-
-            if (imported && inServer.HasValue && (user.Status != status || user.DisplayName != name))
+            if (!user.IsImported)
             {
-                if (user.Status != status)
-                {
-                    user.StatusChanged = DateTime.UtcNow;
-                }
-
-                user.DisplayName = name;
-                user.Status = status;
-                _users.Update(user);
+                return user;
             }
+
+            var status = ImportedStatus(user.Status, inServer);
+            var changed = user.Status != status || (inServer == true && user.DisplayName != name) || (user.ImportedFrom == null && source != null);
+
+            if (!changed)
+            {
+                return user;
+            }
+
+            if (user.Status != status)
+            {
+                user.Status = status;
+                user.StatusChanged = DateTime.UtcNow;
+            }
+
+            // Only a name read from this server replaces the one on record.
+            if (inServer == true)
+            {
+                user.DisplayName = name;
+            }
+
+            user.ImportedFrom ??= source;
+            _users.Update(user);
 
             return user;
         }
+
+        // Left only means seen in this server before: someone never seen here stays "not in this server".
+        private static UserStatus ImportedStatus(UserStatus current, bool? inServer) => inServer switch
+        {
+            true => UserStatus.Imported,
+            false when current is UserStatus.Imported or UserStatus.ImportedLeft => UserStatus.ImportedLeft,
+            false => UserStatus.ImportedElsewhere,
+            _ => current
+        };
 
         private RequestarrUser CreateRecord(ulong discordUserId, string username, string displayName, string auditAction, UserStatus status = UserStatus.Active)
         {
@@ -621,7 +648,7 @@ namespace Requestarr.Core.Users
             }
 
             // Someone known only from an import has no role or channel to suspend, and no access to change, yet.
-            if (user.Status is UserStatus.Imported or UserStatus.ImportedLeft && !anyRecord)
+            if (user.IsImported && !anyRecord)
             {
                 return (null, DiscordText.NotOnboarded);
             }

@@ -30,11 +30,11 @@ namespace Requestarr.Core.Test.Discord
         // Every Discord event the bot listens to. A new one fails here until its handler checks the server.
         private static readonly string[] Events =
         {
-            "Log", "Connected", "Disconnected", "LatencyUpdated", "Ready", "InteractionCreated", "UserLeft", "GuildMemberUpdated", "UserUpdated", "MessageReceived"
+            "Log", "Connected", "Disconnected", "LatencyUpdated", "Ready", "InteractionCreated", "UserJoined", "UserLeft", "GuildMemberUpdated", "UserUpdated", "MessageReceived"
         };
 
         // The handlers for events that come from a server, and the member check they share.
-        private static readonly string[] ServerHandlers = { "OnInteraction", "OnUserLeft", "OnMessage", "OnMemberUpdated", "Seen" };
+        private static readonly string[] ServerHandlers = { "OnInteraction", "OnUserJoined", "OnUserLeft", "OnMessage", "OnMemberUpdated", "Seen" };
 
         // What changes something in Discord.
         private static readonly Regex Write = new(@"\.(Send\w*Async|Modify\w*Async|Delete\w*Async|Create\w*Async|Add\w*Async|Remove\w*Async|Pin\w*Async|Unpin\w*Async|BulkOverwrite\w*Async|Trigger\w*Async)\(");

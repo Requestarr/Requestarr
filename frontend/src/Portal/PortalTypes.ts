@@ -23,7 +23,8 @@ export type MemberStatus =
   | 'suspended'
   | 'removed'
   | 'imported'
-  | 'importedLeft';
+  | 'importedLeft'
+  | 'importedElsewhere';
 
 export type AccessState = 'off' | 'needsApproval' | 'autoApprove';
 
@@ -110,6 +111,7 @@ export interface PortalMemberDetail {
   mediaServer: string | null;
   history: PortalEvent[];
   historyTrimmedAfter: string | null;
+  importedFrom: string | null;
 }
 
 export interface PortalQueueItem {

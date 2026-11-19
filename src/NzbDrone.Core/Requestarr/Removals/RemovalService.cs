@@ -467,7 +467,7 @@ namespace Requestarr.Core.Removals
             var requester = request == null ? null : _users.Find(request.OwnerUserId);
 
             // Only a member can be asked first: someone removed, or known only from an import, has nowhere to be asked.
-            var askable = requester?.Status is not (UserStatus.Removed or UserStatus.Imported or UserStatus.ImportedLeft);
+            var askable = requester is not null && requester.Status != UserStatus.Removed && !requester.IsImported;
 
             return new RemovalTarget(instance, title, request, askable ? requester : null);
         }

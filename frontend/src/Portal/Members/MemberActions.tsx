@@ -5,6 +5,7 @@ import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import TextPromptModal from '../Components/TextPromptModal';
+import { isImported } from '../portalText';
 import {
   ContentType,
   PortalInstance,
@@ -125,7 +126,7 @@ function MemberActions({ detail, onDone }: MemberActionsProps) {
     return null;
   }
 
-  if (member.status === 'imported' || member.status === 'importedLeft') {
+  if (isImported(member.status)) {
     return (
       <FieldSet legend={translate('PortalActions')}>
         <OnboardAction member={member} action={action} />

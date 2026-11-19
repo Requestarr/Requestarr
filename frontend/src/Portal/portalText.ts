@@ -30,7 +30,19 @@ const MEMBER_STATUS: Record<MemberStatus, string> = {
   removed: 'PortalMemberRemoved',
   imported: 'PortalMemberImported',
   importedLeft: 'PortalMemberImportedLeft',
+  importedElsewhere: 'PortalMemberImportedElsewhere',
 };
+
+const IMPORTED: MemberStatus[] = [
+  'imported',
+  'importedLeft',
+  'importedElsewhere',
+];
+
+// Known only from an import: no role, channel or access until onboarded.
+export function isImported(status: MemberStatus) {
+  return IMPORTED.includes(status);
+}
 
 const QUEUE_KINDS: Record<string, string> = {
   request: 'PortalQueueRequest',

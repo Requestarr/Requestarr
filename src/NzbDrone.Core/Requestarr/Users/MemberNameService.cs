@@ -126,12 +126,19 @@ namespace Requestarr.Core.Users
         }
 
         // The person's stored names as Discord has them now, and their member record (null for someone not added).
+        // Someone known only from an import is in the server now (they joined, did something there, or were found at
+        // start): Imported, not onboarded.
         private (RequestarrUser User, bool Renamed) RefreshNames(GuildMember member)
         {
             RefreshAccessRequests(member);
 
             var identity = _identities.Find(UserIdentity.DiscordProvider, member.Id.ToString());
             var user = identity == null ? null : _users.Find(identity.UserId);
+
+            if (user?.Status is UserStatus.ImportedLeft or UserStatus.ImportedElsewhere && _users.MarkInServer(user.Id, DateTime.UtcNow))
+            {
+                user.Status = UserStatus.Imported;
+            }
 
             return user == null ? (null, false) : (user, Rename(user, identity, member));
         }
@@ -161,8 +168,9 @@ namespace Requestarr.Core.Users
             identity.AvatarUrl = member.AvatarUrl ?? identity.AvatarUrl;
             _identities.Update(identity);
 
+            // Only the name: anything else on the record may have changed meanwhile (an onboarding, say).
             user.DisplayName = member.DisplayName;
-            _users.Update(user);
+            _users.SetFields(user, u => u.DisplayName);
 
             _audit.Record(Actor.Discord(member.Id, member.Username, user.Id), RenameAction, "user", user.Id.ToString(), string.Join("; ", changes));
             _logger.Info("Member {0} renamed: {1}", user.Id, string.Join("; ", changes));

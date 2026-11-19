@@ -248,6 +248,39 @@ namespace Requestarr.Core.Test.Qa.Web
             (await PreviewImportAsync(browser, check, "rerun")).Should().Contain("Requests found: 0");
         }
 
+        // People known from an import, on the Members page and an imported person's page, in both themes: each status as
+        // the page shows it, and where their history came from. A stack with nobody imported says so and passes.
+        [Test]
+        public Task imported_members() => CheckAsync(nameof(imported_members), async (browser, check) =>
+        {
+            await SignInAsync(browser);
+
+            foreach (var theme in Themes)
+            {
+                await browser.SetThemeAsync(theme);
+                await browser.GoAsync($"{Url}/members");
+                await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
+
+                var statuses = await browser.EvalAsync<string>("[...new Set([...document.querySelectorAll('tr')].map(r => r.cells[1]?.innerText).filter(t => t?.startsWith('Imported, ')))].join(' | ')");
+
+                if (string.IsNullOrEmpty(statuses))
+                {
+                    check.Saw($"members ({theme}): nobody imported on this stack");
+                    continue;
+                }
+
+                check.Saw($"members ({theme}): {statuses}");
+                await check.ShotAsync(browser, $"imported-members-{theme}");
+
+                await browser.RunAsync("[...document.querySelectorAll('tr')].find(r => r.cells[1]?.innerText.startsWith('Imported, ')).querySelector('a').click()");
+                await browser.WaitForAsync("document.body.innerText.includes('Imported from')");
+                var source = await browser.EvalAsync<string>("[...document.querySelectorAll('dt')].find(t => t.innerText === 'Imported from')?.nextElementSibling?.innerText ?? ''");
+                check.Saw($"member page ({theme}): Imported from {source}");
+                await check.ShotAsync(browser, $"imported-member-page-{theme}");
+                source.Should().NotBeEmpty();
+            }
+        });
+
         // Requestarr's own settings pages load in both themes. QA and dev take their settings from the provisioning file,
         // so each page says so and its fields can't be changed; the instances page lists the stack's Sonarr and Radarr.
         [Test]

@@ -11,7 +11,8 @@ namespace Requestarr.Core.Imports
     // Someone who asked in the old channel: by Discord ID; UserId when Requestarr already knows them.
     public record ImportPerson([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong DiscordId, string Name, int? UserId);
 
-    public record ImportFollower(ImportPerson Person, DateTime Asked);
+    // Channel: where they asked, for the source line on their page.
+    public record ImportFollower(ImportPerson Person, DateTime Asked, [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong Channel);
 
     // How a request ended in the old bot: sent to Sonarr or Radarr, or answered that it was already available.
     public enum ImportOutcome
@@ -161,7 +162,7 @@ namespace Requestarr.Core.Imports
                 }
 
                 var entry = Match(message);
-                var follower = new ImportFollower(person, message.Message.Timestamp);
+                var follower = new ImportFollower(person, message.Message.Timestamp, message.Message.ChannelId);
 
                 if (Existing(message, entry) is { } existing)
                 {
