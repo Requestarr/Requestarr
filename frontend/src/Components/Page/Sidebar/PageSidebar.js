@@ -87,6 +87,10 @@ const links = [
       {
         title: () => translate('SettingsChanges'),
         to: '/settings/changes'
+      },
+      {
+        title: () => translate('ImportFromRequestrr'),
+        to: '/settings/import'
       }
     ]
   },

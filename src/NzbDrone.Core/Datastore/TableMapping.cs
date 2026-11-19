@@ -73,6 +73,7 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<Requestarr.Core.Qa.QaChecklistItem>("QaChecklistItems").RegisterModel();
             Mapper.Entity<Requestarr.Core.Qa.BugReport>("BugReports").RegisterModel();
             Mapper.Entity<Requestarr.Core.Qa.BugReportGuard>("BugReportGuards").RegisterModel();
+            Mapper.Entity<Requestarr.Core.Imports.ImportedMessage>("ImportedMessages").RegisterModel();
         }
 
         private static void RegisterMappers()

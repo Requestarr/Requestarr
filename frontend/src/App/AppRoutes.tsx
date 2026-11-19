@@ -15,6 +15,7 @@ import DevelopmentSettingsConnector from 'Settings/Development/DevelopmentSettin
 import GeneralSettingsConnector from 'Settings/General/GeneralSettingsConnector';
 import ConnectionSettings from 'Settings/Requestarr/ConnectionSettings';
 import DiscordSettings from 'Settings/Requestarr/DiscordSettings';
+import ImportPage from 'Settings/Requestarr/Import/ImportPage';
 import InstancesSettings from 'Settings/Requestarr/InstancesSettings';
 import RequestSettings from 'Settings/Requestarr/RequestSettings';
 import SettingsChanges from 'Settings/Requestarr/SettingsChanges';
@@ -91,6 +92,8 @@ function AppRoutes() {
       <Route path="/settings/connections" component={ConnectionSettings} />
 
       <Route path="/settings/changes" component={SettingsChanges} />
+
+      <Route path="/settings/import" component={ImportPage} />
 
       <Route path="/setup" component={SetupPage} />
 
