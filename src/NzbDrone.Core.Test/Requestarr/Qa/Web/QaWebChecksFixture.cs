@@ -158,12 +158,13 @@ namespace Requestarr.Core.Test.Qa.Web
         });
 
         // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
-        // both channels found and readable, then the preview of what would be imported, in both themes. A stack without
-        // recordings says so and passes: reading a real server is the owner's run, on beta.
+        // the read-only invite link, both channels found and readable, then the preview of what would be imported, in
+        // both themes. A stack without recordings says so and passes: reading a real server is the owner's run, on beta.
         [Test]
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
         {
             const string Channels = "900000000000100001\n900000000000100002";
+            const string ReadInvite = "Invite the bot to read another server";
             await SignInAsync(browser);
 
             foreach (var theme in Themes)
@@ -171,6 +172,13 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.SetThemeAsync(theme);
                 await browser.GoAsync($"{Url}/settings/import");
                 await browser.WaitForAsync("document.body.innerText.includes('Channel IDs')");
+
+                // The invite for another server asks only to read, and adds no commands.
+                await browser.WaitForAsync($"document.body.innerText.includes('{ReadInvite}')");
+                var invite = await browser.EvalAsync<string>($"[...document.querySelectorAll('a')].find(a => a.innerText.includes('{ReadInvite}')).href");
+                var asks = invite.Substring(invite.IndexOf("&permissions=", StringComparison.Ordinal) + 1);
+                check.Saw($"import ({theme}): {ReadInvite}, asking {asks}");
+                asks.Should().Be("permissions=66560&integration_type=0&scope=bot");
 
                 try
                 {

@@ -52,7 +52,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task<bool> ChannelExistsAsync(ulong channelId)
         {
-            return await Client.Rest.GetChannelAsync(channelId) is RestGuildChannel channel && channel.GuildId == GuildId;
+            return await ChannelAsync(channelId) is RestGuildChannel;
         }
 
         public Task<ulong?> FindCategoryAsync(string name) =>
@@ -76,12 +76,12 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task<ulong?> GetChannelCategoryAsync(ulong channelId)
         {
-            return await Client.Rest.GetChannelAsync(channelId) is INestedChannel channel ? channel.CategoryId : null;
+            return await ChannelAsync(channelId) is INestedChannel channel ? channel.CategoryId : null;
         }
 
         public async Task MoveChannelAsync(ulong channelId, ulong categoryId)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is RestTextChannel channel && channel.CategoryId != categoryId)
+            if (await ChannelAsync(channelId) is RestTextChannel channel && channel.CategoryId != categoryId)
             {
                 await channel.ModifyAsync(p => p.CategoryId = categoryId);
             }
@@ -89,7 +89,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task SetChannelTopicAsync(ulong channelId, string topic)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is RestTextChannel channel && channel.Topic != topic)
+            if (await ChannelAsync(channelId) is RestTextChannel channel && channel.Topic != topic)
             {
                 await channel.ModifyAsync(p => p.Topic = topic);
             }
@@ -199,7 +199,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task<ulong> SendMessageAsync(ulong channelId, InteractionReply message)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is not IMessageChannel channel)
+            if (await ChannelAsync(channelId) is not IMessageChannel channel)
             {
                 throw new InvalidOperationException($"Channel {channelId} is not a text channel");
             }
@@ -225,7 +225,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task<bool> EditMessageAsync(ulong channelId, ulong messageId, InteractionReply message)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is not IMessageChannel channel ||
+            if (await ChannelAsync(channelId) is not IMessageChannel channel ||
                 await channel.GetMessageAsync(messageId) is not IUserMessage existing)
             {
                 return false;
@@ -275,7 +275,7 @@ namespace Requestarr.Core.Discord.Gateway
         {
             try
             {
-                if (await Client.Rest.GetChannelAsync(channelId) is IMessageChannel channel && await channel.GetMessageAsync(messageId) is { } message)
+                if (await ChannelAsync(channelId) is IMessageChannel channel && await channel.GetMessageAsync(messageId) is { } message)
                 {
                     await message.DeleteAsync();
                     return true;
@@ -291,7 +291,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task<IReadOnlyList<ChannelMessage>> GetOwnMessagesAsync(ulong channelId, int limit)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is not IMessageChannel channel)
+            if (await ChannelAsync(channelId) is not IMessageChannel channel)
             {
                 return Array.Empty<ChannelMessage>();
             }
@@ -348,7 +348,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task PinMessageAsync(ulong channelId, ulong messageId)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is not IMessageChannel channel ||
+            if (await ChannelAsync(channelId) is not IMessageChannel channel ||
                 await channel.GetMessageAsync(messageId) is not IUserMessage message || message.IsPinned)
             {
                 return;
@@ -373,7 +373,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task UnpinMessageAsync(ulong channelId, ulong messageId)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is IMessageChannel channel &&
+            if (await ChannelAsync(channelId) is IMessageChannel channel &&
                 await channel.GetMessageAsync(messageId) is IUserMessage message && message.IsPinned)
             {
                 await message.UnpinAsync();
@@ -404,7 +404,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         public async Task<ulong?> GetLatestMessageIdAsync(ulong channelId)
         {
-            if (await Client.Rest.GetChannelAsync(channelId) is not IMessageChannel channel)
+            if (await ChannelAsync(channelId) is not IMessageChannel channel)
             {
                 return null;
             }
@@ -416,7 +416,21 @@ namespace Requestarr.Core.Discord.Gateway
 
         private async Task<RestGuildChannel> GetGuildChannel(ulong channelId)
         {
-            return await Client.Rest.GetChannelAsync(channelId) as RestGuildChannel ?? throw new InvalidOperationException($"Channel {channelId} not found");
+            return await ChannelAsync(channelId) as RestGuildChannel ?? throw new InvalidOperationException($"Channel {channelId} not found");
+        }
+
+        // Every channel the gateway reads or writes goes through here: one in this server, or a private message. A
+        // channel in any other server the bot is in (one it was invited to only for an import) counts as not found.
+        private async Task<IChannel> ChannelAsync(ulong channelId)
+        {
+            var channel = await Client.Rest.GetChannelAsync(channelId);
+
+            return channel switch
+            {
+                IGuildChannel inServer => ServerScope.IsOurs(inServer.GuildId, GuildId) ? channel : null,
+                IDMChannel => channel,
+                _ => null
+            };
         }
 
         private static List<Overwrite> Map(IEnumerable<PermissionOverwrite> overwrites)

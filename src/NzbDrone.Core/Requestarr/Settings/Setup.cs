@@ -28,6 +28,12 @@ namespace Requestarr.Core.Settings
         // The permissions the setup guide's invite link asks for (docs/setup-guide.md, section 2).
         public const string InvitePermissions = "2251800082205712";
 
+        // Inviting the bot to another server only so an import can read it: View Channels and Read Message History,
+        // and no commands.
+        public const string ReadOnlyInvitePermissions = "66560";
+        public const string ReadOnlyInviteScope = "bot";
+        private const string InviteScope = "bot+applications.commands";
+
         private readonly IProvisioningService _provisioning;
         private readonly IConfigFileProvider _configFile;
         private readonly IDiscordSettingsStore _discord;
@@ -56,12 +62,14 @@ namespace Requestarr.Core.Settings
             var discord = _discord.Current.IsConfigured;
             var instance = _instances.All().Any(i => i.Settings.Enabled);
             var applicationId = _discord.Current.ApplicationId;
-            var invite = applicationId == 0
-                ? null
-                : $"https://discord.com/oauth2/authorize?client_id={applicationId}&permissions={InvitePermissions}&integration_type=0&scope=bot+applications.commands";
+            var invite = InviteUrl(applicationId, InvitePermissions, InviteScope);
 
             return new SetupStatus(!_provisioning.UsesFile && !(adminAccount && discord && instance), adminAccount, discord, instance, _discordHost.State, _discordHost.LastError, invite);
         }
+
+        // Null until the bot's application ID is known.
+        public static string InviteUrl(ulong applicationId, string permissions, string scope) =>
+            applicationId == 0 ? null : $"https://discord.com/oauth2/authorize?client_id={applicationId}&permissions={permissions}&integration_type=0&scope={scope}";
 
         public IReadOnlyList<PortalEvent> Changes() =>
             _audit.ForTargetTypes("settings", "instance").Select(e => PortalText.Event(e, new Dictionary<int, string>(), new Dictionary<string, string>())).ToList();
