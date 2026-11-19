@@ -250,6 +250,78 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
+        public async Task history_stays_history_when_someone_has_requested_the_title_since()
+        {
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+            var owner = Mocker.Resolve<IUserManagementService>().FindByDiscordId(Sam);
+            Mocker.Resolve<IRequestRepository>().Insert(new Request
+            {
+                OwnerUserId = owner.Id, ContentType = ContentType.Movie, Title = "A Film Nobody Has", TmdbId = 999999901, BackendId = Radarr, ExternalItemId = 12, Status = RequestStatus.Approved, Requested = DateTime.UtcNow
+            });
+            GivenLibrary(Radarr, Crow, Nobody);
+
+            (await PreviewBoth()).Plan.Links.Should().BeEmpty("the newer request is the live one");
+        }
+
+        [Test]
+        public async Task an_already_available_reply_never_widens_the_seasons_asked_for()
+        {
+            GivenChannelA(Sent(900000000001000101, Riley, "season 2"), Available(900000000001000102, Sam));
+
+            var request = (await Preview(ChannelA)).Plan.Requests.Single();
+
+            request.Seasons.Should().Equal(2);
+            request.Followers.Select(f => f.Person.Name).Should().Equal("Sam");
+        }
+
+        [Test]
+        public async Task a_show_named_only_by_the_movie_database_is_found_again_and_takes_its_tvdb_id_when_linked()
+        {
+            GivenChannelA(Show(900000000001000101, Riley));
+            await Subject.ConfirmAsync((await Preview(ChannelA)).Id, Actor.Web("owner"));
+
+            GivenChannelA(Show(900000000001000101, Riley), Show(900000000001000102, Sam));
+            var again = (await Preview(ChannelA)).Plan;
+            again.Requests.Should().BeEmpty("the earlier import's request is the same show");
+            again.Follows.Single().Followers.Select(f => f.Person.Name).Should().Equal("Sam");
+
+            GivenLibrary(Sonarr, Severance, BreakingBad, new LibraryTitle(23, "Lost Show", 2020, 500001, 600001, false, new[] { 1 }, Array.Empty<int>(), null));
+            await Subject.ConfirmAsync((await Preview(ChannelA)).Id, Actor.Web("owner"));
+
+            var linked = Mocker.Resolve<IRequestRepository>().All().Single(r => r.Title == "Lost Show");
+            (linked.Status, linked.TvdbId, linked.ExternalItemId).Should().Be((RequestStatus.Approved, 600001, 23));
+        }
+
+        [Test]
+        public async Task someone_only_imported_cant_be_suspended_or_given_access_until_onboarded()
+        {
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+            var people = Mocker.Resolve<IUserManagementService>();
+
+            (await people.SuspendAsync(Riley, Actor.Web("owner"))).Message.Should().Be(Requestarr.Core.Discord.DiscordText.NotOnboarded);
+            people.SetAccess(Riley, ContentType.Movie, AccessState.AutoApprove, Actor.Web("owner")).Success.Should().BeFalse();
+            people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.Imported);
+        }
+
+        // "Already available" for Breaking Bad in channel A, asked by who.
+        private static HistoryMessage Available(ulong id, ulong who)
+        {
+            var at = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc).AddMinutes(id % 1000);
+            var embed = new HistoryEmbed("Breaking Bad (2008)", "https://www.thetvdb.com/?tab=series&id=81189");
+
+            return new HistoryMessage(id, ChannelA, at, 900000000000300001, true, "This show is already available, enjoy!", new[] { embed }, who, who == Riley ? "Riley" : "Sam", Array.Empty<ulong>(), 3);
+        }
+
+        // A show request in channel A whose card links The Movie Database's TV page only.
+        private static HistoryMessage Show(ulong id, ulong who)
+        {
+            var at = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc).AddMinutes(id % 1000);
+            var embed = new HistoryEmbed("Lost Show (2020)", "https://www.themoviedb.org/tv/500001");
+
+            return new HistoryMessage(id, ChannelA, at, 900000000000300001, true, "Your request for **all seasons** of **Lost Show** was sent successfully!", new[] { embed }, who, who == Riley ? "Riley" : "Sam", Array.Empty<ulong>(), 3);
+        }
+
+        [Test]
         public async Task asking_for_a_title_requestarr_already_has_a_request_for_follows_it_instead()
         {
             // Waiting for approval (no Sonarr item yet), on another Sonarr: still the same title, by its TheTVDB ID.

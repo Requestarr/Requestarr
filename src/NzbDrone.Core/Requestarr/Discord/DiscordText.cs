@@ -30,6 +30,7 @@ namespace Requestarr.Core.Discord
         // Lookups
         public const string NotARequestarrUser = "That member isn't a Requestarr user.";
         public const string UserRemoved = "That user was removed. Add them again with /user add.";
+        public const string NotOnboarded = "That member was only imported from the old request bot and isn't onboarded yet. Add them first with /user add.";
         public const string NotInServer = "That member isn't in the server right now, so they can't be restored yet.";
         public const string TypeNotOffered = "That content type isn't available yet.";
         public const string NoChannel = "Only users with a request channel can link a media server account.";
@@ -466,7 +467,7 @@ namespace Requestarr.Core.Discord
             return $"• {Label(type)}: {Label(state)}, {used} of {limit} used in the last {days} days{next}";
         }
 
-        public static string Label(RequestStatus status) => status.ToString().ToLowerInvariant();
+        public static string Label(RequestStatus status) => status == RequestStatus.NotInLibrary ? "not in library" : status.ToString().ToLowerInvariant();
 
         // Anime: sub or dub
         public static string Label(AnimeLanguage language) => language == AnimeLanguage.Dub ? "Dub" : "Sub";

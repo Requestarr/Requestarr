@@ -39,13 +39,17 @@ function inLibraryText(instance?: string) {
     : translate('ImportInLibraryNo');
 }
 
+function followerNames(followers: PlannedRequest['followers']) {
+  return followers.map((f) => f.person.name).join(', ');
+}
+
 function requestRow(request: PlannedRequest): Row {
   return {
     key: `new:${request.type}:${request.title}:${request.requested}`,
     type: request.type,
     title: titleText({ title: request.title, year: request.year ?? null }),
     requester: request.requester.name,
-    followers: request.followers.map((f) => f.person.name).join(', '),
+    followers: followerNames(request.followers),
     when: request.requested,
     ended: translate(
       request.outcome === 'alreadyAvailable'
@@ -62,7 +66,7 @@ function followRow(follow: PlannedFollow): Row {
     type: follow.type,
     title: titleText({ title: follow.title, year: follow.year ?? null }),
     requester: follow.requester ?? '',
-    followers: follow.followers.map((f) => f.person.name).join(', '),
+    followers: followerNames(follow.followers),
     when: follow.requested,
     ended: translate('ImportEndedExisting'),
     inLibrary: inLibraryText(follow.instance),

@@ -81,5 +81,11 @@ export interface ImportJob {
   problem?: string;
   warning?: string;
   plan?: ImportPlan;
-  result?: { requests: number; followers: number; people: number };
+  result?: {
+    requests: number;
+    notInLibrary: number;
+    followers: number;
+    people: number;
+    linked: number;
+  };
 }

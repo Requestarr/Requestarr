@@ -215,7 +215,7 @@ namespace Requestarr.Core.Users
 
         public async Task<ServiceResult> RemoveAsync(ulong discordUserId, Actor actor)
         {
-            var (user, error) = Lookup(discordUserId);
+            var (user, error) = Lookup(discordUserId, anyRecord: true);
 
             if (user == null)
             {
@@ -378,10 +378,16 @@ namespace Requestarr.Core.Users
                 return CreateRecord(discordUserId, name, name, ImportedAction, status);
             }
 
-            if (user.Status is UserStatus.Imported or UserStatus.ImportedLeft && inServer.HasValue && (user.Status != status || user.DisplayName != name))
+            var imported = user.Status is UserStatus.Imported or UserStatus.ImportedLeft;
+
+            if (imported && inServer.HasValue && (user.Status != status || user.DisplayName != name))
             {
+                if (user.Status != status)
+                {
+                    user.StatusChanged = DateTime.UtcNow;
+                }
+
                 user.DisplayName = name;
-                user.StatusChanged = user.Status != status ? DateTime.UtcNow : user.StatusChanged;
                 user.Status = status;
                 _users.Update(user);
             }
@@ -600,7 +606,7 @@ namespace Requestarr.Core.Users
             _accounts.Upsert(account);
         }
 
-        private (RequestarrUser User, string Error) Lookup(ulong discordUserId)
+        private (RequestarrUser User, string Error) Lookup(ulong discordUserId, bool anyRecord = false)
         {
             var user = FindByDiscordId(discordUserId);
 
@@ -612,6 +618,12 @@ namespace Requestarr.Core.Users
             if (user.Status == UserStatus.Removed)
             {
                 return (null, DiscordText.UserRemoved);
+            }
+
+            // Someone known only from an import has no role or channel to suspend, and no access to change, yet.
+            if (user.Status is UserStatus.Imported or UserStatus.ImportedLeft && !anyRecord)
+            {
+                return (null, DiscordText.NotOnboarded);
             }
 
             return (user, null);

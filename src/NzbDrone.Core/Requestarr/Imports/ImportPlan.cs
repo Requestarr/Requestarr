@@ -48,8 +48,9 @@ namespace Requestarr.Core.Imports
     // A request Requestarr already has for a title people asked the old bot for: they follow it.
     public record PlannedFollow(int RequestId, ContentType Type, string Title, int? Year, string Requester, DateTime Requested, string Instance, IReadOnlyList<ImportFollower> Followers);
 
-    // An earlier import's request that wasn't in the library and now is: it's linked to the item.
-    public record PlannedLink(int RequestId, string Title, int InstanceId, string Instance, int ItemId, IReadOnlyList<int> LibrarySeasons, bool HasFiles);
+    // An earlier import's request that wasn't in the library and now is: it's linked to the item, and takes the library's
+    // IDs it was missing (a show named by The Movie Database gains its TheTVDB ID, which requests go by).
+    public record PlannedLink(int RequestId, string Title, int InstanceId, string Instance, int ItemId, int? TmdbId, int? TvdbId, IReadOnlyList<int> LibrarySeasons, bool HasFiles);
 
     // What an import would do, before anything is written: one list of every request found (Requests, and Follows for
     // titles Requestarr already has), library links for earlier imports, and counts of what isn't a request. Recorded:
@@ -152,16 +153,10 @@ namespace Requestarr.Core.Imports
             {
                 var person = Person(message);
 
-                if (person == null)
+                // Without who asked, or a card naming the title, there's nothing to record.
+                if (person == null || message.Type == null)
                 {
                     _noRequester++;
-                    return;
-                }
-
-                // A reply with no card names no title: nothing to record as asked for.
-                if (message.Type == null)
-                {
-                    _notRequests++;
                     return;
                 }
 
@@ -184,7 +179,10 @@ namespace Requestarr.Core.Imports
 
                 var asked = planned.Requester.DiscordId == person.DiscordId || planned.Followers.Any(f => f.Person.DiscordId == person.DiscordId);
 
-                _requests[key] = planned with { Seasons = MergedSeasons(planned.Seasons, message.Seasons), Followers = asked ? planned.Followers : planned.Followers.Append(follower).ToList() };
+                // "Already available" names no seasons: it never widens what was asked for.
+                var seasons = outcome == ImportOutcome.Sent ? MergedSeasons(planned.Seasons, message.Seasons) : planned.Seasons;
+
+                _requests[key] = planned with { Seasons = seasons, Followers = asked ? planned.Followers : planned.Followers.Append(follower).ToList() };
             }
 
             // The seasons of a show everyone asked for: none listed means every season, so that wins.
@@ -254,13 +252,24 @@ namespace Requestarr.Core.Imports
 
             private void Record(SourceMessage message) => _recorded.Add(new RecordedMessage(message.Message.Id, message.Message.ChannelId));
 
-            // Earlier imports' requests that weren't in the library, now matched by ID.
+            // Earlier imports' requests that weren't in the library, now matched by ID. One whose title someone has
+            // requested since stays history: that newer request is the live one.
             private List<PlannedLink> Links() =>
                 _context.Requests.Where(r => r.Status == RequestStatus.NotInLibrary)
                     .Select(r => (Request: r, Entry: Find(r.ContentType, r.TmdbId, r.TvdbId)))
-                    .Where(m => m.Entry != null)
-                    .Select(m => new PlannedLink(m.Request.Id, m.Request.Label, m.Entry.InstanceId, m.Entry.Instance, m.Entry.Title.Id, m.Entry.Title.Seasons ?? Array.Empty<int>(), HasFiles(m.Entry)))
+                    .Where(m => m.Entry != null && !RequestedSince(m.Entry))
+                    .Select(m => LinkTo(m.Request, m.Entry))
                     .ToList();
+
+            private static PlannedLink LinkTo(Request request, LibraryEntry entry) =>
+                new(request.Id, request.Label, entry.InstanceId, entry.Instance, entry.Title.Id, entry.Title.TmdbId, entry.Title.TvdbId, entry.Title.Seasons ?? Array.Empty<int>(), HasFiles(entry));
+
+            private bool RequestedSince(LibraryEntry entry)
+            {
+                var id = entry.Type == ContentType.Movie ? entry.Title.TmdbId : entry.Title.TvdbId;
+
+                return _context.Requests.Any(r => r.IsActive && r.ContentType == entry.Type && r.ExternalId == id);
+            }
 
             private static bool HasFiles(LibraryEntry entry) =>
                 entry.Type == ContentType.Movie ? entry.Title.HasFile : entry.Title.SeasonsWithFiles?.Any() == true;
@@ -290,7 +299,8 @@ namespace Requestarr.Core.Imports
             };
 
             // The library's IDs when it has the title (they're complete), the message's otherwise; its name only when
-            // it has no link at all. A show is one show by its TheTVDB ID whichever link named it.
+            // it has no link at all. A show is one show by its TheTVDB ID whichever link named it; one the library
+            // doesn't have, named by TheTVDB in one message and by The Movie Database in another, can't be told apart.
             private static TitleKey Key(SourceMessage message, LibraryEntry entry)
             {
                 var tmdb = entry?.Title.TmdbId ?? message.TmdbId;
@@ -311,13 +321,12 @@ namespace Requestarr.Core.Imports
             {
                 var type = message.Type.Value;
                 var id = type == ContentType.Movie ? entry?.Title.TmdbId ?? message.TmdbId : entry?.Title.TvdbId ?? message.TvdbId;
+                var tmdb = entry?.Title.TmdbId ?? message.TmdbId;
 
-                if (!id.HasValue)
-                {
-                    return null;
-                }
-
-                var forTitle = _context.Requests.Where(r => r.ContentType == type && r.ExternalId == id).ToList();
+                // A show known only by The Movie Database (an earlier import's, not in the library) is found by that too.
+                var forTitle = _context.Requests.Where(r => r.ContentType == type &&
+                                                            ((id.HasValue && r.ExternalId == id) || (type == ContentType.Tv && tmdb.HasValue && r.TvdbId == null && r.TmdbId == tmdb)))
+                    .ToList();
 
                 return forTitle.FirstOrDefault(r => r.IsActive) ?? forTitle.FirstOrDefault(r => r.Status == RequestStatus.NotInLibrary);
             }

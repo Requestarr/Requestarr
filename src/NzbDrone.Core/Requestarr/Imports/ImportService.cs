@@ -233,7 +233,7 @@ namespace Requestarr.Core.Imports
             }
 
             var people = plan.Requests.SelectMany(r => r.Followers.Select(f => f.Person).Prepend(r.Requester))
-                .Concat(plan.Follows.SelectMany(f => f.Followers.Select(x => x.Person)))
+                .Concat(plan.Follows.SelectMany(follow => follow.Followers.Select(f => f.Person)))
                 .Select(p => p.DiscordId).Distinct();
 
             foreach (var id in people)
@@ -242,8 +242,9 @@ namespace Requestarr.Core.Imports
                 {
                     members[id] = await _discord.GetMemberAsync(id);
                 }
-                catch (global::Discord.Net.HttpException ex)
+                catch (Exception ex)
                 {
+                    // Unknown is fine: their record stays as it is, and the import goes on.
                     _logger.Debug(ex, "Couldn't look up {0} in the server; their record stays as it is", id);
                 }
             }
@@ -299,31 +300,13 @@ namespace Requestarr.Core.Imports
             return result;
         }
 
-        // A title no Sonarr or Radarr has is kept as history: Not in library, sent nowhere.
+        // A title no Sonarr or Radarr has is kept as history: Not in library, sent nowhere. One the library has is linked
+        // to its item, as if it had been sent then.
         private static Request NewRequest(PlannedRequest planned, RequestarrUser owner)
         {
-            var available = planned.Available.HasValue || planned.HasFiles;
             var everySeason = planned.Type == ContentType.Tv && planned.Seasons.Count == 0;
             var seasons = everySeason && planned.InLibrary ? planned.LibrarySeasons : planned.Seasons;
-
-            if (!planned.InLibrary)
-            {
-                return new Request
-                {
-                    OwnerUserId = owner.Id,
-                    ContentType = planned.Type,
-                    Title = planned.Title,
-                    Year = planned.Year,
-                    TmdbId = planned.TmdbId,
-                    TvdbId = planned.TvdbId,
-                    Seasons = planned.Type == ContentType.Tv ? seasons.ToList() : new List<int>(),
-                    MonitorFutureSeasons = everySeason,
-                    Status = RequestStatus.NotInLibrary,
-                    Requested = planned.Requested
-                };
-            }
-
-            return new Request
+            var request = new Request
             {
                 OwnerUserId = owner.Id,
                 ContentType = planned.Type,
@@ -331,16 +314,26 @@ namespace Requestarr.Core.Imports
                 Year = planned.Year,
                 TmdbId = planned.TmdbId,
                 TvdbId = planned.TvdbId,
-                BackendId = planned.InstanceId,
-                ExternalItemId = planned.ItemId,
                 Seasons = planned.Type == ContentType.Tv ? seasons.ToList() : new List<int>(),
                 MonitorFutureSeasons = everySeason,
-                Status = available ? RequestStatus.Available : RequestStatus.Approved,
-                Progress = available ? DownloadProgress.Imported : DownloadProgress.None,
-                Requested = planned.Requested,
-                Decided = planned.Requested,
-                Fulfilled = available ? planned.Available ?? planned.Requested : null
+                Status = RequestStatus.NotInLibrary,
+                Requested = planned.Requested
             };
+
+            if (!planned.InLibrary)
+            {
+                return request;
+            }
+
+            var available = planned.Available.HasValue || planned.HasFiles;
+            request.BackendId = planned.InstanceId;
+            request.ExternalItemId = planned.ItemId;
+            request.Status = available ? RequestStatus.Available : RequestStatus.Approved;
+            request.Progress = available ? DownloadProgress.Imported : DownloadProgress.None;
+            request.Decided = planned.Requested;
+            request.Fulfilled = available ? planned.Available ?? planned.Requested : null;
+
+            return request;
         }
 
         // An earlier import's Not in library request whose title the library has now: linked to it, as if it had been
@@ -357,7 +350,15 @@ namespace Requestarr.Core.Imports
             var now = DateTime.UtcNow;
             request.BackendId = link.InstanceId;
             request.ExternalItemId = link.ItemId;
-            request.Seasons = request.ContentType == ContentType.Tv && request.Seasons.Count == 0 ? link.LibrarySeasons.ToList() : request.Seasons;
+            request.TmdbId ??= link.TmdbId;
+            request.TvdbId ??= link.TvdbId;
+
+            // A show asked for with every season takes the seasons the library has, as a new request does.
+            if (request.ContentType == ContentType.Tv && request.Seasons.Count == 0)
+            {
+                request.Seasons = link.LibrarySeasons.ToList();
+            }
+
             request.Status = link.HasFiles ? RequestStatus.Available : RequestStatus.Approved;
             request.Progress = link.HasFiles ? DownloadProgress.Imported : DownloadProgress.None;
             request.Decided ??= now;
@@ -402,11 +403,15 @@ namespace Requestarr.Core.Imports
                     return user;
                 }
 
-                var known = _members.TryGetValue(person.DiscordId, out var member);
+                bool? inServer = _members.TryGetValue(person.DiscordId, out var member) ? member != null : null;
                 var existed = _users.FindByDiscordId(person.DiscordId) != null;
 
-                user = _users.EnsureImported(person.DiscordId, member?.DisplayName ?? person.Name, known ? member != null : null);
-                Created += existed ? 0 : 1;
+                user = _users.EnsureImported(person.DiscordId, member?.DisplayName ?? person.Name, inServer);
+
+                if (!existed)
+                {
+                    Created++;
+                }
 
                 _seen[person.DiscordId] = user;
                 return user;
