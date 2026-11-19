@@ -104,6 +104,16 @@ namespace Requestarr.Core.Backends
         }
     }
 
+    // Another Requestarr (production, when this is a beta left on Production) already has a connection by the name this
+    // one would use. Nothing is changed; the message says what to check.
+    public class WebhookNameTakenException : BackendException
+    {
+        public WebhookNameTakenException(string message)
+            : base(message)
+        {
+        }
+    }
+
     public interface IBackendApi
     {
         Task<BackendStatus> GetStatusAsync(BackendSettings settings);
@@ -241,7 +251,7 @@ namespace Requestarr.Core.Backends
 
             if (webhooks.Any(n => n != ours && (string)n["name"] == name))
             {
-                throw new BackendException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, choose Beta under Settings, then Discord: This server is.");
+                throw new WebhookNameTakenException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, choose Beta under Settings, then Discord: This server is.");
             }
 
             var body = ours ?? (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification/schema"))?.FirstOrDefault(n => (string)n["implementation"] == "Webhook")

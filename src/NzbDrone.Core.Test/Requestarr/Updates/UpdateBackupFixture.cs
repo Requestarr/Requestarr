@@ -218,7 +218,7 @@ namespace Requestarr.Core.Test.Updates
 
             var ensure = () => api.EnsureWebhookAsync(settings, ArrApiBase.WebhookName, "http://nas:19797/api/v1/webhook/1?token=beta");
 
-            (await ensure.Should().ThrowAsync<BackendException>()).Which.Message.Should().Contain("another Requestarr's connection").And.Contain("This server is");
+            (await ensure.Should().ThrowAsync<WebhookNameTakenException>()).Which.Message.Should().Contain("another Requestarr's connection").And.Contain("This server is");
             (await api.RemoveWebhookAsync(settings, "beta")).Should().BeFalse();
             await api.Awaiting(a => a.TestWebhookAsync(settings, "beta")).Should().ThrowAsync<BackendException>();
             sent.Should().BeEmpty("production's connection is left exactly as it was");

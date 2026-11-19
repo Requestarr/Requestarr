@@ -287,6 +287,10 @@ namespace Requestarr.Core.Availability
                 {
                     await SetUpWebhookAsync(instance, baseUrl);
                 }
+                catch (WebhookNameTakenException ex)
+                {
+                    _problems[instance.Name] = ex.Message;
+                }
                 catch (BackendException ex)
                 {
                     _logger.Debug(ex, "Webhook setup on {0} failed", instance.Name);
