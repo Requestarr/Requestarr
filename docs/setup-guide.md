@@ -759,8 +759,8 @@ and the first-run setup links to it once it's done.
      the bot only reads: it creates no channels, roles or commands, posts nothing, and ignores what members do there.
    - **The Message Content intent:** Requestrr wrote what happened in each message's text, so the bot needs it to read
      those replies. In the Discord Developer Portal, your application, then **Bot**, then **Privileged Gateway
-     Intents**, turn on **Message Content Intent** and save. The Import page says when it's off and links there, and
-     notices once it's on without a restart.
+     Intents**, turn on **Message Content Intent** and save. The Import page says when it's off and links there;
+     after saving, reopen the page. No restart is needed.
 
    Requestarr only reads: nothing is posted, edited, moved or deleted in those channels, and no message text is kept.
 2. **Copy the channel IDs.** In Discord, User Settings, then Advanced, turn on **Developer Mode**, then right-click

@@ -89,17 +89,33 @@ namespace Requestarr.Core.Imports
         public const int PageSize = 100;
 
         private readonly IDiscordClientHost _host;
-        private readonly MessageContentIntent _messageContent;
+        private DiscordSocketClient _intentClient;
+        private MessageContentIntent _messageContent;
 
         public DiscordChannelHistory(IDiscordClientHost host)
         {
             _host = host;
-            _messageContent = new MessageContentIntent(FreshFlagsAsync);
         }
 
-        public bool IsConnected => _host.Client?.ConnectionState == ConnectionState.Connected;
+        private bool IsConnected => _host.Client?.ConnectionState == ConnectionState.Connected;
 
-        public async Task<bool?> MessageContentAsync() => IsConnected ? await CanReadContentAsync() : null;
+        // Unknown (null) while the bot isn't connected or Discord doesn't answer: the page still shows its invite link.
+        public async Task<bool?> MessageContentAsync()
+        {
+            if (!IsConnected)
+            {
+                return null;
+            }
+
+            try
+            {
+                return await CanReadContentAsync();
+            }
+            catch (Exception ex) when (ex is global::Discord.Net.HttpException or ObjectDisposedException)
+            {
+                return null;
+            }
+        }
 
         public async Task<ImportChannel> DescribeAsync(ulong channelId, string invite)
         {
@@ -164,12 +180,24 @@ namespace Requestarr.Core.Imports
             return (await page.FlattenAsync()).Select(Map).ToList();
         }
 
-        private Task<bool> CanReadContentAsync() => _messageContent.IsOnAsync();
+        // A yes is kept only for the client that gave it: a restarted bot (another application, say) is asked afresh.
+        private Task<bool> CanReadContentAsync()
+        {
+            var client = _host.Client;
+
+            if (_messageContent == null || !ReferenceEquals(client, _intentClient))
+            {
+                _intentClient = client;
+                _messageContent = new MessageContentIntent(() => FreshFlagsAsync(client));
+            }
+
+            return _messageContent.IsOnAsync();
+        }
 
         // The application as Discord has it now: Discord.Net hands back its first answer until it's updated.
-        private async Task<ApplicationFlags> FreshFlagsAsync()
+        private static async Task<ApplicationFlags> FreshFlagsAsync(DiscordSocketClient client)
         {
-            var application = await _host.Client.GetApplicationInfoAsync();
+            var application = await client.GetApplicationInfoAsync();
             await application.UpdateAsync();
 
             return application.Flags;
@@ -248,6 +276,7 @@ namespace Requestarr.Core.Imports
 
         public async Task<ImportAccess> AccessAsync()
         {
+            // Recorded channels are read from files, not from Discord, so the intent doesn't apply to them.
             var messageContent = Recorded() != null ? true : await _discord.MessageContentAsync();
             var portal = ApplicationId == 0 ? null : $"https://discord.com/developers/applications/{ApplicationId}/bot";
 

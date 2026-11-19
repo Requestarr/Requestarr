@@ -137,6 +137,12 @@ namespace Requestarr.Core.Test.Discord
             asked.Should().Be(2, "a yes is kept");
         }
 
+        [Test]
+        public void the_intent_is_asked_of_discord_afresh_not_from_its_cache()
+        {
+            Body(Source(HistoryFile), "FreshFlagsAsync").Should().Contain(".UpdateAsync()", "Discord.Net keeps the application's first answer until it's updated");
+        }
+
         private static string Source(string file)
         {
             if (!File.Exists(file))
