@@ -23,13 +23,15 @@ namespace Requestarr.Core.Test.Datastore
                 c.Insert.IntoTable("RequestarrUsers").Row(new { DisplayName = "Gone", Status = 4, Added = recorded, StatusChanged = recorded.AddHours(1) });
                 c.Insert.IntoTable("RequestarrUsers").Row(new { DisplayName = "Here", Status = 3, Added = recorded, StatusChanged = recorded });
                 c.Insert.IntoTable("RequestarrUsers").Row(new { DisplayName = "Member", Status = 0, Added = recorded, StatusChanged = recorded });
+                c.Insert.IntoTable("RequestarrUsers").Row(new { DisplayName = "Follower", Status = 4, Added = recorded, StatusChanged = recorded });
                 c.Insert.IntoTable("AuditEntries").Row(new { ActorUserId = 1, Actor = "discord:1 (Chaz)", Action = "request.imported", TargetType = "request", TargetId = "1", Timestamp = recorded, Detail = "From Requestrr, #media-requests" });
                 c.Insert.IntoTable("AuditEntries").Row(new { ActorUserId = 4, Actor = "discord:4 (Member)", Action = "request.imported", TargetType = "request", TargetId = "2", Timestamp = recorded, Detail = "From Requestrr, #media-requests" });
+                c.Insert.IntoTable("AuditEntries").Row(new { ActorUserId = 5, Actor = "discord:5 (Follower)", Action = "request.subscribe", TargetType = "request", TargetId = "1", Timestamp = recorded, Detail = "From Requestrr" });
             });
 
             var people = db.Query<(string DisplayName, int Status, string ImportedFrom)>("SELECT \"DisplayName\", \"Status\", \"ImportedFrom\" FROM \"RequestarrUsers\" ORDER BY \"Id\"").ToList();
 
-            people.Should().Equal(("Chaz", 5, "#media-requests"), ("Gone", 4, null), ("Here", 3, null), ("Member", 0, null));
+            people.Should().Equal(("Chaz", 5, "#media-requests"), ("Gone", 4, null), ("Here", 3, null), ("Member", 0, null), ("Follower", 5, "#media-requests"));
         }
     }
 }

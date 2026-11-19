@@ -303,10 +303,14 @@ namespace Requestarr.Core.Imports
         // Where each person first asked, "#media-requests in The CheaZiest", as the channel was named when it was read.
         private static Dictionary<ulong, string> FirstChannels(ImportPlan plan, IReadOnlyList<ImportChannel> channels)
         {
-            var asked = plan.Requests.SelectMany(r => r.Followers.Select(f => (f.Person.DiscordId, f.Asked, f.Channel)).Prepend((DiscordId: r.Requester.DiscordId, Asked: r.Requested, Channel: r.ChannelId)))
+            var asked = plan.Requests
+                .SelectMany(r => r.Followers.Select(f => (f.Person.DiscordId, f.Asked, f.Channel))
+                    .Prepend((DiscordId: r.Requester.DiscordId, Asked: r.Requested, Channel: r.ChannelId)))
                 .Concat(plan.Follows.SelectMany(follow => follow.Followers.Select(f => (f.Person.DiscordId, f.Asked, f.Channel))));
 
-            return asked.GroupBy(a => a.DiscordId).ToDictionary(g => g.Key, g => Source(channels.FirstOrDefault(c => c.Id == g.MinBy(a => a.Asked).Channel)));
+            return asked
+                .GroupBy(a => a.DiscordId)
+                .ToDictionary(g => g.Key, g => Source(channels.FirstOrDefault(c => c.Id == g.MinBy(a => a.Asked).Channel)));
         }
 
         private static string Source(ImportChannel channel)

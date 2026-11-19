@@ -246,7 +246,8 @@ namespace Requestarr.Core.Test.Imports
 
             await people.HandleMemberLeftAsync(Riley);
             await people.HandleMemberLeftAsync(Sam);
-            ((UserManagementService)people).HandleAsync(new DiscordMemberSeenEvent(new GuildMember(Sam, "sam", "Sam", null, false, Array.Empty<ulong>())));
+            Mocker.GetMock<Requestarr.Core.Access.IAccessRequestRepository>().Setup(r => r.ForMember(It.IsAny<string>())).Returns(new List<Requestarr.Core.Access.AccessRequest>());
+            await Mocker.Resolve<MemberNameService>().RefreshAsync(new GuildMember(Sam, "sam", "Sam", null, false, Array.Empty<ulong>()));
 
             people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.ImportedLeft, "seen here, then gone");
             people.FindByDiscordId(Sam).Status.Should().Be(UserStatus.Imported, "joined: in the server, not onboarded");

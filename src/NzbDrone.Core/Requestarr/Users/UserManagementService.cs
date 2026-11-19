@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Extensions;
-using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
@@ -46,7 +45,7 @@ namespace Requestarr.Core.Users
     }
 
     // All user rules live here so Discord, the web portal, and the API behave the same.
-    public class UserManagementService : IUserManagementService, IHandleAsync<DiscordMemberSeenEvent>
+    public class UserManagementService : IUserManagementService
     {
         public const string ImportedAction = "user.imported";
 
@@ -367,9 +366,9 @@ namespace Requestarr.Core.Users
             return FindByDiscordId(discordUserId) ?? CreateRecord(discordUserId, username, displayName, "user.record");
         }
 
-        // Members and earlier records as they are. Anyone else is recorded once as Imported (ImportedLeft when they aren't
-        // in the server): no role, channel or access. A later import refreshes an imported record's name and whether
-        // they're in the server; onboarding them makes them a member with their history.
+        // Members and earlier records as they are. Anyone else is recorded once as Imported (ImportedElsewhere when they
+        // aren't known to be in the server): no role, channel or access. A later import refreshes an imported record's
+        // name and whether they're in the server; onboarding them makes them a member with their history.
         public RequestarrUser EnsureImported(ulong discordUserId, string name, bool? inServer, string source)
         {
             var user = FindByDiscordId(discordUserId);
@@ -391,14 +390,25 @@ namespace Requestarr.Core.Users
             var status = ImportedStatus(user.Status, inServer);
             var changed = user.Status != status || (inServer == true && user.DisplayName != name) || (user.ImportedFrom == null && source != null);
 
-            if (changed)
+            if (!changed)
             {
-                user.StatusChanged = user.Status != status ? DateTime.UtcNow : user.StatusChanged;
-                user.DisplayName = inServer == true ? name : user.DisplayName;
-                user.ImportedFrom ??= source;
-                user.Status = status;
-                _users.Update(user);
+                return user;
             }
+
+            if (user.Status != status)
+            {
+                user.Status = status;
+                user.StatusChanged = DateTime.UtcNow;
+            }
+
+            // Only a name read from this server replaces the one on record.
+            if (inServer == true)
+            {
+                user.DisplayName = name;
+            }
+
+            user.ImportedFrom ??= source;
+            _users.Update(user);
 
             return user;
         }
@@ -411,19 +421,6 @@ namespace Requestarr.Core.Users
             false => UserStatus.ImportedElsewhere,
             _ => current
         };
-
-        // Someone known only from an import is in the server now (they joined, or did something there).
-        public void HandleAsync(DiscordMemberSeenEvent message)
-        {
-            var user = FindByDiscordId(message.Member.Id);
-
-            if (user?.Status is UserStatus.ImportedLeft or UserStatus.ImportedElsewhere)
-            {
-                user.Status = UserStatus.Imported;
-                user.StatusChanged = DateTime.UtcNow;
-                _users.SetFields(user, u => u.Status, u => u.StatusChanged);
-            }
-        }
 
         private RequestarrUser CreateRecord(ulong discordUserId, string username, string displayName, string auditAction, UserStatus status = UserStatus.Active)
         {
