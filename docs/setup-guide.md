@@ -745,6 +745,41 @@ bugReports:
 
 The limits stop the button flooding anything: someone who reaches them is told how long to wait, and nothing is posted.
 
+### 5.15 Moving from Requestrr
+
+If your server used Requestrr, Requestarr can fill itself in with who asked for what in Requestrr's channels, so your
+members keep their requests and nobody asks twice. It's in the web app under Settings, then **Import from Requestrr**,
+and the first-run setup links to it once it's done.
+
+1. **Let the bot read the channels.** Requestarr's bot needs to be in the server where those channels are (the bot's
+   invite link is on Settings, then Discord, and the page links to it when it can't find a channel), and for each
+   channel: **View Channel** and **Read Message History**. It also needs the **Message Content** intent, because
+   Requestrr wrote what happened in each message's text: in the Discord Developer Portal, your application, then
+   **Bot**, turn on **Message Content Intent** and save. Requestarr only reads: nothing is posted, edited, moved or
+   deleted in those channels, and no message text is kept.
+2. **Copy the channel IDs.** In Discord, User Settings, then Advanced, turn on **Developer Mode**, then right-click
+   each Requestrr channel and **Copy Channel ID**. Paste them one per line. Each one is checked as you type: the page
+   says which channel and server it is and whether the bot can read it, or what's missing. Below the box is every
+   channel the bot can already read, to add with a click.
+3. **Preview.** Requestarr reads each channel from the oldest message to the newest, showing how far it has got. A
+   channel with a lot of history takes a while, because Discord limits how fast a bot can read; keep the page open
+   until it's done. The preview lists:
+   - **Requests to import:** each title Requestrr sent, the member who asked (the first one), the day, the seasons
+     for a show, whether it's in your library, and everyone who asked for it after them as followers.
+   - **Followers for requests Requestarr already has:** people who asked Requestrr for a title someone has already
+     requested through Requestarr. They follow it; no second request is made.
+   - **Skipped:** messages that weren't a request, with why: the old bot couldn't find the title, the person left
+     before picking one, the title was already available, or the same person asked again.
+   - **Not in your Sonarr or Radarr:** titles Requestrr sent that none of your Sonarr or Radarr has now. Titles are
+     matched by their The Movie Database or TheTVDB number, never by name, so nothing is guessed.
+4. **Confirm and import.** Nothing is written before this. Each request keeps its original date, its history starts
+   with "Imported from Requestrr", and a title Requestrr announced as finished downloading shows when it became
+   available. People who aren't members of Requestarr yet are known by their Discord name, and their requests are
+   theirs once they're onboarded. The audit log records the import and who ran it.
+
+**Running it again is safe.** Requestarr remembers every message it imported, so a second run adds only what's new.
+Titles that weren't in your Sonarr or Radarr stay out and are tried again on the next run.
+
 ## 6. Connect Plex (optional)
 
 _Coming in Phase 3:_ Plex token and library-to-content-type mapping.

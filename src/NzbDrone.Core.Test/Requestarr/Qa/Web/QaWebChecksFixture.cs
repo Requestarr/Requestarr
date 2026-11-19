@@ -191,7 +191,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 check.Saw($"import ({theme}): {summary}");
                 await browser.RunAsync("[...document.querySelectorAll('legend')].find(l => l.innerText.includes('Requests to import')).scrollIntoView()");
                 await check.ShotAsync(browser, $"import-preview-{theme}");
-                summary.Should().Contain("requests to import");
+                summary.Should().Contain("Requests to import:");
             }
         });
 

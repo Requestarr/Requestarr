@@ -389,7 +389,7 @@
   "ImportReading": "#{channel}: {read} messages read",
   "ImportRequests": "Requests to import",
   "ImportSkipped": "Skipped",
-  "ImportSummary": "Read {read} messages: {requests} requests to import, {follows} followers for requests Requestarr already has, {skipped} skipped, {unmatched} titles not in your Sonarr or Radarr, {already} already imported.",
+  "ImportSummary": "Read {read} messages. Requests to import: {requests}. Followers for requests Requestarr already has: {follows}. Skipped: {skipped}. Not in your Sonarr or Radarr: {unmatched}. Already imported: {already}.",
   "ImportUnmatched": "Not in your Sonarr or Radarr",
   "ImportWhy": "Why",
   "IncludeHealthWarningsHelpText": "Include Health Warnings",
