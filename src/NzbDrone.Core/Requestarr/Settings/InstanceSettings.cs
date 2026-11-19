@@ -10,10 +10,11 @@ using Requestarr.Core.Provisioning;
 namespace Requestarr.Core.Settings
 {
     // A Sonarr or Radarr as the settings pages edit it. ApiKey left empty on a change keeps the saved one; the anime
-    // terms are comma-separated, empty for Requestarr's defaults.
+    // terms are comma-separated, empty for Requestarr's defaults. BrowserUrl: optional, where an admin's browser reaches
+    // it, for links to its pages.
     public record InstanceInput(string Implementation, string Name, string Url, string ApiKey, string QualityProfile, string RootFolder, string SeriesType,
                                 bool IsDefault, bool Enabled, bool PollingOnly, bool AnimeEnabled, string AnimePriority,
-                                string DubRequired, string DubIgnored, string SubRequired, string SubIgnored);
+                                string DubRequired, string DubIgnored, string SubRequired, string SubIgnored, string BrowserUrl = null);
 
     // The API key is never shown back, only whether one is saved. Problem: why the last check failed, or null.
     public record InstanceView(int Id, InstanceInput Settings, bool ApiKeySet, bool Connected, string Problem);
@@ -137,6 +138,11 @@ namespace Requestarr.Core.Settings
                 return "The address starts with http:// or https://, for example http://sonarr:8989.";
             }
 
+            if (!string.IsNullOrWhiteSpace(input.BrowserUrl) && !AppSettingsService.IsWebAddress(input.BrowserUrl.Trim()))
+            {
+                return "The address in your browser starts with http:// or https://, for example http://nas.local:8989.";
+            }
+
             return existing == null && string.IsNullOrWhiteSpace(input.ApiKey) ? $"Paste the API key from {input.Implementation}'s Settings, General." : null;
         }
 
@@ -187,6 +193,7 @@ namespace Requestarr.Core.Settings
             {
                 ("name", instance.Name),
                 ("address", settings.Url),
+                ("address in your browser", Shown(settings.BrowserUrl)),
                 (ApiKeyLabel, settings.ApiKey),
                 ("quality profile", Shown(settings.QualityProfile)),
                 ("root folder", Shown(settings.RootFolder)),
@@ -208,6 +215,7 @@ namespace Requestarr.Core.Settings
             return new BackendSettings
             {
                 Url = input.Url?.Trim(),
+                BrowserUrl = Blank(input.BrowserUrl?.Trim()),
                 ApiKey = string.IsNullOrWhiteSpace(input.ApiKey) ? saved?.ApiKey : input.ApiKey.Trim(),
                 QualityProfile = Blank(input.QualityProfile),
                 RootFolder = Blank(input.RootFolder),
@@ -243,7 +251,8 @@ namespace Requestarr.Core.Settings
                 Terms(settings.DubRequired),
                 Terms(settings.DubIgnored),
                 Terms(settings.SubRequired),
-                Terms(settings.SubIgnored));
+                Terms(settings.SubIgnored),
+                settings.BrowserUrl);
 
             return new InstanceView(instance.Id, input, !string.IsNullOrEmpty(settings.ApiKey), check?.Ok == true, check?.Error);
         }

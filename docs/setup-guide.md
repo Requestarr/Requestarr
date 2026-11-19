@@ -191,6 +191,7 @@ backends:
   radarr:
     - name: Radarr                  # unique name, shown on member cards
       url: http://radarr:7878       # as Requestarr reaches it (container name on the same Docker network)
+      browserUrl: http://nas.local:7878   # optional: as your browser reaches it, for Open in Radarr links
       apiKey: ${RADARR_API_KEY}
       qualityProfile: HD-1080p      # profile name (or ID) in that Radarr
       rootFolder: /movies           # must already exist as a root folder in that Radarr
@@ -209,6 +210,7 @@ backends:
 |---|---|---|
 | `name` | yes | Unique across all instances. |
 | `url` | yes | Base URL, without `/api`. |
+| `browserUrl` | no | Where your browser opens the instance, when `url` only works from Requestarr (a container name). Requests link to their title's page there (**Open in Sonarr**, **Open in Radarr**); without it, `url` is used when a browser can reach it, and otherwise there's no link. On a server set up in the web app, it's **Address in your browser** on the instance. |
 | `apiKey` | yes | Use a `${VAR}` reference to `secrets.env`. |
 | `qualityProfile` | no | Defaults to the instance's first profile. |
 | `rootFolder` | no | Defaults to the instance's first root folder. |

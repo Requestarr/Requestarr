@@ -1,15 +1,24 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { icons } from 'Helpers/Props';
+import { sortDirections } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
-import PortalToolbar from '../Components/PortalToolbar';
-import RequestsTable from '../Components/RequestsTable';
+import RequestsTable, {
+  RequestsSort,
+  sortValues,
+} from '../Components/RequestsTable';
 import { contentTypeText, statusText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import usePortal from '../usePortal';
+import useSortedRows from '../useSortedRows';
 import RemoveTitleModal from './RemoveTitleModal';
+import RequestsOverview from './RequestsOverview';
+import RequestsPosters from './RequestsPosters';
+import RequestsToolbar from './RequestsToolbar';
+import { RequestView, savedView, saveView } from './requestView';
 import styles from '../Portal.css';
+
+const NO_REQUESTS: PortalRequest[] = [];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAY_RANGES = [7, 30, 90, 365];
@@ -88,7 +97,27 @@ function filterOptions(requests: PortalRequest[]) {
   };
 }
 
-function RequestsList({ requests }: { requests: PortalRequest[] }) {
+interface RequestsListProps {
+  requests: PortalRequest[];
+  view: RequestView;
+  sort: RequestsSort;
+}
+
+// The requests, already sorted, in the view chosen.
+function Shown({ requests, view, sort }: RequestsListProps) {
+  switch (view) {
+    case 'overview':
+      return <RequestsOverview requests={requests} />;
+    case 'posters':
+      return <RequestsPosters requests={requests} />;
+    default:
+      return (
+        <RequestsTable requests={requests} withPosters={true} sort={sort} />
+      );
+  }
+}
+
+function RequestsList({ requests, view, sort }: RequestsListProps) {
   const [filters, setFilters] = useState(NO_FILTERS);
   // "Requested in the last 30 days" counts from when it was picked.
   const [since, setSince] = useState<number | null>(null);
@@ -126,28 +155,40 @@ function RequestsList({ requests }: { requests: PortalRequest[] }) {
           total: requests.length,
         })}
       </div>
-      <RequestsTable requests={shown} />
+      <Shown requests={shown} view={view} sort={sort} />
     </>
   );
 }
 
-function renderRequests(requests: PortalRequest[]) {
-  return <RequestsList requests={requests} />;
-}
-
-// Every request, filterable by member (requester or follower), type, status, instance and how recent; Remove a title
-// starts a removal of anything in a library.
+// Every request, in the Overview, Posters or Table view, filterable by member (requester or follower), type, status,
+// instance and how recent, and sorted the same in every view; Remove a title starts a removal of anything in a library.
 function RequestsPage() {
   const result = usePortal<PortalRequest[]>('requests');
   const onActionDone = result.reload;
   const [isRemoving, setIsRemoving] = useState(false);
   const onRemovePress = useCallback(() => setIsRemoving(true), []);
   const onRemoveClose = useCallback(() => setIsRemoving(false), []);
+  const [view, setView] = useState(savedView);
+  const onViewChange = useCallback((chosen: RequestView) => {
+    setView(chosen);
+    saveView(chosen);
+  }, []);
+  const sort = useSortedRows(
+    result.data ?? NO_REQUESTS,
+    sortValues,
+    'requested',
+    sortDirections.DESCENDING
+  );
+  const renderRequests = useCallback(
+    () => <RequestsList requests={sort.sorted} view={view} sort={sort} />,
+    [sort, view]
+  );
   const toolbar = (
-    <PortalToolbar
-      label={translate('PortalRemoveTitle')}
-      iconName={icons.DELETE}
-      onPress={onRemovePress}
+    <RequestsToolbar
+      view={view}
+      sort={sort}
+      onViewChange={onViewChange}
+      onRemovePress={onRemovePress}
     />
   );
 

@@ -199,6 +199,8 @@ node_modules.nosync
 
 # Local dev stack secrets (template: docker/secrets.env.example)
 docker/secrets.env
+# Each local stack's provisioning file, copied from the commit it was built from (docker/dev.ps1, docker/dev.sh)
+docker/.stacks/
 
 
 # Python bytecode from the helper scripts

@@ -49,6 +49,9 @@ namespace Requestarr.Core.Backends
     public class BackendSettings : IEmbeddedDocument
     {
         public string Url { get; set; }
+
+        // Where an admin's browser reaches the instance, when Url only works from Requestarr (a container name, say).
+        public string BrowserUrl { get; set; }
         public string ApiKey { get; set; }
         public string QualityProfile { get; set; }
         public string RootFolder { get; set; }

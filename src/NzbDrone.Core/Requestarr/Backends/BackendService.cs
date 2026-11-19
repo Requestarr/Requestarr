@@ -131,6 +131,7 @@ namespace Requestarr.Core.Backends
                 instance.Settings = new BackendSettings
                 {
                     Url = entry.Url,
+                    BrowserUrl = string.IsNullOrWhiteSpace(entry.BrowserUrl) ? null : entry.BrowserUrl.Trim(),
                     ApiKey = entry.ApiKey,
                     QualityProfile = entry.QualityProfile,
                     RootFolder = entry.RootFolder,

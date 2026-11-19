@@ -34,6 +34,7 @@ export interface InstanceSettings {
   implementation: string;
   name: string;
   url: string;
+  browserUrl?: string;
   apiKey?: string;
   qualityProfile?: string;
   rootFolder?: string;

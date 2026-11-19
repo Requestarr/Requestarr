@@ -39,7 +39,9 @@ services:
       REQUESTARR_GITHUB_ISSUES_TOKEN: ${STACK_GITHUB_ISSUES_TOKEN:-}
     volumes:
       - requestarr-config:/config
-      - ./provisioning.yml:/provisioning/provisioning.yml:ro
+      # The stack's own copy, from the commit it was built from (dev.ps1, dev.sh): a restart of its container never
+      # picks up another branch's file from this checkout, which an older build might not read.
+      - ${STACK_PROVISIONING_FILE:-./provisioning.yml}:/provisioning/provisioning.yml:ro
     ports:
       - "127.0.0.1:${STACK_REQUESTARR_PORT:?run through docker/dev.ps1 or docker/dev.sh}:9797"
     depends_on:

@@ -2,6 +2,7 @@ import classNames from 'classnames';
 import React from 'react';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
+import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
 import { SearchItem } from './usePortalSearch';
 import styles from './PortalSearch.css';
 
@@ -11,16 +12,28 @@ interface ResultProps {
   onOpen: () => void;
 }
 
+// A request also shows its poster, and its page in Sonarr or Radarr beside it when a browser can reach that.
 function Result({ item, isHighlighted, onOpen }: ResultProps) {
   return (
-    <Link
-      className={classNames(styles.result, isHighlighted && styles.highlighted)}
-      to={item.path}
-      onPress={onOpen}
-    >
-      <span>{item.label}</span>
-      {item.detail && <span className={styles.detail}>{item.detail}</span>}
-    </Link>
+    <div className={styles.resultRow}>
+      <Link
+        className={classNames(
+          styles.result,
+          isHighlighted && styles.highlighted
+        )}
+        to={item.path}
+        onPress={onOpen}
+      >
+        <RequestPoster url={item.media?.poster} className={styles.poster} />
+        <span className={styles.label}>{item.label}</span>
+        {item.detail && <span className={styles.detail}>{item.detail}</span>}
+      </Link>
+      {item.media?.openUrl && (
+        <span className={styles.open}>
+          <OpenInLink media={item.media} />
+        </span>
+      )}
+    </div>
   );
 }
 

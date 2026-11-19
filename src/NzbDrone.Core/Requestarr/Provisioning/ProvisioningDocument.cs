@@ -180,6 +180,9 @@ namespace Requestarr.Core.Provisioning
     {
         public string Name { get; set; }
         public string Url { get; set; }
+
+        // Optional: where an admin's browser reaches the instance, for links to its pages.
+        public string BrowserUrl { get; set; }
         public string ApiKey { get; set; }
         public bool Enabled { get; set; } = true;
 

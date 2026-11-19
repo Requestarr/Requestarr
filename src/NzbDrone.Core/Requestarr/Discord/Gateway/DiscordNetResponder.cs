@@ -245,7 +245,17 @@ namespace Requestarr.Core.Discord.Gateway
 
             foreach (var button in buttons.Take((5 - row) * 5))
             {
-                builder.WithButton(DiscordLimits.Truncate(button.Label, 80), button.CustomId, Map(button.Style), disabled: button.Disabled, row: row + (index++ / 5));
+                var label = DiscordLimits.Truncate(button.Label, 80);
+                var place = row + (index++ / 5);
+
+                if (button.Url != null)
+                {
+                    builder.WithButton(label, style: global::Discord.ButtonStyle.Link, url: button.Url, disabled: button.Disabled, row: place);
+                }
+                else
+                {
+                    builder.WithButton(label, button.CustomId, Map(button.Style), disabled: button.Disabled, row: place);
+                }
             }
 
             return builder.Build();

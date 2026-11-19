@@ -66,6 +66,7 @@ CHECKS = {
     "web app portal pages": Check("web", "portal_pages", "web-app"),
     "web app settings pages": Check("web", "settings_pages", "web-app"),
     "web app header search": Check("web", "header_search", "web-app"),
+    "web app request views": Check("web", "request_views", "web-app"),
     "live portal actions": Check("live", "LivePortalActionsFixture", "admin"),
     "live member renames": Check("live", "LiveMemberRenamesFixture", "admin"),
     "live shared library": Check("live", "LiveRemovalFixture", "admin", ("[shared]",)),
