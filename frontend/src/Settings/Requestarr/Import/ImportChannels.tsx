@@ -20,6 +20,7 @@ interface ImportChannelsProps {
 function CheckLine({ check }: { check: ChannelCheck }) {
   const { channel } = check;
   const kind = channel?.canRead ? kinds.SUCCESS : kinds.DANGER;
+  const problem = check.problem || channel?.problem;
   const where = channel?.name
     ? translate('ImportChannelFound', {
         channel: channel.name,
@@ -31,9 +32,7 @@ function CheckLine({ check }: { check: ChannelCheck }) {
     <Alert kind={kind}>
       {where}
       {channel?.canRead ? ` · ${translate('ImportChannelReadable')}` : ''}
-      {check.problem || channel?.problem
-        ? ` · ${check.problem ?? channel?.problem}`
-        : ''}
+      {problem ? ` · ${problem}` : ''}
     </Alert>
   );
 }
@@ -64,7 +63,10 @@ function ImportChannels({
     [onChange]
   );
   const add = useCallback(
-    (id: string) => onChange(text.trim() ? `${text.trim()}\n${id}` : id),
+    (id: string) => {
+      const current = text.trim();
+      onChange(current ? `${current}\n${id}` : id);
+    },
     [onChange, text]
   );
 

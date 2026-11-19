@@ -37,7 +37,13 @@ function useImportJob() {
 
     const timer = setTimeout(
       () =>
-        callRequestarrApi<ImportJob>(`import/preview/${job.id}`).then(setJob),
+        callRequestarrApi<ImportJob>(`import/preview/${job.id}`).then(
+          setJob,
+          (failure: Error) => {
+            setError(failure.message);
+            setJob(undefined);
+          }
+        ),
       POLL_MILLISECONDS
     );
 

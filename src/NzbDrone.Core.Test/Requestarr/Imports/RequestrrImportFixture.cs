@@ -83,6 +83,22 @@ namespace Requestarr.Core.Test.Imports
 
         private Task<ImportJobView> PreviewBoth() => Preview(ChannelA, ChannelB);
 
+        // A Requestrr reply in channel A, a minute apart by ID, asked by who (null: no command member recorded).
+        private static HistoryMessage Sent(ulong id, ulong? who, string seasons)
+        {
+            var at = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc).AddMinutes(id % 1000);
+            var embed = new HistoryEmbed("Breaking Bad (2008)", "https://www.thetvdb.com/?tab=series&id=81189");
+
+            return new HistoryMessage(id, ChannelA, at, 900000000000300001, true, $"Your request for **{seasons}** of **Breaking Bad** was sent successfully!", new[] { embed }, who, who == Riley ? "Riley" : "Sam", Array.Empty<ulong>(), 3);
+        }
+
+        private void GivenChannelA(params HistoryMessage[] messages)
+        {
+            var newestFirst = messages.OrderByDescending(m => m.Id).ToList();
+            Mocker.GetMock<IChannelHistory>().Setup(h => h.ReadAsync(ChannelA, null)).ReturnsAsync(newestFirst);
+            Mocker.GetMock<IChannelHistory>().Setup(h => h.ReadAsync(ChannelA, newestFirst.Last().Id)).ReturnsAsync(Array.Empty<HistoryMessage>());
+        }
+
         [Test]
         public void every_requestrr_reply_in_the_channels_is_read_for_what_it_says()
         {
@@ -169,16 +185,49 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public async Task asking_for_a_title_requestarr_already_has_a_request_for_follows_it_instead()
         {
+            // Waiting for approval (no Sonarr item yet), on another Sonarr: still the same title, by its TheTVDB ID.
+            const int OtherSonarr = 3;
             var member = Mocker.Resolve<IUserManagementService>().EnsureRecord(900000000000200009, "jo", "Jo");
             var existing = Mocker.Resolve<IRequestRepository>().Insert(new Request
             {
-                OwnerUserId = member.Id, ContentType = ContentType.Tv, Title = "Breaking Bad", BackendId = Sonarr, ExternalItemId = 22, Status = RequestStatus.Approved, Requested = DateTime.UtcNow
+                OwnerUserId = member.Id, ContentType = ContentType.Tv, Title = "Breaking Bad", TvdbId = 81189, BackendId = OtherSonarr, Status = RequestStatus.Pending, Requested = DateTime.UtcNow
             });
 
             var plan = (await PreviewBoth()).Plan;
 
             plan.Requests.Select(r => r.Title).Should().NotContain("Breaking Bad");
             plan.Follows.Single().Should().BeEquivalentTo(new { RequestId = existing.Id, Follower = new { Person = new { Name = "Riley" } } }, o => o.ExcludingMissingMembers());
+        }
+
+        [Test]
+        public async Task seasons_asked_for_later_join_the_request_and_only_a_true_repeat_is_skipped()
+        {
+            GivenChannelA(
+                Sent(900000000001000101, Riley, "season 2"),
+                Sent(900000000001000102, Riley, "season 3"),
+                Sent(900000000001000103, Sam, "season 4"),
+                Sent(900000000001000104, Riley, "season 2"),
+                Sent(900000000001000105, null, "season 5"));
+
+            var plan = (await Preview(ChannelA)).Plan;
+
+            var request = plan.Requests.Single();
+            request.Requester.Name.Should().Be("Riley");
+            request.Seasons.Should().Equal(2, 3, 4);
+            request.Followers.Select(f => f.Person.Name).Should().Equal("Sam");
+            plan.Skipped.Select(s => s.Reason).Should().Equal(ImportPlanner.AskedAgain, ImportPlanner.NoRequester);
+        }
+
+        [Test]
+        public async Task confirming_twice_at_once_writes_once()
+        {
+            var job = await PreviewBoth();
+
+            var both = await Task.WhenAll(Subject.ConfirmAsync(job.Id, Actor.Web("owner")), Subject.ConfirmAsync(job.Id, Actor.Web("owner")));
+
+            Mocker.Resolve<IRequestRepository>().All().Should().HaveCount(3);
+            Mocker.Resolve<IAuditRepository>().All().Count(e => e.Action == ImportService.ImportAction).Should().Be(1);
+            both.Select(v => v.Result.Requests).Should().Equal(3, 3);
         }
 
         [Test]

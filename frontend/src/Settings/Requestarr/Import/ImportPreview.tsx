@@ -86,12 +86,12 @@ function Unmatched({ plan }: { plan: ImportPlan }) {
   return (
     <Table columns={unmatchedColumns}>
       <TableBody>
-        {plan.unmatched.map((title) => (
-          <TableRow key={`${title.link}:${title.title}`}>
-            <TableRowCell>{title.title ?? ''}</TableRowCell>
-            <TableRowCell>{title.link}</TableRowCell>
-            <TableRowCell>{title.askedBy.join(', ')}</TableRowCell>
-            <RelativeDateCell date={title.firstAsked} />
+        {plan.unmatched.map((unmatched) => (
+          <TableRow key={`${unmatched.link}:${unmatched.title}`}>
+            <TableRowCell>{unmatched.title ?? ''}</TableRowCell>
+            <TableRowCell>{unmatched.link}</TableRowCell>
+            <TableRowCell>{unmatched.askedBy.join(', ')}</TableRowCell>
+            <RelativeDateCell date={unmatched.firstAsked} />
           </TableRow>
         ))}
       </TableBody>

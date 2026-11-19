@@ -71,6 +71,7 @@ namespace Requestarr.Core.Imports
     public static class ImportPlanner
     {
         public const string AskedAgain = "Asked again by the same person";
+        public const string NoRequester = "No requester recorded with it";
         public const string AlreadyAvailable = "The old bot said it was already available";
         public const string NotFound = "The old bot couldn't find it";
         public const string Abandoned = "Left before a title was picked";
@@ -144,6 +145,7 @@ namespace Requestarr.Core.Imports
 
                 if (person == null)
                 {
+                    Skip(message, NoRequester);
                     return;
                 }
 
@@ -170,14 +172,28 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
-                if (planned.Requester.DiscordId == person.DiscordId || planned.Followers.Any(f => f.Person.DiscordId == person.DiscordId))
+                var seasons = MergedSeasons(planned.Seasons, message.Seasons);
+                var asked = planned.Requester.DiscordId == person.DiscordId || planned.Followers.Any(f => f.Person.DiscordId == person.DiscordId);
+
+                if (asked && seasons.SequenceEqual(planned.Seasons))
                 {
                     Skip(message, AskedAgain);
                     return;
                 }
 
                 Record(message);
-                _requests[key] = planned with { Followers = planned.Followers.Append(follower).ToList() };
+                _requests[key] = planned with { Seasons = seasons, Followers = asked ? planned.Followers : planned.Followers.Append(follower).ToList() };
+            }
+
+            // The seasons of a show everyone asked for: none listed means every season, so that wins.
+            private static IReadOnlyList<int> MergedSeasons(IReadOnlyList<int> planned, IReadOnlyList<int> asked)
+            {
+                if (planned.Count == 0 || asked.Count == 0)
+                {
+                    return Array.Empty<int>();
+                }
+
+                return planned.Union(asked).OrderBy(s => s).ToList();
             }
 
             private void FollowExisting(Request existing, ImportFollower follower, SourceMessage message)
@@ -230,9 +246,11 @@ namespace Requestarr.Core.Imports
 
                 Record(message);
 
-                if (_requests.TryGetValue((entry.InstanceId, entry.Title.Id), out var planned) && planned.Available is null)
+                var key = (entry.InstanceId, entry.Title.Id);
+
+                if (_requests.TryGetValue(key, out var planned) && planned.Available is null)
                 {
-                    _requests[(entry.InstanceId, entry.Title.Id)] = planned with { Available = message.Message.Timestamp };
+                    _requests[key] = planned with { Available = message.Message.Timestamp };
                 }
             }
 
@@ -289,10 +307,14 @@ namespace Requestarr.Core.Imports
                 _ => null
             };
 
-            // A request Requestarr already has for this title on that instance (not one that was turned down or ended).
-            private Request Existing(LibraryEntry entry) =>
-                _context.Requests.FirstOrDefault(r => r.BackendId == entry.InstanceId && r.ExternalItemId == entry.Title.Id &&
-                                                      r.Status is RequestStatus.Pending or RequestStatus.Approved or RequestStatus.Available);
+            // A request Requestarr already has for this title, on any instance and whether or not it's approved yet (not one
+            // that was turned down or ended): by The Movie Database ID for a movie, TheTVDB ID for a show, as requests do.
+            private Request Existing(LibraryEntry entry)
+            {
+                var id = entry.Type == ContentType.Movie ? entry.Title.TmdbId : entry.Title.TvdbId;
+
+                return id.HasValue ? _context.Requests.FirstOrDefault(r => r.ContentType == entry.Type && r.ExternalId == id && r.IsActive) : null;
+            }
         }
     }
 }

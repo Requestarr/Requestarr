@@ -33,6 +33,10 @@ namespace Requestarr.Core.Imports
         public const string NotConnected = "The bot isn't connected to Discord right now. Check Settings, then Discord, and try again.";
         public const string NoMessageContent = "Discord won't show the bot other bots' messages: turn on **Message Content Intent** in the Discord Developer Portal (your application, then Bot, then Privileged Gateway Intents), save, and try again.";
 
+        public const string NotText = "That channel isn't a text channel (a category, forum, voice or thread channel): Requestrr answered in text channels.";
+
+        public static string Gone(string channel) => $"The bot lost sight of channel {channel} part way through reading it. Check it's still there and the bot can read it, then preview again.";
+
         public static string NotFound(string invite) =>
             "The bot can't find that channel: it isn't in that channel's server, or there's no channel with that ID." +
             (invite != null ? $" Invite it to that server first: {invite}" : string.Empty);
@@ -47,10 +51,11 @@ namespace Requestarr.Core.Imports
     // The bot's view of Discord. The import page names any server the bot isn't in with the invite link from the setup.
     public class DiscordChannelHistory
     {
-        private const int PageSize = 100;
+        // Discord's most per request.
+        public const int PageSize = 100;
 
         private readonly IDiscordClientHost _host;
-        private bool? _canReadContent;
+        private bool _canReadContent;
 
         public DiscordChannelHistory(IDiscordClientHost host)
         {
@@ -64,9 +69,11 @@ namespace Requestarr.Core.Imports
                 return new ImportChannel(channelId, null, null, false, ImportText.NotConnected);
             }
 
-            if (_host.Client.GetChannel(channelId) is not SocketTextChannel channel)
+            var found = _host.Client.GetChannel(channelId);
+
+            if (found is not SocketTextChannel channel)
             {
-                return new ImportChannel(channelId, null, null, false, ImportText.NotFound(invite));
+                return new ImportChannel(channelId, null, null, false, found == null ? ImportText.NotFound(invite) : ImportText.NotText);
             }
 
             var problem = await ProblemAsync(channel);
@@ -110,7 +117,7 @@ namespace Requestarr.Core.Imports
         {
             if (_host.Client?.GetChannel(channelId) is not ITextChannel channel)
             {
-                return Array.Empty<HistoryMessage>();
+                throw new InvalidOperationException(ImportText.Gone(channelId.ToString()));
             }
 
             var page = before.HasValue ? channel.GetMessagesAsync(before.Value, Direction.Before, PageSize) : channel.GetMessagesAsync(PageSize);
@@ -118,13 +125,17 @@ namespace Requestarr.Core.Imports
             return (await page.FlattenAsync()).Select(Map).ToList();
         }
 
-        // Whether the application has the Message Content intent (or its limited form), asked once.
+        // Whether the application has the Message Content intent (or its limited form). A yes is kept; a no is asked again,
+        // so turning the intent on in the Developer Portal works without restarting Requestarr.
         private async Task<bool> CanReadContentAsync()
         {
-            _canReadContent ??= (await _host.Client.GetApplicationInfoAsync()).Flags is var flags &&
-                                (flags.HasFlag(ApplicationFlags.GatewayMessageContent) || flags.HasFlag(ApplicationFlags.GatewayMessageContentLimited));
+            if (!_canReadContent)
+            {
+                var flags = (await _host.Client.GetApplicationInfoAsync()).Flags;
+                _canReadContent = flags.HasFlag(ApplicationFlags.GatewayMessageContent) || flags.HasFlag(ApplicationFlags.GatewayMessageContentLimited);
+            }
 
-            return _canReadContent.Value;
+            return _canReadContent;
         }
 
         private static HistoryMessage Map(IMessage message)
@@ -140,7 +151,7 @@ namespace Requestarr.Core.Imports
                 message.Content ?? string.Empty,
                 message.Embeds.Select(e => new HistoryEmbed(e.Title, e.Url)).ToList(),
                 invoked?.Id,
-                invoked == null ? null : invoked.GlobalName ?? invoked.Username,
+                invoked?.GlobalName ?? invoked?.Username,
                 message.MentionedUserIds.ToList(),
                 message.Components.Count);
         }
@@ -174,7 +185,7 @@ namespace Requestarr.Core.Imports
             var file = Path.Combine(_folder, $"{channelId}.json");
 
             return File.Exists(file)
-                ? DiscordMessageJson.ParseAll(File.ReadAllText(file)).Where(m => before == null || m.Id < before).OrderByDescending(m => m.Id).Take(100).ToList()
+                ? DiscordMessageJson.ParseAll(File.ReadAllText(file)).Where(m => before == null || m.Id < before).OrderByDescending(m => m.Id).Take(DiscordChannelHistory.PageSize).ToList()
                 : Array.Empty<HistoryMessage>();
         }
     }

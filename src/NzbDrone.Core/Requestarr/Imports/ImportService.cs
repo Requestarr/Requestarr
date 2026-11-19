@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using Requestarr.Core.Audit;
@@ -49,6 +50,10 @@ namespace Requestarr.Core.Imports
         public const string ImportedAction = "request.imported";
 
         private readonly ConcurrentDictionary<Guid, PreviewJob> _jobs = new();
+
+        // One import writes at a time, whichever preview it confirms: each plans again inside, so a second confirm (a
+        // double click, two tabs, two previews of the same channels) finds the first one's messages already imported.
+        private readonly SemaphoreSlim _writing = new(1, 1);
         private readonly IChannelHistory _history;
         private readonly IImportSource _source;
         private readonly IBackendService _backends;
@@ -117,22 +122,26 @@ namespace Requestarr.Core.Imports
 
         public async Task<ImportJobView> ConfirmAsync(Guid id, Actor admin)
         {
-            if (!_jobs.TryGetValue(id, out var job) || job.State != ImportJobState.Ready)
+            if (!_jobs.TryGetValue(id, out var job))
             {
-                return job?.View();
+                return null;
             }
 
-            await job.Writing.WaitAsync();
+            await _writing.WaitAsync();
 
             try
             {
-                var plan = ImportPlanner.Plan(job.Messages, Context(job.Library));
-                job.Done(plan, Write(plan, job.Channels, admin));
+                if (job.State == ImportJobState.Ready)
+                {
+                    var plan = ImportPlanner.Plan(job.Messages, Context(job.Library));
+                    job.Done(plan, Write(plan, job.Channels, admin));
+                }
+
                 return job.View();
             }
             finally
             {
-                job.Writing.Release();
+                _writing.Release();
             }
         }
 
@@ -206,8 +215,9 @@ namespace Requestarr.Core.Imports
 
             foreach (var planned in plan.Requests)
             {
-                var request = _requests.Insert(NewRequest(planned, people.For(planned.Requester)));
-                History(planned.Requester, people.For(planned.Requester), ImportedAction, request.Id, planned.Requested, $"From {_source.Name}, #{names.GetValueOrDefault(planned.ChannelId)}");
+                var owner = people.For(planned.Requester);
+                var request = _requests.Insert(NewRequest(planned, owner));
+                History(planned.Requester, owner, ImportedAction, request.Id, planned.Requested, $"From {_source.Name}, #{names.GetValueOrDefault(planned.ChannelId)}");
 
                 foreach (var follower in planned.Followers)
                 {
@@ -331,7 +341,6 @@ namespace Requestarr.Core.Imports
             public IReadOnlyList<ImportChannel> Channels { get; }
             public ImportJobState State { get; private set; } = ImportJobState.Reading;
             public IReadOnlyList<LibraryEntry> Library { get; set; } = Array.Empty<LibraryEntry>();
-            public System.Threading.SemaphoreSlim Writing { get; } = new(1, 1);
 
             public IReadOnlyList<SourceMessage> Messages
             {
