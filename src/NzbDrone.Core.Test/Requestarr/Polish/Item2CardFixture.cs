@@ -90,5 +90,13 @@ namespace Requestarr.Core.Test.Polish
             embed.ThumbnailUrl.Should().Be(item.PosterUrl);
             embed.ImageUrl.Should().BeNull();
         }
+
+        [Test]
+        public void release_dates_read_in_theaters_and_in_date_order()
+        {
+            DiscordText.Released(new System.DateTime(2021, 9, 15), new System.DateTime(2021, 12, 22), new System.DateTime(2021, 10, 21))
+                .Should().Be("In theaters 15 Sep 2021\nPhysical 21 Oct 2021\nDigital 22 Dec 2021");
+            DiscordText.Capitalize("inCinemas").Should().Be("In theaters");
+        }
     }
 }

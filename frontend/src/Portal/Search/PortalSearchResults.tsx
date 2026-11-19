@@ -13,6 +13,17 @@ interface ResultProps {
   onOpen: () => void;
 }
 
+// A request's poster, or a member's Discord picture.
+function ResultPicture({ item }: { item: SearchItem }) {
+  if (item.media) {
+    return <RequestPoster url={item.media.poster} className={styles.poster} />;
+  }
+
+  return item.group === translate('PortalMembers') ? (
+    <Avatar url={item.avatar} />
+  ) : null;
+}
+
 // A request also shows its poster, and its page in Sonarr or Radarr beside it when a browser can reach that.
 function Result({ item, isHighlighted, onOpen }: ResultProps) {
   return (
@@ -25,13 +36,7 @@ function Result({ item, isHighlighted, onOpen }: ResultProps) {
         to={item.path}
         onPress={onOpen}
       >
-        {item.media ? (
-          <RequestPoster url={item.media.poster} className={styles.poster} />
-        ) : (
-          item.group === translate('PortalMembers') && (
-            <Avatar url={item.avatar} />
-          )
-        )}
+        <ResultPicture item={item} />
         <span className={styles.label}>{item.label}</span>
         {item.detail && <span className={styles.detail}>{item.detail}</span>}
       </Link>

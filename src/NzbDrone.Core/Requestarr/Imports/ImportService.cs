@@ -71,7 +71,7 @@ namespace Requestarr.Core.Imports
         private readonly IRequestarrUserRepository _records;
         private readonly IDiscordGuildGateway _discord;
         private readonly IRequestMediaService _media;
-        private readonly MemberNameService _names;
+        private readonly IMemberNameService _names;
         private readonly Logger _logger;
 
         public ImportService(IChannelHistory history,
@@ -86,7 +86,7 @@ namespace Requestarr.Core.Imports
                              IRequestarrUserRepository records,
                              IDiscordGuildGateway discord,
                              IRequestMediaService media,
-                             MemberNameService names,
+                             IMemberNameService names,
                              Logger logger)
         {
             _history = history;
@@ -157,7 +157,7 @@ namespace Requestarr.Core.Imports
 
                     // What the imported titles are, and who the people are (@handles, pictures), in the background.
                     _media.FillInBackground();
-                    _ = Task.Run(_names.CatchUpAsync);
+                    _ = Task.Run(CatchUpNamesAsync);
                 }
 
                 return job.View();
@@ -165,6 +165,18 @@ namespace Requestarr.Core.Imports
             finally
             {
                 _writing.Release();
+            }
+        }
+
+        private async Task CatchUpNamesAsync()
+        {
+            try
+            {
+                await _names.CatchUpAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Reading imported people's names and pictures stopped; the next start carries on");
             }
         }
 

@@ -41,12 +41,20 @@ function useSortedRows<T>(
   );
 
   const sorted = useMemo(() => {
-    const value = values[sortKey];
+    const value = values[sortKey] as ((row: T) => SortValue) | undefined;
     const sign = sortDirection === sortDirections.ASCENDING ? 1 : -1;
 
-    return value
-      ? [...rows].sort((a, b) => sign * compare(value(a), value(b)))
-      : rows;
+    // The sign turns values round, never the rows without one: those stay last.
+    const byValue = (a: T, b: T) => {
+      const left = value?.(a);
+      const right = value?.(b);
+
+      return left == null || right == null
+        ? compare(left, right)
+        : sign * compare(left, right);
+    };
+
+    return value ? [...rows].sort(byValue) : rows;
   }, [rows, values, sortKey, sortDirection]);
 
   return { sorted, sortKey, sortDirection, onSortPress };

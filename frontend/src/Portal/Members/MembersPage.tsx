@@ -74,7 +74,7 @@ function sortValuesFor(types: ContentType[]): SortValues<PortalMember> {
     active: (m) => m.active,
     pending: (m) => m.pending,
     following: (m) => m.following,
-    byType: (m) => byTypeText(m),
+    byType: (m) => m.requests,
     firstRequest: (m) => m.firstRequest,
     lastRequest: (m) => m.lastRequest,
     added: (m) => m.added,

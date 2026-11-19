@@ -11,13 +11,14 @@ interface AvatarProps {
 
 // Someone's Discord picture, round, as Discord shows it.
 function Avatar({ url, size = 'small' }: AvatarProps) {
-  const [failed, setFailed] = useState(false);
-  const onError = useCallback(() => setFailed(true), []);
+  // The address that didn't load: another one (the page shows someone else) is tried.
+  const [failedUrl, setFailedUrl] = useState<string>();
+  const onError = useCallback(() => setFailedUrl(url ?? undefined), [url]);
 
   return (
     <img
       className={styles[size]}
-      src={url && !failed ? url : DEFAULT_AVATAR}
+      src={url && url !== failedUrl ? url : DEFAULT_AVATAR}
       alt=""
       loading="lazy"
       onError={onError}

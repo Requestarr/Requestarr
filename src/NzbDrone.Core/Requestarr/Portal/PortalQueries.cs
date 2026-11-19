@@ -144,7 +144,8 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var instances = Instances();
-            var rows = new Rows(names, Avatars(), Backends(), _subscribers.All());
+            var avatars = Avatars();
+            var rows = new Rows(names, avatars, Backends(), _subscribers.All());
             var all = _requests.All().ToDictionary(r => r.Id);
             var own = all.Values.Where(r => r.OwnerUserId == id).OrderByDescending(r => r.Requested).ToList();
             var follows = _subscribers.ForUser(id).Where(s => all.ContainsKey(s.RequestId)).ToList();
@@ -156,7 +157,7 @@ namespace Requestarr.Core.Portal
             var importedFrom = user.IsImported ? user.ImportedFrom ?? Imports.RequestrrSource.SourceName : null;
 
             return new PortalMemberDetail(
-                Member(user, own, follows, instances, Avatars()),
+                Member(user, own, follows, instances, avatars),
                 own.Select(rows.Of).ToList(),
                 following.Select(rows.Of).ToList(),
                 removals,

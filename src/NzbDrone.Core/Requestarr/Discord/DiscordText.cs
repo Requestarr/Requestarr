@@ -373,9 +373,14 @@ namespace Requestarr.Core.Discord
 
         public static string Day(DateTime date) => date.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
 
-        // "inCinemas" -> "In cinemas", "continuing" -> "Continuing"
+        // "inCinemas" -> "In theaters" (US English), "continuing" -> "Continuing"
         public static string Capitalize(string status)
         {
+            if (status == "inCinemas")
+            {
+                return "In theaters";
+            }
+
             if (string.IsNullOrWhiteSpace(status) || status == "deleted" || status == "tba")
             {
                 return null;

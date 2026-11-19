@@ -57,6 +57,22 @@ namespace Requestarr.Core.Test.Users
             var identity = Mocker.Resolve<IUserIdentityRepository>().Find(UserIdentity.DiscordProvider, Elsewhere.ToString());
             (identity.Username, identity.DisplayName, identity.AvatarUrl).Should().Be(("sam.k", "Sam K", "https://cdn.discordapp.com/avatars/2/abc.png"));
             AuditTrail.Count.Should().Be(entries, "filling in someone's details isn't something they did");
+            Mocker.Resolve<IUserManagementService>().FindByDiscordId(Elsewhere).DisplayName.Should().Be("Sam K", "the name the lists show follows Discord too");
+        }
+
+        [Test]
+        public async Task a_member_who_left_keeps_their_names_and_only_their_picture_follows()
+        {
+            await AddUser(Alice);
+            var gone = Discord.Members[Alice];
+            Discord.Members.Remove(Alice);
+            Discord.Users[Alice] = gone with { Username = "alice.new", DisplayName = "Someone Else", AvatarUrl = "https://cdn.discordapp.com/avatars/1/b.png" };
+
+            await Names.CatchUpAsync();
+
+            var identity = Mocker.Resolve<IUserIdentityRepository>().Find(UserIdentity.DiscordProvider, Alice.ToString());
+            (identity.Username, identity.AvatarUrl).Should().Be(("alice", "https://cdn.discordapp.com/avatars/1/b.png"));
+            UserFor(Alice).DisplayName.Should().Be("alice");
         }
 
         [Test]
