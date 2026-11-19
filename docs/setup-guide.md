@@ -784,9 +784,16 @@ and the first-run setup links to it once it's done.
      Requestrr announced as finished downloading shows when it became available.
    - **Not in library:** a title none of your Sonarr or Radarr has is kept as history with that status. Nothing is
      sent anywhere, and it never stops anyone requesting the title again: a new request is made as usual.
-   - **Members:** everyone who asked appears under Members by their current Discord name. Someone who isn't a member
-     yet shows as **Imported, not onboarded** (or **Imported, left the server**). No role, channel or access is
-     created for them; **Onboard** on their page adds them the usual way, and their imported requests stay theirs.
+   - **Members:** everyone who asked appears under Members, by their current Discord name when they're in your server.
+     Someone who isn't a member yet shows as one of:
+     - **Imported, not onboarded:** in your Requestarr server.
+     - **Imported, not in this server:** found only where the import read (another server), never seen in yours.
+       Joining your server makes them not onboarded.
+     - **Imported, left the server:** seen in your server before, gone now.
+
+     No role, channel or access is created for them. Their page says where their history came from (for example
+     "#media-requests in The CheaZiest"), and **Onboard** there adds them the usual way; their imported requests stay
+     theirs.
    - **The audit log** records the import and who ran it.
 
 **Running it again is safe.** Requestarr remembers every message it imported, so a second run adds only what's new.
