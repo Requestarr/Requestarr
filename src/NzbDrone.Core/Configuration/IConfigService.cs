@@ -45,10 +45,10 @@ namespace NzbDrone.Core.Configuration
 
         // How long Requestarr's audit log keeps an entry; read through Requestarr.Core.Audit.AuditSettings
         string AuditLogKeepFor { get; set; }
+        string AuditLogTrimmedBefore { get; set; }
 
         // Which server this is when its stack doesn't say (Requestarr.Core.Announcements.ReleaseEnvironment): production or beta
         string ServerRole { get; set; }
-        string AuditLogTrimmedBefore { get; set; }
 
         // Requestarr's settings that the provisioning file keeps in memory only; saved here when there is no file
         // (beta and production), read through Requestarr.Core.Settings.StoredSettings

@@ -173,7 +173,7 @@ namespace Requestarr.Core.Test.Updates
         [Test]
         public async Task a_connection_under_the_old_name_that_calls_this_requestarr_is_renamed_not_doubled()
         {
-            const string Url = "http://requestarr.test:19797/api/v1/webhooks/1/token";
+            const string Url = "http://requestarr.test:19797/api/v1/webhook/1?token=ours";
             var sent = new List<HttpRequest>();
             var http = new Mock<IHttpClient>();
             http.Setup(h => h.GetAsync<List<JObject>>(It.IsAny<HttpRequest>()))
@@ -199,6 +199,29 @@ namespace Requestarr.Core.Test.Updates
                 .Should().Contain("This build needs a new compose file").And.Contain("https://github.com/Requestarr/Requestarr/blob/v0.7.0005/deploy/beta/compose.yaml");
             VersionCards.Collapsed(version, VersionAudience.Users, 2026).Reply.Embeds[0].Description.Should().NotContain("compose");
             VersionCards.Full(version, VersionAudience.Admins)[0].Cards.Last().Text.Should().Contain("[The new compose file](https://github.com/Requestarr/Requestarr/blob/v0.7.0005/deploy/beta/compose.yaml)");
+        }
+
+        // Beta and production share a Sonarr and Radarr: a beta left on Production never takes over production's
+        // connection (same name, another Requestarr's address and token), and removing or testing touches only its own.
+        [Test]
+        public async Task another_requestarrs_connection_is_never_taken_over_removed_or_tested()
+        {
+            var sent = new List<HttpRequest>();
+            var http = new Mock<IHttpClient>();
+            http.Setup(h => h.GetAsync<List<JObject>>(It.IsAny<HttpRequest>()))
+                .ReturnsAsync((HttpRequest r) => Response<List<JObject>>(r, "[" +
+                    "{\"id\":4,\"name\":\"Requestarr (availability)\",\"implementation\":\"Webhook\",\"fields\":[{\"name\":\"url\",\"value\":\"http://nas:9797/api/v1/webhook/1?token=production\"}]}]"));
+            http.Setup(h => h.ExecuteAsync(It.IsAny<HttpRequest>())).Callback<HttpRequest>(sent.Add)
+                .ReturnsAsync((HttpRequest r) => new HttpResponse(r, new HttpHeader(), new System.Net.CookieCollection(), "{}", 0, HttpStatusCode.OK));
+            var api = new SonarrApi(http.Object);
+            var settings = new BackendSettings { Url = "http://arr.test", ApiKey = "k" };
+
+            var ensure = () => api.EnsureWebhookAsync(settings, ArrApiBase.WebhookName, "http://nas:19797/api/v1/webhook/1?token=beta");
+
+            (await ensure.Should().ThrowAsync<BackendException>()).Which.Message.Should().Contain("another Requestarr's connection").And.Contain("This server is");
+            (await api.RemoveWebhookAsync(settings, "beta")).Should().BeFalse();
+            await api.Awaiting(a => a.TestWebhookAsync(settings, "beta")).Should().ThrowAsync<BackendException>();
+            sent.Should().BeEmpty("production's connection is left exactly as it was");
         }
 
         private static HttpResponse<T> Response<T>(HttpRequest request, string json)

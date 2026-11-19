@@ -44,17 +44,12 @@ namespace Requestarr.Core.Announcements
         // dev, qa or staging: set by the local stacks. Optional: unset, the server's role decides (ServerRole).
         public const string EnvironmentVariable = "REQUESTARR_ENVIRONMENT";
 
-        // The roles an admin chooses between in the first-run setup (Settings, then Discord: This server is).
-        public const string Beta = "beta";
-
         // QA only: staging's versions ("0.1.0,0.2.0,..."), from the staging branch's changelog when the QA stack starts.
         public const string StagedVersionsVariable = "REQUESTARR_STAGED_VERSIONS";
 
         // The build's label, set in the image when it is built: its number, and for a build that isn't sent to testers
         // the stage and commit after it.
         public const string ReleaseVersionVariable = "REQUESTARR_RELEASE_VERSION";
-
-        public static readonly IReadOnlyList<string> Roles = new[] { Production, Beta };
 
         private static readonly Regex Label = new(@"^(?<number>\d+\.\d+\.\d+)(?:-(?:dev|qa|test)\.[0-9a-f]{7,40})?$");
 
@@ -84,7 +79,10 @@ namespace Requestarr.Core.Announcements
 
         public string IconSet => IconSetFor(Name);
 
+        // The roles an admin chooses between in the first-run setup (Settings, then Discord: This server is).
         public const string Production = "production";
+        public const string Beta = "beta";
+        public static readonly IReadOnlyList<string> Roles = new[] { Production, Beta };
 
         // Anything that isn't dev, QA or staging gets production's icons.
         public static string IconSetFor(string environment) => (environment ?? string.Empty).Trim().ToLowerInvariant() switch

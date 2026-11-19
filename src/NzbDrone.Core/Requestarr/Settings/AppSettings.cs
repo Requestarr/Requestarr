@@ -64,7 +64,7 @@ namespace Requestarr.Core.Settings
         public const string ProvisionedProblem = "These settings come from the provisioning file on this server; change them there.";
 
         private const string WebhookAddress = "availabilityWebhookUrl";
-        public const string ServerRoleKey = "serverRole";
+        private const string ServerRoleKey = "serverRole";
 
         private static readonly Regex DiscordId = new(@"^\d{15,21}$");
         private static readonly Regex Repository = new(@"^[\w.-]+/[\w.-]+$");
@@ -134,13 +134,15 @@ namespace Requestarr.Core.Settings
                 _stored.Load();
             }
 
-            if (changed.Any(DiscordConnection.Contains))
+            // The bot's banner follows the server's role too, so a role change reconnects it.
+            if (changed.Any(DiscordConnection.Contains) || changed.Contains(ServerRoleKey))
             {
                 await _discordHost.RestartAsync();
             }
 
-            // Sonarr's and Radarr's webhooks follow the address: checking the instances adds, moves or removes them.
-            if (changed.Contains(WebhookAddress))
+            // Sonarr's and Radarr's webhooks follow the address, and their name the server's role: checking the instances
+            // adds, moves, renames or removes them.
+            if (changed.Contains(WebhookAddress) || changed.Contains(ServerRoleKey))
             {
                 await _backends.CheckAllAsync();
             }

@@ -56,7 +56,7 @@ namespace Requestarr.Http.Frontend.Mappers
         {
             var madeFor = $"{_environment.IconSet}:{_configFileProvider.Theme}";
 
-            if (RuntimeInfo.IsProduction && _generated.Text != null && _generated.For == madeFor)
+            if (RuntimeInfo.IsProduction && _generated.For == madeFor)
             {
                 return _generated.Text;
             }

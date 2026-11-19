@@ -96,6 +96,7 @@ namespace Requestarr.Core.Test.Settings
         [TestCase("bugReportsRepository", "Requestarr")]
         [TestCase("nonsense", "1")]
         [TestCase("auditLogKeepFor", "3 weeks")]
+        [TestCase("serverRole", "staging")]
         public async Task should_refuse_a_value_it_cant_use_and_change_nothing(string key, string value)
         {
             var result = await Subject.SaveAsync(new Dictionary<string, string> { ["accessBlockClicks"] = "9", [key] = value }, Admin);
@@ -132,6 +133,30 @@ namespace Requestarr.Core.Test.Settings
 
             Mocker.Resolve<IAvailabilitySettingsStore>().WebhookUrl.Should().Be("http://requestarr:9797");
             Mocker.GetMock<IBackendService>().Verify(b => b.CheckAllAsync(), Times.Once());
+        }
+
+        [Test]
+        public async Task should_rename_the_webhooks_and_reconnect_the_bot_when_the_servers_role_changes()
+        {
+            Mocker.GetMock<IConfigService>().Object.ServerRole = ReleaseEnvironment.Production;
+
+            (await Save("serverRole", ReleaseEnvironment.Beta)).Saved.Should().BeTrue();
+
+            Mocker.GetMock<IConfigService>().Object.ServerRole.Should().Be(ReleaseEnvironment.Beta);
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "serverRole", "This server is: from production to beta"), Times.Once());
+            Mocker.GetMock<IBackendService>().Verify(b => b.CheckAllAsync(), Times.Once());
+            Mocker.GetMock<IDiscordClientHost>().Verify(h => h.RestartAsync(), Times.Once());
+        }
+
+        [Test]
+        public async Task should_leave_the_role_to_the_stack_on_dev_and_qa()
+        {
+            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.SetByStack).Returns(true);
+
+            var result = await Save("serverRole", ReleaseEnvironment.Beta);
+
+            result.Saved.Should().BeFalse();
+            result.Problem.Should().Contain("stack says which server it is");
         }
 
         [Test]
