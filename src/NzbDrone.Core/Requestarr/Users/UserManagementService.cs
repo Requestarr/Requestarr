@@ -31,6 +31,9 @@ namespace Requestarr.Core.Users
 
         // A record without a role or channel, so something someone asks for has an owner before they're added.
         RequestarrUser EnsureRecord(ulong discordUserId, string username, string displayName);
+
+        // Someone an import names. InServer: whether they're in the Discord server now, or null when unknown.
+        RequestarrUser EnsureImported(ulong discordUserId, string name, bool? inServer);
         ServiceResult SetQuota(ulong discordUserId, ContentType type, int limit, int days, Actor actor);
         ServiceResult Info(ulong discordUserId);
         Task HandleMemberLeftAsync(ulong discordUserId);
@@ -43,6 +46,8 @@ namespace Requestarr.Core.Users
     // All user rules live here so Discord, the web portal, and the API behave the same.
     public class UserManagementService : IUserManagementService
     {
+        public const string ImportedAction = "user.imported";
+
         public static readonly IReadOnlyDictionary<ContentType, AccessState> DefaultAccess = new Dictionary<ContentType, AccessState>
         {
             { ContentType.Movie, AccessState.NeedsApproval },
@@ -360,10 +365,34 @@ namespace Requestarr.Core.Users
             return FindByDiscordId(discordUserId) ?? CreateRecord(discordUserId, username, displayName, "user.record");
         }
 
-        private RequestarrUser CreateRecord(ulong discordUserId, string username, string displayName, string auditAction)
+        // Members and earlier records as they are. Anyone else is recorded once as Imported (ImportedLeft when they aren't
+        // in the server): no role, channel or access. A later import refreshes an imported record's name and whether
+        // they're in the server; onboarding them makes them a member with their history.
+        public RequestarrUser EnsureImported(ulong discordUserId, string name, bool? inServer)
+        {
+            var status = inServer == false ? UserStatus.ImportedLeft : UserStatus.Imported;
+            var user = FindByDiscordId(discordUserId);
+
+            if (user == null)
+            {
+                return CreateRecord(discordUserId, name, name, ImportedAction, status);
+            }
+
+            if (user.Status is UserStatus.Imported or UserStatus.ImportedLeft && inServer.HasValue && (user.Status != status || user.DisplayName != name))
+            {
+                user.DisplayName = name;
+                user.StatusChanged = user.Status != status ? DateTime.UtcNow : user.StatusChanged;
+                user.Status = status;
+                _users.Update(user);
+            }
+
+            return user;
+        }
+
+        private RequestarrUser CreateRecord(ulong discordUserId, string username, string displayName, string auditAction, UserStatus status = UserStatus.Active)
         {
             var now = DateTime.UtcNow;
-            var user = _users.Insert(new RequestarrUser { DisplayName = displayName ?? username, Status = UserStatus.Active, Added = now, StatusChanged = now });
+            var user = _users.Insert(new RequestarrUser { DisplayName = displayName ?? username, Status = status, Added = now, StatusChanged = now });
             _identities.Insert(new UserIdentity { UserId = user.Id, Provider = UserIdentity.DiscordProvider, ExternalId = discordUserId.ToString(), Username = username, DisplayName = displayName, Linked = now });
             _audit.Record(Actor.Discord(discordUserId, username, user.Id), auditAction, "user", user.Id.ToString());
 
@@ -419,6 +448,15 @@ namespace Requestarr.Core.Users
         public async Task HandleMemberLeftAsync(ulong discordUserId)
         {
             var user = FindByDiscordId(discordUserId);
+
+            // Someone known only from an import has nothing to suspend: their record just says they've gone.
+            if (user?.Status == UserStatus.Imported)
+            {
+                user.Status = UserStatus.ImportedLeft;
+                user.StatusChanged = DateTime.UtcNow;
+                _users.Update(user);
+                return;
+            }
 
             if (user == null || user.Status != UserStatus.Active)
             {

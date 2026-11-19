@@ -20,6 +20,11 @@
   color: var(--helpTextColor);
 }
 
+.note {
+  margin-top: 10px;
+  color: var(--helpTextColor);
+}
+
 .summary {
   margin: 20px 0;
 }

@@ -29,41 +29,40 @@ export interface PlannedRequest {
   type: 'movie' | 'tv';
   title: string;
   year?: number;
-  instance: string;
+  instance?: string;
   requester: ImportPerson;
   requested: string;
   seasons: number[];
   available?: string;
   hasFiles: boolean;
+  outcome: 'sent' | 'alreadyAvailable';
+  inLibrary: boolean;
   followers: ImportFollower[];
 }
 
-interface PlannedFollow {
+export interface PlannedFollow {
+  requestId: number;
+  type: 'movie' | 'tv';
+  title: string;
+  year?: number;
+  requester?: string;
+  requested: string;
+  instance?: string;
+  followers: ImportFollower[];
+}
+
+interface PlannedLink {
   requestId: number;
   title: string;
-  follower: ImportFollower;
-}
-
-interface SkippedMessage {
-  messageId: string;
-  at: string;
-  who?: string;
-  what?: string;
-  reason: string;
-}
-
-interface UnmatchedTitle {
-  title?: string;
-  link: string;
-  firstAsked: string;
-  askedBy: string[];
+  instance: string;
 }
 
 export interface ImportPlan {
   requests: PlannedRequest[];
   follows: PlannedFollow[];
-  skipped: SkippedMessage[];
-  unmatched: UnmatchedTitle[];
+  links: PlannedLink[];
+  notRequests: number;
+  noRequester: number;
   messagesRead: number;
   alreadyImported: number;
 }

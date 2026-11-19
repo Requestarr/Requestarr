@@ -28,6 +28,8 @@ const MEMBER_STATUS: Record<MemberStatus, string> = {
   active: 'PortalMemberActive',
   suspended: 'PortalMemberSuspended',
   removed: 'PortalMemberRemoved',
+  imported: 'PortalMemberImported',
+  importedLeft: 'PortalMemberImportedLeft',
 };
 
 const QUEUE_KINDS: Record<string, string> = {

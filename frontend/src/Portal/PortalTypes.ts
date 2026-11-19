@@ -8,7 +8,8 @@ export type RequestStatus =
   | 'cancelled'
   | 'failed'
   | 'available'
-  | 'removed';
+  | 'removed'
+  | 'notInLibrary';
 
 type DownloadProgress =
   | 'none'
@@ -17,7 +18,12 @@ type DownloadProgress =
   | 'failed'
   | 'imported';
 
-export type MemberStatus = 'active' | 'suspended' | 'removed';
+export type MemberStatus =
+  | 'active'
+  | 'suspended'
+  | 'removed'
+  | 'imported'
+  | 'importedLeft';
 
 export type AccessState = 'off' | 'needsApproval' | 'autoApprove';
 

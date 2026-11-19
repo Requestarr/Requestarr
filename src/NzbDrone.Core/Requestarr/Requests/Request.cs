@@ -24,7 +24,11 @@ namespace Requestarr.Core.Requests
         Available = 5,
 
         // Removed from the library by a removal (vote or admin Force); a later request is a fresh one.
-        Removed = 6
+        Removed = 6,
+
+        // Imported from another bot's history for a title no Sonarr or Radarr had: kept as history only. Nothing is sent
+        // anywhere, and a new request for the title is made as usual. A later import links it once the library has it.
+        NotInLibrary = 7
     }
 
     // What Sonarr / Radarr are doing with a sent request (Status stays Approved until it's all there).

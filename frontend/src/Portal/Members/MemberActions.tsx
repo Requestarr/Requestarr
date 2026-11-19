@@ -93,6 +93,20 @@ function StatusActions({ member, action }: StatusActionsProps) {
   );
 }
 
+// Someone known only from an import: onboarding them is the normal add, and their imported requests stay theirs.
+function OnboardAction({ member, action }: StatusActionsProps) {
+  const onPress = useCallback(
+    () => action.act('members', { discordId: member.discordId }),
+    [action, member]
+  );
+
+  return (
+    <div className={styles.actions}>
+      <ActionButton action="onboard" isBusy={action.isBusy} onPress={onPress} />
+    </div>
+  );
+}
+
 interface MemberActionsProps {
   detail: PortalMemberDetail;
   onDone: () => void;
@@ -109,6 +123,15 @@ function MemberActions({ detail, onDone }: MemberActionsProps) {
 
   if (member.status === 'removed') {
     return null;
+  }
+
+  if (member.status === 'imported' || member.status === 'importedLeft') {
+    return (
+      <FieldSet legend={translate('PortalActions')}>
+        <OnboardAction member={member} action={action} />
+        <ActionOutcomeAlert outcome={action.outcome} />
+      </FieldSet>
+    );
   }
 
   return (

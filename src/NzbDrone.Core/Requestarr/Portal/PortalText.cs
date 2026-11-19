@@ -53,6 +53,8 @@ namespace Requestarr.Core.Portal
             ["removal.deleted"] = "Deleted",
             ["removal.failed"] = "Deletion failed",
             ["user.record"] = "First seen",
+            [Users.UserManagementService.ImportedAction] = "Imported from Requestrr",
+            [Imports.ImportService.LinkedAction] = "Found in the library",
             ["user.admin-record"] = "First seen, as an admin",
             ["user.add"] = "Added",
             ["user.access"] = "Access changed",

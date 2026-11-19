@@ -1,5 +1,95 @@
 [
   {
+    "id": "900000000001000013",
+    "channel_id": "900000000000100002",
+    "type": 20,
+    "timestamp": "2026-11-18T15:00:00.000000+00:00",
+    "edited_timestamp": "2026-11-18T15:00:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Your request for **Another Lost Film** was sent successfully!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "Another Lost Film (2024)",
+        "url": "https://www.themoviedb.org/movie/999999902",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000031",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200001",
+        "username": "riley",
+        "global_name": "Riley"
+      }
+    }
+  },
+  {
+    "id": "900000000001000012",
+    "channel_id": "900000000000100002",
+    "type": 20,
+    "timestamp": "2026-11-18T14:00:00.000000+00:00",
+    "edited_timestamp": "2026-11-18T14:00:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "This movie is already available, enjoy!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "Star Wars: The Last Jedi (2017)",
+        "url": "https://www.themoviedb.org/movie/181808",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000030",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200001",
+        "username": "riley",
+        "global_name": "Riley"
+      }
+    }
+  },
+  {
     "id": "900000000001000011",
     "channel_id": "900000000000100002",
     "type": 20,
