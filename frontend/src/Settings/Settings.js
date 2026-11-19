@@ -16,6 +16,7 @@ const PAGES = [
   { to: '/settings/requests', title: 'SettingsRequests', summary: 'SettingsRequestsSummary' },
   { to: '/settings/connections', title: 'SettingsConnections', summary: 'SettingsConnectionsSummary' },
   { to: '/settings/changes', title: 'SettingsChanges', summary: 'SettingsChangesSummary' },
+  { to: '/settings/import', title: 'ImportFromRequestrr', summary: 'ImportFromRequestrrSummary' },
   { to: '/setup', title: 'Setup', summary: 'SetupSummary' }
 ];
 

@@ -171,7 +171,6 @@
   "exports: frontend/src/Helpers/Props/inputTypes.js: PATH",
   "exports: frontend/src/Helpers/Props/inputTypes.js: TAG",
   "exports: frontend/src/Helpers/Props/inputTypes.js: TAG_SELECT",
-  "exports: frontend/src/Helpers/Props/inputTypes.js: TEXT_AREA",
   "exports: frontend/src/Helpers/Props/inputTypes.js: TEXT_TAG",
   "exports: frontend/src/Helpers/Props/inputTypes.js: all",
   "exports: frontend/src/Helpers/Props/kinds.ts: DISABLED",

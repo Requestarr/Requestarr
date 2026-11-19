@@ -53,6 +53,7 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | The announcements channel: outage notices, recovery, upgrade cards | What members were told | Outages (each outage, and who announced it), System, What's new | 5c |
 | The QA checklist and bug reports (QA and dev servers) | Testing a build | Not in the portal: testing stays in Discord | none |
 | Provisioning settings (cooldowns, vote and answer windows, spam thresholds, instances, connections) | How Requestarr behaves | Settings: Discord, Sonarr and Radarr, Requests, Connections; Changes | 5b |
+| Requestrr's old request channels (on a server moving from Requestrr) | Who asked for what before Requestarr | Settings, Import from Requestrr: a preview, then the import, recorded in the audit log (setup guide, 5.15) | Requestrr import |
 | The audit log (every action, who and when) | Requestarr's own record, kept for 1 year by default (Settings, Requests: Keep the audit log for) | Each page's Timeline or History; the Audit log, searchable by member, title, action and day | 5a, 5c |
 
 Finding a request or a member quickly: the search in the header (press `/`) finds requests by title and members by name, Discord username, Discord ID or a name they had before. It only finds what Requestarr has; it never looks up or requests a new title.

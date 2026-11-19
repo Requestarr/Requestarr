@@ -1,0 +1,307 @@
+[
+  {
+    "id": "900000000001000008",
+    "channel_id": "900000000000100001",
+    "type": 0,
+    "timestamp": "2026-11-18T08:00:00.000000+00:00",
+    "author": {
+      "id": "900000000000200001",
+      "username": "riley",
+      "global_name": "Riley"
+    },
+    "content": "thanks!",
+    "embeds": [],
+    "mentions": [],
+    "components": []
+  },
+  {
+    "id": "900000000001000007",
+    "channel_id": "900000000000100001",
+    "type": 20,
+    "timestamp": "2026-11-18T07:31:00.000000+00:00",
+    "edited_timestamp": "2026-11-18T07:31:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Your request for **The Crow** was sent successfully!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "The Crow (1994)",
+        "url": "https://www.themoviedb.org/movie/9495",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000014",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200001",
+        "username": "riley",
+        "global_name": "Riley"
+      }
+    }
+  },
+  {
+    "id": "900000000001000006",
+    "channel_id": "900000000000100001",
+    "type": 20,
+    "timestamp": "2026-11-17T22:08:00.000000+00:00",
+    "edited_timestamp": "2026-11-17T22:08:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Your request for **A Film Nobody Has** was sent successfully!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "A Film Nobody Has (2025)",
+        "url": "https://www.themoviedb.org/movie/999999901",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000013",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200002",
+        "username": "sam",
+        "global_name": "Sam"
+      }
+    }
+  },
+  {
+    "id": "900000000001000005",
+    "channel_id": "900000000000100001",
+    "type": 20,
+    "timestamp": "2026-11-12T09:09:00.000000+00:00",
+    "edited_timestamp": "2026-11-12T09:09:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Your request for **season 2** of **Breaking Bad** was sent successfully!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "Breaking Bad (2008)",
+        "url": "https://www.thetvdb.com/?tab=series&id=81189",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000012",
+      "type": 2,
+      "name": "request tv",
+      "user": {
+        "id": "900000000000200001",
+        "username": "riley",
+        "global_name": "Riley"
+      }
+    }
+  },
+  {
+    "id": "900000000001000004",
+    "channel_id": "900000000000100001",
+    "type": 20,
+    "timestamp": "2026-11-07T18:15:00.000000+00:00",
+    "edited_timestamp": "2026-11-07T18:15:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Your request for **all seasons** of **Severance** was sent successfully!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "Severance (2022)",
+        "url": "https://www.thetvdb.com/?tab=series&id=371980",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000011",
+      "type": 2,
+      "name": "request tv",
+      "user": {
+        "id": "900000000000200001",
+        "username": "riley",
+        "global_name": "Riley"
+      }
+    }
+  },
+  {
+    "id": "900000000001000003",
+    "channel_id": "900000000000100001",
+    "type": 20,
+    "timestamp": "2026-11-02T18:08:00.000000+00:00",
+    "edited_timestamp": "2026-11-02T18:08:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "This movie is already available, enjoy!",
+    "embeds": [
+      {
+        "type": "rich",
+        "title": "Star Wars: The Last Jedi (2017)",
+        "url": "https://www.themoviedb.org/movie/181808",
+        "description": "(…)",
+        "footer": {
+          "text": "Powered by Requestrr"
+        }
+      }
+    ],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      },
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000010",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200002",
+        "username": "sam",
+        "global_name": "Sam"
+      }
+    }
+  },
+  {
+    "id": "900000000001000002",
+    "channel_id": "900000000000100001",
+    "type": 20,
+    "timestamp": "2026-11-02T18:07:00.000000+00:00",
+    "edited_timestamp": "2026-11-02T18:07:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "Please select a movie from the list below",
+    "embeds": [],
+    "mentions": [],
+    "components": [
+      {
+        "type": 1,
+        "components": []
+      }
+    ],
+    "interaction_metadata": {
+      "id": "900000000001000009",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200002",
+        "username": "sam",
+        "global_name": "Sam"
+      }
+    }
+  },
+  {
+    "id": "900000000001000001",
+    "channel_id": "900000000000100001",
+    "type": 20,
+    "timestamp": "2026-11-02T18:06:00.000000+00:00",
+    "edited_timestamp": "2026-11-02T18:06:00.000000+00:00",
+    "author": {
+      "id": "900000000000300001",
+      "username": "Requestrr",
+      "bot": true
+    },
+    "content": "I could not find any movie with the name \"starwars iv\", please try something different.",
+    "embeds": [],
+    "mentions": [],
+    "components": [],
+    "interaction_metadata": {
+      "id": "900000000001000008",
+      "type": 2,
+      "name": "request movie",
+      "user": {
+        "id": "900000000000200002",
+        "username": "sam",
+        "global_name": "Sam"
+      }
+    }
+  }
+]
