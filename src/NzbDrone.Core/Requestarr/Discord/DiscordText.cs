@@ -30,6 +30,7 @@ namespace Requestarr.Core.Discord
         // Lookups
         public const string NotARequestarrUser = "That member isn't a Requestarr user.";
         public const string UserRemoved = "That user was removed. Add them again with /user add.";
+        public const string NotOnboarded = "That member was only imported from the old request bot and isn't onboarded yet. Add them first with /user add.";
         public const string NotInServer = "That member isn't in the server right now, so they can't be restored yet.";
         public const string TypeNotOffered = "That content type isn't available yet.";
         public const string NoChannel = "Only users with a request channel can link a media server account.";
@@ -466,7 +467,7 @@ namespace Requestarr.Core.Discord
             return $"• {Label(type)}: {Label(state)}, {used} of {limit} used in the last {days} days{next}";
         }
 
-        public static string Label(RequestStatus status) => status.ToString().ToLowerInvariant();
+        public static string Label(RequestStatus status) => status == RequestStatus.NotInLibrary ? "not in library" : status.ToString().ToLowerInvariant();
 
         // Anime: sub or dub
         public static string Label(AnimeLanguage language) => language == AnimeLanguage.Dub ? "Dub" : "Sub";
@@ -611,6 +612,8 @@ namespace Requestarr.Core.Discord
             UserStatus.Active => "active",
             UserStatus.Suspended => "suspended",
             UserStatus.Removed => "removed",
+            UserStatus.Imported => "imported, not onboarded",
+            UserStatus.ImportedLeft => "imported, left the server",
             _ => status.ToString()
         };
 
@@ -745,6 +748,7 @@ namespace Requestarr.Core.Discord
             RequestStatus.Denied => $"{FinalDenied}{Because(request.DecisionReason)}",
             RequestStatus.Cancelled => FinalCancelled,
             RequestStatus.Removed => FinalRemoved,
+            RequestStatus.NotInLibrary => FinalNotInLibrary,
             _ => $"{FinalFailed}{Because(request.DecisionReason)}"
         };
 
@@ -862,6 +866,7 @@ namespace Requestarr.Core.Discord
         }
 
         public const string FinalRemoved = "🗑️ **Removed**";
+        public const string FinalNotInLibrary = "📜 **Not in library**";
 
         // Dev stack only (docker/dev.ps1 fast-votes): posted in the admin channel when it changes.
         public static string FastVotesOn(TimeSpan vote, TimeSpan timeout, TimeSpan reminder, int voteDays, int timeoutDays, int reminderDay) =>
@@ -870,6 +875,9 @@ namespace Requestarr.Core.Discord
 
         public static string FastVotesOff(int voteDays, int timeoutDays, int reminderDay) =>
             $"🧪 **Dev: fast votes are off.** Removal timings are back to the real settings: votes {voteDays} days, requesters {timeoutDays} days, reminder on day {reminderDay}.";
+
+        public static string RequestNotInLibraryStatus(Request request) =>
+            $"Request #{request.Id} for {request.Label} was imported from the old request bot's history; it isn't in the library. Request it again to get it.";
 
         public static string RequestRemovedStatus(Request request) => $"Request #{request.Id} for {request.Label} was removed from the library. You can request it again any time.";
 

@@ -32,6 +32,7 @@ namespace Requestarr.Core.Test.Imports
         private static readonly LibraryTitle Crow = new(11, "The Crow", 1994, 9495, null, true, null, null, null);
         private static readonly LibraryTitle Severance = new(21, "Severance", 2022, null, 371980, false, new[] { 1, 2 }, Array.Empty<int>(), null);
         private static readonly LibraryTitle BreakingBad = new(22, "Breaking Bad", 2008, null, 81189, false, new[] { 1, 2, 3, 4, 5 }, new[] { 2 }, null);
+        private static readonly LibraryTitle Nobody = new(12, "A Film Nobody Has", 2025, 999999901, null, false, null, null, null);
 
         private RecordedChannelHistory _recorded;
 
@@ -116,6 +117,8 @@ namespace Requestarr.Core.Test.Imports
                 SourceMessageKind.Other,
                 SourceMessageKind.Sent,
                 SourceMessageKind.Finished,
+                SourceMessageKind.Sent,
+                SourceMessageKind.AlreadyAvailable,
                 SourceMessageKind.Sent);
             read[3].Should().BeEquivalentTo(new { Type = ContentType.Tv, Title = "Severance", Year = 2022, TvdbId = 371980, Seasons = Array.Empty<int>(), People = new[] { Riley } }, o => o.ExcludingMissingMembers());
             read[4].Seasons.Should().Equal(2);
@@ -125,61 +128,197 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
-        public async Task the_preview_shows_every_request_follower_skip_and_unmatched_title_and_writes_nothing()
+        public async Task the_preview_is_one_list_of_every_request_matched_or_not_and_writes_nothing()
         {
             var job = await PreviewBoth();
             var plan = job.Plan;
 
             job.State.Should().Be(ImportJobState.Ready);
-            job.Channels.Select(c => (c.Read, c.Done)).Should().Equal((8, true), (3, true));
-            plan.Requests.Select(r => (r.Title, r.Instance, r.Requester.Name)).Should().Equal(("Severance", "Sonarr (test)", "Riley"), ("Breaking Bad", "Sonarr (test)", "Riley"), ("The Crow", "Radarr (test)", "Riley"));
-            plan.Requests[0].Seasons.Should().BeEmpty("all seasons");
-            plan.Requests[1].Seasons.Should().Equal(2);
-            plan.Requests[2].Followers.Select(f => f.Person.Name).Should().Equal("Sam");
-            plan.Requests[2].Available.Should().Be(new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc));
-            plan.Skipped.Select(s => s.Reason).Should().Equal(ImportPlanner.NotFound, ImportPlanner.Abandoned, ImportPlanner.AlreadyAvailable, ImportPlanner.AskedAgain);
-            plan.Unmatched.Single().Should().BeEquivalentTo(new { Title = "A Film Nobody Has (2025)", Link = "The Movie Database 999999901", AskedBy = new[] { "Sam" } }, o => o.ExcludingMissingMembers());
+            job.Channels.Select(c => (c.Read, c.Done)).Should().Equal((8, true), (5, true));
+            plan.Requests.Select(r => (r.Title, r.Instance, r.Requester.Name, r.Outcome)).Should().Equal(
+                ("Star Wars: The Last Jedi", null, "Sam", ImportOutcome.AlreadyAvailable),
+                ("Severance", "Sonarr (test)", "Riley", ImportOutcome.Sent),
+                ("Breaking Bad", "Sonarr (test)", "Riley", ImportOutcome.Sent),
+                ("A Film Nobody Has", null, "Sam", ImportOutcome.Sent),
+                ("The Crow", "Radarr (test)", "Riley", ImportOutcome.Sent),
+                ("Another Lost Film", null, "Riley", ImportOutcome.Sent));
+            plan.Requests.Select(r => r.InLibrary).Should().Equal(false, true, true, false, true, false);
+            plan.Requests[0].Should().BeEquivalentTo(new { Type = ContentType.Movie, Year = 2017, TmdbId = 181808 }, o => o.ExcludingMissingMembers());
+            plan.Requests[0].Followers.Select(f => f.Person.Name).Should().Equal(new[] { "Riley" }, "a second member's already available follows the first");
+            plan.Requests[1].Seasons.Should().BeEmpty("all seasons");
+            plan.Requests[2].Seasons.Should().Equal(2);
+            plan.Requests[4].Followers.Select(f => f.Person.Name).Should().Equal(new[] { "Sam" }, "Riley asking again is the same request");
+            plan.Requests[4].Available.Should().Be(new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc));
+            plan.NotRequests.Should().Be(2, "a search that found nothing and one left unpicked");
+            plan.NoRequester.Should().Be(0);
 
             Mocker.Resolve<IRequestRepository>().All().Should().BeEmpty("nothing is written before the admin confirms");
             Mocker.Resolve<IRequestarrUserRepository>().All().Should().BeEmpty();
         }
 
         [Test]
-        public async Task confirming_writes_who_asked_for_what_with_the_old_dates_and_a_second_run_adds_nothing()
+        public async Task confirming_writes_every_request_with_its_old_date_and_a_second_run_adds_nothing()
         {
             var job = await PreviewBoth();
             var done = await Subject.ConfirmAsync(job.Id, Actor.Web("owner"));
 
-            done.Result.Should().Be(new ImportResult(3, 1, 2));
+            done.Result.Should().Be(new ImportResult(6, 3, 2, 2, 0));
             var requests = Mocker.Resolve<IRequestRepository>().All().OrderBy(r => r.Requested).ToList();
-            requests.Select(r => (r.Title, r.Status, r.ExternalItemId)).Should().Equal(("Severance", RequestStatus.Approved, 21), ("Breaking Bad", RequestStatus.Available, 22), ("The Crow", RequestStatus.Available, 11));
-            requests[0].Requested.Should().Be(new DateTime(2026, 11, 7, 18, 15, 0, DateTimeKind.Utc));
-            requests[0].Seasons.Should().Equal(1, 2);
-            requests[0].MonitorFutureSeasons.Should().BeTrue();
-            requests[2].Fulfilled.Should().Be(new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc));
+            requests.Select(r => (r.Title, r.Status, r.ExternalItemId, r.BackendId)).Should().Equal(
+                ("Star Wars: The Last Jedi", RequestStatus.NotInLibrary, (int?)null, (int?)null),
+                ("Severance", RequestStatus.Approved, 21, Sonarr),
+                ("Breaking Bad", RequestStatus.Available, 22, Sonarr),
+                ("A Film Nobody Has", RequestStatus.NotInLibrary, null, null),
+                ("The Crow", RequestStatus.Available, 11, Radarr),
+                ("Another Lost Film", RequestStatus.NotInLibrary, null, null));
+            requests.Should().OnlyContain(r => r.Status == RequestStatus.NotInLibrary ? !r.IsActive : r.IsActive, "history never blocks a new request");
+            requests[0].TmdbId.Should().Be(181808);
+            requests[1].Requested.Should().Be(new DateTime(2026, 11, 7, 18, 15, 0, DateTimeKind.Utc));
+            requests[1].Seasons.Should().Equal(1, 2);
+            requests[1].MonitorFutureSeasons.Should().BeTrue();
+            requests[4].Fulfilled.Should().Be(new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc));
 
             var people = Mocker.Resolve<IUserManagementService>();
-            requests.Should().OnlyContain(r => r.OwnerUserId == people.FindByDiscordId(Riley).Id);
-            people.FindByDiscordId(Sam).PrivateChannelId.Should().BeNull("known by name, not a member until an admin adds them");
-            Mocker.Resolve<IRequestSubscriberRepository>().ForRequest(requests[2].Id).Single().UserId.Should().Be(people.FindByDiscordId(Sam).Id);
+            var riley = people.FindByDiscordId(Riley);
+            var sam = people.FindByDiscordId(Sam);
+            requests.Select(r => r.OwnerUserId).Should().Equal(sam.Id, riley.Id, riley.Id, sam.Id, riley.Id, riley.Id);
+            new[] { riley, sam }.Should().OnlyContain(u => u.Status == UserStatus.Imported && u.PrivateChannelId == null && u.DiscordRoleId == null, "listed, never given a role or channel");
+            Mocker.Resolve<IRequestSubscriberRepository>().ForRequest(requests[4].Id).Single().UserId.Should().Be(sam.Id);
+            Mocker.Resolve<IRequestSubscriberRepository>().ForRequest(requests[0].Id).Single().UserId.Should().Be(riley.Id);
 
-            var history = Mocker.Resolve<IAuditRepository>().ForTarget("request", requests[2].Id.ToString());
+            var history = Mocker.Resolve<IAuditRepository>().ForTarget("request", requests[4].Id.ToString());
             history.Select(e => (e.Action, e.Timestamp)).Should().Equal(
                 (ImportService.ImportedAction, new DateTime(2026, 11, 18, 7, 31, 0, DateTimeKind.Utc)),
                 ("request.subscribe", new DateTime(2026, 11, 18, 10, 12, 0, DateTimeKind.Utc)),
                 ("request.fulfilled", new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc)));
             Requestarr.Core.Portal.PortalText.Action(history[0].Action).Should().Be("Imported from Requestrr");
-            Mocker.Resolve<IAuditRepository>().ForAction(ImportService.ImportAction).Single().Detail.Should().StartWith("3 requests and 1 followers from Requestrr");
+            Mocker.Resolve<IAuditRepository>().ForAction(ImportService.ImportAction).Single().Detail.Should().StartWith("6 requests (3 not in the library) and 2 followers from Requestrr");
 
             var again = await PreviewBoth();
             again.Plan.Requests.Should().BeEmpty();
             again.Plan.Follows.Should().BeEmpty();
-            again.Plan.Skipped.Should().BeEmpty();
-            again.Plan.AlreadyImported.Should().Be(9);
-            again.Plan.Unmatched.Should().ContainSingle("a title nobody has is tried again, never recorded");
+            again.Plan.Links.Should().BeEmpty();
+            again.Plan.NotRequests.Should().Be(0);
+            again.Plan.AlreadyImported.Should().Be(12);
 
             Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.SendMessageAsync(It.IsAny<ulong>(), It.IsAny<InteractionReply>()), Times.Never(), "nothing is posted");
             Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.EditMessageAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<InteractionReply>()), Times.Never());
+            Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.CreateRoleAsync(It.IsAny<string>()), Times.Never(), "nothing is created in Discord");
+        }
+
+        [Test]
+        public async Task a_title_the_library_gains_later_is_linked_on_the_next_run()
+        {
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+            GivenLibrary(Radarr, Crow, Nobody);
+
+            var again = await PreviewBoth();
+            again.Plan.Links.Should().ContainSingle().Which.Should().BeEquivalentTo(new { Title = "A Film Nobody Has (2025)", Instance = "Radarr (test)", ItemId = 12 }, o => o.ExcludingMissingMembers());
+            var done = await Subject.ConfirmAsync(again.Id, Actor.Web("owner"));
+
+            done.Result.Linked.Should().Be(1);
+            var linked = Mocker.Resolve<IRequestRepository>().All().Single(r => r.Title == "A Film Nobody Has");
+            (linked.Status, linked.BackendId, linked.ExternalItemId).Should().Be((RequestStatus.Approved, Radarr, 12));
+            Mocker.Resolve<IAuditRepository>().ForTarget("request", linked.Id.ToString()).Last().Action.Should().Be(ImportService.LinkedAction);
+        }
+
+        [Test]
+        public async Task people_are_listed_by_their_current_discord_name_and_whether_theyre_in_the_server()
+        {
+            var gateway = Mocker.GetMock<IDiscordGuildGateway>();
+            gateway.SetupGet(g => g.IsConnected).Returns(true);
+            gateway.Setup(g => g.GetMemberAsync(Riley)).ReturnsAsync(new GuildMember(Riley, "riley", "Riley Now", null, false, Array.Empty<ulong>()));
+            gateway.Setup(g => g.GetMemberAsync(Sam)).ReturnsAsync((GuildMember)null);
+
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+
+            var people = Mocker.Resolve<IUserManagementService>();
+            (people.FindByDiscordId(Riley).DisplayName, people.FindByDiscordId(Riley).Status).Should().Be(("Riley Now", UserStatus.Imported));
+            people.FindByDiscordId(Sam).Status.Should().Be(UserStatus.ImportedLeft);
+        }
+
+        [Test]
+        public async Task someone_imported_who_leaves_is_marked_gone_and_nothing_else_happens()
+        {
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+            var people = Mocker.Resolve<IUserManagementService>();
+
+            await people.HandleMemberLeftAsync(Riley);
+
+            people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.ImportedLeft);
+            Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.SendMessageAsync(It.IsAny<ulong>(), It.IsAny<InteractionReply>()), Times.Never(), "no admin notice for someone who never joined Requestarr");
+        }
+
+        [Test]
+        public async Task history_stays_history_when_someone_has_requested_the_title_since()
+        {
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+            var owner = Mocker.Resolve<IUserManagementService>().FindByDiscordId(Sam);
+            Mocker.Resolve<IRequestRepository>().Insert(new Request
+            {
+                OwnerUserId = owner.Id, ContentType = ContentType.Movie, Title = "A Film Nobody Has", TmdbId = 999999901, BackendId = Radarr, ExternalItemId = 12, Status = RequestStatus.Approved, Requested = DateTime.UtcNow
+            });
+            GivenLibrary(Radarr, Crow, Nobody);
+
+            (await PreviewBoth()).Plan.Links.Should().BeEmpty("the newer request is the live one");
+        }
+
+        [Test]
+        public async Task an_already_available_reply_never_widens_the_seasons_asked_for()
+        {
+            GivenChannelA(Sent(900000000001000101, Riley, "season 2"), Available(900000000001000102, Sam));
+
+            var request = (await Preview(ChannelA)).Plan.Requests.Single();
+
+            request.Seasons.Should().Equal(2);
+            request.Followers.Select(f => f.Person.Name).Should().Equal("Sam");
+        }
+
+        [Test]
+        public async Task a_show_named_only_by_the_movie_database_is_found_again_and_takes_its_tvdb_id_when_linked()
+        {
+            GivenChannelA(Show(900000000001000101, Riley));
+            await Subject.ConfirmAsync((await Preview(ChannelA)).Id, Actor.Web("owner"));
+
+            GivenChannelA(Show(900000000001000101, Riley), Show(900000000001000102, Sam));
+            var again = (await Preview(ChannelA)).Plan;
+            again.Requests.Should().BeEmpty("the earlier import's request is the same show");
+            again.Follows.Single().Followers.Select(f => f.Person.Name).Should().Equal("Sam");
+
+            GivenLibrary(Sonarr, Severance, BreakingBad, new LibraryTitle(23, "Lost Show", 2020, 500001, 600001, false, new[] { 1 }, Array.Empty<int>(), null));
+            await Subject.ConfirmAsync((await Preview(ChannelA)).Id, Actor.Web("owner"));
+
+            var linked = Mocker.Resolve<IRequestRepository>().All().Single(r => r.Title == "Lost Show");
+            (linked.Status, linked.TvdbId, linked.ExternalItemId).Should().Be((RequestStatus.Approved, 600001, 23));
+        }
+
+        [Test]
+        public async Task someone_only_imported_cant_be_suspended_or_given_access_until_onboarded()
+        {
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+            var people = Mocker.Resolve<IUserManagementService>();
+
+            (await people.SuspendAsync(Riley, Actor.Web("owner"))).Message.Should().Be(Requestarr.Core.Discord.DiscordText.NotOnboarded);
+            people.SetAccess(Riley, ContentType.Movie, AccessState.AutoApprove, Actor.Web("owner")).Success.Should().BeFalse();
+            people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.Imported);
+        }
+
+        // "Already available" for Breaking Bad in channel A, asked by who.
+        private static HistoryMessage Available(ulong id, ulong who)
+        {
+            var at = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc).AddMinutes(id % 1000);
+            var embed = new HistoryEmbed("Breaking Bad (2008)", "https://www.thetvdb.com/?tab=series&id=81189");
+
+            return new HistoryMessage(id, ChannelA, at, 900000000000300001, true, "This show is already available, enjoy!", new[] { embed }, who, who == Riley ? "Riley" : "Sam", Array.Empty<ulong>(), 3);
+        }
+
+        // A show request in channel A whose card links The Movie Database's TV page only.
+        private static HistoryMessage Show(ulong id, ulong who)
+        {
+            var at = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc).AddMinutes(id % 1000);
+            var embed = new HistoryEmbed("Lost Show (2020)", "https://www.themoviedb.org/tv/500001");
+
+            return new HistoryMessage(id, ChannelA, at, 900000000000300001, true, "Your request for **all seasons** of **Lost Show** was sent successfully!", new[] { embed }, who, who == Riley ? "Riley" : "Sam", Array.Empty<ulong>(), 3);
         }
 
         [Test]
@@ -196,11 +335,11 @@ namespace Requestarr.Core.Test.Imports
             var plan = (await PreviewBoth()).Plan;
 
             plan.Requests.Select(r => r.Title).Should().NotContain("Breaking Bad");
-            plan.Follows.Single().Should().BeEquivalentTo(new { RequestId = existing.Id, Follower = new { Person = new { Name = "Riley" } } }, o => o.ExcludingMissingMembers());
+            plan.Follows.Single().Should().BeEquivalentTo(new { RequestId = existing.Id, Requester = "Jo", Followers = new[] { new { Person = new { Name = "Riley" } } } }, o => o.ExcludingMissingMembers());
         }
 
         [Test]
-        public async Task seasons_asked_for_later_join_the_request_and_only_a_true_repeat_is_skipped()
+        public async Task seasons_asked_for_later_join_the_request_and_a_repeat_adds_nothing()
         {
             GivenChannelA(
                 Sent(900000000001000101, Riley, "season 2"),
@@ -215,7 +354,7 @@ namespace Requestarr.Core.Test.Imports
             request.Requester.Name.Should().Be("Riley");
             request.Seasons.Should().Equal(2, 3, 4);
             request.Followers.Select(f => f.Person.Name).Should().Equal("Sam");
-            plan.Skipped.Select(s => s.Reason).Should().Equal(ImportPlanner.AskedAgain, ImportPlanner.NoRequester);
+            plan.NoRequester.Should().Be(1);
         }
 
         [Test]
@@ -225,9 +364,9 @@ namespace Requestarr.Core.Test.Imports
 
             var both = await Task.WhenAll(Subject.ConfirmAsync(job.Id, Actor.Web("owner")), Subject.ConfirmAsync(job.Id, Actor.Web("owner")));
 
-            Mocker.Resolve<IRequestRepository>().All().Should().HaveCount(3);
+            Mocker.Resolve<IRequestRepository>().All().Should().HaveCount(6);
             Mocker.Resolve<IAuditRepository>().All().Count(e => e.Action == ImportService.ImportAction).Should().Be(1);
-            both.Select(v => v.Result.Requests).Should().Equal(3, 3);
+            both.Select(v => v.Result.Requests).Should().Equal(6, 6);
         }
 
         [Test]

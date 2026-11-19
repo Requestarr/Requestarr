@@ -4,6 +4,7 @@ interface CssExports {
   intro: string;
   invite: string;
   inviteHelp: string;
+  note: string;
   readable: string;
   summary: string;
 }

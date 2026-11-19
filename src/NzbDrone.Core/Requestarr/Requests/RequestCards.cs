@@ -491,6 +491,7 @@ namespace Requestarr.Core.Requests
             RequestStatus.Available => (DiscordText.FinalAvailable, SentColor, DiscordText.RequestAlreadyAvailableStatus(request.Label, request.Id)),
             RequestStatus.Denied => (DiscordText.FinalDenied, RefusedColor, DiscordText.RequestDeniedStatus(request.Label, request.Id, request.DecisionReason)),
             RequestStatus.Removed => (DiscordText.FinalRemoved, CancelledColor, DiscordText.RequestRemovedStatus(request)),
+            RequestStatus.NotInLibrary => (DiscordText.FinalNotInLibrary, CancelledColor, DiscordText.RequestNotInLibraryStatus(request)),
             RequestStatus.Cancelled => (DiscordText.FinalCancelled, CancelledColor, request.DecidedByUserId.HasValue || request.DecidedByName != null
                 ? DiscordText.RequestCancelledByAdmin(request.Label, request.Id, request.DecisionReason)
                 : DiscordText.RequestCancelled(request.Label, request.Id)),

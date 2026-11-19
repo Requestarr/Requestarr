@@ -158,14 +158,15 @@ namespace Requestarr.Core.Test.Qa.Web
         });
 
         // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
-        // the read-only invite link, both channels found and readable, then the preview of what would be imported, in
-        // both themes. A stack without recordings says so and passes: reading a real server is the owner's run, on beta.
+        // the read-only invite link, both channels found and readable, the one list of what would be imported, then,
+        // once confirmed, the Requests and Members pages with the imported statuses, in both themes; a rerun finds
+        // nothing new. A stack without recordings says so and passes: reading a real server is the owner's run, on beta.
         [Test]
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
         {
-            const string Channels = "900000000000100001\n900000000000100002";
             const string ReadInvite = "Invite the bot to read another server";
             await SignInAsync(browser);
+            var recorded = false;
 
             foreach (var theme in Themes)
             {
@@ -190,18 +191,62 @@ namespace Requestarr.Core.Test.Qa.Web
                     continue;
                 }
 
-                await browser.RunAsync($"const e = document.querySelector('textarea[name=\"channelIds\"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(e, {JsonSerializer.Serialize(Channels)}); e.dispatchEvent(new Event('input', {{ bubbles: true }}))");
-                await browser.WaitForAsync("document.body.innerText.split('the bot can read it').length > 2");
-                await check.ShotAsync(browser, $"import-channels-{theme}");
-                await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Preview').click()");
-                await browser.WaitForAsync("document.body.innerText.includes('Requests to import')");
-                var summary = await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Read ')) ?? ''");
-                check.Saw($"import ({theme}): {summary}");
+                recorded = true;
+                var summary = await PreviewImportAsync(browser, check, theme);
                 await browser.RunAsync("[...document.querySelectorAll('legend')].find(l => l.innerText.includes('Requests to import')).scrollIntoView()");
                 await check.ShotAsync(browser, $"import-preview-{theme}");
-                summary.Should().Contain("Requests to import:");
+                summary.Should().Contain("Requests found:");
+            }
+
+            if (recorded)
+            {
+                await ConfirmImportAsync(browser, check);
             }
         });
+
+        // The recorded channels' IDs typed in, checked, and previewed: the preview's summary line.
+        private static async Task<string> PreviewImportAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            const string Channels = "900000000000100001\n900000000000100002";
+
+            await browser.RunAsync($"const e = document.querySelector('textarea[name=\"channelIds\"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(e, {JsonSerializer.Serialize(Channels)}); e.dispatchEvent(new Event('input', {{ bubbles: true }}))");
+            await browser.WaitForAsync("document.body.innerText.split('the bot can read it').length > 2");
+            await check.ShotAsync(browser, $"import-channels-{theme}");
+            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Preview').click()");
+            await browser.WaitForAsync("document.body.innerText.includes('Requests to import')");
+            var summary = await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Read ')) ?? ''");
+            check.Saw($"import ({theme}): {summary}");
+
+            return summary;
+        }
+
+        // Confirms the last preview, then the Requests and Members pages show the imported statuses in both themes, and
+        // previewing again finds nothing new.
+        private async Task ConfirmImportAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Confirm and import').click()");
+            await browser.WaitForAsync("document.body.innerText.includes('Imported ')");
+            check.Saw("import: " + await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Imported ')) ?? ''"));
+
+            foreach (var theme in Themes)
+            {
+                await browser.SetThemeAsync(theme);
+
+                // Imported people are "Imported, not onboarded", or "Imported, left the server" when they aren't in it.
+                foreach (var (page, status) in new[] { ("requests", "Not in library"), ("members", "Imported, ") })
+                {
+                    await browser.GoAsync($"{Url}/{page}");
+                    await browser.WaitForAsync($"document.body.innerText.includes('{status}')");
+                    var lines = await browser.EvalAsync<string>($"[...document.querySelectorAll('tr')].map(r => r.innerText.replace(/\\s+/g, ' ')).filter(t => t.includes('{status}')).join(' | ')");
+                    check.Saw($"import ({theme}): {page}: {lines}");
+                    await check.ShotAsync(browser, $"import-{page}-{theme}");
+                }
+            }
+
+            await browser.GoAsync($"{Url}/settings/import");
+            await browser.WaitForAsync("document.body.innerText.includes('Recorded channels (dev)')");
+            (await PreviewImportAsync(browser, check, "rerun")).Should().Contain("Requests found: 0");
+        }
 
         // Requestarr's own settings pages load in both themes. QA and dev take their settings from the provisioning file,
         // so each page says so and its fields can't be changed; the instances page lists the stack's Sonarr and Radarr.

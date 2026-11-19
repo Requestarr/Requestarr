@@ -6,7 +6,13 @@ namespace Requestarr.Core.Users
     {
         Active = 0,
         Suspended = 1,
-        Removed = 2
+        Removed = 2,
+
+        // Known only from an import of another bot's requests: no role, channel or access until an admin onboards them.
+        Imported = 3,
+
+        // The same, and not in the Discord server (they left it, or were never in it) when last looked.
+        ImportedLeft = 4
     }
 
     public enum ContentType

@@ -769,22 +769,28 @@ and the first-run setup links to it once it's done.
    channel the bot can already read, to add with a click.
 3. **Preview.** Requestarr reads each channel from the oldest message to the newest, showing how far it has got. A
    channel with a lot of history takes a while, because Discord limits how fast a bot can read; keep the page open
-   until it's done. The preview lists:
-   - **Requests to import:** each title Requestrr sent, the member who asked (the first one), the day, the seasons
-     for a show, whether it's in your library, and everyone who asked for it after them as followers.
-   - **Followers for requests Requestarr already has:** people who asked Requestrr for a title someone has already
-     requested through Requestarr. They follow it; no second request is made.
-   - **Skipped:** messages that weren't a request, with why: the old bot couldn't find the title, the person left
-     before picking one, the title was already available, or the same person asked again.
-   - **Not in your Sonarr or Radarr:** titles Requestrr sent that none of your Sonarr or Radarr has now. Titles are
-     matched by their The Movie Database or TheTVDB number, never by name, so nothing is guessed.
-4. **Confirm and import.** Nothing is written before this. Each request keeps its original date, its history starts
-   with "Imported from Requestrr", and a title Requestrr announced as finished downloading shows when it became
-   available. People who aren't members of Requestarr yet are known by their Discord name, and their requests are
-   theirs once they're onboarded. The audit log records the import and who ran it.
+   until it's done. The preview is one list of every past request, whether or not it's in your library now:
+   - **Each title:** its type, the member who asked first (the requester), everyone who asked after them
+     (followers), the day, and how it ended in Requestrr: **Sent**, or **Already available** (Requestrr said it was
+     already there; that counts as asking for it too).
+   - **In library:** yes, with the Sonarr or Radarr that has it, or no. Titles are matched by their The Movie
+     Database or TheTVDB number, never by name, so nothing is guessed.
+   - **Titles Requestarr already has a request for** are listed too: the people who asked Requestrr follow that
+     request, and no second one is made.
+   - **Not requests:** searches that found nothing and title pickers left without a choice aren't listed; one line
+     under the list says how many there were.
+4. **Confirm and import.** Nothing is written before this.
+   - **Requests:** each keeps its original date, its history starts with "Imported from Requestrr", and a title
+     Requestrr announced as finished downloading shows when it became available.
+   - **Not in library:** a title none of your Sonarr or Radarr has is kept as history with that status. Nothing is
+     sent anywhere, and it never stops anyone requesting the title again: a new request is made as usual.
+   - **Members:** everyone who asked appears under Members by their current Discord name. Someone who isn't a member
+     yet shows as **Imported, not onboarded** (or **Imported, left the server**). No role, channel or access is
+     created for them; **Onboard** on their page adds them the usual way, and their imported requests stay theirs.
+   - **The audit log** records the import and who ran it.
 
 **Running it again is safe.** Requestarr remembers every message it imported, so a second run adds only what's new.
-Titles that weren't in your Sonarr or Radarr stay out and are tried again on the next run.
+A title that was Not in library and is in your Sonarr or Radarr now is linked to it on the next run.
 
 **Afterwards:** if you invited the bot to a different server only for the import, you can remove it from there (in
 that server, right-click the bot, then **Kick**). Requestarr keeps everything it imported.

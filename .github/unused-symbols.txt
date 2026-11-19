@@ -44,10 +44,9 @@ Requestarr.Core.Imports.ImportChannel.Server  # sent in the import API's channel
 Requestarr.Core.Imports.ImportPlan.MessagesRead  # sent in the import API's preview, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.ChannelId  # sent in the import API's progress, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.Name  # sent in the import API's progress, which the Import page shows
+Requestarr.Core.Imports.PlannedFollow.Instance  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.PlannedFollow.Requester  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.PlannedFollow.Type  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.PlannedFollow.Year  # sent in the import API's preview, which the Import page shows
 Requestarr.Core.Imports.PlannedFollow.Title  # sent in the import API's preview, which the Import page shows
-Requestarr.Core.Imports.SkippedMessage.At  # sent in the import API's preview, which the Import page shows
-Requestarr.Core.Imports.SkippedMessage.MessageId  # sent in the import API's preview, which the Import page keys its rows on
-Requestarr.Core.Imports.SkippedMessage.What  # sent in the import API's preview, which the Import page shows
-Requestarr.Core.Imports.SkippedMessage.Who  # sent in the import API's preview, which the Import page shows
-Requestarr.Core.Imports.UnmatchedTitle.Link  # sent in the import API's preview, which the Import page shows
-Requestarr.Core.Imports.UnmatchedTitle.Title  # sent in the import API's preview, which the Import page shows
+Requestarr.Core.Imports.PlannedLink.Title  # sent in the import API's preview, which the Import page lists

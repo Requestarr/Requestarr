@@ -75,7 +75,8 @@ namespace Requestarr.Core.Portal
                 return new List<PortalServerMember>();
             }
 
-            var active = _members.All().Where(u => u.Status != UserStatus.Removed).Select(u => DiscordId(u.Id)).ToHashSet();
+            // Someone known only from an import can still be found and onboarded.
+            var active = _members.All().Where(u => u.Status is UserStatus.Active or UserStatus.Suspended).Select(u => DiscordId(u.Id)).ToHashSet();
             var found = await _gateway.SearchMembersAsync(term.Trim(), SearchLimit);
 
             return found.Where(m => !m.IsBot && !active.Contains(m.Id))

@@ -13,7 +13,15 @@ namespace Requestarr.Core.Imports
 
     public record ImportFollower(ImportPerson Person, DateTime Asked);
 
-    // A request the import would create: matched to an item in a Sonarr or Radarr. Seasons: empty for every season.
+    // How a request ended in the old bot: sent to Sonarr or Radarr, or answered that it was already available.
+    public enum ImportOutcome
+    {
+        Sent,
+        AlreadyAvailable
+    }
+
+    // A request the import would create. In the library when an item in a Sonarr or Radarr matches it by ID (InstanceId,
+    // Instance and ItemId set); otherwise it's kept as history, Not in library. Seasons: empty for every season.
     // Available: when it finished downloading, as the old bot announced it; HasFiles: whether the library has it now.
     public record PlannedRequest(
         ContentType Type,
@@ -21,9 +29,9 @@ namespace Requestarr.Core.Imports
         int? Year,
         int? TmdbId,
         int? TvdbId,
-        int InstanceId,
+        int? InstanceId,
         string Instance,
-        int ItemId,
+        int? ItemId,
         ImportPerson Requester,
         DateTime Requested,
         [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong ChannelId,
@@ -31,23 +39,28 @@ namespace Requestarr.Core.Imports
         IReadOnlyList<int> LibrarySeasons,
         DateTime? Available,
         bool HasFiles,
-        IReadOnlyList<ImportFollower> Followers);
+        ImportOutcome Outcome,
+        IReadOnlyList<ImportFollower> Followers)
+    {
+        public bool InLibrary => ItemId.HasValue;
+    }
 
-    // Someone who asked for a title Requestarr already has a request for: they follow it.
-    public record PlannedFollow(int RequestId, string Title, ImportFollower Follower);
+    // A request Requestarr already has for a title people asked the old bot for: they follow it.
+    public record PlannedFollow(int RequestId, ContentType Type, string Title, int? Year, string Requester, DateTime Requested, string Instance, IReadOnlyList<ImportFollower> Followers);
 
-    public record SkippedMessage([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong MessageId, DateTime At, string Who, string What, string Reason);
+    // An earlier import's request that wasn't in the library and now is: it's linked to the item, and takes the library's
+    // IDs it was missing (a show named by The Movie Database gains its TheTVDB ID, which requests go by).
+    public record PlannedLink(int RequestId, string Title, int InstanceId, string Instance, int ItemId, int? TmdbId, int? TvdbId, IReadOnlyList<int> LibrarySeasons, bool HasFiles);
 
-    // A title the old bot sent that no configured Sonarr or Radarr has (gone since, or never matched): never guessed.
-    public record UnmatchedTitle(string Title, string Link, DateTime FirstAsked, IReadOnlyList<string> AskedBy);
-
-    // What an import would do, before anything is written. Recorded: the messages a confirmed import marks as done, so a
-    // second run skips them (titles nobody's Sonarr or Radarr has stay out, so they're tried again later).
+    // What an import would do, before anything is written: one list of every request found (Requests, and Follows for
+    // titles Requestarr already has), library links for earlier imports, and counts of what isn't a request. Recorded:
+    // the messages a confirmed import marks as done, so a second run skips them.
     public record ImportPlan(
         IReadOnlyList<PlannedRequest> Requests,
         IReadOnlyList<PlannedFollow> Follows,
-        IReadOnlyList<SkippedMessage> Skipped,
-        IReadOnlyList<UnmatchedTitle> Unmatched,
+        IReadOnlyList<PlannedLink> Links,
+        int NotRequests,
+        int NoRequester,
         int MessagesRead,
         int AlreadyImported,
         [property: JsonIgnore] IReadOnlyList<RecordedMessage> Recorded);
@@ -59,22 +72,17 @@ namespace Requestarr.Core.Imports
     public record LibraryEntry(int InstanceId, string Instance, ContentType Type, LibraryTitle Title);
 
     // What an import starts from besides the messages: what's already imported, the libraries, the requests and
-    // followers Requestarr has, and who it knows by Discord ID.
+    // followers Requestarr has, who it knows by Discord ID, and members' names by their ID.
     public record ImportContext(
         IReadOnlySet<ulong> Imported,
         IReadOnlyList<LibraryEntry> Library,
         IReadOnlyList<Request> Requests,
         ILookup<int, int> Followers,
-        IReadOnlyDictionary<ulong, int> Known);
+        IReadOnlyDictionary<ulong, int> Known,
+        IReadOnlyDictionary<int, string> Names);
 
     public static class ImportPlanner
     {
-        public const string AskedAgain = "Asked again by the same person";
-        public const string NoRequester = "No requester recorded with it";
-        public const string AlreadyAvailable = "The old bot said it was already available";
-        public const string NotFound = "The old bot couldn't find it";
-        public const string Abandoned = "Left before a title was picked";
-
         // Oldest first: the first to ask is the requester, everyone after a follower, as Requestarr does today.
         public static ImportPlan Plan(IReadOnlyList<SourceMessage> messages, ImportContext context)
         {
@@ -88,14 +96,17 @@ namespace Requestarr.Core.Imports
             return builder.Build(messages.Count);
         }
 
+        // The title a message names: its type and The Movie Database or TheTVDB ID, or its name when it has no link.
+        private readonly record struct TitleKey(ContentType? Type, int? TmdbId, int? TvdbId, string Name);
+
         private sealed class Builder
         {
             private readonly ImportContext _context;
-            private readonly Dictionary<(int Instance, int Item), PlannedRequest> _requests = new();
-            private readonly List<PlannedFollow> _follows = new();
-            private readonly List<SkippedMessage> _skipped = new();
-            private readonly Dictionary<string, UnmatchedTitle> _unmatched = new();
+            private readonly Dictionary<TitleKey, PlannedRequest> _requests = new();
+            private readonly Dictionary<int, PlannedFollow> _follows = new();
             private readonly List<RecordedMessage> _recorded = new();
+            private int _notRequests;
+            private int _noRequester;
             private int _alreadyImported;
 
             public Builder(ImportContext context)
@@ -116,71 +127,61 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
+                Record(message);
+
                 switch (message.Kind)
                 {
                     case SourceMessageKind.Sent:
-                        Sent(message);
+                        Asked(message, ImportOutcome.Sent);
+                        break;
+                    case SourceMessageKind.AlreadyAvailable:
+                        Asked(message, ImportOutcome.AlreadyAvailable);
                         break;
                     case SourceMessageKind.Finished:
                         Finished(message);
                         break;
                     default:
-                        Skip(message, message.Kind switch
-                        {
-                            SourceMessageKind.AlreadyAvailable => AlreadyAvailable,
-                            SourceMessageKind.NotFound => NotFound,
-                            _ => Abandoned
-                        });
+                        _notRequests++;
                         break;
                 }
             }
 
             public ImportPlan Build(int read) =>
-                new(_requests.Values.OrderBy(r => r.Requested).ToList(), _follows, _skipped, _unmatched.Values.OrderBy(u => u.FirstAsked).ToList(), read, _alreadyImported, _recorded);
+                new(_requests.Values.OrderBy(r => r.Requested).ToList(), _follows.Values.OrderBy(f => f.Requested).ToList(), Links(), _notRequests, _noRequester, read, _alreadyImported, _recorded);
 
-            private void Sent(SourceMessage message)
+            private void Asked(SourceMessage message, ImportOutcome outcome)
             {
                 var person = Person(message);
 
-                if (person == null)
+                // Without who asked, or a card naming the title, there's nothing to record.
+                if (person == null || message.Type == null)
                 {
-                    Skip(message, NoRequester);
+                    _noRequester++;
                     return;
                 }
 
-                if (Match(message) is not { } entry)
-                {
-                    Unmatched(message, person);
-                    return;
-                }
-
+                var entry = Match(message);
                 var follower = new ImportFollower(person, message.Message.Timestamp);
 
-                if (Existing(entry) is { } existing)
+                if (Existing(message, entry) is { } existing)
                 {
-                    FollowExisting(existing, follower, message);
+                    FollowExisting(existing, follower);
                     return;
                 }
 
-                var key = (entry.InstanceId, entry.Title.Id);
+                var key = Key(message, entry);
 
                 if (!_requests.TryGetValue(key, out var planned))
                 {
-                    Record(message);
-                    _requests[key] = NewRequest(message, entry, person);
+                    _requests[key] = NewRequest(message, entry, person, outcome);
                     return;
                 }
 
-                var seasons = MergedSeasons(planned.Seasons, message.Seasons);
                 var asked = planned.Requester.DiscordId == person.DiscordId || planned.Followers.Any(f => f.Person.DiscordId == person.DiscordId);
 
-                if (asked && seasons.SequenceEqual(planned.Seasons))
-                {
-                    Skip(message, AskedAgain);
-                    return;
-                }
+                // "Already available" names no seasons: it never widens what was asked for.
+                var seasons = outcome == ImportOutcome.Sent ? MergedSeasons(planned.Seasons, message.Seasons) : planned.Seasons;
 
-                Record(message);
                 _requests[key] = planned with { Seasons = seasons, Followers = asked ? planned.Followers : planned.Followers.Append(follower).ToList() };
             }
 
@@ -195,56 +196,53 @@ namespace Requestarr.Core.Imports
                 return planned.Union(asked).OrderBy(s => s).ToList();
             }
 
-            private void FollowExisting(Request existing, ImportFollower follower, SourceMessage message)
+            private void FollowExisting(Request existing, ImportFollower follower)
             {
                 var userId = follower.Person.UserId;
                 var follows = userId.HasValue && (existing.OwnerUserId == userId || _context.Followers[existing.Id].Contains(userId.Value));
+                var planned = _follows.GetValueOrDefault(existing.Id) ?? Following(existing);
 
-                if (follows || _follows.Any(f => f.RequestId == existing.Id && f.Follower.Person.DiscordId == follower.Person.DiscordId))
+                if (follows || planned.Followers.Any(f => f.Person.DiscordId == follower.Person.DiscordId))
                 {
-                    Skip(message, AskedAgain);
                     return;
                 }
 
-                Record(message);
-                _follows.Add(new PlannedFollow(existing.Id, existing.Label, follower));
+                _follows[existing.Id] = planned with { Followers = planned.Followers.Append(follower).ToList() };
             }
 
-            private static PlannedRequest NewRequest(SourceMessage message, LibraryEntry entry, ImportPerson person)
+            private PlannedFollow Following(Request existing) =>
+                new(existing.Id, existing.ContentType, existing.Title, existing.Year, _context.Names.GetValueOrDefault(existing.OwnerUserId), existing.Requested, Instance(existing.BackendId), Array.Empty<ImportFollower>());
+
+            private string Instance(int? instanceId) => _context.Library.FirstOrDefault(e => e.InstanceId == instanceId)?.Instance;
+
+            private static PlannedRequest NewRequest(SourceMessage message, LibraryEntry entry, ImportPerson person, ImportOutcome outcome)
             {
-                var title = entry.Title;
-                var hasFiles = entry.Type == ContentType.Movie ? title.HasFile : title.SeasonsWithFiles?.Any() == true;
+                var title = entry?.Title;
 
                 return new PlannedRequest(
-                    entry.Type,
-                    title.Title,
-                    title.Year,
-                    title.TmdbId,
-                    title.TvdbId,
-                    entry.InstanceId,
-                    entry.Instance,
-                    title.Id,
+                    message.Type.Value,
+                    title?.Title ?? message.Title,
+                    title?.Year ?? message.Year,
+                    title?.TmdbId ?? message.TmdbId,
+                    title?.TvdbId ?? message.TvdbId,
+                    entry?.InstanceId,
+                    entry?.Instance,
+                    title?.Id,
                     person,
                     message.Message.Timestamp,
                     message.Message.ChannelId,
                     message.Seasons,
-                    title.Seasons ?? Array.Empty<int>(),
+                    title?.Seasons ?? Array.Empty<int>(),
                     null,
-                    hasFiles,
+                    entry != null && HasFiles(entry),
+                    outcome,
                     Array.Empty<ImportFollower>());
             }
 
             // A finished download dates the planned request's availability (its earliest announcement).
             private void Finished(SourceMessage message)
             {
-                if (Match(message) is not { } entry)
-                {
-                    return;
-                }
-
-                Record(message);
-
-                var key = (entry.InstanceId, entry.Title.Id);
+                var key = Key(message, Match(message));
 
                 if (_requests.TryGetValue(key, out var planned) && planned.Available is null)
                 {
@@ -252,36 +250,29 @@ namespace Requestarr.Core.Imports
                 }
             }
 
-            private void Skip(SourceMessage message, string reason)
-            {
-                Record(message);
-                _skipped.Add(new SkippedMessage(message.Message.Id, message.Message.Timestamp, Person(message)?.Name, Describe(message), reason));
-            }
-
             private void Record(SourceMessage message) => _recorded.Add(new RecordedMessage(message.Message.Id, message.Message.ChannelId));
 
-            private void Unmatched(SourceMessage message, ImportPerson person)
-            {
-                var link = Link(message);
-                var key = $"{message.Type}:{link}:{message.Title}";
+            // Earlier imports' requests that weren't in the library, now matched by ID. One whose title someone has
+            // requested since stays history: that newer request is the live one.
+            private List<PlannedLink> Links() =>
+                _context.Requests.Where(r => r.Status == RequestStatus.NotInLibrary)
+                    .Select(r => (Request: r, Entry: Find(r.ContentType, r.TmdbId, r.TvdbId)))
+                    .Where(m => m.Entry != null && !RequestedSince(m.Entry))
+                    .Select(m => LinkTo(m.Request, m.Entry))
+                    .ToList();
 
-                _unmatched[key] = _unmatched.TryGetValue(key, out var seen)
-                    ? seen with { AskedBy = seen.AskedBy.Append(person.Name).Distinct().ToList() }
-                    : new UnmatchedTitle(Describe(message), link, message.Message.Timestamp, new[] { person.Name });
+            private static PlannedLink LinkTo(Request request, LibraryEntry entry) =>
+                new(request.Id, request.Label, entry.InstanceId, entry.Instance, entry.Title.Id, entry.Title.TmdbId, entry.Title.TvdbId, entry.Title.Seasons ?? Array.Empty<int>(), HasFiles(entry));
+
+            private bool RequestedSince(LibraryEntry entry)
+            {
+                var id = entry.Type == ContentType.Movie ? entry.Title.TmdbId : entry.Title.TvdbId;
+
+                return _context.Requests.Any(r => r.IsActive && r.ContentType == entry.Type && r.ExternalId == id);
             }
 
-            private static string Link(SourceMessage message)
-            {
-                if (message.TvdbId.HasValue)
-                {
-                    return $"TheTVDB {message.TvdbId}";
-                }
-
-                return message.TmdbId.HasValue ? $"The Movie Database {message.TmdbId}" : "no link";
-            }
-
-            private static string Describe(SourceMessage message) =>
-                message.Year.HasValue && message.Title != null ? $"{message.Title} ({message.Year})" : message.Title;
+            private static bool HasFiles(LibraryEntry entry) =>
+                entry.Type == ContentType.Movie ? entry.Title.HasFile : entry.Title.SeasonsWithFiles?.Any() == true;
 
             private ImportPerson Person(SourceMessage message)
             {
@@ -296,22 +287,48 @@ namespace Requestarr.Core.Imports
                 return new ImportPerson(id, name ?? id.ToString(), _context.Known.TryGetValue(id, out var userId) ? userId : null);
             }
 
+            private LibraryEntry Match(SourceMessage message) => message.Type is { } type ? Find(type, message.TmdbId, message.TvdbId) : null;
+
             // By The Movie Database ID in a Radarr, or TheTVDB ID (else The Movie Database's TV ID) in a Sonarr. Never by name.
-            private LibraryEntry Match(SourceMessage message) => message.Type switch
+            private LibraryEntry Find(ContentType type, int? tmdbId, int? tvdbId) => type switch
             {
-                ContentType.Movie => _context.Library.FirstOrDefault(e => e.Type == ContentType.Movie && e.Title.TmdbId == message.TmdbId),
-                ContentType.Tv when message.TvdbId.HasValue => _context.Library.FirstOrDefault(e => e.Type == ContentType.Tv && e.Title.TvdbId == message.TvdbId),
-                ContentType.Tv when message.TmdbId.HasValue => _context.Library.FirstOrDefault(e => e.Type == ContentType.Tv && e.Title.TmdbId == message.TmdbId),
+                ContentType.Movie when tmdbId.HasValue => _context.Library.FirstOrDefault(e => e.Type == ContentType.Movie && e.Title.TmdbId == tmdbId),
+                ContentType.Tv when tvdbId.HasValue => _context.Library.FirstOrDefault(e => e.Type == ContentType.Tv && e.Title.TvdbId == tvdbId),
+                ContentType.Tv when tmdbId.HasValue => _context.Library.FirstOrDefault(e => e.Type == ContentType.Tv && e.Title.TmdbId == tmdbId),
                 _ => null
             };
 
-            // A request Requestarr already has for this title, on any instance and whether or not it's approved yet (not one
-            // that was turned down or ended): by The Movie Database ID for a movie, TheTVDB ID for a show, as requests do.
-            private Request Existing(LibraryEntry entry)
+            // The library's IDs when it has the title (they're complete), the message's otherwise; its name only when
+            // it has no link at all. A show is one show by its TheTVDB ID whichever link named it; one the library
+            // doesn't have, named by TheTVDB in one message and by The Movie Database in another, can't be told apart.
+            private static TitleKey Key(SourceMessage message, LibraryEntry entry)
             {
-                var id = entry.Type == ContentType.Movie ? entry.Title.TmdbId : entry.Title.TvdbId;
+                var tmdb = entry?.Title.TmdbId ?? message.TmdbId;
+                var tvdb = entry?.Title.TvdbId ?? message.TvdbId;
 
-                return id.HasValue ? _context.Requests.FirstOrDefault(r => r.ContentType == entry.Type && r.ExternalId == id && r.IsActive) : null;
+                if (message.Type == ContentType.Tv && tvdb.HasValue)
+                {
+                    return new TitleKey(ContentType.Tv, null, tvdb, null);
+                }
+
+                return new TitleKey(message.Type, tmdb, tvdb, tmdb.HasValue || tvdb.HasValue ? null : message.Title);
+            }
+
+            // A request Requestarr already has for this title, on any instance: one that's waiting, sent or available, else
+            // an earlier import's Not in library one (not one that was turned down or ended). By The Movie Database ID for
+            // a movie, TheTVDB ID for a show, as requests do.
+            private Request Existing(SourceMessage message, LibraryEntry entry)
+            {
+                var type = message.Type.Value;
+                var id = type == ContentType.Movie ? entry?.Title.TmdbId ?? message.TmdbId : entry?.Title.TvdbId ?? message.TvdbId;
+                var tmdb = entry?.Title.TmdbId ?? message.TmdbId;
+
+                // A show known only by The Movie Database (an earlier import's, not in the library) is found by that too.
+                var forTitle = _context.Requests.Where(r => r.ContentType == type &&
+                                                            ((id.HasValue && r.ExternalId == id) || (type == ContentType.Tv && tmdb.HasValue && r.TvdbId == null && r.TmdbId == tmdb)))
+                    .ToList();
+
+                return forTitle.FirstOrDefault(r => r.IsActive) ?? forTitle.FirstOrDefault(r => r.Status == RequestStatus.NotInLibrary);
             }
         }
     }
