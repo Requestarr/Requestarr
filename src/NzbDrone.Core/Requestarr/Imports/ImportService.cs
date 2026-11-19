@@ -207,7 +207,7 @@ namespace Requestarr.Core.Imports
             foreach (var planned in plan.Requests)
             {
                 var request = _requests.Insert(NewRequest(planned, people.For(planned.Requester)));
-                History(planned.Requester, people.For(planned.Requester), ImportedAction, request.Id, planned.Requested, $"From {RequestrrSource.SourceName}, #{names.GetValueOrDefault(planned.ChannelId)}");
+                History(planned.Requester, people.For(planned.Requester), ImportedAction, request.Id, planned.Requested, $"From {_source.Name}, #{names.GetValueOrDefault(planned.ChannelId)}");
 
                 foreach (var follower in planned.Followers)
                 {
@@ -217,7 +217,7 @@ namespace Requestarr.Core.Imports
 
                 if (planned.Available is { } available)
                 {
-                    _auditLog.Insert(new AuditEntry { Actor = Actor.System.Description, Action = "request.fulfilled", TargetType = "request", TargetId = request.Id.ToString(), Timestamp = available, Detail = $"Finished downloading, as {RequestrrSource.SourceName} announced" });
+                    _auditLog.Insert(new AuditEntry { Actor = Actor.System.Description, Action = "request.fulfilled", TargetType = "request", TargetId = request.Id.ToString(), Timestamp = available, Detail = $"Finished downloading, as {_source.Name} announced" });
                 }
             }
 
@@ -228,13 +228,13 @@ namespace Requestarr.Core.Imports
             }
 
             var now = DateTime.UtcNow;
-            _imported.InsertMany(plan.Recorded.Select(m => new ImportedMessage { MessageId = m.MessageId.ToString(), ChannelId = m.ChannelId.ToString(), Source = RequestrrSource.SourceName, Imported = now }).ToList());
+            _imported.InsertMany(plan.Recorded.Select(m => new ImportedMessage { MessageId = m.MessageId.ToString(), ChannelId = m.ChannelId.ToString(), Source = _source.Name, Imported = now }).ToList());
 
             var result = new ImportResult(plan.Requests.Count, followers, people.Created);
-            var detail = $"{result.Requests} requests and {result.Followers} followers from {RequestrrSource.SourceName} ({string.Join(", ", channels.Select(c => "#" + c.Name))}); " +
+            var detail = $"{result.Requests} requests and {result.Followers} followers from {_source.Name} ({string.Join(", ", channels.Select(c => "#" + c.Name))}); " +
                          $"{plan.Skipped.Count} skipped, {plan.Unmatched.Count} not in Sonarr or Radarr, {result.People} people not members yet";
             _audit.Record(admin, ImportAction, "import", null, detail);
-            _logger.Info("Imported {0} requests and {1} followers from {2}", result.Requests, result.Followers, RequestrrSource.SourceName);
+            _logger.Info("Imported {0} requests and {1} followers from {2}", result.Requests, result.Followers, _source.Name);
 
             return result;
         }
@@ -269,7 +269,7 @@ namespace Requestarr.Core.Imports
         {
             var user = people.For(follower.Person);
             _subscribers.Insert(new RequestSubscriber { RequestId = requestId, UserId = user.Id, Added = follower.Asked });
-            History(follower.Person, user, "request.subscribe", requestId, follower.Asked, $"From {RequestrrSource.SourceName}");
+            History(follower.Person, user, "request.subscribe", requestId, follower.Asked, $"From {_source.Name}");
         }
 
         // The request's history, dated when it happened in the old channel and by whoever did it.

@@ -40,7 +40,7 @@ namespace Requestarr.Core.Imports
     public record SkippedMessage([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong MessageId, DateTime At, string Who, string What, string Reason);
 
     // A title the old bot sent that no configured Sonarr or Radarr has (gone since, or never matched): never guessed.
-    public record UnmatchedTitle(string Title, ContentType? Type, string Link, DateTime FirstAsked, IReadOnlyList<string> AskedBy);
+    public record UnmatchedTitle(string Title, string Link, DateTime FirstAsked, IReadOnlyList<string> AskedBy);
 
     // What an import would do, before anything is written. Recorded: the messages a confirmed import marks as done, so a
     // second run skips them (titles nobody's Sonarr or Radarr has stay out, so they're tried again later).
@@ -251,7 +251,7 @@ namespace Requestarr.Core.Imports
 
                 _unmatched[key] = _unmatched.TryGetValue(key, out var seen)
                     ? seen with { AskedBy = seen.AskedBy.Append(person.Name).Distinct().ToList() }
-                    : new UnmatchedTitle(Describe(message), message.Type, link, message.Message.Timestamp, new[] { person.Name });
+                    : new UnmatchedTitle(Describe(message), link, message.Message.Timestamp, new[] { person.Name });
             }
 
             private static string Link(SourceMessage message)

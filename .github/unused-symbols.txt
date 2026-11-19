@@ -4,7 +4,6 @@
 Requestarr.Core.Backends.BackendInstance.ConfigContract  # a database column of the backend instance (Servarr's provider record)
 Requestarr.Core.Backends.BackendInstance.Tags  # a database column of the backend instance (Servarr's provider record)
 Requestarr.Core.Backends.EpisodeInfo.EpisodeNumber  # part of Sonarr's answer this record mirrors
-Requestarr.Core.Backends.LibraryTitle.HasFile  # part of Sonarr's and Radarr's answer this record mirrors
 Requestarr.Core.Backends.QueueEntry.SeasonNumber  # part of Sonarr's and Radarr's download queue this record mirrors
 Requestarr.Core.Backends.QueueEntry.Size  # part of Sonarr's and Radarr's download queue this record mirrors
 Requestarr.Core.Backends.QueueEntry.Title  # part of Sonarr's and Radarr's download queue this record mirrors
