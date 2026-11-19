@@ -359,24 +359,14 @@ namespace Requestarr.Core.Discord
             return lines.Any() ? string.Join("\n", lines) : null;
         }
 
-        public static string Released(DateTime? cinemas, DateTime? digital, DateTime? physical)
+        // In date order: a film can come out digitally before, or long after, it's on disc.
+        public static string Released(DateTime? theaters, DateTime? digital, DateTime? physical)
         {
-            var lines = new List<string>();
-
-            if (cinemas.HasValue)
-            {
-                lines.Add($"In cinemas {Day(cinemas.Value)}");
-            }
-
-            if (digital.HasValue)
-            {
-                lines.Add($"Digital {Day(digital.Value)}");
-            }
-
-            if (physical.HasValue)
-            {
-                lines.Add($"Physical {Day(physical.Value)}");
-            }
+            var lines = new (string Label, DateTime? Date)[] { ("In theaters", theaters), ("Digital", digital), ("Physical", physical) }
+                .Where(r => r.Date.HasValue)
+                .OrderBy(r => r.Date)
+                .Select(r => $"{r.Label} {Day(r.Date.Value)}")
+                .ToList();
 
             return lines.Any() ? string.Join("\n", lines) : null;
         }

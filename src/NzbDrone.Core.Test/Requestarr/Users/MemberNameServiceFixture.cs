@@ -45,6 +45,34 @@ namespace Requestarr.Core.Test.Users
         }
 
         [Test]
+        public async Task someone_not_in_the_server_gets_their_handle_name_and_picture_quietly()
+        {
+            const ulong Elsewhere = 900000000000200002;
+            Mocker.Resolve<IUserManagementService>().EnsureImported(Elsewhere, "Sam", false, "#media-requests in Old");
+            Discord.Users[Elsewhere] = new Requestarr.Core.Discord.Gateway.GuildMember(Elsewhere, "sam.k", "Sam K", "https://cdn.discordapp.com/avatars/2/abc.png", false, Array.Empty<ulong>());
+            var entries = AuditTrail.Count;
+
+            await Names.CatchUpAsync();
+
+            var identity = Mocker.Resolve<IUserIdentityRepository>().Find(UserIdentity.DiscordProvider, Elsewhere.ToString());
+            (identity.Username, identity.DisplayName, identity.AvatarUrl).Should().Be(("sam.k", "Sam K", "https://cdn.discordapp.com/avatars/2/abc.png"));
+            AuditTrail.Count.Should().Be(entries, "filling in someone's details isn't something they did");
+        }
+
+        [Test]
+        public async Task a_new_picture_alone_is_kept_without_a_member_event()
+        {
+            await AddUser(Alice);
+            var entries = AuditTrail.Count;
+            Discord.Members[Alice] = Discord.Members[Alice] with { AvatarUrl = "https://cdn.discordapp.com/avatars/1/new.png" };
+
+            (await Names.RefreshAsync(Discord.Members[Alice])).Should().BeFalse("no name changed");
+
+            Mocker.Resolve<IUserIdentityRepository>().Find(UserIdentity.DiscordProvider, Alice.ToString()).AvatarUrl.Should().Be("https://cdn.discordapp.com/avatars/1/new.png");
+            AuditTrail.Count.Should().Be(entries);
+        }
+
+        [Test]
         public async Task a_new_username_renames_their_channel_and_role()
         {
             await AddUser(Alice);

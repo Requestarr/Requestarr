@@ -8,10 +8,16 @@ import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import Avatar from '../Components/Avatar';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
 import PortalToolbar from '../Components/PortalToolbar';
-import { accessText, contentTypeText, memberStatusText } from '../portalText';
+import {
+  accessText,
+  byTypeText,
+  contentTypeText,
+  memberStatusText,
+} from '../portalText';
 import { ContentType, PortalMember } from '../PortalTypes';
 import usePortal from '../usePortal';
 import useSortedRows, { SortValues } from '../useSortedRows';
@@ -53,6 +59,9 @@ function columnsFor(types: ContentType[]): Column[] {
     column('active', translate('PortalActive')),
     column('pending', translate('PortalPending')),
     column('following', translate('PortalFollowing')),
+    column('byType', translate('PortalByType')),
+    column('firstRequest', translate('PortalFirstRequest')),
+    column('lastRequest', translate('PortalLastRequest')),
     column('added', translate('PortalAdded')),
   ];
 }
@@ -65,6 +74,9 @@ function sortValuesFor(types: ContentType[]): SortValues<PortalMember> {
     active: (m) => m.active,
     pending: (m) => m.pending,
     following: (m) => m.following,
+    byType: (m) => byTypeText(m),
+    firstRequest: (m) => m.firstRequest,
+    lastRequest: (m) => m.lastRequest,
     added: (m) => m.added,
   };
 
@@ -85,8 +97,11 @@ function MemberRow({
   return (
     <TableRow>
       <TableRowCell>
-        <Link to={`/members/${member.id}`}>{member.name}</Link>
-        {member.discordName && member.discordName !== member.name && (
+        <Link to={`/members/${member.id}`}>
+          <Avatar url={member.avatar} />
+          {member.name}
+        </Link>
+        {member.discordName && (
           <div className={styles.muted}>@{member.discordName}</div>
         )}
       </TableRowCell>
@@ -98,6 +113,9 @@ function MemberRow({
       <TableRowCell>{member.active}</TableRowCell>
       <TableRowCell>{member.pending}</TableRowCell>
       <TableRowCell>{member.following}</TableRowCell>
+      <TableRowCell>{byTypeText(member)}</TableRowCell>
+      <RelativeDateCell date={member.firstRequest ?? ''} />
+      <RelativeDateCell date={member.lastRequest ?? ''} />
       <RelativeDateCell date={member.added} />
     </TableRow>
   );

@@ -71,6 +71,7 @@ namespace Requestarr.Core.Imports
         private readonly IRequestarrUserRepository _records;
         private readonly IDiscordGuildGateway _discord;
         private readonly IRequestMediaService _media;
+        private readonly MemberNameService _names;
         private readonly Logger _logger;
 
         public ImportService(IChannelHistory history,
@@ -85,6 +86,7 @@ namespace Requestarr.Core.Imports
                              IRequestarrUserRepository records,
                              IDiscordGuildGateway discord,
                              IRequestMediaService media,
+                             MemberNameService names,
                              Logger logger)
         {
             _history = history;
@@ -100,6 +102,7 @@ namespace Requestarr.Core.Imports
             _records = records;
             _discord = discord;
             _media = media;
+            _names = names;
             _logger = logger;
         }
 
@@ -152,8 +155,9 @@ namespace Requestarr.Core.Imports
                     var members = await MembersAsync(plan);
                     job.Done(plan, Write(plan, job.Channels, members, admin));
 
-                    // What the imported titles are, looked up in the background.
+                    // What the imported titles are, and who the people are (@handles, pictures), in the background.
                     _media.FillInBackground();
+                    _ = Task.Run(_names.CatchUpAsync);
                 }
 
                 return job.View();

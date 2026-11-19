@@ -29,7 +29,7 @@ namespace Requestarr.Core.Test.Polish
             Field(card, "Runtime").Should().Be("2 h 35 min");
             Field(card, "Studio").Should().Be("Legendary Pictures");
             Field(card, "Status").Should().Be("Released");
-            Field(card, "Released").Should().Be("In cinemas 15 Sep 2021\nDigital 21 Oct 2021\nPhysical 22 Dec 2021");
+            Field(card, "Released").Should().Be("In theaters 15 Sep 2021\nDigital 21 Oct 2021\nPhysical 22 Dec 2021");
             Field(card, "Goes to").Should().Be("Radarr");
             embed.Footer.Should().BeNull();
         }

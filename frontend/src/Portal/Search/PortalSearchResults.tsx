@@ -2,6 +2,7 @@ import classNames from 'classnames';
 import React from 'react';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
+import Avatar from '../Components/Avatar';
 import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
 import { SearchItem } from './usePortalSearch';
 import styles from './PortalSearch.css';
@@ -24,7 +25,13 @@ function Result({ item, isHighlighted, onOpen }: ResultProps) {
         to={item.path}
         onPress={onOpen}
       >
-        <RequestPoster url={item.media?.poster} className={styles.poster} />
+        {item.media ? (
+          <RequestPoster url={item.media.poster} className={styles.poster} />
+        ) : (
+          item.group === translate('PortalMembers') && (
+            <Avatar url={item.avatar} />
+          )
+        )}
         <span className={styles.label}>{item.label}</span>
         {item.detail && <span className={styles.detail}>{item.detail}</span>}
       </Link>

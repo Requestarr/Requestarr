@@ -31,6 +31,7 @@ export type AccessState = 'off' | 'needsApproval' | 'autoApprove';
 export interface PortalPerson {
   id: number;
   name: string | null;
+  avatar: string | null;
 }
 
 // What a request's title is (src/NzbDrone.Core/Requestarr/Portal/PortalModels.cs); values not known are null.
@@ -116,6 +117,10 @@ export interface PortalMember {
   active: number;
   pending: number;
   following: number;
+  avatar: string | null;
+  firstRequest: string | null;
+  lastRequest: string | null;
+  byType: { contentType: ContentType; count: number }[];
 }
 
 export interface PortalMemberDetail {
@@ -137,6 +142,7 @@ export interface PortalQueueItem {
   who: string | null;
   requestId: number | null;
   memberId: number | null;
+  whoAvatar: string | null;
 }
 
 export interface PortalInstance {

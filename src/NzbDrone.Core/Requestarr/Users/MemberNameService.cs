@@ -143,9 +143,35 @@ namespace Requestarr.Core.Users
             return user == null ? (null, false) : (user, Rename(user, identity, member));
         }
 
-        // Stores the names Discord has now; a change is a member event: 'from "X" to "Y"'.
+        // Someone not in this server (known from an import, say): their @handle, name and picture as Discord has them, so
+        // they're shown like everyone else. Nothing they did, so no member event.
+        private async Task RefreshElsewhereAsync(ulong discordUserId)
+        {
+            var identity = _identities.Find(UserIdentity.DiscordProvider, discordUserId.ToString());
+
+            if (identity == null || await UserAsync(discordUserId) is not { } user)
+            {
+                return;
+            }
+
+            if (identity.Username != user.Username || identity.DisplayName != user.DisplayName || identity.AvatarUrl != user.AvatarUrl)
+            {
+                identity.Username = user.Username;
+                identity.DisplayName = user.DisplayName;
+                identity.AvatarUrl = user.AvatarUrl;
+                _identities.Update(identity);
+            }
+        }
+
+        // Stores the names Discord has now; a change is a member event: 'from "X" to "Y"'. A new picture is kept quietly.
         private bool Rename(RequestarrUser user, UserIdentity identity, GuildMember member)
         {
+            if (member.AvatarUrl != null && identity.AvatarUrl != member.AvatarUrl)
+            {
+                identity.AvatarUrl = member.AvatarUrl;
+                _identities.SetFields(identity, i => i.AvatarUrl);
+            }
+
             var changes = new List<string>();
 
             if (user.DisplayName != member.DisplayName)
@@ -229,7 +255,14 @@ namespace Requestarr.Core.Users
         private async Task<(bool Renamed, int Matched)> ReadAndMatchAsync(ulong discordUserId, int attempt)
         {
             var member = await MemberAsync(discordUserId);
-            var (user, renamed) = member == null ? (null, false) : RefreshNames(member);
+
+            if (member == null)
+            {
+                await RefreshElsewhereAsync(discordUserId);
+                return (false, 0);
+            }
+
+            var (user, renamed) = RefreshNames(member);
 
             return (renamed, user == null ? 0 : await TryMatchAsync(user, member, attempt));
         }
@@ -265,6 +298,20 @@ namespace Requestarr.Core.Users
         }
 
         // Someone who left the server (or can't be read now) keeps the names they had.
+        private async Task<GuildMember> UserAsync(ulong id)
+        {
+            try
+            {
+                return await _gateway.GetUserAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Couldn't read Discord user {0}", id);
+
+                return null;
+            }
+        }
+
         private async Task<GuildMember> MemberAsync(ulong id)
         {
             try
