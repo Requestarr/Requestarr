@@ -254,7 +254,7 @@ namespace Requestarr.Core.Imports
 
         private ImportResult Write(ImportPlan plan, IReadOnlyList<ImportChannel> channels, IReadOnlyDictionary<ulong, GuildMember> members, Actor admin)
         {
-            var people = new PeopleRecords(_users, members);
+            var people = new PeopleRecords(_users, members, FirstChannels(plan, channels));
             var names = channels.ToDictionary(c => c.Id, c => c.Name);
             var followers = 0;
 
@@ -298,6 +298,25 @@ namespace Requestarr.Core.Imports
             _logger.Info("Imported {0} requests and {1} followers from {2}", result.Requests, result.Followers, _source.Name);
 
             return result;
+        }
+
+        // Where each person first asked, "#media-requests in The CheaZiest", as the channel was named when it was read.
+        private static Dictionary<ulong, string> FirstChannels(ImportPlan plan, IReadOnlyList<ImportChannel> channels)
+        {
+            var asked = plan.Requests.SelectMany(r => r.Followers.Select(f => (f.Person.DiscordId, f.Asked, f.Channel)).Prepend((DiscordId: r.Requester.DiscordId, Asked: r.Requested, Channel: r.ChannelId)))
+                .Concat(plan.Follows.SelectMany(follow => follow.Followers.Select(f => (f.Person.DiscordId, f.Asked, f.Channel))));
+
+            return asked.GroupBy(a => a.DiscordId).ToDictionary(g => g.Key, g => Source(channels.FirstOrDefault(c => c.Id == g.MinBy(a => a.Asked).Channel)));
+        }
+
+        private static string Source(ImportChannel channel)
+        {
+            if (channel?.Name == null)
+            {
+                return null;
+            }
+
+            return channel.Server != null ? $"#{channel.Name} in {channel.Server}" : $"#{channel.Name}";
         }
 
         // A title no Sonarr or Radarr has is kept as history: Not in library, sent nowhere. One the library has is linked
@@ -386,12 +405,15 @@ namespace Requestarr.Core.Imports
         {
             private readonly IUserManagementService _users;
             private readonly IReadOnlyDictionary<ulong, GuildMember> _members;
+            private readonly IReadOnlyDictionary<ulong, string> _sources;
             private readonly Dictionary<ulong, RequestarrUser> _seen = new();
 
-            public PeopleRecords(IUserManagementService users, IReadOnlyDictionary<ulong, GuildMember> members)
+            // Sources: where each person first asked, for the line on their page.
+            public PeopleRecords(IUserManagementService users, IReadOnlyDictionary<ulong, GuildMember> members, IReadOnlyDictionary<ulong, string> sources)
             {
                 _users = users;
                 _members = members;
+                _sources = sources;
             }
 
             public int Created { get; private set; }
@@ -406,7 +428,7 @@ namespace Requestarr.Core.Imports
                 bool? inServer = _members.TryGetValue(person.DiscordId, out var member) ? member != null : null;
                 var existed = _users.FindByDiscordId(person.DiscordId) != null;
 
-                user = _users.EnsureImported(person.DiscordId, member?.DisplayName ?? person.Name, inServer);
+                user = _users.EnsureImported(person.DiscordId, member?.DisplayName ?? person.Name, inServer, _sources.GetValueOrDefault(person.DiscordId));
 
                 if (!existed)
                 {

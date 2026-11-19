@@ -39,7 +39,7 @@ namespace Requestarr.Core.Discord
         {
             { RightServer: false } => DiscordText.WrongServer,
             { IsAdmin: true, InAdminChannel: true } => DiscordText.AdminUseUserCommand,
-            { User: null } or { User.Status: UserStatus.Removed or UserStatus.Imported or UserStatus.ImportedLeft } => DiscordText.NotAUser,
+            { User: null } or { User.Status: UserStatus.Removed or UserStatus.Imported or UserStatus.ImportedLeft or UserStatus.ImportedElsewhere } => DiscordText.NotAUser,
             { User.Status: UserStatus.Suspended } => DiscordText.Suspended,
             { InOwnChannel: false } => DiscordText.OwnChannelOnly,
             _ => null

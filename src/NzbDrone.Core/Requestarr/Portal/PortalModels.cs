@@ -38,8 +38,10 @@ namespace Requestarr.Core.Portal
                                int Requests, int Active, int Pending, int Following);
 
     // MediaServer: the linked account ("Plex: name"), or null. HistoryTrimmedAfter: as on a request's page.
+    // ImportedFrom: where an imported person's history came from ("#media-requests in The CheaZiest"), or null.
     public record PortalMemberDetail(PortalMember Member, IReadOnlyList<PortalRequest> Requests, IReadOnlyList<PortalRequest> Following,
-                                     IReadOnlyList<PortalRemoval> Removals, string MediaServer, IReadOnlyList<PortalEvent> History, string HistoryTrimmedAfter);
+                                     IReadOnlyList<PortalRemoval> Removals, string MediaServer, IReadOnlyList<PortalEvent> History, string HistoryTrimmedAfter,
+                                     string ImportedFrom);
 
     // One thing waiting on an admin, as the admin channel's queue has it. Kind: request, trouble, mediaServerLink,
     // instanceDown, removal or accessRequest; RequestId or MemberId says which page it opens.

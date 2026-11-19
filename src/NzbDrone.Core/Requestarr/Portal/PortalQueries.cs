@@ -151,7 +151,17 @@ namespace Requestarr.Core.Portal
             var discordNames = PortalText.DiscordNames(_identities.All(), names);
             var history = _audit.ForTarget("user", id.ToString()).OrderBy(e => e.Timestamp).Select(e => PortalText.Event(e, names, discordNames)).ToList();
 
-            return new PortalMemberDetail(Member(user, own, following.Count, instances), own.Select(rows.Of).ToList(), following.Select(rows.Of).ToList(), removals, MediaServer(id), history, HistoryTrimmedAfter(user.Added));
+            var importedFrom = user.IsImported ? user.ImportedFrom ?? Imports.RequestrrSource.SourceName : null;
+
+            return new PortalMemberDetail(
+                Member(user, own, following.Count, instances),
+                own.Select(rows.Of).ToList(),
+                following.Select(rows.Of).ToList(),
+                removals,
+                MediaServer(id),
+                history,
+                HistoryTrimmedAfter(user.Added),
+                importedFrom);
         }
 
         public IReadOnlyList<PortalQueueItem> Queue()

@@ -41,6 +41,7 @@ function memberRows(
       member.discordId && <DiscordId id={member.discordId} />,
     ],
     [translate('PortalStatus'), memberStatusText(member.status)],
+    [translate('PortalImportedFrom'), detail.importedFrom],
     [translate('PortalAdded'), dateText(member.added)],
     [
       translate('PortalMediaServer'),

@@ -614,6 +614,7 @@ namespace Requestarr.Core.Discord
             UserStatus.Removed => "removed",
             UserStatus.Imported => "imported, not onboarded",
             UserStatus.ImportedLeft => "imported, left the server",
+            UserStatus.ImportedElsewhere => "imported, not in this server",
             _ => status.ToString()
         };
 

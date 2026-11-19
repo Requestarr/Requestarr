@@ -13,6 +13,11 @@ namespace Requestarr.Core.Users
         public string PanelMessageId { get; set; }
         public DateTime Added { get; set; }
         public DateTime? StatusChanged { get; set; }
+
+        // Someone known from an import: where their history came from ("#media-requests in The CheaZiest").
+        public string ImportedFrom { get; set; }
+
+        public bool IsImported => Status is UserStatus.Imported or UserStatus.ImportedLeft or UserStatus.ImportedElsewhere;
     }
 
     public class UserIdentity : ModelBase

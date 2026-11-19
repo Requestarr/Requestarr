@@ -9,10 +9,11 @@ namespace Requestarr.Core.Users
         Removed = 2,
 
         // Known only from an import of another bot's requests: no role, channel or access until an admin onboards them.
+        // Imported: seen in this Requestarr's Discord server. ImportedLeft: seen there before, gone now.
+        // ImportedElsewhere: never seen there (the import read another server).
         Imported = 3,
-
-        // The same, and not in the Discord server (they left it, or were never in it) when last looked.
-        ImportedLeft = 4
+        ImportedLeft = 4,
+        ImportedElsewhere = 5
     }
 
     public enum ContentType

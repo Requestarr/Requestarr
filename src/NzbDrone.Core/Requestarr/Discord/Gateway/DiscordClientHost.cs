@@ -171,6 +171,7 @@ namespace Requestarr.Core.Discord.Gateway
                 };
                 Client.Ready += OnReady;
                 Client.InteractionCreated += OnInteraction;
+                Client.UserJoined += OnUserJoined;
                 Client.UserLeft += OnUserLeft;
                 Client.GuildMemberUpdated += OnMemberUpdated;
                 Client.UserUpdated += OnUserUpdated;
@@ -314,6 +315,17 @@ namespace Requestarr.Core.Discord.Gateway
                     _logger.Error(ex, "Discord interaction failed");
                 }
             });
+
+            return Task.CompletedTask;
+        }
+
+        // Someone joined: they're in the server now (Seen checks it's this one), so someone known only from an import is too.
+        private Task OnUserJoined(SocketGuildUser user)
+        {
+            if (ServerScope.IsOurs(user.Guild.Id, _settings.Current.GuildId))
+            {
+                Seen(user);
+            }
 
             return Task.CompletedTask;
         }

@@ -182,7 +182,8 @@ namespace Requestarr.Core.Test.Imports
             var riley = people.FindByDiscordId(Riley);
             var sam = people.FindByDiscordId(Sam);
             requests.Select(r => r.OwnerUserId).Should().Equal(sam.Id, riley.Id, riley.Id, sam.Id, riley.Id, riley.Id);
-            new[] { riley, sam }.Should().OnlyContain(u => u.Status == UserStatus.Imported && u.PrivateChannelId == null && u.DiscordRoleId == null, "listed, never given a role or channel");
+            new[] { riley, sam }.Should().OnlyContain(u => u.Status == UserStatus.ImportedElsewhere && u.PrivateChannelId == null && u.DiscordRoleId == null,
+                "listed, never given a role or channel, and never seen in this server while the bot was away");
             Mocker.Resolve<IRequestSubscriberRepository>().ForRequest(requests[4].Id).Single().UserId.Should().Be(sam.Id);
             Mocker.Resolve<IRequestSubscriberRepository>().ForRequest(requests[0].Id).Single().UserId.Should().Be(riley.Id);
 
@@ -223,30 +224,42 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
-        public async Task people_are_listed_by_their_current_discord_name_and_whether_theyre_in_the_server()
+        public async Task people_are_listed_by_their_current_name_and_where_their_history_came_from()
         {
-            var gateway = Mocker.GetMock<IDiscordGuildGateway>();
-            gateway.SetupGet(g => g.IsConnected).Returns(true);
-            gateway.Setup(g => g.GetMemberAsync(Riley)).ReturnsAsync(new GuildMember(Riley, "riley", "Riley Now", null, false, Array.Empty<ulong>()));
-            gateway.Setup(g => g.GetMemberAsync(Sam)).ReturnsAsync((GuildMember)null);
+            GivenServer(Riley);
 
             await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
 
             var people = Mocker.Resolve<IUserManagementService>();
-            (people.FindByDiscordId(Riley).DisplayName, people.FindByDiscordId(Riley).Status).Should().Be(("Riley Now", UserStatus.Imported));
-            people.FindByDiscordId(Sam).Status.Should().Be(UserStatus.ImportedLeft);
+            var riley = people.FindByDiscordId(Riley);
+            (riley.DisplayName, riley.Status).Should().Be(("Riley Now", UserStatus.Imported));
+            people.FindByDiscordId(Sam).Status.Should().Be(UserStatus.ImportedElsewhere, "never seen in this server: not \"left\"");
+            riley.ImportedFrom.Should().Be("#recorded-900000000000100001 in Recorded channels (dev)");
         }
 
         [Test]
-        public async Task someone_imported_who_leaves_is_marked_gone_and_nothing_else_happens()
+        public async Task left_means_seen_in_this_server_before_and_joining_makes_someone_not_onboarded()
         {
+            GivenServer(Riley);
             await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
             var people = Mocker.Resolve<IUserManagementService>();
 
             await people.HandleMemberLeftAsync(Riley);
+            await people.HandleMemberLeftAsync(Sam);
+            ((UserManagementService)people).HandleAsync(new DiscordMemberSeenEvent(new GuildMember(Sam, "sam", "Sam", null, false, Array.Empty<ulong>())));
 
-            people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.ImportedLeft);
+            people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.ImportedLeft, "seen here, then gone");
+            people.FindByDiscordId(Sam).Status.Should().Be(UserStatus.Imported, "joined: in the server, not onboarded");
             Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.SendMessageAsync(It.IsAny<ulong>(), It.IsAny<InteractionReply>()), Times.Never(), "no admin notice for someone who never joined Requestarr");
+        }
+
+        // Requestarr's Discord server, with the given people in it (and nobody else).
+        private void GivenServer(params ulong[] members)
+        {
+            var gateway = Mocker.GetMock<IDiscordGuildGateway>();
+            gateway.SetupGet(g => g.IsConnected).Returns(true);
+            gateway.Setup(g => g.GetMemberAsync(It.IsAny<ulong>())).ReturnsAsync((ulong id) =>
+                members.Contains(id) ? new GuildMember(id, "riley", "Riley Now", null, false, Array.Empty<ulong>()) : null);
         }
 
         [Test]
@@ -300,7 +313,7 @@ namespace Requestarr.Core.Test.Imports
 
             (await people.SuspendAsync(Riley, Actor.Web("owner"))).Message.Should().Be(Requestarr.Core.Discord.DiscordText.NotOnboarded);
             people.SetAccess(Riley, ContentType.Movie, AccessState.AutoApprove, Actor.Web("owner")).Success.Should().BeFalse();
-            people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.Imported);
+            people.FindByDiscordId(Riley).Status.Should().Be(UserStatus.ImportedElsewhere);
         }
 
         // "Already available" for Breaking Bad in channel A, asked by who.
