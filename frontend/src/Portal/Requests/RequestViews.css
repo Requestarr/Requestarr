@@ -21,12 +21,12 @@
   font-size: 16px;
 }
 
+/* Three lines of the overview at most. */
 .overviewText {
-  display: -webkit-box;
   overflow: hidden;
   margin: 4px 0;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  max-height: 4.5em;
+  line-height: 1.5em;
 }
 
 .posters {
@@ -52,6 +52,7 @@
   justify-content: center;
   padding: 10px;
   aspect-ratio: 2 / 3;
+
   border-radius: 4px;
   background-color: var(--inputBackgroundColor);
   text-align: center;
