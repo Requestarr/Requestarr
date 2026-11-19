@@ -31,6 +31,7 @@ namespace Requestarr.Core.Imports
 
     public interface IImportService
     {
+        Task<ImportAccess> AccessAsync();
         Task<ImportChannel> DescribeAsync(ulong channelId);
         Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync();
 
@@ -89,6 +90,8 @@ namespace Requestarr.Core.Imports
             _audit = audit;
             _logger = logger;
         }
+
+        public Task<ImportAccess> AccessAsync() => _history.AccessAsync();
 
         public Task<ImportChannel> DescribeAsync(ulong channelId) => _history.DescribeAsync(channelId);
 

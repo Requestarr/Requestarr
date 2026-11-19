@@ -2,6 +2,8 @@
 // Please do not change this file!
 interface CssExports {
   intro: string;
+  invite: string;
+  inviteHelp: string;
   readable: string;
   summary: string;
 }

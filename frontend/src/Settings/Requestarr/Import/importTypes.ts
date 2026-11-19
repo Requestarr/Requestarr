@@ -1,5 +1,11 @@
 // What /api/v1/requestarr/import/... answers (src/NzbDrone.Core/Requestarr/Imports). Discord IDs are text: they're
 // too long for a browser's numbers. Empty values are left out.
+export interface ImportAccess {
+  readInviteUrl?: string;
+  messageContent?: boolean;
+  portalUrl?: string;
+}
+
 export interface ImportChannel {
   id: string;
   server?: string;

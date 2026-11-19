@@ -287,8 +287,14 @@ namespace Requestarr.Core.Discord.Gateway
             }
         }
 
+        // A press or command from another server the bot is in (one it was invited to only for an import) is ignored.
         private Task OnInteraction(SocketInteraction interaction)
         {
+            if (!ServerScope.IsOursOrDirect(interaction.GuildId, _settings.Current.GuildId))
+            {
+                return Task.CompletedTask;
+            }
+
             // Never block the gateway task.
             _ = Task.Run(async () =>
             {
@@ -314,7 +320,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         private Task OnUserLeft(SocketGuild guild, SocketUser user)
         {
-            if (guild.Id != _settings.Current.GuildId || user.IsBot)
+            if (!ServerScope.IsOurs(guild.Id, _settings.Current.GuildId) || user.IsBot)
             {
                 return Task.CompletedTask;
             }
@@ -338,7 +344,7 @@ namespace Requestarr.Core.Discord.Gateway
         // several posts in a row move it once). Private replies never reach the channel, so they don't count.
         private Task OnMessage(SocketMessage message)
         {
-            if (message.Author.Id == Client?.CurrentUser?.Id && message.Channel is SocketGuildChannel channel && channel.Guild.Id == _settings.Current.GuildId &&
+            if (message.Author.Id == Client?.CurrentUser?.Id && message.Channel is SocketGuildChannel channel && ServerScope.IsOurs(channel.Guild.Id, _settings.Current.GuildId) &&
                 !message.Flags.GetValueOrDefault().HasFlag(MessageFlags.Ephemeral) && message.Type != MessageType.ChannelPinnedMessage)
             {
                 _panels.Value.NoticeBotMessage(channel.Id, message.Id);
@@ -350,7 +356,7 @@ namespace Requestarr.Core.Discord.Gateway
         // A member's roles changed: removing the blocked role by hand unblocks them. Their names may have changed too.
         private Task OnMemberUpdated(Cacheable<SocketGuildUser, ulong> before, SocketGuildUser after)
         {
-            if (after.Guild.Id != _settings.Current.GuildId || after.IsBot)
+            if (!ServerScope.IsOurs(after.Guild.Id, _settings.Current.GuildId) || after.IsBot)
             {
                 return Task.CompletedTask;
             }
@@ -389,7 +395,7 @@ namespace Requestarr.Core.Discord.Gateway
         {
             try
             {
-                if (user is SocketGuildUser member && member.Guild?.Id == _settings.Current.GuildId && !member.IsBot)
+                if (user is SocketGuildUser member && ServerScope.IsOurs(member.Guild?.Id, _settings.Current.GuildId) && !member.IsBot)
                 {
                     _eventAggregator.PublishEvent(new DiscordMemberSeenEvent(DiscordNetGateway.ToMember(member)));
                 }

@@ -7,9 +7,10 @@ import PageContentBody from 'Components/Page/PageContentBody';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import useRequestarrApi from '../useRequestarrApi';
+import ImportAccessNotes from './ImportAccessNotes';
 import ImportChannels from './ImportChannels';
 import ImportPreview from './ImportPreview';
-import { ImportChannel, ImportJob } from './importTypes';
+import { ImportAccess, ImportChannel, ImportJob } from './importTypes';
 import useChannelChecks, { channelIdsIn } from './useChannelChecks';
 import useImportJob from './useImportJob';
 import styles from './ImportPage.css';
@@ -47,6 +48,7 @@ function ImportPage() {
   const [text, setText] = useState('');
   const ids = useMemo(() => channelIdsIn(text), [text]);
   const checks = useChannelChecks(ids);
+  const { data: access } = useRequestarrApi<ImportAccess>('import/access');
   const { data: readable } =
     useRequestarrApi<ImportChannel[]>('import/channels');
   const { job, error, isBusy, start, confirm } = useImportJob();
@@ -60,6 +62,7 @@ function ImportPage() {
     <PageContent title={translate('ImportFromRequestrr')}>
       <PageContentBody>
         <div className={styles.intro}>{translate('ImportIntro')}</div>
+        <ImportAccessNotes access={access} />
         <ImportChannels
           text={text}
           checks={checks}

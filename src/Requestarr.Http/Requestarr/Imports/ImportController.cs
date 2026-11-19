@@ -22,6 +22,11 @@ namespace Requestarr.Http.Imports
             _imports = imports;
         }
 
+        // The read-only invite link for another server, and whether the bot may read other bots' messages.
+        [HttpGet("/api/v1/requestarr/import/access")]
+        [Produces("application/json")]
+        public async Task<IActionResult> Access() => Json(await _imports.AccessAsync());
+
         [HttpGet("/api/v1/requestarr/import/channels")]
         [Produces("application/json")]
         public async Task<IActionResult> Channels() => Json(await _imports.ReadableChannelsAsync());

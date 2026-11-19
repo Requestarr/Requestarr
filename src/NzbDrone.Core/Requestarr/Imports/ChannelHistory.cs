@@ -7,17 +7,26 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using Requestarr.Core.Announcements;
+using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
+using Requestarr.Core.Settings;
 
 namespace Requestarr.Core.Imports
 {
     // A channel an admin names for an import, as the bot sees it. Problem: why it can't be read, in words, or null.
     public record ImportChannel([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong Id, string Server, string Name, bool CanRead, string Problem);
 
+    // What the Import page shows above the channels: the link that adds the bot to another server only to read it,
+    // whether the bot may read other bots' messages (unknown while it isn't connected), and the Developer Portal page
+    // where that's turned on. The links are null until the bot's application ID is known.
+    public record ImportAccess(string ReadInviteUrl, bool? MessageContent, string PortalUrl);
+
     // Reading old request channels: in any server the bot is in, through Discord's API. Only reads: nothing is posted,
     // edited or reacted to. Discord.Net waits out Discord's rate limits between pages.
     public interface IChannelHistory
     {
+        Task<ImportAccess> AccessAsync();
+
         Task<ImportChannel> DescribeAsync(ulong channelId);
 
         // Every text channel the bot can read, in every server it's in: a shortcut for picking them.
@@ -39,7 +48,7 @@ namespace Requestarr.Core.Imports
 
         public static string NotFound(string invite) =>
             "The bot can't find that channel: it isn't in that channel's server, or there's no channel with that ID." +
-            (invite != null ? $" Invite it to that server first: {invite}" : string.Empty);
+            (invite != null ? $" Invite it to that server to read it (it only reads there): {invite}" : string.Empty);
 
         public static string CantSee(string channel, string server) =>
             $"The bot can't see #{channel} in {server}: give its role **View Channel** and **Read Message History** in that channel.";
@@ -48,23 +57,53 @@ namespace Requestarr.Core.Imports
             $"The bot can see #{channel} in {server} but can't read what was said before: give its role **Read Message History** in that channel.";
     }
 
-    // The bot's view of Discord. The import page names any server the bot isn't in with the invite link from the setup.
+    // Whether the application has the Message Content intent (or its limited form). A yes is kept; a no is asked of
+    // Discord again each time, fresh (Discord.Net keeps its first answer otherwise), so turning the intent on in the
+    // Developer Portal is seen without restarting Requestarr.
+    public class MessageContentIntent
+    {
+        private readonly Func<Task<ApplicationFlags>> _fresh;
+        private bool _on;
+
+        public MessageContentIntent(Func<Task<ApplicationFlags>> fresh)
+        {
+            _fresh = fresh;
+        }
+
+        public async Task<bool> IsOnAsync()
+        {
+            if (!_on)
+            {
+                var flags = await _fresh();
+                _on = flags.HasFlag(ApplicationFlags.GatewayMessageContent) || flags.HasFlag(ApplicationFlags.GatewayMessageContentLimited);
+            }
+
+            return _on;
+        }
+    }
+
+    // The bot's view of Discord. The import page names any server the bot isn't in with the read-only invite link.
     public class DiscordChannelHistory
     {
         // Discord's most per request.
         public const int PageSize = 100;
 
         private readonly IDiscordClientHost _host;
-        private bool _canReadContent;
+        private readonly MessageContentIntent _messageContent;
 
         public DiscordChannelHistory(IDiscordClientHost host)
         {
             _host = host;
+            _messageContent = new MessageContentIntent(FreshFlagsAsync);
         }
+
+        public bool IsConnected => _host.Client?.ConnectionState == ConnectionState.Connected;
+
+        public async Task<bool?> MessageContentAsync() => IsConnected ? await CanReadContentAsync() : null;
 
         public async Task<ImportChannel> DescribeAsync(ulong channelId, string invite)
         {
-            if (_host.Client?.ConnectionState != ConnectionState.Connected)
+            if (!IsConnected)
             {
                 return new ImportChannel(channelId, null, null, false, ImportText.NotConnected);
             }
@@ -101,7 +140,7 @@ namespace Requestarr.Core.Imports
 
         public async Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync()
         {
-            if (_host.Client?.ConnectionState != ConnectionState.Connected || !await CanReadContentAsync())
+            if (!IsConnected || !await CanReadContentAsync())
             {
                 return Array.Empty<ImportChannel>();
             }
@@ -125,17 +164,15 @@ namespace Requestarr.Core.Imports
             return (await page.FlattenAsync()).Select(Map).ToList();
         }
 
-        // Whether the application has the Message Content intent (or its limited form). A yes is kept; a no is asked again,
-        // so turning the intent on in the Developer Portal works without restarting Requestarr.
-        private async Task<bool> CanReadContentAsync()
-        {
-            if (!_canReadContent)
-            {
-                var flags = (await _host.Client.GetApplicationInfoAsync()).Flags;
-                _canReadContent = flags.HasFlag(ApplicationFlags.GatewayMessageContent) || flags.HasFlag(ApplicationFlags.GatewayMessageContentLimited);
-            }
+        private Task<bool> CanReadContentAsync() => _messageContent.IsOnAsync();
 
-            return _canReadContent;
+        // The application as Discord has it now: Discord.Net hands back its first answer until it's updated.
+        private async Task<ApplicationFlags> FreshFlagsAsync()
+        {
+            var application = await _host.Client.GetApplicationInfoAsync();
+            await application.UpdateAsync();
+
+            return application.Flags;
         }
 
         private static HistoryMessage Map(IMessage message)
@@ -196,17 +233,29 @@ namespace Requestarr.Core.Imports
     {
         private readonly DiscordChannelHistory _discord;
         private readonly IReleaseEnvironment _environment;
-        private readonly Settings.ISetupService _setup;
+        private readonly IDiscordSettingsStore _settings;
 
-        public ChannelHistory(IDiscordClientHost host, IReleaseEnvironment environment, Settings.ISetupService setup)
+        public ChannelHistory(IDiscordClientHost host, IReleaseEnvironment environment, IDiscordSettingsStore settings)
         {
             _discord = new DiscordChannelHistory(host);
             _environment = environment;
-            _setup = setup;
+            _settings = settings;
+        }
+
+        private ulong ApplicationId => _settings.Current.ApplicationId;
+
+        private string ReadInviteUrl => SetupService.InviteUrl(ApplicationId, SetupService.ReadOnlyInvitePermissions, SetupService.ReadOnlyInviteScope);
+
+        public async Task<ImportAccess> AccessAsync()
+        {
+            var messageContent = Recorded() != null ? true : await _discord.MessageContentAsync();
+            var portal = ApplicationId == 0 ? null : $"https://discord.com/developers/applications/{ApplicationId}/bot";
+
+            return new ImportAccess(ReadInviteUrl, messageContent, portal);
         }
 
         public Task<ImportChannel> DescribeAsync(ulong channelId) =>
-            Recorded() is { } recorded ? Task.FromResult(recorded.Describe(channelId)) : _discord.DescribeAsync(channelId, _setup.Status().InviteUrl);
+            Recorded() is { } recorded ? Task.FromResult(recorded.Describe(channelId)) : _discord.DescribeAsync(channelId, ReadInviteUrl);
 
         public Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync() =>
             Recorded() is { } recorded ? Task.FromResult(recorded.Channels()) : _discord.ReadableChannelsAsync();

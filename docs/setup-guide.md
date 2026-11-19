@@ -751,12 +751,18 @@ If your server used Requestrr, Requestarr can fill itself in with who asked for 
 members keep their requests and nobody asks twice. It's in the web app under Settings, then **Import from Requestrr**,
 and the first-run setup links to it once it's done.
 
-1. **Let the bot read the channels.** Requestarr's bot needs to be in the server where those channels are (the bot's
-   invite link is on Settings, then Discord, and the page links to it when it can't find a channel), and for each
-   channel: **View Channel** and **Read Message History**. It also needs the **Message Content** intent, because
-   Requestrr wrote what happened in each message's text: in the Discord Developer Portal, your application, then
-   **Bot**, turn on **Message Content Intent** and save. Requestarr only reads: nothing is posted, edited, moved or
-   deleted in those channels, and no message text is kept.
+1. **Let the bot read the channels.** Requestarr's bot needs to be in the server where those channels are, and for
+   each channel: **View Channel** and **Read Message History**.
+   - **Channels in your Requestarr server:** the bot is already there.
+   - **Channels in a different server:** on the Import page, use **Invite the bot to read another server**. That link
+     asks only to view channels and read their history. In any server other than the one you set Requestarr up in,
+     the bot only reads: it creates no channels, roles or commands, posts nothing, and ignores what members do there.
+   - **The Message Content intent:** Requestrr wrote what happened in each message's text, so the bot needs it to read
+     those replies. In the Discord Developer Portal, your application, then **Bot**, then **Privileged Gateway
+     Intents**, turn on **Message Content Intent** and save. The Import page says when it's off and links there, and
+     notices once it's on without a restart.
+
+   Requestarr only reads: nothing is posted, edited, moved or deleted in those channels, and no message text is kept.
 2. **Copy the channel IDs.** In Discord, User Settings, then Advanced, turn on **Developer Mode**, then right-click
    each Requestrr channel and **Copy Channel ID**. Paste them one per line. Each one is checked as you type: the page
    says which channel and server it is and whether the bot can read it, or what's missing. Below the box is every
@@ -779,6 +785,9 @@ and the first-run setup links to it once it's done.
 
 **Running it again is safe.** Requestarr remembers every message it imported, so a second run adds only what's new.
 Titles that weren't in your Sonarr or Radarr stay out and are tried again on the next run.
+
+**Afterwards:** if you invited the bot to a different server only for the import, you can remove it from there (in
+that server, right-click the bot, then **Kick**). Requestarr keeps everything it imported.
 
 ## 6. Connect Plex (optional)
 
