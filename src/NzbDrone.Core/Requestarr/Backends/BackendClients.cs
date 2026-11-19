@@ -104,6 +104,16 @@ namespace Requestarr.Core.Backends
         }
     }
 
+    // Another Requestarr (production, when this is a beta left on Production) already has a connection by the name this
+    // one would use. Nothing is changed; the message says what to check.
+    public class WebhookNameTakenException : BackendException
+    {
+        public WebhookNameTakenException(string message)
+            : base(message)
+        {
+        }
+    }
+
     public interface IBackendApi
     {
         Task<BackendStatus> GetStatusAsync(BackendSettings settings);
@@ -113,13 +123,15 @@ namespace Requestarr.Core.Backends
         // The download queue for one library item (movie or series).
         Task<List<QueueEntry>> GetQueueAsync(BackendSettings settings, int itemId);
 
-        // Requestarr's own webhook connection (found by its name only; the owner's connections are
-        // never changed). Ensure creates or updates it; Test asks the instance to call it and
-        // returns the instance's error, or null when the call got through.
+        // Requestarr's own webhook connection, found by this Requestarr's own address or token, never by its name alone:
+        // beta and production share a Sonarr and Radarr, and neither may touch the other's (nor the owner's connections).
+        // Ensure creates or updates it; Test asks the instance to call it and returns the instance's error, or null when
+        // the call got through.
         // name: the connection's name in Sonarr or Radarr, which says which Requestarr it is (ArrApiBase.WebhookNameFor).
+        // token: this Requestarr's token for the instance (Requestarr.Core.Availability.WebhookTokens.For).
         Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string name, string url);
-        Task<bool> RemoveWebhookAsync(BackendSettings settings, string name);
-        Task<string> TestWebhookAsync(BackendSettings settings, string name);
+        Task<bool> RemoveWebhookAsync(BackendSettings settings, string token);
+        Task<string> TestWebhookAsync(BackendSettings settings, string token);
 
         // Stops (or resumes) searching for a library item. Nothing is deleted.
         Task SetMonitoredAsync(BackendSettings settings, int itemId, bool monitored);
@@ -197,6 +209,7 @@ namespace Requestarr.Core.Backends
 
         // Production's connection, and the name every Requestarr used before each environment had its own.
         public const string WebhookName = "Requestarr (availability)";
+        private const string WebhookPrefix = "Requestarr";
 
         // Each environment's own connection, so two Requestarrs sharing a Sonarr or Radarr (beta and production) can be
         // told apart there: "Requestarr Beta (availability)". By the web app's icon set (IReleaseEnvironment.IconSet).
@@ -233,7 +246,14 @@ namespace Requestarr.Core.Backends
 
         public async Task<WebhookChange> EnsureWebhookAsync(BackendSettings settings, string name, string url)
         {
-            var ours = await FindWebhookAsync(settings, name, url);
+            var webhooks = await WebhooksAsync(settings);
+            var ours = webhooks.FirstOrDefault(n => IsOurs(n, TokenOf(url))) ?? webhooks.FirstOrDefault(n => IsRequestarrNamed(n) && AddressOf(UrlOf(n)) == AddressOf(url));
+
+            if (webhooks.Any(n => n != ours && (string)n["name"] == name))
+            {
+                throw new WebhookNameTakenException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, choose Beta under Settings, then Discord: This server is.");
+            }
+
             var body = ours ?? (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification/schema"))?.FirstOrDefault(n => (string)n["implementation"] == "Webhook")
                        ?? throw new BackendException($"{settings.Url}: no Webhook connection type");
             var changed = ours == null || (string)ours["name"] != name;
@@ -271,9 +291,9 @@ namespace Requestarr.Core.Backends
             return WebhookChange.Updated;
         }
 
-        public async Task<bool> RemoveWebhookAsync(BackendSettings settings, string name)
+        public async Task<bool> RemoveWebhookAsync(BackendSettings settings, string token)
         {
-            var ours = await FindWebhookAsync(settings, name, null);
+            var ours = (await WebhooksAsync(settings)).FirstOrDefault(n => IsOurs(n, token));
 
             if (ours == null)
             {
@@ -284,9 +304,9 @@ namespace Requestarr.Core.Backends
             return true;
         }
 
-        public async Task<string> TestWebhookAsync(BackendSettings settings, string name)
+        public async Task<string> TestWebhookAsync(BackendSettings settings, string token)
         {
-            var ours = await FindWebhookAsync(settings, name, null) ?? throw new BackendException($"{settings.Url}: Requestarr's webhook connection is missing");
+            var ours = (await WebhooksAsync(settings)).FirstOrDefault(n => IsOurs(n, token)) ?? throw new BackendException($"{settings.Url}: Requestarr's webhook connection is missing");
 
             try
             {
@@ -324,16 +344,23 @@ namespace Requestarr.Core.Backends
         protected static string PosterOf(Newtonsoft.Json.Linq.JObject item) =>
             Poster(item["images"]?.ToObject<List<ImageResource>>(), (string)item["remotePoster"]);
 
-        // Ours by its name; failing that, one under the name used before that already calls this Requestarr (its URL),
-        // which is then renamed rather than doubled.
-        private async Task<Newtonsoft.Json.Linq.JObject> FindWebhookAsync(BackendSettings settings, string name, string url)
-        {
-            var webhooks = (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification"))?.Where(n => (string)n["implementation"] == "Webhook").ToList()
-                           ?? new List<Newtonsoft.Json.Linq.JObject>();
+        private async Task<List<Newtonsoft.Json.Linq.JObject>> WebhooksAsync(BackendSettings settings) =>
+            (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification"))?.Where(n => (string)n["implementation"] == "Webhook").ToList()
+            ?? new List<Newtonsoft.Json.Linq.JObject>();
 
-            return webhooks.FirstOrDefault(n => (string)n["name"] == name)
-                   ?? webhooks.FirstOrDefault(n => url != null && (string)n["name"] == WebhookName && (string)n["fields"]?.FirstOrDefault(f => (string)f["name"] == "url")?["value"] == url);
-        }
+        // Ours: it calls this Requestarr with this Requestarr's token (made from its own API key), whatever it's named.
+        private static bool IsOurs(Newtonsoft.Json.Linq.JObject webhook, string token) => token != null && TokenOf(UrlOf(webhook)) == token;
+
+        private static bool IsRequestarrNamed(Newtonsoft.Json.Linq.JObject webhook) =>
+            ((string)webhook["name"])?.StartsWith(WebhookPrefix, StringComparison.Ordinal) == true;
+
+        private static string UrlOf(Newtonsoft.Json.Linq.JObject webhook) =>
+            (string)webhook["fields"]?.FirstOrDefault(f => (string)f["name"] == "url")?["value"];
+
+        private static string TokenOf(string url) => url?.Split("?token=") is { Length: 2 } parts ? parts[1] : null;
+
+        // The address without its token: the same one after this Requestarr's API key changed (its token with it).
+        private static string AddressOf(string url) => url?.Split('?')[0];
 
         private static string QueueMessage(Newtonsoft.Json.Linq.JObject record)
         {

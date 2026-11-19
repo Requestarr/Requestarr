@@ -287,6 +287,10 @@ namespace Requestarr.Core.Availability
                 {
                     await SetUpWebhookAsync(instance, baseUrl);
                 }
+                catch (WebhookNameTakenException ex)
+                {
+                    _problems[instance.Name] = ex.Message;
+                }
                 catch (BackendException ex)
                 {
                     _logger.Debug(ex, "Webhook setup on {0} failed", instance.Name);
@@ -309,7 +313,7 @@ namespace Requestarr.Core.Availability
             {
                 _problems.TryRemove(instance.Name, out _);
 
-                if (await api.RemoveWebhookAsync(instance.Settings, WebhookName))
+                if (await api.RemoveWebhookAsync(instance.Settings, WebhookTokens.For(_config.ApiKey, instance.Id)))
                 {
                     _logger.Info("Removed Requestarr's webhook from {0} (polling only)", instance.Name);
                 }
@@ -324,7 +328,7 @@ namespace Requestarr.Core.Availability
                 _logger.Info("{0} Requestarr's webhook on {1}", change, instance.Name);
             }
 
-            var error = await api.TestWebhookAsync(instance.Settings, WebhookName);
+            var error = await api.TestWebhookAsync(instance.Settings, WebhookTokens.For(_config.ApiKey, instance.Id));
 
             if (error == null)
             {

@@ -4,14 +4,17 @@ import SpinnerButton from 'Components/Link/SpinnerButton';
 import { kinds } from 'Helpers/Props';
 import BotStatus from 'Settings/Requestarr/BotStatus';
 import { SetupStatus } from 'Settings/Requestarr/RequestarrSettingsTypes';
-import { DISCORD_CONNECTION } from 'Settings/Requestarr/settingsPages';
+import {
+  DISCORD_CONNECTION,
+  THIS_SERVER,
+} from 'Settings/Requestarr/settingsPages';
 import SettingsSections from 'Settings/Requestarr/SettingsSections';
 import useSettingsForm from 'Settings/Requestarr/useSettingsForm';
 import translate from 'Utilities/String/translate';
 import SetupStep from './SetupStep';
 import styles from './SetupPage.css';
 
-const SECTIONS = [DISCORD_CONNECTION];
+const SECTIONS = [THIS_SERVER, DISCORD_CONNECTION];
 
 interface DiscordStepProps {
   setup: SetupStatus;

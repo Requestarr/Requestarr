@@ -161,7 +161,7 @@ A version is **MAJOR.MINOR.BUILD**, with BUILD a running four-digit number: **0.
 
 So the first build under build numbers is **0.7.0004** (MINOR 7, the first not used before). The image published by hand as `test-org-move`, and every dev and QA build, ran only on the owner's machine or went to nobody, so they don't count.
 
-**Going back.** Database migrations only go forward, and Requestarr doesn't refuse a database a newer release has changed: an older release opening it may misbehave. So going back to an earlier build means restoring the backup taken before the upgrade, never only running the older image. Requestarr takes that backup itself: when it starts on a newer build than the one that last ran (the version it records on every start) or on a database its migrations will change, it backs the database and `config.xml` up first, as an **Update** backup under System → Backup, before migrating (`Requestarr.Core.Updates.UpdateBackup`). An older build on a newer database keeps running and says so, in its log and as a health warning on System → Status, with how to restore (`NewerDatabaseCheck`). Rolling back is the older tag, then that restore in the web app (the setup guide's "Running the beta", B.7). The same holds for production when it's packaged.
+**Going back.** Database migrations only go forward, and Requestarr doesn't refuse a database a newer release has changed: an older release opening it may misbehave. So going back to an earlier build means restoring the backup taken before the upgrade, never only running the older image. Requestarr takes that backup itself: when it starts on a newer build than the one that last ran (the version it records on every start) or on a database its migrations will change, it backs the database and `config.xml` up first, as an **Update** backup under System → Backup, before migrating (`Requestarr.Core.Updates.UpdateBackup`). An older build on a newer database keeps running and says so, in its log and as a health warning on System → Status, with how to restore (`NewerDatabaseCheck`). Rolling back is the older tag, then that restore in the web app (the setup guide's "Running the beta", B.8). The same holds for production when it's packaged.
 
 **Worked example.**
 
@@ -239,7 +239,7 @@ Four branches, each with its own environment.
 |---|---|---|
 | `dev` | Every pull request merges here once the `build` check passes. Automated and live testing. | The dev stack, on the dev Discord server and bot (`DEV_DISCORD_*`). |
 | `qa` | The owner's manual QA of a version picked from `dev`. Moves only on the owner's word ("promote to QA"). | The QA stack, on the QA Discord server and bot (`DISCORD_*`). Never touched by automated testing. |
-| `staging` | Early access testers, on a version the owner passed in QA. Moves only on "QA passed". | Beta on the owner's server: one Container Manager project from `deploy/beta/compose.yaml` (Requestarr only), the Requestarr Beta server and bot, using production's Sonarr and Radarr with deleting files off until the owner turns it on. Runs the published `beta` image. |
+| `staging` | Early access testers, on a version the owner passed in QA. Moves only on "QA passed". | Beta on the owner's server: one container from GitHub's registry, set up in Container Manager with a name, a port, a folder and the time zone (`deploy/beta/compose.yaml` runs the same container for anyone who prefers a file), its role set to Beta in the first-run setup, the Requestarr Beta server and bot, using production's Sonarr and Radarr with deleting files off until the owner turns it on. Runs the published `beta` image. |
 | `main` | Production: only released code. Moves only on the owner's "ship it". | Published as `latest` and version tags. |
 
 `dev` is the repository's default branch, so Dependabot's pull requests (security fixes included) land there and move up like any other change (see [Dependency updates](#dependency-updates)). All four branches have the same rules on GitHub (one ruleset): a pull request is required, `build` must pass, no force push, no deletion, nobody bypasses.
@@ -315,7 +315,7 @@ The web UI and backend are built on the runner's own platform and the backend is
 
 ### Version posts
 
-The "what's new" posts in `#requestarr-admin` (both sections) and `#requestarr-announcements` (For users) are one-line cards with **Read changes**, which shows the full card privately (task 4e). They're a record that stays, kept in step with each environment. Requestarr reads `REQUESTARR_ENVIRONMENT` (`dev`, `qa`, `staging`; unset means production):
+The "what's new" posts in `#requestarr-admin` (both sections) and `#requestarr-announcements` (For users) are one-line cards with **Read changes**, which shows the full card privately (task 4e). They're a record that stays, kept in step with each environment. Requestarr reads `REQUESTARR_ENVIRONMENT` (`dev`, `qa`, `staging`), which the dev and QA stacks set; unset, the role chosen in the first-run setup decides (Settings, then Discord: **This server is** Production or Beta, Beta behaving as `staging`), so the published image needs no variable to run as beta:
 
 | Environment | Shows | How it knows |
 |---|---|---|

@@ -44,10 +44,13 @@ namespace Requestarr.Http.Frontend.Mappers
             return stream;
         }
 
-        // Each file (one per theme) is read once in production, with the URL base and the icon set filled in.
+        // Each file (one per theme) is read once in production for each icon set (the server's role can change), with the
+        // URL base and the icon set filled in.
         protected virtual string GetFileText(string filePath)
         {
-            if (RuntimeInfo.IsProduction && _generatedContent.TryGetValue(filePath, out var cached))
+            var key = $"{_environment.IconSet}:{filePath}";
+
+            if (RuntimeInfo.IsProduction && _generatedContent.TryGetValue(key, out var cached))
             {
                 return cached;
             }
@@ -56,7 +59,7 @@ namespace Requestarr.Http.Frontend.Mappers
 
             text = WebIcons.Apply(text.Replace("__URL_BASE__", _urlBase), _environment, _configFileProvider, WebIcons.ThemeOf(Path.GetFileName(filePath)));
 
-            _generatedContent[filePath] = text;
+            _generatedContent[key] = text;
 
             return text;
         }

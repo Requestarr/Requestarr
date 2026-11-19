@@ -214,6 +214,12 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("AuditLogKeepFor", value ?? string.Empty); }
         }
 
+        public string ServerRole
+        {
+            get { return GetValue("ServerRole", Requestarr.Core.Announcements.ReleaseEnvironment.Production); }
+            set { SetValue("ServerRole", value ?? string.Empty); }
+        }
+
         public string AuditLogTrimmedBefore
         {
             get { return GetValue("AuditLogTrimmedBefore"); }

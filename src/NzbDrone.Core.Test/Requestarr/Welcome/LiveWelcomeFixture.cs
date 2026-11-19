@@ -88,7 +88,7 @@ namespace Requestarr.Core.Test.Welcome
             Mocker.SetConstant<IAccessRequestRepository>(Mocker.Resolve<AccessRequestRepository>());
             Mocker.SetConstant<IWelcomeGuardRepository>(Mocker.Resolve<WelcomeGuardRepository>());
             Mocker.SetConstant<IAccessSettings>(Mocker.Resolve<AccessSettings>());
-            Mocker.SetConstant<IReleaseEnvironment>(new ReleaseEnvironment { Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? "dev" : null });
+            Mocker.SetConstant<IReleaseEnvironment>(new ReleaseEnvironment(Moq.Mock.Of<NzbDrone.Core.Configuration.IConfigService>()) { Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? "dev" : null });
 
             IGuildSetupService guildSetup = null;
             IUserManagementService users = null;

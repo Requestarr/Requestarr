@@ -1,9 +1,10 @@
-# Requestarr's beta, in one file. Paste all of it into Synology Container Manager (Project, then Create, then "Create
-# docker-compose.yml"), or save it as compose.yaml anywhere Docker Compose runs. Nothing else is needed: no other files,
-# no shell.
+# Requestarr's beta as a compose file, for anyone who prefers one to Container Manager's Run screens. It runs the same
+# container the setup guide's "Running the beta" sets up: the image, a name, a port, a folder and the time zone. Paste
+# all of it into Synology Container Manager (Project, then Create, then "Create docker-compose.yml"), or save it as
+# compose.yaml anywhere Docker Compose runs. Nothing else is needed: no other files, no shell.
 #
-# Fill in the values block just below, then Next and Done. Requestarr's own settings (your sign-in, the Discord bot, and
-# the address and key of each Sonarr and Radarr) are made in its web app's first-run setup, not here.
+# Fill in the values block just below, then Next and Done. Requestarr's own settings (your sign-in, which server this
+# is, the Discord bot, and the address and key of each Sonarr and Radarr) are made in its web app's first-run setup.
 #
 #   Newest beta build:  the project's Action, then Build (pull_policy below fetches the newest image first).
 #   A specific build:   change ":beta" on the image line to the build number, for example ":0.7.0004", then Build.
@@ -17,6 +18,9 @@ x-values:
   port: &port 19797
   # Your time zone, from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones (for example Europe/London)
   timezone: &timezone Etc/UTC
+  # The folder on the server for Requestarr's settings, database and backups. Make it first in File Station and let
+  # Everyone read and write it: Requestarr runs as its own user (the setup guide, Running the beta, What you need).
+  folder: &folder /volume1/docker/requestarr-beta
 # -------------------------------------------------------------------------------------------------------------------------
 
 name: requestarr-beta
@@ -24,20 +28,16 @@ name: requestarr-beta
 services:
   requestarr:
     image: ghcr.io/requestarr/requestarr:beta
+    container_name: requestarr-beta
     # Build always checks for a newer image under the tag above, so updating is one action.
     pull_policy: always
     environment:
-      # Beta's icons and BETA strip, and every "what's new" post kept for good, like production.
-      REQUESTARR_ENVIRONMENT: staging
       TZ: *timezone
     volumes:
-      # Settings, the database and its backups. A named volume needs no folder made first.
-      - config:/config
+      - type: bind
+        source: *folder
+        target: /config
     ports:
       - target: 9797
         published: *port
     restart: unless-stopped
-
-volumes:
-  config:
-    name: requestarr-beta-config
