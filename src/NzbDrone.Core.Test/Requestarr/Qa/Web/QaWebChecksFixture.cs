@@ -141,6 +141,7 @@ namespace Requestarr.Core.Test.Qa.Web
                     await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
                     await browser.RunAsync($"[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === '{view}' && e.closest('[class*=\"MenuContent\"]')).click()");
                     await browser.WaitForAsync($"!!document.querySelector('{shows}')");
+                    await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"PageContentBody\"] img')].filter(i => i.getBoundingClientRect().top < innerHeight).every(i => i.complete)");
                     var posters = await browser.EvalAsync<int>("[...document.querySelectorAll('[class*=\"PageContentBody\"] img')].filter(i => i.complete && i.naturalWidth > 0).length");
                     var opens = await browser.EvalAsync<int>("[...document.querySelectorAll('a')].filter(a => a.innerText.startsWith('Open in ')).length");
                     check.Saw($"requests, {view} ({theme}): {posters} posters shown, {opens} Open in links");

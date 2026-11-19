@@ -15,7 +15,7 @@ import {
   titleText,
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
-import { RequestPoster } from '../Requests/RequestMedia';
+import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
 import useSortedRows, { SortValues } from '../useSortedRows';
 import MemberLink from './MemberLink';
 import styles from '../Portal.css';
@@ -69,6 +69,7 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
       <TableRowCell>
         <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
         {seasons && <div className={styles.muted}>{seasons}</div>}
+        <OpenInLink media={request.media} />
       </TableRowCell>
       <TableRowCell>{contentTypeText(request.contentType)}</TableRowCell>
       <TableRowCell>{requestStatusText(request)}</TableRowCell>
