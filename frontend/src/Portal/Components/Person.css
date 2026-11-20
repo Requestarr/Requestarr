@@ -5,6 +5,8 @@
   align-items: center;
   gap: 8px;
 
+  max-width: 100%;
+
   vertical-align: middle;
 }
 
@@ -12,11 +14,19 @@
   gap: 14px;
 }
 
-/* A name and @handle never wrap: the column widens to fit them. */
+/* A name and @handle never wrap: a table's column widens to fit them, and where the space is fixed (a poster card)
+   they end in an ellipsis instead of running over what's beside them. */
 .lines {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   white-space: nowrap;
+}
+
+.name,
+.handle {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .medium .lines {

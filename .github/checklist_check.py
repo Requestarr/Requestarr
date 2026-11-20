@@ -49,9 +49,10 @@ SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 BETA_ONLY = [
     (re.compile(r"\bSynology\b", re.I), "the Synology"),
     (re.compile(r"\bContainer Manager\b", re.I), "Container Manager"),
-    (re.compile(r"\b(install|installing|update|updating|upgrade|upgrading) (the |a )?(beta|production)\b", re.I),
+    (re.compile(r"\b(install|installs|installed|installing|update|updates|updated|updating|upgrade|upgrading) (the |a )?(beta|production)\b",
+                re.I),
      "installing or updating beta or production"),
-    (re.compile(r"\b(beta|production)('s)? (server|install|container|image|Sonarr|Radarr)\b", re.I),
+    (re.compile(r"\b(beta|production)(['’]s)? (server|install|container|image|Sonarr|Radarr)\b", re.I),
      "the beta or production server"),
 ]
 SHAPE = ("each item is '- **Name**', then '  - Steps:' over '    1. ...', '  - Expect:' over '    - ...', "
