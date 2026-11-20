@@ -3,7 +3,8 @@
 change, compared with its base:
 
   - adds a suppression without a reason on the same line: `#pragma warning disable` with no `//` comment,
-    `[SuppressMessage]` with no Justification, `eslint-disable` with no `-- reason`;
+    `[SuppressMessage]` with no Justification, `eslint-disable` with no `-- reason` (except in a Servarr file put back
+    exactly as Prowlarr had it at the import, below);
   - grows a baseline: a new or higher count in frontend/eslint-suppressions.json, a new entry in
     frontend/knip-baseline.json (the pull request that creates a baseline with its check is the exception, and so is
     a Servarr file put back exactly as Prowlarr had it at the import: Servarr's own parts are used, never rebuilt,
@@ -14,6 +15,7 @@ change, compared with its base:
   python3 .github/suppression_check.py <base commit> [<head commit>]
   python3 .github/suppression_check.py --self-test
 """
+import functools
 import json
 import re
 import subprocess
@@ -74,7 +76,8 @@ def grown_suppressions(base, head, upstream=lambda path: False):
 
 
 def unchanged_upstream(head):
-    """Whether a file at head is exactly as Prowlarr had it at the import (line endings aside)."""
+    """Whether a file at head is exactly as Prowlarr had it at the import (line endings aside), read once per file."""
+    @functools.lru_cache(maxsize=None)
     def check(path):
         ours, theirs = show(head, path), show(IMPORT, path)
         return ours is not None and theirs is not None and ours.replace("\r\n", "\n") == theirs.replace("\r\n", "\n")
@@ -123,11 +126,18 @@ def raised(base, head):
             if (rule, key) in after and after[(rule, key)] > value]
 
 
+def unexplained_lines(diff, upstream=lambda path: False):
+    """Every added suppression without a reason, outside files that are Servarr's exactly as the import had them."""
+    for path, line in added_lines(diff):
+        why = None if upstream(path) else unexplained(path, line)
+        if why:
+            yield path, line, why
+
+
 def check(base, head):
     problems = []
     diff = git("diff", "--unified=0", base, head, "--", "*.cs", "*.js", "*.jsx", "*.ts", "*.tsx")
-    for path, line in added_lines(diff):
-        why = unexplained(path, line)
+    for path, line, why in unexplained_lines(diff, unchanged_upstream(head)):
         if why:
             problems.append("%s: %s: %s" % (path, why, line.strip()))
     # A baseline the base doesn't have yet is being created with its check, not grown.
@@ -146,6 +156,9 @@ def check(base, head):
     return problems
 
 
+SERVARR_DIFF = "+++ b/frontend/src/a.js\n+// eslint-disable-next-line no-use-before-define\n"
+
+
 def self_test():
     editor = "[*.cs]\nx = 1\n# Requestarr additions. Everything above\n[{a}]\ndotnet_diagnostic.S138.severity = warning\n"
     xml = "<Rule>\n<Key>S138</Key>\n<Parameters>\n<Parameter>\n<Key>max</Key>\n<Value>60</Value>"
@@ -159,6 +172,8 @@ def self_test():
         (unexplained("a.tsx", "// eslint-disable-next-line max-params") is not None, "eslint-disable without reason fails"),
         (unexplained("a.tsx", "// eslint-disable-next-line max-params -- mirrors the upstream API") is None,
          "eslint-disable with a reason passes"),
+        (len(list(unexplained_lines(SERVARR_DIFF))) == 1 and list(unexplained_lines(SERVARR_DIFF, lambda path: True)) == [],
+         "a Servarr file put back unchanged keeps its own eslint-disable lines"),
         (grown_suppressions('{"a.js": {"r": {"count": 1}}}', '{"a.js": {"r": {"count": 2}}}') != [], "a higher count fails"),
         (grown_suppressions('{"a.js": {"r": {"count": 2}}}', '{"a.js": {"r": {"count": 1}}}') == [], "a lower count passes"),
         (grown_suppressions('{}', '{"b.js": {"r": {"count": 1}}}') != [], "a new suppressed file fails"),
