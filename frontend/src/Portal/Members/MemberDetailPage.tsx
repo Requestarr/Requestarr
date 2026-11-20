@@ -2,7 +2,6 @@ import React, { ReactNode, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
-import FieldSet from 'Components/FieldSet';
 import ClipboardButton from 'Components/Link/ClipboardButton';
 import { kinds, sortDirections } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
@@ -149,7 +148,8 @@ interface MemberDetailProps {
 function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
   return (
     <>
-      <FieldSet legend={detail.member.name}>
+      {/* One title, as Sonarr's series page has: their picture, name and @handle, with no heading repeating the name. */}
+      <div>
         <div className={styles.memberHeader}>
           <Person
             name={detail.member.name}
@@ -159,7 +159,7 @@ function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
           />
         </div>
         <Summary detail={detail} />
-      </FieldSet>
+      </div>
 
       <MemberActions detail={detail} onDone={onDone} />
 
