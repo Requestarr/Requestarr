@@ -250,11 +250,11 @@ namespace Requestarr.Core.Test.Qa.Web
             }
 
             const string Results = "[...document.querySelectorAll('[class*=\"PortalSearch-resultRow\"]')]";
-            var ours = $"{Results}.find(r => r.innerText.includes({JsonSerializer.Serialize(label)}))";
+            var ours = $"{Results}.find(r => r.textContent.includes({JsonSerializer.Serialize(label)}))";
             await browser.GoAsync(Url + "/system/status");
             await browser.WaitForAsync("!!document.querySelector('[class*=\"PortalSearch-input\"]')");
             await browser.RunAsync($"const e = document.querySelector('[class*=\"PortalSearch-input\"]'); e.focus(); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(e, {JsonSerializer.Serialize(title)}); e.dispatchEvent(new Event('input', {{ bubbles: true }}))");
-            await browser.WaitForAsync($"document.querySelector('[class*=\"PortalSearch-results\"]')?.innerText.includes('In your library, not requested') && !!{ours}");
+            await browser.WaitForAsync($"document.querySelector('[class*=\"PortalSearch-results\"]')?.textContent.includes('In your library, not requested') && !!{ours}");
             check.Saw($"search for \"{title}\": {await browser.EvalAsync<string>("document.querySelector('[class*=\"PortalSearch-results\"]').innerText.replace(/\\s+/g, ' ')")}");
             await ShotBothAsync(browser, check, "search-library");
             await browser.RunAsync($"[...{ours}.querySelectorAll('[class*=\"PortalSearch-removal\"]')].find(l => l.innerText.trim() === 'Start removal').click()");
