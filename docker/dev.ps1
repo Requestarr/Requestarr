@@ -135,15 +135,16 @@ function Staged-Versions {
     return ("$out").Trim()
 }
 
-# The number the next build sent to testers takes (.github/build_numbers.py), which dev and QA builds show with their
-# commit; 0.0.0 without Python.
-function Next-Build-Number {
+# How this stack's build of a commit is labelled (.github/build_numbers.py label): its number when a finished goal
+# numbered it (0.7.0005-dev), otherwise the next number and the commit (0.7.0006-dev.4f2a9c1); 0.0.0 without Python.
+function Build-Label([string]$sha) {
+    $fallback = "0.0.0-$Stack.$($sha.Substring(0, 7))"
     $python = Get-Python -Optional
-    if (-not $python) { return '0.0.0' }
+    if (-not $python) { return $fallback }
     $extra = @($python | Select-Object -Skip 1)
     Push-Location $Repo
-    try { $out = & $python[0] @extra -I (Join-Path $Repo '.github/build_numbers.py') next } finally { Pop-Location }
-    if ($LASTEXITCODE -ne 0 -or -not $out) { return '0.0.0' }
+    try { $out = & $python[0] @extra -I (Join-Path $Repo '.github/build_numbers.py') label $Stack $sha } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0 -or -not $out) { return $fallback }
     return ("$out").Trim()
 }
 
@@ -220,9 +221,9 @@ function Build-Image {
 
     $sha = git -C $Repo rev-parse --verify -q "$ref^{commit}"
     if ($LASTEXITCODE -ne 0 -or -not $sha) { Fail "no branch or commit '$ref' (git fetch first?)" }
-    # Dev and QA builds take no number: the next one, and their commit (docs/development.md#versions).
-    $number = Next-Build-Number
-    $version = "$number-$Stack.$($sha.Substring(0, 7))"
+    # A numbered goal's build shows its number; one between goals the next and its commit (docs/development.md#versions).
+    $version = Build-Label $sha
+    $number = ($version -split '-')[0]
     Write-Host "Building requestarr:$Stack from $ref @ $($sha.Substring(0, 7)) (version $version)"
 
     # The stack's own provisioning file, as that commit has it (compose.yaml mounts it).

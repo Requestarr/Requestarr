@@ -11,7 +11,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     2. Look at the update card in each.
   - Expect:
     - One card in each, titled Requestarr.
-    - The build number with qa and a short code, then since the last beta.
+    - The build number with qa, like 0.7.0005-qa, then since the last beta.
     - The main change underneath, and how many more.
     - No cards for the versions 0.4.0 to 0.6.0.
   - Checked automatically: the live update cards check.
@@ -27,7 +27,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     1. Open System, then Status.
     2. Look at the version, the logo and About.
   - Expect:
-    - The version's number, with qa and a short code.
+    - The build number with qa, like 0.7.0005-qa.
     - The same number on the logo.
     - Under About, the copyright of Requestarr's contributors and the Servarr team's notice.
     - Under About, the credit to The Movie Database.

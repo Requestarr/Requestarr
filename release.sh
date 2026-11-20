@@ -2,29 +2,32 @@
 # The release flow (docs/development.md#release-flow): every pull request merges to dev; qa moves only on the
 # owner's word ("promote to QA"), staging only on "QA passed", main only on "ship it"; a fix found in QA or staging goes
 # into that branch and is merged back down (staging into qa, qa into dev) in the same task, so the branches never drift.
-# Build numbers (docs/development.md#versions): a number is taken only when a build leaves for testers, at the
-# promotion to staging; .github/build_numbers.py is the only thing that takes one.
+# Build numbers (docs/development.md#versions): every finished goal numbers its commit on dev (number); QA and staging
+# carry that number when it's promoted to them; .github/build_numbers.py is the only thing that takes one.
 #
 #   ./release.sh drift [<dev ref> <qa ref> [<staging ref>]]
 #         fails if qa has a commit dev doesn't, or staging one qa doesn't (default: origin/dev, origin/qa, origin/staging)
-#   ./release.sh promote-qa "<who asked, and their words>" [--commit <commit on dev>] [--dry-run]
-#         moves qa to dev (or that commit of dev): a pull request that records who asked, the build check, then a
-#         fast-forward (nothing newer, no merge commit). QA shows it as the next number and its commit: 0.7.0004-qa.4f2a9c1.
+#   ./release.sh number [<commit on dev>] [--major "<the owner's words>"] [--dry-run]
+#         a finished goal's build number: tags the commit (default: dev's newest) v<the next number> on GitHub and
+#         prints it; a commit that has one prints it again. Only dev's commits, and never one older than a numbered one.
+#   ./release.sh promote-qa "<who asked, and their words>" [--commit <numbered commit on dev>] [--dry-run]
+#         moves qa to dev's newest numbered commit (or that one): a pull request that records who asked, the build
+#         check, then a fast-forward (nothing newer, no merge commit). QA shows its number: 0.7.0005-qa. A commit without
+#         a number isn't promoted: a goal's build is numbered when the goal finishes.
 #         First the automated checks must have passed on dev at that commit (docker/qa_checks.py: the full suite, every
 #         live check, its checklist items); without a run it runs them, and any failure stops the promotion.
-#   ./release.sh promote-staging "<who asked, and their words>" [--owner-override "<the owner's words>"]
-#                                [--major "<the owner's words>"] [--dry-run]
-#         takes the next build number for qa as it is: a release commit turns Unreleased into "## 0.7.0004 (date)" in
-#         CHANGELOG.md and QA-CHECKLIST.md; qa and staging move to it (a pull request each, recording who asked), and
-#         qa is merged back into dev. Staging's push publishes the image as 0.7.0004 and tags the commit v0.7.0004.
-#         Only when the QA gate is clear (qa-gate below), unless the owner overrides it in so many words. --major rolls
-#         up the major (1.0 on the owner's word; from 1.0 a "Before you upgrade" line for admins does it on its own).
+#   ./release.sh promote-staging "<who asked, and their words>" [--owner-override "<the owner's words>"] [--dry-run]
+#         carries QA's build number (the tag on qa's commit; no new number): a release commit turns Unreleased into
+#         "## 0.7.0011 (date), with 0.7.0005 to 0.7.0011" (the goals' builds it includes) in CHANGELOG.md and
+#         "## 0.7.0011 (date)" in QA-CHECKLIST.md; qa and staging move to it (a pull request each, recording who asked),
+#         and qa is merged back into dev. Staging's push publishes the image as 0.7.0011. Only when the QA gate is clear
+#         (qa-gate below), unless the owner overrides it in so many words. A major is taken when the build is numbered.
 #   ./release.sh ship-it "<who asked, and their words>" [--dry-run]
 #         production: main moves to staging's commit, and the Image workflow adds the release tags (0.7, latest) to
 #         the image staging published from it. Nothing is rebuilt; the next build sent to testers is a minor up.
 #         --dry-run (on every promotion) says what would move and which number comes out of it, and changes nothing.
 #   ./release.sh next-version
-#         the number the next build sent to testers takes, and how dev and QA builds are labelled meanwhile
+#         the number the next finished goal takes, and how dev and QA are labelled now
 #   ./release.sh qa-gate [--json]
 #         is QA's test checklist complete, with no item failing and no bug report from QA still open? Read from the QA
 #         stack on this machine (docker/qa-gate.py); exit 0 when clear. A staging hold (below) makes it blocked.
@@ -77,6 +80,23 @@ fetch() {
     git fetch -q origin dev qa
     git fetch -q origin staging main 2>/dev/null || true
     git fetch -q --tags origin 2>/dev/null || true
+}
+
+# The build number tagged on exactly this commit (v0.7.0005 gives 0.7.0005), or nothing.
+number_of() {
+    git tag --points-at "$1" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' | sed 's/^v//' | sort -V | tail -1
+}
+
+# The oldest numbered goal build that the commit has and staging doesn't: where the staging heading's "with" starts.
+first_new_build() {
+    git tag --merged "$1" --no-merged origin/staging | grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' | sed 's/^v//' | sort -V | head -1
+}
+
+# dev's newest numbered commit.
+newest_numbered() {
+    local tag
+    tag=$(git tag --merged origin/dev | grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' | sort -V | tail -1)
+    [ -n "$tag" ] && git rev-parse "$tag^{commit}"
 }
 
 # Every numbered version in CHANGELOG.md at a commit, newest first.
@@ -249,12 +269,18 @@ read_options() {
 
 promote_qa() {
     local who="${1:-}" dry override major commit="" target short branch commits label
-    [ -n "$who" ] || die 'promote-qa "<who asked, and their words>" [--commit <commit on dev>] [--dry-run]'
+    [ -n "$who" ] || die 'promote-qa "<who asked, and their words>" [--commit <numbered commit on dev>] [--dry-run]'
     shift
     read_options "$@"
     fetch
-    target=$(git rev-parse -q --verify "${commit:-origin/dev}^{commit}") || die "no commit '$commit'"
+    if [ -n "$commit" ]; then
+        target=$(git rev-parse -q --verify "$commit^{commit}") || die "no commit '$commit'"
+    else
+        target=$(newest_numbered) || die "dev has no numbered build yet: a finished goal numbers its commit (./release.sh number)"
+    fi
     git merge-base --is-ancestor "$target" origin/dev || die "$commit isn't on dev: only dev's commits are promoted to QA"
+    [ -n "$(number_of "$target")" ] \
+        || die "dev @ $(git rev-parse --short "$target") has no build number, so it isn't promoted: QA gets a finished goal's numbered build (./release.sh number $(git rev-parse --short "$target") once its goal is done)"
     can_move qa "$target"
     short=$(git rev-parse --short "$target")
     label=$(numbers label qa "$target")
@@ -331,31 +357,34 @@ qa_gate_record() {
 }
 
 promote_staging() {
-    local who="${1:-}" dry override major commit="" target short number gate security work day versions branch
-    [ -n "$who" ] || die 'promote-staging "<who asked, and their words>" [--owner-override "<words>"] [--major "<words>"] [--dry-run]'
+    local who="${1:-}" dry override major commit="" target short number first gate security work day versions branch
+    [ -n "$who" ] || die 'promote-staging "<who asked, and their words>" [--owner-override "<words>"] [--dry-run]'
     shift
     read_options "$@"
+    [ -z "$major" ] || die "a major is taken when the build is numbered: ./release.sh number <commit> --major \"<the owner's words>\""
     fetch
     target=$(git rev-parse origin/qa)
     short=$(git rev-parse --short "$target")
+    number=$(number_of "$target")
+    [ -n "$number" ] \
+        || die "qa @ $short has no build number, so there's no number to carry: QA runs a goal's numbered build (promote-qa), and a fix into QA is numbered on dev after its merge-back (./release.sh number $short)"
+    first=$(first_new_build "$target")
     can_move staging "$target"
     gate=$(qa_gate_record)
 
     work=$(mktemp -d)
     files_at "$target" "$work/release"
-    number=$(numbers next ${major:+--major} --changelog "$work/release/CHANGELOG.md")
     security=$(security_fix_since "$target")
     day=$(date -u +%Y-%m-%d)
-    numbers release "$work/release" "$number" "$day" $security
+    numbers release "$work/release" "$number" "$day" $security ${first:+--from "$first"}
     versions=$(comm -23 <(grep -E '^## [0-9]' "$work/release/CHANGELOG.md" | sed -E 's/^## +//; s/ .*//' | sort -u) \
         <(all_versions origin/staging | sort -u) | sort -rV | sed 's/^/- /')
 
-    echo "Promoting QA (qa @ $short) to staging as build $number. Its changelog section:"
+    echo "Promoting QA (qa @ $short) to staging as build $number, the number QA ran, with the goals' builds ${first:-$number} to $number. Its changelog section:"
     sed -n "/^## $number /,/^## [0-9]/p" "$work/release/CHANGELOG.md" | sed '$d' | sed 's/^/    /'
     echo "Versions staging gets:"
     echo "$versions"
-    echo "Published as ghcr.io/requestarr/requestarr:beta and :$number; the commit is tagged v$number. qa is merged back into dev."
-    [ -z "$major" ] || echo "Major roll-up: $major"
+    echo "Published as ghcr.io/requestarr/requestarr:beta and :$number (v$number is already on the goal's dev commit). qa is merged back into dev."
     [ -z "$security" ] || echo "A security fix in something Requestarr ships is in this build: its For admins section says so."
     echo "$gate"
     if [ "$dry" = 1 ]; then
@@ -376,8 +405,8 @@ promote_staging() {
     git worktree remove --force "$work/tree"
 
     local body into_qa into_staging
-    body=$(printf 'Build %s: QA (`qa` @ `%s`) with Unreleased turned into `## %s (%s)` in CHANGELOG.md and QA-CHECKLIST.md. Merged as a fast-forward of `qa` and then `staging` once the build check passes; staging publishes it as %s.\n\nRequested by: %s\n\n%s\n%s\n\n### Versions staging gets\n%s\n' \
-        "$number" "$short" "$number" "$day" "$number" "$who" "$gate" "${major:+Major roll-up: $major}" "$versions")
+    body=$(printf 'Build %s, the number QA ran: QA (`qa` @ `%s`) with Unreleased turned into `## %s (%s)` in CHANGELOG.md and QA-CHECKLIST.md, with the goals'"'"' builds %s to %s. Merged as a fast-forward of `qa` and then `staging` once the build check passes; staging publishes it as %s.\n\nRequested by: %s\n\n%s\n\n### Versions staging gets\n%s\n' \
+        "$number" "$short" "$number" "$day" "${first:-$number}" "$number" "$number" "$who" "$gate" "$versions")
     into_qa=$(open_pull_request "$branch" qa "Build $number: release commit on QA" "$body")
     into_staging=$(open_pull_request "$branch" staging "Promote build $number to staging" "$body")
     echo "$into_qa"
@@ -390,7 +419,7 @@ promote_staging() {
     fetch
     merge_into qa dev
     echo "Staging is now build $number ($(git rev-parse --short origin/staging)). Next: the Image workflow publishes"
-    echo "      ghcr.io/requestarr/requestarr:beta and :$number and tags the commit v$number (gh run list --workflow image.yml);"
+    echo "      ghcr.io/requestarr/requestarr:beta and :$number (gh run list --workflow image.yml);"
     echo "      .\\docker\\dev.ps1 up (or docker/dev.sh up) so QA drops what staging now has;"
     echo "      on the server: Container Manager, the requestarr-beta project, Action then Build (docs/setup-guide.md, Running the beta)."
 }
@@ -405,8 +434,8 @@ ship_it() {
     short=$(git rev-parse --short "$target")
     number=$(all_versions "$target" | head -1)
     tagged=$(git rev-parse -q --verify "refs/tags/v$number^{commit}" || true)
-    [ -n "$number" ] && [ "$tagged" = "$target" ] \
-        || die "staging @ $short isn't a published build (no tag v$number on it): only a build staging published ships"
+    [ -n "$number" ] && [ -n "$tagged" ] && git merge-base --is-ancestor "$tagged" "$target" \
+        || die "staging @ $short isn't a published build (no tag v$number on it or before it): only a build staging published ships"
     can_move main "$target"
 
     echo "Shipping build $number: main moves to staging @ $short."
@@ -523,8 +552,22 @@ next_version() {
     fetch
     local number
     number=$(numbers next)
-    echo "The next build sent to testers (the next promotion to staging, or a fix into staging) takes $number."
-    echo "Until then dev builds show $(numbers label dev "$(git rev-parse origin/dev)") and QA builds $(numbers label qa "$(git rev-parse origin/qa)")."
+    echo "The next finished goal (or a fix into staging) takes $number."
+    echo "Dev shows $(numbers label dev "$(git rev-parse origin/dev)") and QA $(numbers label qa "$(git rev-parse origin/qa)")."
+}
+
+# A finished goal's number for its dev commit (default dev's newest): the tag on GitHub, taken once.
+number_build() {
+    local dry override major commit="" target
+    if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then
+        commit="$1"
+        shift
+    fi
+    read_options "$@"
+    fetch
+    target=$(git rev-parse -q --verify "${commit:-origin/dev}^{commit}") || die "no commit '$commit'"
+    [ -z "$major" ] || echo "Major roll-up: $major" >&2
+    numbers number "$target" ${major:+--major} $([ "$dry" = 1 ] && echo --dry-run)
 }
 
 case "${1:-}" in
@@ -534,12 +577,13 @@ case "${1:-}" in
     promote-staging) shift; promote_staging "$@" ;;
     ship-it) shift; ship_it "$@" ;;
     next-version) next_version ;;
+    number) shift; number_build "$@" ;;
     qa-gate) shift; qa_gate "$@" ;;
     hold-staging) shift; hold_staging "$@" ;;
     lift-staging-hold) lift_staging_hold ;;
     merge-back) merge_back ;;
     *)
-        sed -n '2,41p' "$0"
+        sed -n '2,44p' "$0"
         exit 1
         ;;
 esac

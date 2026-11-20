@@ -65,7 +65,6 @@ namespace Requestarr.Core.Test.Qa.Web
         private static readonly string[] Themes = { "light", "dark" };
 
         private static string Url => Environment.GetEnvironmentVariable("QA_CHECKS_URL")?.TrimEnd('/');
-        private static string Commit => Environment.GetEnvironmentVariable("QA_CHECKS_COMMIT");
 
         [Test]
         public Task status_page() => CheckAsync(nameof(status_page), async (browser, check) =>
@@ -86,10 +85,10 @@ namespace Requestarr.Core.Test.Qa.Web
             var built = Environment.GetEnvironmentVariable("QA_CHECKS_VERSION");
             var logoTitle = await browser.EvalAsync<string>($"document.querySelector(\"{HeaderLogo}\").title");
             check.Saw($"Status shows version {shown}; the build is {built}; the logo's own label says \"{logoTitle}\".");
-            check.Saw("On QA the same build says qa where the dev stack says dev; the number and the short code are the commit's.");
+            check.Saw("On QA the same build says qa where the dev stack says dev, with the same number.");
 
             shown.Should().Be(built, "the label the image was built with");
-            shown.Should().EndWith("." + Commit, "the build is the commit QA receives");
+            shown.Should().MatchRegex(@"^\d+\.\d+\.\d{4,}-dev(\.[0-9a-f]{7})?$", "a goal's numbered build, or the next number and the commit between goals");
             logoTitle.Should().Contain(shown);
 
             var copyright = await browser.EvalAsync<string>("[...document.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Copyright').nextElementSibling.textContent.trim()");
