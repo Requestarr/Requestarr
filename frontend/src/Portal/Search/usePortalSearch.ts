@@ -10,7 +10,6 @@ const TYPING_PAUSE_MS = 250;
 export interface SearchItem {
   group: string;
   label: string;
-  detail: string | null;
   path: string;
   media?: PortalMedia | null;
   person?: { avatar: string | null; handle: string | null };
@@ -26,7 +25,6 @@ export function searchItems(results?: PortalSearchResults): SearchItem[] {
   const requests = results.requests.map((request) => ({
     group: translate('PortalRequests'),
     label: titleText(request),
-    detail: null,
     path: `/requests/${request.id}`,
     media: request.media,
     requester: request.requester,
@@ -35,7 +33,6 @@ export function searchItems(results?: PortalSearchResults): SearchItem[] {
   const members = results.members.map((member) => ({
     group: translate('PortalMembers'),
     label: member.name,
-    detail: null,
     path: `/members/${member.id}`,
     person: { avatar: member.avatar, handle: member.discordName },
   }));

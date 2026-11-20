@@ -59,6 +59,12 @@
   gap: 6px;
 }
 
+/* The requester's link may narrow, so a long name ends in its ellipsis instead of pushing the followers out of the row. */
+.people > a:first-child,
+.posterPeople > a:first-child {
+  min-width: 0;
+}
+
 .posterImage {
   width: 100%;
   border-radius: 4px;

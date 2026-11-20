@@ -177,9 +177,11 @@ namespace Requestarr.Core.Test.Qa.Web
         {
             var tallest = await browser.EvalAsync<double>($"Math.max(0, ...{CompactPeople}.map(e => e.getBoundingClientRect().height))");
             var pictures = await browser.EvalAsync<int>("Math.max(0, ...[...document.querySelectorAll('[class*=\"FollowerStack-pictures\"]')].map(p => p.children.length))");
-            var most = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"FollowerStack-count\"], [class*=\"FollowerStack-badge\"]')].map(e => e.innerText.trim()).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] ?? 'none'");
-            check.Saw($"requests, {where}: people lines at most {tallest}px tall, at most {pictures} follower pictures, the most followers shown as {most}");
+            var most = await browser.EvalAsync<int>("Math.max(0, ...[...document.querySelectorAll('[class*=\"FollowerStack-count\"], [class*=\"FollowerStack-badge\"]')].map(e => Number(e.innerText.match(/\\d+/)?.[0] ?? 0)))");
+            var overflowing = await browser.EvalAsync<int>("[...document.querySelectorAll('[class*=\"RequestViews-people\"], [class*=\"RequestViews-posterPeople\"]')].filter(e => e.scrollWidth > e.clientWidth + 1).length");
+            check.Saw($"requests, {where}: people lines at most {tallest}px tall, {overflowing} wider than their row, at most {pictures} follower pictures, the largest count +{most}");
             tallest.Should().BeLessOrEqualTo(OneLine, "a title's people stay on one line however many follow it");
+            overflowing.Should().Be(0, "a long name ends in an ellipsis instead of running out of its row");
             pictures.Should().BeLessOrEqualTo(MaxFollowerPictures);
         }
 

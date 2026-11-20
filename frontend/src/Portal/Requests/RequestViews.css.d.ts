@@ -7,10 +7,10 @@ interface CssExports {
   overviewText: string;
   overviewTitle: string;
   people: string;
-  posterPeople: string;
   posterCard: string;
   posterImage: string;
   posterMissing: string;
+  posterPeople: string;
   posters: string;
   tablePoster: string;
 }

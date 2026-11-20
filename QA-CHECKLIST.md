@@ -137,7 +137,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     1. In the web app, open Requests, in each view.
     2. Press a title's follower pictures.
   - Expect:
-    - Each row names the requester small, then at most five follower pictures and "+37 following".
+    - The requester small, then at most five follower pictures and "+37 following" (a "+40" badge on Posters).
     - Rows stay one line however many follow a title.
     - The request's page opens at Followers, listing everyone with their @handle and when they followed.
   - Checked automatically: the web app request views check.

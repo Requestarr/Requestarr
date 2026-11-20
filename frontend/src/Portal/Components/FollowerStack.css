@@ -1,6 +1,7 @@
 .stack {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 6px;
 
   white-space: nowrap;
