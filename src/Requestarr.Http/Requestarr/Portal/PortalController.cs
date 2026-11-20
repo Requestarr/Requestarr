@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Requestarr.Core.Portal;
 
@@ -25,17 +27,50 @@ namespace Requestarr.Http.Portal
         [Produces("application/json")]
         public IActionResult Requests() => Json(_portal.Requests());
 
+        // sections=false leaves out its timeline and followers, which the page reads a page at a time.
         [HttpGet("/api/v1/portal/requests/{id:int}")]
         [Produces("application/json")]
-        public IActionResult RequestDetail(int id) => _portal.Request(id) is { } request ? Json(request) : NotFound();
+        public IActionResult RequestDetail(int id, [FromQuery] bool sections = true)
+        {
+            var request = _portal.Request(id);
 
+            if (request == null)
+            {
+                return NotFound();
+            }
+
+            return Json(sections ? request : request with { Timeline = new List<PortalEvent>(), Followers = new List<PortalFollower>() });
+        }
+
+        // With page: a page of the members with that status (all with none), as PortalPagesController answers.
         [HttpGet("/api/v1/portal/members")]
         [Produces("application/json")]
-        public IActionResult Members() => Json(_portal.Members());
+        public IActionResult Members([FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] string sortKey, [FromQuery] string sortDirection, [FromQuery] string status)
+        {
+            if (page == null)
+            {
+                return Json(_portal.Members());
+            }
 
+            var shown = _portal.Members().Where(m => string.IsNullOrEmpty(status) || string.Equals(m.Status.ToString(), status, StringComparison.OrdinalIgnoreCase));
+
+            return Json(PortalPaging.Of(shown, PortalPagesController.Asked(page, pageSize, sortKey, sortDirection), PortalSorts.Members));
+        }
+
+        // sections=false leaves out their requests, follows, removals and history, which the page reads a page at a time.
         [HttpGet("/api/v1/portal/members/{id:int}")]
         [Produces("application/json")]
-        public IActionResult MemberDetail(int id) => _portal.Member(id) is { } member ? Json(member) : NotFound();
+        public IActionResult MemberDetail(int id, [FromQuery] bool sections = true)
+        {
+            var member = _portal.Member(id);
+
+            if (member == null)
+            {
+                return NotFound();
+            }
+
+            return Json(sections ? member : member with { Requests = new List<PortalRequest>(), Following = new List<PortalRequest>(), Removals = new List<PortalRemoval>(), History = new List<PortalEvent>() });
+        }
 
         [HttpGet("/api/v1/portal/queue")]
         [Produces("application/json")]
@@ -49,9 +84,11 @@ namespace Requestarr.Http.Portal
         [Produces("application/json")]
         public IActionResult AccessRequests() => Json(_records.AccessRequests());
 
+        // history=false leaves out past outages, which the page reads a page at a time.
         [HttpGet("/api/v1/portal/outages")]
         [Produces("application/json")]
-        public IActionResult Outages() => Json(_records.Outages());
+        public IActionResult Outages([FromQuery] bool history = true) =>
+            Json(history ? _records.Outages() : _records.Outages() with { History = new List<PortalOutage>() });
 
         [HttpGet("/api/v1/portal/types")]
         [Produces("application/json")]
@@ -65,11 +102,23 @@ namespace Requestarr.Http.Portal
         [Produces("application/json")]
         public IActionResult Instances() => Json(_records.Instances());
 
-        // Every filter is optional: member, title and action are words they contain; from and to are days.
+        // Every filter is optional: member, title and action are words they contain; from and to are days. With page: a
+        // page of what the filters find, newest first.
         [HttpGet("/api/v1/portal/audit")]
         [Produces("application/json")]
-        public IActionResult Audit([FromQuery] string member, [FromQuery] string title, [FromQuery] string action, [FromQuery] DateTime? from, [FromQuery] DateTime? to) =>
-            Json(_auditLog.Find(new PortalAuditFilter(member, title, action, from, to)));
+        public IActionResult Audit(
+            [FromQuery] string member,
+            [FromQuery] string title,
+            [FromQuery] string action,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize)
+        {
+            var found = _auditLog.Find(new PortalAuditFilter(member, title, action, from, to));
+
+            return page == null ? Json(found) : Json(PortalPaging.Of(found, PortalPagesController.Asked(page, pageSize, null, null), PortalSorts.None<PortalAuditEntry>()));
+        }
 
         [HttpGet("/api/v1/portal/search")]
         [Produces("application/json")]
