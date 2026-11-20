@@ -332,6 +332,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
                 check.Saw($"members ({theme}): {statuses}");
                 await check.ShotAsync(browser, $"imported-members-{theme}");
+                await MemberRowsAsync(browser, check, theme);
 
                 await browser.RunAsync("[...document.querySelectorAll('tr')].find(r => r.cells[1]?.innerText.startsWith('Imported, ')).querySelector('a').click()");
                 await browser.WaitForAsync("document.body.innerText.includes('Imported from')");
@@ -341,6 +342,31 @@ namespace Requestarr.Core.Test.Qa.Web
                 source.Should().NotBeEmpty();
             }
         });
+
+        // Every Members row has a picture and an @handle, and someone imported is first seen (Added) with their first
+        // request; the list's end is photographed too, so every row is on a screenshot.
+        private static async Task MemberRowsAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            const string Rows = "[...document.querySelectorAll('tbody tr')]";
+            const string Column = "(name => [...document.querySelectorAll('thead th')].findIndex(t => t.innerText.trim().startsWith(name)))";
+            var rows = await browser.EvalAsync<int>($"{Rows}.length");
+            var pictures = await browser.EvalAsync<int>($"{Rows}.filter(r => r.cells[0].querySelector('img')).length");
+            var handles = await browser.EvalAsync<int>($"{Rows}.filter(r => r.cells[0].innerText.includes('@')).length");
+            var notFirstSeen = await browser.EvalAsync<string>(
+                $"(() => {{ const first = {Column}('First request'), added = {Column}('Added'); " +
+                $"return {Rows}.filter(r => r.cells[1].innerText.startsWith('Imported, ') && r.cells[first].innerText !== r.cells[added].innerText)" +
+                ".map(r => r.cells[0].querySelector('a').innerText).join(', '); })()");
+            check.Saw($"members ({theme}): {rows} rows, {pictures} with a picture, {handles} with an @handle; imported rows whose Added isn't their first request: {(notFirstSeen.Length == 0 ? "none" : notFirstSeen)}");
+
+            await browser.RunAsync($"{Rows}.pop().scrollIntoView()");
+            await check.ShotAsync(browser, $"imported-members-end-{theme}");
+            await browser.RunAsync($"{Rows}[0].scrollIntoView()");
+
+            rows.Should().BePositive();
+            pictures.Should().Be(rows, "everyone has a picture, Discord's default when they have none");
+            handles.Should().Be(rows, "everyone shows their @handle");
+            notFirstSeen.Should().BeEmpty();
+        }
 
         // Requestarr's own settings pages load in both themes. QA and dev take their settings from the provisioning file,
         // so each page says so and its fields can't be changed; the instances page lists the stack's Sonarr and Radarr.
