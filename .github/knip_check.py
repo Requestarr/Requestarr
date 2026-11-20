@@ -17,8 +17,8 @@ import subprocess
 import sys
 
 BASELINE = os.path.join("frontend", "knip-baseline.json")
-# The commit that imported Prowlarr unchanged (docs/upstream.md).
-IMPORT = "cb5838d"
+# The commit that imported Prowlarr unchanged (docs/upstream.md), in full so a shallow checkout can fetch it.
+IMPORT = "cb5838dbd08dd12c7babe9f4582119062fe8f466"
 # Kinds of finding that mean code or packages nothing uses.
 KINDS = ["files", "dependencies", "devDependencies", "unlisted", "unresolved", "exports", "types", "enumMembers",
          "duplicates"]
@@ -70,7 +70,16 @@ def compare(now, baseline):
     return sorted(set(now) - set(baseline)), sorted(set(baseline) - set(now))
 
 
+def have_import():
+    """A shallow checkout (CI's) doesn't have the import commit: fetch that one commit, so unchanged Servarr files can
+    be told apart from changed ones."""
+    present = subprocess.run(["git", "cat-file", "-e", IMPORT + "^{commit}"], capture_output=True)
+    if present.returncode != 0:
+        subprocess.run(["git", "fetch", "--quiet", "--depth=1", "origin", IMPORT], check=True)
+
+
 def run_knip():
+    have_import()
     knip = os.path.join("node_modules", ".bin", "knip.cmd" if os.name == "nt" else "knip")
     result = subprocess.run([knip, "--reporter", "json", "--no-exit-code"], capture_output=True, text=True,
                             encoding="utf-8")
