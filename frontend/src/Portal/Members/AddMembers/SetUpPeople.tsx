@@ -12,9 +12,9 @@ import {
   ContentType,
   OnboardAccess,
   PortalInstance,
-  PortalServerMember,
 } from '../../PortalTypes';
 import usePortal from '../../usePortal';
+import { Who } from './useStartRun';
 import styles from './AddMembers.css';
 
 // The server's defaults, as onboarding from Discord gives them: films and shows need approval, the rest are off.
@@ -119,8 +119,11 @@ function summary(count: number, access: OnboardAccess[]) {
 }
 
 interface SetUpPeopleProps {
-  people: PortalServerMember[];
+  people: Who[];
   isStarting: boolean;
+
+  // Back to the list on the Onboard page; Cancel in the window the Members list opens.
+  backLabel?: string;
   onBack: () => void;
   onConfirm: (access: OnboardAccess[]) => void;
 }
@@ -130,6 +133,7 @@ interface SetUpPeopleProps {
 function SetUpPeople({
   people,
   isStarting,
+  backLabel = translate('PortalBack'),
   onBack,
   onConfirm,
 }: SetUpPeopleProps) {
@@ -172,7 +176,7 @@ function SetUpPeople({
       ))}
       <p className={styles.summary}>{summary(people.length, access)}</p>
       <div className={styles.buttons}>
-        <Button onPress={onBack}>{translate('PortalBack')}</Button>
+        <Button onPress={onBack}>{backLabel}</Button>
         <Button
           kind={kinds.PRIMARY}
           isDisabled={isStarting}

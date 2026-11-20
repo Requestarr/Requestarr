@@ -1,261 +1,207 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { sortDirections } from 'Helpers/Props';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { SelectProvider } from 'App/SelectContext';
+import ClientSideCollectionAppState from 'App/State/ClientSideCollectionAppState';
+import {
+  RequestIndexAppState,
+  RequestsAppState,
+} from 'App/State/PortalAppState';
+import Alert from 'Components/Alert';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
+import TablePager from 'Components/Table/TablePager';
+import { kinds } from 'Helpers/Props';
+import { fetchRequests } from 'Store/Actions/requestActions';
+import {
+  setRequestFilter,
+  setRequestSort,
+  setRequestTableOption,
+  setRequestView,
+} from 'Store/Actions/requestIndexActions';
+import createClientSideCollectionSelector from 'Store/Selectors/createClientSideCollectionSelector';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
-import PortalPager from '../Components/Paging/PortalPager';
-import usePagedRows from '../Components/Paging/usePagedRows';
-import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
-import PortalPage from '../Components/PortalPage';
-import RequestsTable, {
-  RequestsSort,
-  sortValues,
-} from '../Components/RequestsTable';
-import SelectionBar from '../Components/Selection/SelectionBar';
-import useSelection from '../Components/Selection/useSelection';
-import { contentTypeText, statusText } from '../portalText';
+import useClientSidePage from '../Components/Paging/useClientSidePage';
+import { RequestsIndexTable } from '../Components/RequestsTable';
 import { PortalRequest } from '../PortalTypes';
-import usePortal from '../usePortal';
-import useSortedRows from '../useSortedRows';
-import { RequestRows, RequestRowsContext } from './RequestRows';
+import RequestsFooter from './RequestsFooter';
 import RequestsOverview from './RequestsOverview';
 import RequestsPosters from './RequestsPosters';
 import RequestsToolbar from './RequestsToolbar';
-import { RequestView, savedView, saveView } from './requestView';
 import useRequestActionRunner from './useRequestActionRunner';
 import useRequestBulk from './useRequestBulk';
-import styles from '../Portal.css';
 
-const NO_REQUESTS: PortalRequest[] = [];
+type RequestsState = RequestsAppState &
+  RequestIndexAppState &
+  ClientSideCollectionAppState;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DAY_RANGES = [7, 30, 90, 365];
+// The store's requests, filtered and sorted by the page's own choices, with those choices.
+function useRequests(): RequestsState {
+  const selector = useMemo(
+    () => createClientSideCollectionSelector('requests', 'requestIndex'),
+    []
+  );
 
-interface Filters {
-  member: string;
-  type: string;
-  status: string;
-  instance: string;
-  days: string;
+  return useSelector(selector);
 }
 
-const NO_FILTERS: Filters = {
-  member: ALL,
-  type: ALL,
-  status: ALL,
-  instance: ALL,
-  days: ALL,
-};
+// What the toolbar changes in the store, as Prowlarr's IndexerIndex dispatches them.
+function useIndexDispatch() {
+  const dispatch = useDispatch();
 
-const LABELS: Record<keyof Filters, string> = {
-  member: 'PortalMember',
-  type: 'PortalType',
-  status: 'PortalStatus',
-  instance: 'PortalInstance',
-  days: 'PortalRequested',
-};
-
-const FILTER_NAMES = Object.keys(LABELS) as (keyof Filters)[];
-
-// since: the earliest request time the "Requested" filter lets through, or null for any time.
-function matches(
-  request: PortalRequest,
-  filters: Filters,
-  since: number | null
-) {
-  const people = [request.requester, ...request.followers].map((p) =>
-    String(p.id)
+  return useMemo(
+    () => ({
+      onRefreshPress: () => dispatch(fetchRequests()),
+      onTableOptionChange: (payload: unknown) =>
+        dispatch(setRequestTableOption(payload)),
+      onViewSelect: (view: string) => dispatch(setRequestView({ view })),
+      onSortSelect: (sortKey: string) => dispatch(setRequestSort({ sortKey })),
+      onFilterSelect: (selectedFilterKey: string | number) =>
+        dispatch(setRequestFilter({ selectedFilterKey })),
+    }),
+    [dispatch]
   );
-  const isIn = (filter: string, value: string) =>
-    filter === ALL || filter === value;
-
-  return (
-    (filters.member === ALL || people.includes(filters.member)) &&
-    isIn(filters.type, request.contentType) &&
-    isIn(filters.status, request.status) &&
-    isIn(filters.instance, String(request.instanceId)) &&
-    (since === null || Date.parse(request.requested) >= since)
-  );
-}
-
-// Each filter's choices, from the requests there are: nobody picks a member or an instance with nothing to show.
-function filterOptions(requests: PortalRequest[]) {
-  return {
-    member: optionsOf(
-      requests.flatMap((r) => [r.requester, ...r.followers]),
-      (p) => ({ key: String(p.id), value: p.name ?? String(p.id) })
-    ),
-    type: optionsOf(requests, (r) => ({
-      key: r.contentType,
-      value: contentTypeText(r.contentType),
-    })),
-    status: optionsOf(requests, (r) => ({
-      key: r.status,
-      value: statusText(r.status),
-    })),
-    instance: optionsOf(requests, (r) =>
-      r.instanceId == null
-        ? null
-        : { key: String(r.instanceId), value: r.instance ?? '' }
-    ),
-    days: DAY_RANGES.map((days) => ({
-      key: String(days),
-      value: translate('PortalLastDays', { days }),
-    })),
-  };
 }
 
 interface ShownProps {
+  state: RequestsState;
   requests: PortalRequest[];
-  view: RequestView;
-  sort: RequestsSort;
+  isSelectMode: boolean;
+  onSortSelect: (sortKey: string) => void;
+  onTableOptionChange: (payload: unknown) => void;
 }
 
-// The requests, already sorted, in the view chosen.
-function Shown({ requests, view, sort }: ShownProps) {
-  switch (view) {
+// The page of requests, in the view chosen.
+function Shown(props: ShownProps) {
+  const { state, requests, isSelectMode } = props;
+
+  switch (state.view) {
     case 'overview':
-      return <RequestsOverview requests={requests} />;
+      return (
+        <RequestsOverview requests={requests} isSelectMode={isSelectMode} />
+      );
     case 'posters':
-      return <RequestsPosters requests={requests} />;
+      return (
+        <RequestsPosters requests={requests} isSelectMode={isSelectMode} />
+      );
     default:
       return (
-        <RequestsTable requests={requests} withPosters={true} sort={sort} />
+        <RequestsIndexTable
+          requests={requests}
+          columns={state.columns}
+          sort={{
+            sortKey: state.sortKey,
+            sortDirection: state.sortDirection,
+            onSortPress: props.onSortSelect,
+          }}
+          isSelectMode={isSelectMode}
+          onTableOptionChange={props.onTableOptionChange}
+        />
       );
   }
 }
 
-// The filters' choices, what they're set to, and the requests they let through.
-function useRequestFilters(requests: PortalRequest[]) {
-  const [filters, setFilters] = useState(NO_FILTERS);
-  // "Requested in the last 30 days" counts from when it was picked.
-  const [since, setSince] = useState<number | null>(null);
-  const options = useMemo(() => filterOptions(requests), [requests]);
-  const shown = useMemo(
-    () => requests.filter((r) => matches(r, filters, since)),
-    [requests, filters, since]
-  );
-  const onFilterChange = useCallback((name: string, value: string) => {
-    setFilters((current) => ({ ...current, [name]: value }));
-
-    if (name === 'days') {
-      setSince(value === ALL ? null : Date.now() - Number(value) * DAY_MS);
-    }
-  }, []);
-
-  return { filters, options, shown, onFilterChange };
+interface RequestsBodyProps {
+  state: RequestsState;
+  isSelectMode: boolean;
+  onSortSelect: (sortKey: string) => void;
+  onTableOptionChange: (payload: unknown) => void;
 }
 
-interface RequestsListProps extends ShownProps {
-  onAction: RequestRows['onAction'];
-  isBusy: boolean;
-
-  // After a bulk action: the list as it is now.
-  onDone: () => void;
-}
-
-function RequestsList(props: RequestsListProps) {
-  const { requests, view, sort, onAction, isBusy, onDone } = props;
-  const { filters, options, shown, onFilterChange } =
-    useRequestFilters(requests);
-  const { pageRows, pager } = usePagedRows(
-    shown,
-    JSON.stringify([filters, sort.sortKey, sort.sortDirection])
-  );
-  const selection = useSelection(shown, pageRows);
-  const { onClear } = selection;
-  const onBulkDone = useCallback(() => {
-    onClear();
-    onDone();
-  }, [onClear, onDone]);
-  const bulk = useRequestBulk(selection.picked, onBulkDone);
-  const rows = useMemo(
-    () => ({ onAction, isBusy, selection }),
-    [onAction, isBusy, selection]
+function RequestsBody(props: RequestsBodyProps) {
+  const { state } = props;
+  const { pageItems, pager } = useClientSidePage(
+    state.items,
+    state.pageSize,
+    JSON.stringify([
+      state.selectedFilterKey,
+      state.customFilters,
+      state.sortKey,
+      state.sortDirection,
+    ])
   );
 
-  return (
-    <RequestRowsContext.Provider value={rows}>
-      <div className={styles.filters}>
-        {FILTER_NAMES.map((name) => (
-          <PortalFilter
-            key={name}
-            name={name}
-            label={translate(LABELS[name])}
-            value={filters[name]}
-            options={options[name]}
-            onChange={onFilterChange}
-          />
-        ))}
-      </div>
-      <ActionOutcomeAlert outcome={bulk.outcome} />
-      <SelectionBar
-        selection={selection}
-        actions={bulk.actions}
-        isBusy={bulk.isBusy}
-        summary={translate('PortalShowingRequests', {
-          shown: shown.length,
-          total: requests.length,
-        })}
-        withPageBox={view !== 'table' && shown.length > 0}
-        onAction={bulk.onAction}
-      />
-      <Shown requests={pageRows} view={view} sort={sort} />
-      <PortalPager {...pager} />
-      {bulk.modal}
-    </RequestRowsContext.Provider>
-  );
-}
-
-// Every request, in the Overview, Posters or Table view, filterable by member (requester or follower), type, status,
-// instance and how recent, and sorted the same in every view. Each row has its actions, as Sonarr's and Radarr's lists
-// do, and a box to pick it: anything picked shows what can be done to all of it.
-function RequestsPage() {
-  const result = usePortal<PortalRequest[]>('requests');
-  const onActionDone = result.reload;
-  const { run, isBusy, outcome, dialogs } =
-    useRequestActionRunner(onActionDone);
-  const [view, setView] = useState(savedView);
-  const onViewChange = useCallback((chosen: RequestView) => {
-    setView(chosen);
-    saveView(chosen);
-  }, []);
-  const sort = useSortedRows(
-    result.data ?? NO_REQUESTS,
-    sortValues,
-    'requested',
-    sortDirections.DESCENDING
-  );
-  const renderRequests = useCallback(
-    () => (
-      <>
-        <ActionOutcomeAlert outcome={outcome} />
-        <RequestsList
-          requests={sort.sorted}
-          view={view}
-          sort={sort}
-          isBusy={isBusy}
-          onAction={run}
-          onDone={onActionDone}
-        />
-      </>
-    ),
-    [sort, view, run, isBusy, outcome, onActionDone]
-  );
-  const toolbar = (
-    <RequestsToolbar view={view} sort={sort} onViewChange={onViewChange} />
-  );
+  if (!state.items.length) {
+    return (
+      <Alert kind={kinds.INFO}>
+        {translate(
+          state.totalItems ? 'PortalNoRequestsMatch' : 'PortalNoRequests'
+        )}
+      </Alert>
+    );
+  }
 
   return (
     <>
-      <PortalPage
-        title={translate('PortalRequests')}
-        result={result}
-        toolbar={toolbar}
-      >
-        {renderRequests}
-      </PortalPage>
-      {dialogs}
+      <Shown {...props} requests={pageItems} />
+      <TablePager {...pager} />
+      <RequestsFooter requests={state.items} />
     </>
+  );
+}
+
+// Every request, in the Table, Posters or Overview view, filtered, sorted and paged as Sonarr's series list is. Select
+// mode picks one or several; what can be done to them is in the toolbar, left of Refresh.
+function RequestsIndex() {
+  const state = useRequests();
+  const handlers = useIndexDispatch();
+  const { onRefreshPress } = handlers;
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const runner = useRequestActionRunner(onRefreshPress);
+  const bulk = useRequestBulk(state.items, runner.run, onRefreshPress);
+  const onSelectModePress = useCallback(
+    () => setIsSelectMode((current) => !current),
+    []
+  );
+
+  useEffect(() => {
+    onRefreshPress();
+  }, [onRefreshPress]);
+
+  return (
+    <PageContent title={translate('PortalRequests')}>
+      <RequestsToolbar
+        {...state}
+        {...handlers}
+        selectActions={bulk.actions}
+        isBusy={runner.isBusy || bulk.isBusy}
+        isSelectMode={isSelectMode}
+        isEmpty={!state.totalItems}
+        onSelectModePress={onSelectModePress}
+      />
+
+      <PageContentBody>
+        {state.isFetching && !state.isPopulated && <LoadingIndicator />}
+
+        {!state.isFetching && !!state.error && (
+          <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
+        )}
+
+        <ActionOutcomeAlert outcome={runner.outcome} />
+
+        {state.isPopulated && !state.error && (
+          <RequestsBody
+            {...handlers}
+            state={state}
+            isSelectMode={isSelectMode}
+          />
+        )}
+      </PageContentBody>
+      {runner.dialogs}
+      {bulk.modal}
+    </PageContent>
+  );
+}
+
+// The page's select state, for its rows and its toolbar.
+function RequestsPage() {
+  const state = useRequests();
+
+  return (
+    <SelectProvider items={state.items}>
+      <RequestsIndex />
+    </SelectProvider>
   );
 }
 

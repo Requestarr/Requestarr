@@ -139,6 +139,17 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public void a_removal_says_whether_it_only_drops_a_history_record()
+        {
+            var dune = Requested("Dune", _alice, RequestStatus.Available, 1);
+            var heat = Requested("Heat", _alice, RequestStatus.NotInLibrary, 2);
+            Db.Insert(new RemovalProposal { RequestId = dune.Id, Title = "Dune", BackendId = _radarr.Id, ExternalItemId = 7, Status = RemovalStatus.Voting, Created = Start, RequesterUserId = _alice.Id });
+            Db.Insert(new RemovalProposal { RequestId = heat.Id, Title = "Heat", Status = RemovalStatus.Voting, Created = Start.AddHours(1), RequesterUserId = _alice.Id });
+
+            Subject.Member(_alice.Id).Removals.Select(r => (r.Id, r.RecordOnly)).Should().Equal((2, true), (1, false));
+        }
+
+        [Test]
         public void members_show_their_access_limits_and_counts()
         {
             Requested("Dune", _alice, RequestStatus.Approved, 1);
@@ -195,7 +206,7 @@ namespace Requestarr.Core.Test.Portal
         public void a_waiting_removal_names_and_opens_its_requester_and_a_limit_without_a_window_counts_7_days()
         {
             var dune = Requested("Dune", _alice, RequestStatus.Available, 1);
-            var removal = Db.Insert(new RemovalProposal { RequestId = dune.Id, Title = "Dune", Year = 2021, Status = RemovalStatus.Declined, Created = Start, RequesterUserId = _alice.Id, InitiatedByUserId = _bob.Id, InitiatedByName = "Bob" });
+            var removal = Db.Insert(new RemovalProposal { RequestId = dune.Id, Title = "Dune", Year = 2021, ExternalItemId = 438631, Status = RemovalStatus.Declined, Created = Start, RequesterUserId = _alice.Id, InitiatedByUserId = _bob.Id, InitiatedByName = "Bob" });
             Db.Insert(new UserMediaAccess { UserId = _alice.Id, ContentType = ContentType.Movie, State = AccessState.AutoApprove, QuotaLimit = 2 });
             Mocker.GetMock<IAdminQueue>().Setup(q => q.Items()).Returns(new List<QueueItem> { new($"x{removal.Id}", Start) });
 
@@ -234,8 +245,8 @@ namespace Requestarr.Core.Test.Portal
                 rows[id].Actions.Should().Equal(Subject.Request(id).Actions, "a row offers what its page offers");
             }
 
-            rows[pending.Id].Actions.Should().Contain("approve").And.Contain("deny").And.NotContain("deleteRecord");
-            rows[history.Id].Actions.Should().Contain("deleteRecord");
+            rows[pending.Id].Actions.Should().Contain("approve").And.Contain("deny").And.NotContain("remove");
+            rows[history.Id].Actions.Should().Equal(new[] { "remove" }, "history goes through the removal flow too, not a delete of its own");
             rows[dune.Id].Actions.Should().Contain("forceRemoval").And.Contain("dropRemoval");
             rows[dune.Id].RemovalId.Should().Be(removal.Id);
             rows[pending.Id].RemovalId.Should().BeNull();

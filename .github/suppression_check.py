@@ -3,15 +3,19 @@
 change, compared with its base:
 
   - adds a suppression without a reason on the same line: `#pragma warning disable` with no `//` comment,
-    `[SuppressMessage]` with no Justification, `eslint-disable` with no `-- reason`;
+    `[SuppressMessage]` with no Justification, `eslint-disable` with no `-- reason` (except in a Servarr file put back
+    exactly as Prowlarr had it at the import, below);
   - grows a baseline: a new or higher count in frontend/eslint-suppressions.json, a new entry in
-    frontend/knip-baseline.json (the pull request that creates a baseline with its check is the exception);
+    frontend/knip-baseline.json (the pull request that creates a baseline with its check is the exception, and so is
+    a Servarr file put back exactly as Prowlarr had it at the import: Servarr's own parts are used, never rebuilt,
+    docs/servarr-reuse.md);
   - turns a rule down in .editorconfig's "Requestarr additions" (a lower severity, or a rule removed), or raises a
     limit in src/SonarLint.xml.
 
   python3 .github/suppression_check.py <base commit> [<head commit>]
   python3 .github/suppression_check.py --self-test
 """
+import functools
 import json
 import re
 import subprocess
@@ -19,6 +23,8 @@ import sys
 
 SEVERITY = {"none": 0, "silent": 1, "suggestion": 2, "warning": 3, "error": 4}
 ADDITIONS = "# Requestarr additions."
+# The commit that imported Prowlarr unchanged (docs/upstream.md).
+IMPORT = "cb5838d"
 
 
 def git(*args):
@@ -61,10 +67,21 @@ def suppression_counts(text):
     return counts
 
 
-def grown_suppressions(base, head):
+def grown_suppressions(base, head, upstream=lambda path: False):
+    """upstream(path): the file is Servarr's, exactly as Prowlarr had it at the import, so its suppressions are
+    Servarr's too."""
     before, after = suppression_counts(base), suppression_counts(head)
     return ["%s: %s goes from %d to %d" % (path, rule, before.get((path, rule), 0), count)
-            for (path, rule), count in sorted(after.items()) if count > before.get((path, rule), 0)]
+            for (path, rule), count in sorted(after.items()) if count > before.get((path, rule), 0) and not upstream(path)]
+
+
+def unchanged_upstream(head):
+    """Whether a file at head is exactly as Prowlarr had it at the import (line endings aside), read once per file."""
+    @functools.lru_cache(maxsize=None)
+    def check(path):
+        ours, theirs = show(head, path), show(IMPORT, path)
+        return ours is not None and theirs is not None and ours.replace("\r\n", "\n") == theirs.replace("\r\n", "\n")
+    return check
 
 
 def grown_baseline(base, head):
@@ -109,18 +126,25 @@ def raised(base, head):
             if (rule, key) in after and after[(rule, key)] > value]
 
 
+def unexplained_lines(diff, upstream=lambda path: False):
+    """Every added suppression without a reason, outside files that are Servarr's exactly as the import had them."""
+    for path, line in added_lines(diff):
+        why = None if upstream(path) else unexplained(path, line)
+        if why:
+            yield path, line, why
+
+
 def check(base, head):
     problems = []
     diff = git("diff", "--unified=0", base, head, "--", "*.cs", "*.js", "*.jsx", "*.ts", "*.tsx")
-    for path, line in added_lines(diff):
-        why = unexplained(path, line)
+    for path, line, why in unexplained_lines(diff, unchanged_upstream(head)):
         if why:
             problems.append("%s: %s: %s" % (path, why, line.strip()))
     # A baseline the base doesn't have yet is being created with its check, not grown.
     sup = "frontend/eslint-suppressions.json"
     base_sup = show(base, sup)
     if base_sup is not None:
-        problems += ["%s grows: %s" % (sup, p) for p in grown_suppressions(base_sup, show(head, sup))]
+        problems += ["%s grows: %s" % (sup, p) for p in grown_suppressions(base_sup, show(head, sup), unchanged_upstream(head))]
     knip = "frontend/knip-baseline.json"
     base_knip = show(base, knip)
     if base_knip is not None:
@@ -130,6 +154,9 @@ def check(base, head):
     problems += ["src/SonarLint.xml raises a limit: " + p
                  for p in raised(show(base, "src/SonarLint.xml"), show(head, "src/SonarLint.xml"))]
     return problems
+
+
+SERVARR_DIFF = "+++ b/frontend/src/a.js\n+// eslint-disable-next-line no-use-before-define\n"
 
 
 def self_test():
@@ -145,9 +172,13 @@ def self_test():
         (unexplained("a.tsx", "// eslint-disable-next-line max-params") is not None, "eslint-disable without reason fails"),
         (unexplained("a.tsx", "// eslint-disable-next-line max-params -- mirrors the upstream API") is None,
          "eslint-disable with a reason passes"),
+        (len(list(unexplained_lines(SERVARR_DIFF))) == 1 and list(unexplained_lines(SERVARR_DIFF, lambda path: True)) == [],
+         "a Servarr file put back unchanged keeps its own eslint-disable lines"),
         (grown_suppressions('{"a.js": {"r": {"count": 1}}}', '{"a.js": {"r": {"count": 2}}}') != [], "a higher count fails"),
         (grown_suppressions('{"a.js": {"r": {"count": 2}}}', '{"a.js": {"r": {"count": 1}}}') == [], "a lower count passes"),
         (grown_suppressions('{}', '{"b.js": {"r": {"count": 1}}}') != [], "a new suppressed file fails"),
+        (grown_suppressions('{}', '{"b.js": {"r": {"count": 1}}}', lambda path: path == "b.js") == [],
+         "a Servarr file put back unchanged brings its suppressions back"),
         (grown_baseline('["x"]', '["x", "y"]') == ["y"] and grown_baseline('["x", "y"]', '["x"]') == [],
          "the knip baseline may only shrink"),
         (lowered(editor, editor.replace("warning", "suggestion")) != [], "a lowered severity fails"),

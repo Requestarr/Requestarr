@@ -1,5 +1,5 @@
 import { callApi } from 'Settings/Requestarr/requestarrApi';
-import runEach from '../Components/Selection/runEach';
+import runEach from '../Components/runEach';
 import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { actionLabel } from './ActionButton';
@@ -9,7 +9,6 @@ export const BULK_PATHS: Record<string, string> = {
   approve: 'approve',
   deny: 'deny',
   remove: 'removal',
-  deleteRecord: 'delete-record',
 };
 
 // The action on each request picked, as if pressed on each row.

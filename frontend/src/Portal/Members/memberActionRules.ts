@@ -16,19 +16,10 @@ export function memberActions(member: PortalMember): string[] {
   }
 }
 
-// The action a row shows as its own button, the one most likely wanted.
-export function likelyMemberAction(member: PortalMember) {
-  switch (member.status) {
-    case 'imported':
-      return 'onboard';
-    case 'suspended':
-      return 'unsuspend';
-    case 'active':
-      return 'changeAccess';
-    default:
-      return undefined;
-  }
-}
-
-// What the selection bar offers for the members picked.
-export const BULK_MEMBER_ACTIONS = ['suspend', 'unsuspend', 'changeAccess'];
+// What the toolbar offers in select mode, for one member or several (Onboard is a button of its own).
+export const GROUP_MEMBER_ACTIONS = [
+  'suspend',
+  'unsuspend',
+  'changeAccess',
+  'remove-member',
+];

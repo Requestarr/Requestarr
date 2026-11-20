@@ -3,10 +3,11 @@ import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
 import { FollowerBadge } from '../Components/FollowerStack';
 import MemberLink from '../Components/MemberLink';
-import { requestStatusText, titleText } from '../portalText';
+import PosterSelect from '../Components/Select/PosterSelect';
+import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink } from './RequestMedia';
-import { RowActions, RowSelect } from './RequestRows';
+import RequestStatusLabel from './RequestStatusLabel';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
 
@@ -33,8 +34,14 @@ function Poster({ request }: { request: PortalRequest }) {
   );
 }
 
-// Every request as a poster, with its title, status, requester and follower count under it.
-function RequestsPosters({ requests }: { requests: PortalRequest[] }) {
+interface RequestsPostersProps {
+  requests: PortalRequest[];
+  isSelectMode: boolean;
+}
+
+// Every request as a poster, with its title, status, requester and follower count under it; in select mode a round
+// tick on each poster, as Sonarr's posters have.
+function RequestsPosters({ requests, isSelectMode }: RequestsPostersProps) {
   if (!requests.length) {
     return (
       <div className={portalStyles.empty}>{translate('PortalNoRequests')}</div>
@@ -45,16 +52,15 @@ function RequestsPosters({ requests }: { requests: PortalRequest[] }) {
     <div className={styles.posters}>
       {requests.map((request) => (
         <div key={request.id} className={styles.posterCard}>
-          <Poster request={request} />
+          <div className={styles.posterContainer}>
+            {isSelectMode && <PosterSelect itemId={request.id} />}
+            <Poster request={request} />
+          </div>
           <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
           <div className={styles.posterStatus}>
-            <span className={portalStyles.muted}>
-              {requestStatusText(request)}
-            </span>
-            <RowActions request={request} />
+            <RequestStatusLabel request={request} />
           </div>
           <div className={styles.posterPeople}>
-            <RowSelect request={request} />
             <MemberLink person={request.requester} size="small" />
             <FollowerBadge
               requestId={request.id}

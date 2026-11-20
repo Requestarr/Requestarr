@@ -92,9 +92,9 @@ namespace Requestarr.Core.Requests
         // Closes a pending request as already available (the title is already there).
         Task<ServiceResult> MarkAvailableAsync(int requestId, Actor admin, string adminName);
 
-        // Deletes a history request (Not in library, from an import) from Requestarr's records, with its follows.
-        // Nothing in Sonarr, Radarr or Discord changes; the audit log keeps that it was deleted.
-        ServiceResult DeleteRecord(int requestId, Actor admin);
+        // A passed removal of a history request (Not in library, usually imported): its record leaves Requestarr's lists,
+        // with its follows, and the audit log keeps that it was deleted. Nothing happens when it's gone already or isn't history.
+        void DeleteRecord(int requestId, Actor actor);
 
         // What Sonarr / Radarr now say about a sent request. A change (downloading, stuck, failed,
         // seasons available, all there) reposts its messages and feed card; no change does nothing.
@@ -152,7 +152,7 @@ namespace Requestarr.Core.Requests
 
     public class RequestService : IRequestService
     {
-        // The audit log's action for Delete record; its detail is the title the record had.
+        // The audit log's action for a history request's record leaving with its removal; its detail is the title it had.
         public const string DeleteRecordAction = "request.deleteRecord";
 
         public const int MaxSearchResults = 10;
@@ -676,25 +676,18 @@ namespace Requestarr.Core.Requests
             request.DecidedByName = admin.UserId.HasValue ? null : adminName;
         }
 
-        public ServiceResult DeleteRecord(int requestId, Actor admin)
+        public void DeleteRecord(int requestId, Actor actor)
         {
             var request = _requests.Find(requestId);
 
-            if (request == null)
+            if (request?.Status != RequestStatus.NotInLibrary)
             {
-                return ServiceResult.Fail(DiscordText.RequestNotFound);
-            }
-
-            if (request.Status != RequestStatus.NotInLibrary)
-            {
-                return ServiceResult.Fail(DiscordText.OnlyHistoryDeleted(request.Label));
+                return;
             }
 
             _subscribers.DeleteMany(_subscribers.ForRequest(requestId));
             _requests.Delete(requestId);
-            _audit.Record(admin, DeleteRecordAction, "request", requestId.ToString(), request.Label);
-
-            return ServiceResult.Ok(DiscordText.RecordDeleted(request.Label));
+            _audit.Record(actor, DeleteRecordAction, "request", requestId.ToString(), request.Label);
         }
 
         // The admin can cancel while it waits for approval, or once sent while nothing is

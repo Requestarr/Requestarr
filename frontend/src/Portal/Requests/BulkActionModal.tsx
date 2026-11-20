@@ -82,9 +82,17 @@ function BulkActionContent(props: BulkActionContentProps) {
             />
           </FormGroup>
         )}
-        {action === 'remove' && deletesFiles === false && (
-          <Alert kind={kinds.INFO}>{translate('PortalDeletingOffNote')}</Alert>
-        )}
+        {action === 'remove' &&
+          requests.some((r) => r.status === 'notInLibrary') && (
+            <Alert kind={kinds.INFO}>{translate('PortalRecordOnlyNote')}</Alert>
+          )}
+        {action === 'remove' &&
+          deletesFiles === false &&
+          requests.some((r) => r.status !== 'notInLibrary') && (
+            <Alert kind={kinds.INFO}>
+              {translate('PortalDeletingOffNote')}
+            </Alert>
+          )}
         {action === 'remove' && (
           <FormGroup>
             <FormLabel>{translate('PortalRemovalForce')}</FormLabel>
@@ -96,11 +104,6 @@ function BulkActionContent(props: BulkActionContentProps) {
               onChange={onForceChange}
             />
           </FormGroup>
-        )}
-        {action === 'deleteRecord' && (
-          <Alert kind={kinds.INFO}>
-            {translate('PortalDeleteRecordsNote')}
-          </Alert>
         )}
       </ModalBody>
       <ModalFooter>

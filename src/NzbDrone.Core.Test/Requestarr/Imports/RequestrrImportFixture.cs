@@ -11,6 +11,7 @@ using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Imports;
+using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.AnimeDub;
 using Requestarr.Core.Users;
@@ -47,6 +48,7 @@ namespace Requestarr.Core.Test.Imports
 
             Mocker.SetConstant<IRequestRepository>(Mocker.Resolve<RequestRepository>());
             Mocker.SetConstant<IRequestSubscriberRepository>(Mocker.Resolve<RequestSubscriberRepository>());
+            Mocker.SetConstant<IRemovalProposalRepository>(Mocker.Resolve<RemovalProposalRepository>());
             Mocker.SetConstant<IRequestarrUserRepository>(Mocker.Resolve<RequestarrUserRepository>());
             Mocker.SetConstant<IUserIdentityRepository>(Mocker.Resolve<UserIdentityRepository>());
             Mocker.SetConstant<IAuditRepository>(Mocker.Resolve<AuditRepository>());
@@ -221,6 +223,26 @@ namespace Requestarr.Core.Test.Imports
             var linked = Mocker.Resolve<IRequestRepository>().All().Single(r => r.Title == "A Film Nobody Has");
             (linked.Status, linked.BackendId, linked.ExternalItemId).Should().Be((RequestStatus.Approved, Radarr, 12));
             Mocker.Resolve<IAuditRepository>().ForTarget("request", linked.Id.ToString()).Last().Action.Should().Be(ImportService.LinkedAction);
+        }
+
+        [Test]
+        public async Task a_request_up_for_removal_stays_history_until_the_removal_closes()
+        {
+            await Subject.ConfirmAsync((await PreviewBoth()).Id, Actor.Web("owner"));
+            var history = Mocker.Resolve<IRequestRepository>().All().Single(r => r.Title == "A Film Nobody Has");
+            var removals = Mocker.Resolve<IRemovalProposalRepository>();
+            var removal = removals.Insert(new RemovalProposal { RequestId = history.Id, ContentType = ContentType.Movie, Title = history.Title, Status = RemovalStatus.Voting, Created = DateTime.UtcNow });
+            GivenLibrary(Radarr, Crow, Nobody);
+
+            var during = await PreviewBoth();
+            during.Plan.Links.Should().BeEmpty("its vote drops only the record, so linking it now would leave the vote about nothing");
+            (await Subject.ConfirmAsync(during.Id, Actor.Web("owner"))).Result.Linked.Should().Be(0);
+            Mocker.Resolve<IRequestRepository>().Get(history.Id).Status.Should().Be(RequestStatus.NotInLibrary);
+
+            removal.Status = RemovalStatus.Kept;
+            removals.Update(removal);
+
+            (await PreviewBoth()).Plan.Links.Should().ContainSingle().Which.RequestId.Should().Be(history.Id);
         }
 
         [Test]

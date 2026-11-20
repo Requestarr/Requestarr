@@ -53,6 +53,10 @@ namespace Requestarr.Core.Removals
         // and force deletes now.
         Task<ServiceResult> StartByAdminAsync(Actor admin, string adminName, int? adminUserId, int backendId, int itemId, IReadOnlyCollection<int> seasons, bool force);
 
+        // The same, for a request Sonarr and Radarr don't have (IsRecordOnly): the whole request (seasons must be empty),
+        // and passing drops it from Requestarr's lists instead of deleting anything.
+        Task<ServiceResult> StartRecordByAdminAsync(Actor admin, string adminName, int? adminUserId, int requestId, IReadOnlyCollection<int> seasons, bool force);
+
         Task<ServiceResult> AnswerAsync(int proposalId, RequestarrUser user, Actor actor, bool yes);
         Task<ServiceResult> SetKeepAsync(int proposalId, RequestarrUser user, Actor actor, bool keep);
         Task<ServiceResult> ForceAsync(int proposalId, Actor admin, string adminName, int? adminUserId);
@@ -244,24 +248,47 @@ namespace Requestarr.Core.Removals
 
             var proposal = NewProposal(target.Value, seasons, out var error);
 
-            if (proposal == null)
+            return proposal == null
+                ? ServiceResult.Fail(error)
+                : await StartAsAdmin(proposal, target.Value.Requester, $"on {target.Value.Instance.Name}", admin, adminName, adminUserId, force);
+        }
+
+        public async Task<ServiceResult> StartRecordByAdminAsync(Actor admin, string adminName, int? adminUserId, int requestId, IReadOnlyCollection<int> seasons, bool force)
+        {
+            var request = _requests.Find(requestId);
+
+            if (request == null || !IsRecordOnly(request))
             {
-                return ServiceResult.Fail(error);
+                return ServiceResult.Fail(request == null ? DiscordText.RequestNotFound : DiscordText.RemovalNotHistory);
             }
 
+            var proposal = NewRecordProposal(request, seasons, out var error);
+
+            return proposal == null
+                ? ServiceResult.Fail(error)
+                : await StartAsAdmin(proposal, AskableRequester(request), "in Requestarr only (Sonarr and Radarr don't have it)", admin, adminName, adminUserId, force);
+        }
+
+        // A request Sonarr and Radarr don't have (history, usually imported): its removal drops only its record.
+        public static bool IsRecordOnly(Request request) => request.Status == RequestStatus.NotInLibrary;
+
+        // where: what it's removed from, for the audit log. An owned title asks the requester first, an ownerless one goes
+        // to the vote, and force removes it now.
+        private async Task<ServiceResult> StartAsAdmin(RemovalProposal proposal, RequestarrUser requester, string where, Actor admin, string adminName, int? adminUserId, bool force)
+        {
             proposal.InitiatedByAdmin = true;
             proposal.InitiatedByUserId = adminUserId;
             proposal.InitiatedByName = adminName;
-            proposal.RequesterUserId = target.Value.Requester?.Id;
+            proposal.RequesterUserId = requester?.Id;
             _proposals.Insert(proposal);
-            _audit.Record(admin, "removal.start", "removal", proposal.Id.ToString(), $"{Scope(proposal)} on {target.Value.Instance.Name}, by the admin{(force ? ", forced" : string.Empty)}");
+            _audit.Record(admin, "removal.start", "removal", proposal.Id.ToString(), $"{Scope(proposal)} {where}, by the admin{(force ? ", forced" : string.Empty)}");
 
             if (force)
             {
                 return await DeleteNow(proposal, admin, adminName, adminUserId);
             }
 
-            if (target.Value.Requester != null)
+            if (requester != null)
             {
                 proposal.Status = RemovalStatus.AwaitingRequester;
                 proposal.AnswerBy = Clock() + _settings.RequesterTimeout;
@@ -271,7 +298,7 @@ namespace Requestarr.Core.Removals
                 Save(proposal);
                 await Changed(proposal);
 
-                return ServiceResult.Ok(DiscordText.RemovalAskedRequester(target.Value.Requester.DisplayName, proposal.AnswerBy.Value));
+                return ServiceResult.Ok(DiscordText.RemovalAskedRequester(requester.DisplayName, proposal.AnswerBy.Value));
             }
 
             // Never requested through Requestarr, or the requester was removed: straight to the vote.
@@ -465,12 +492,15 @@ namespace Requestarr.Core.Removals
             var request = externalId.HasValue
                 ? _requests.ForTitle(type, externalId.Value).Where(r => r.BackendId == instance.Id && r.IsActive).Newest().FirstOrDefault()
                 : null;
+
+            return new RemovalTarget(instance, title, request, AskableRequester(request));
+        }
+
+        // Only a member can be asked first: someone removed, or known only from an import, has nowhere to be asked.
+        private RequestarrUser AskableRequester(Request request)
+        {
             var requester = request == null ? null : _users.Find(request.OwnerUserId);
-
-            // Only a member can be asked first: someone removed, or known only from an import, has nowhere to be asked.
-            var askable = requester is not null && requester.Status != UserStatus.Removed && !requester.IsImported;
-
-            return new RemovalTarget(instance, title, request, askable ? requester : null);
+            return requester is not null && requester.Status != UserStatus.Removed && !requester.IsImported ? requester : null;
         }
 
         private RemovalProposal NewProposal(RemovalTarget target, IReadOnlyCollection<int> seasons, out string error)
@@ -507,6 +537,37 @@ namespace Requestarr.Core.Removals
                 BackendId = target.Instance.Id,
                 ExternalItemId = target.Title.Id,
                 Seasons = scope,
+                Status = RemovalStatus.Voting,
+                Created = Clock()
+            };
+        }
+
+        // No library item and no seasons to pick: always the whole request, one open removal at a time.
+        private RemovalProposal NewRecordProposal(Request request, IReadOnlyCollection<int> seasons, out string error)
+        {
+            error = null;
+
+            if (seasons?.Count > 0)
+            {
+                error = DiscordText.RemovalRecordIsWhole;
+                return null;
+            }
+
+            if (_proposals.ForRequest(request.Id).FirstOrDefault(p => p.IsOpen) is { } open)
+            {
+                error = DiscordText.RemovalAlreadyOpen(open);
+                return null;
+            }
+
+            return new RemovalProposal
+            {
+                RequestId = request.Id,
+                ContentType = request.ContentType,
+                Title = request.Title,
+                Year = request.Year,
+                TmdbId = request.TmdbId,
+                TvdbId = request.TvdbId,
+                PosterUrl = request.PosterUrl,
                 Status = RemovalStatus.Voting,
                 Created = Clock()
             };
@@ -580,6 +641,11 @@ namespace Requestarr.Core.Removals
 
         private async Task<ServiceResult> DeleteNow(RemovalProposal proposal, Actor admin, string adminName, int? adminUserId)
         {
+            if (proposal.RecordOnly)
+            {
+                return await DropRecord(proposal, admin, adminName, adminUserId);
+            }
+
             var instance = _backends.Find(proposal.BackendId ?? 0);
 
             try
@@ -615,13 +681,8 @@ namespace Requestarr.Core.Removals
                 return ServiceResult.Fail(DiscordText.RemovalFailed(proposal, instance?.Name));
             }
 
-            proposal.Status = admin != null ? RemovalStatus.Forced : RemovalStatus.Deleted;
-            proposal.Closed = Clock();
-            proposal.ClosedByUserId = adminUserId;
-            proposal.ClosedByName = adminName;
-            Save(proposal);
-            var how = admin != null ? $", forced by {adminName}" : ", by vote";
-            _audit.Record(admin ?? Actor.System, "removal.deleted", "removal", proposal.Id.ToString(), $"{Scope(proposal)} deleted from {instance.Name} with its files, not excluded{how}");
+            CloseAsRemoved(proposal, admin, adminName, adminUserId);
+            _audit.Record(admin ?? Actor.System, "removal.deleted", "removal", proposal.Id.ToString(), $"{Scope(proposal)} deleted from {instance.Name} with its files, not excluded{How(admin, adminName)}");
 
             // The requests for it are closed (whole title) or lose those seasons; a later request is fresh.
             foreach (var request in _requests.ForTitle(proposal.ContentType, proposal.ExternalId ?? 0).Where(r => r.BackendId == proposal.BackendId && r.IsActive).ToList())
@@ -633,6 +694,51 @@ namespace Requestarr.Core.Removals
             await Changed(proposal);
             return ServiceResult.Ok(DiscordText.RemovalDone(proposal, instance.Name));
         }
+
+        // Sonarr and Radarr don't have it, so nothing is deleted anywhere, whether or not deleting files is on (there's
+        // nothing to delete by hand either). The removal closes as a passed one and everyone asked is told; then the request
+        // leaves Requestarr's lists (its record is deleted; the audit log keeps it). An import never links a request while
+        // its removal is open, so it is still Not in library here and DeleteRecord drops it.
+        private async Task<ServiceResult> DropRecord(RemovalProposal proposal, Actor admin, string adminName, int? adminUserId)
+        {
+            CloseAsRemoved(proposal, admin, adminName, adminUserId);
+            _audit.Record(admin ?? Actor.System, "removal.deleted", "removal", proposal.Id.ToString(), $"{Scope(proposal)} dropped from Requestarr's lists; Sonarr and Radarr don't have it, so nothing was deleted{How(admin, adminName)}");
+
+            // Its feed card and messages show the outcome first, while the request is still there to show.
+            await PostResults(proposal);
+            await Changed(proposal);
+
+            var requestId = proposal.RequestId.Value;
+            _requestService.DeleteRecord(requestId, admin ?? Actor.System);
+            proposal.RequestId = null;
+            Save(proposal);
+            ForgetRequest(requestId);
+
+            return ServiceResult.Ok(DiscordText.RemovalRecordDropped(proposal));
+        }
+
+        // Earlier removals of a dropped request (kept or called off) stop pointing at it too, so the audit log and the
+        // web app show their title without a link to a page that's gone.
+        private void ForgetRequest(int requestId)
+        {
+            foreach (var earlier in _proposals.ForRequest(requestId))
+            {
+                earlier.RequestId = null;
+                Save(earlier);
+            }
+        }
+
+        // Passed: by vote (no admin), or forced by the admin, who is named on it.
+        private void CloseAsRemoved(RemovalProposal proposal, Actor admin, string adminName, int? adminUserId)
+        {
+            proposal.Status = admin != null ? RemovalStatus.Forced : RemovalStatus.Deleted;
+            proposal.Closed = Clock();
+            proposal.ClosedByUserId = adminUserId;
+            proposal.ClosedByName = adminName;
+            Save(proposal);
+        }
+
+        private static string How(Actor admin, string adminName) => admin != null ? $", forced by {adminName}" : ", by vote";
 
         // Deleting files is off on this server: everything a deletion does except deleting. The vote is closed, the
         // outcome recorded and everyone asked is told, and the admin queue gets it to delete by hand. The requests stay
@@ -695,8 +801,9 @@ namespace Requestarr.Core.Removals
 
             if (proposal.RequesterUserId.HasValue && proposal.RequesterMessageId != null && _prompts.ForProposal(proposal.Id).All(p => p.UserId != proposal.RequesterUserId))
             {
-                // Deleted: their request message is reposted with the outcome, so this one just goes.
-                var requestReposted = proposal.Status is RemovalStatus.Deleted or RemovalStatus.Forced && proposal.RequestId.HasValue &&
+                // Deleted: their request message is reposted with the outcome, so this one just goes. A record-only
+                // removal's request goes without a message, so they get the outcome here.
+                var requestReposted = proposal.Status is RemovalStatus.Deleted or RemovalStatus.Forced && !proposal.RecordOnly && proposal.RequestId.HasValue &&
                                       _requests.Find(proposal.RequestId.Value)?.OwnerUserId == proposal.RequesterUserId;
 
                 if (requestReposted && ulong.TryParse(proposal.RequesterChannelId, out var channel) && ulong.TryParse(proposal.RequesterMessageId, out var message))

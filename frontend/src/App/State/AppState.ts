@@ -1,4 +1,10 @@
 import CommandAppState from './CommandAppState';
+import {
+  MemberIndexAppState,
+  MembersAppState,
+  RequestIndexAppState,
+  RequestsAppState,
+} from './PortalAppState';
 import SettingsAppState from './SettingsAppState';
 import SystemAppState from './SystemAppState';
 import TagsAppState from './TagsAppState';
@@ -50,6 +56,10 @@ export interface AppSectionState {
 interface AppState {
   app: AppSectionState;
   commands: CommandAppState;
+  members: MembersAppState;
+  memberIndex: MemberIndexAppState;
+  requests: RequestsAppState;
+  requestIndex: RequestIndexAppState;
   settings: SettingsAppState;
   system: SystemAppState;
   tags: TagsAppState;

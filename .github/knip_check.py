@@ -3,7 +3,9 @@
 
 knip has no baseline of its own, so this keeps one: frontend/knip-baseline.json lists what knip found when the check
 was added. The check fails on anything knip finds that isn't in the baseline, and on baseline entries knip no longer
-finds (remove them with --update), so the baseline can only shrink (docs/development.md#clean-code).
+finds (remove them with --update), so the baseline can only shrink (docs/development.md#clean-code). Servarr's own
+files, exactly as Prowlarr had them at the import, are never reported: they're used as Servarr builds them, not deleted
+as unused (docs/servarr-reuse.md).
 
   python3 .github/knip_check.py            run knip (node_modules/.bin/knip) and compare
   python3 .github/knip_check.py --update   rewrite the baseline to what knip finds now
@@ -15,6 +17,8 @@ import subprocess
 import sys
 
 BASELINE = os.path.join("frontend", "knip-baseline.json")
+# The commit that imported Prowlarr unchanged (docs/upstream.md), in full so a shallow checkout can fetch it.
+IMPORT = "cb5838dbd08dd12c7babe9f4582119062fe8f466"
 # Kinds of finding that mean code or packages nothing uses.
 KINDS = ["files", "dependencies", "devDependencies", "unlisted", "unresolved", "exports", "types", "enumMembers",
          "duplicates"]
@@ -47,16 +51,39 @@ def parse(output):
     return json.loads(output[start:])
 
 
+def unchanged_upstream(path):
+    """Whether the working copy's file is exactly as Prowlarr had it at the import (line endings aside)."""
+    theirs = subprocess.run(["git", "show", "%s:%s" % (IMPORT, path)], capture_output=True, text=True, encoding="utf-8")
+    if theirs.returncode != 0 or not os.path.isfile(path):
+        return False
+    with open(path, encoding="utf-8", newline="") as handle:
+        return handle.read().replace("\r\n", "\n") == theirs.stdout.replace("\r\n", "\n")
+
+
+def servarrs_own(found, upstream=unchanged_upstream):
+    """The findings, less those in Servarr files kept exactly as the import had them (package.json is Requestarr's)."""
+    return [line for line in found if not (line.split(": ")[1].startswith("frontend/src/") and upstream(line.split(": ")[1]))]
+
+
 def compare(now, baseline):
     """(new findings, baseline entries no longer found)"""
     return sorted(set(now) - set(baseline)), sorted(set(baseline) - set(now))
 
 
+def have_import():
+    """A shallow checkout (CI's) doesn't have the import commit: fetch that one commit, so unchanged Servarr files can
+    be told apart from changed ones."""
+    present = subprocess.run(["git", "cat-file", "-e", IMPORT + "^{commit}"], capture_output=True)
+    if present.returncode != 0:
+        subprocess.run(["git", "fetch", "--quiet", "--depth=1", "origin", IMPORT], check=True)
+
+
 def run_knip():
+    have_import()
     knip = os.path.join("node_modules", ".bin", "knip.cmd" if os.name == "nt" else "knip")
     result = subprocess.run([knip, "--reporter", "json", "--no-exit-code"], capture_output=True, text=True,
                             encoding="utf-8")
-    return findings(parse(result.stdout))
+    return servarrs_own(findings(parse(result.stdout)))
 
 
 def self_test():
@@ -70,6 +97,8 @@ def self_test():
         (compare(now, now) == ([], []), "the same findings pass"),
         (compare(now, now[1:]) == (now[:1], []), "a new finding fails"),
         (compare(now[1:], now) == ([], now[:1]), "a fixed finding must leave the baseline"),
+        (servarrs_own(["files: frontend/src/a.ts: a.ts", "exports: frontend/src/b.ts: x"], lambda path: path.endswith("a.ts"))
+         == ["exports: frontend/src/b.ts: x"], "a Servarr file kept as the import had it isn't reported"),
     ]
     failed = [name for ok, name in cases if not ok]
     print("SELF-TEST FAILED: " + "; ".join(failed) if failed else "knip check self-test passed (%d cases)." % len(cases))

@@ -1,6 +1,9 @@
 import React, { useCallback } from 'react';
+import { useDispatch } from 'react-redux';
 import { useHistory } from 'react-router-dom';
 import FieldSet from 'Components/FieldSet';
+import { messageTypes } from 'Helpers/Props';
+import { showMessage } from 'Store/Actions/appActions';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
@@ -9,22 +12,36 @@ import ActionButton from './ActionButton';
 import useRequestActionRunner from './useRequestActionRunner';
 import styles from '../Portal.css';
 
+// How long the sidebar says a removed request left the lists.
+const GONE_MESSAGE_SECONDS = 6;
+
 interface RequestActionsProps {
   detail: PortalRequestDetail;
   onDone: () => void;
 }
 
 // What an admin can do to the request now, as its feed card in Discord offers, through the same rules; its row in the
-// Requests lists offers the same. A deleted record has no page left, so Delete record goes back to Requests.
+// Requests list's toolbar offers the same when it's picked. A request Sonarr and Radarr don't have is gone once Force
+// removes it, so that goes back to Requests and says so in the sidebar's messages.
 function RequestActions({ detail, onDone }: RequestActionsProps) {
   const history = useHistory();
-  const onRecordDeleted = useCallback(
-    () => history.push(getPathWithUrlBase('/requests')),
-    [history]
-  );
+  const dispatch = useDispatch();
+  const { title } = detail.request;
+  const onRequestGone = useCallback(() => {
+    dispatch(
+      showMessage({
+        id: 'requestGone',
+        name: 'requestGone',
+        message: translate('PortalRequestRemovedFromLists', { title }),
+        type: messageTypes.SUCCESS,
+        hideAfter: GONE_MESSAGE_SECONDS,
+      })
+    );
+    history.push(getPathWithUrlBase('/requests'));
+  }, [dispatch, history, title]);
   const { run, isBusy, outcome, dialogs } = useRequestActionRunner(
     onDone,
-    onRecordDeleted
+    onRequestGone
   );
   const { request } = detail;
   const onPress = useCallback(

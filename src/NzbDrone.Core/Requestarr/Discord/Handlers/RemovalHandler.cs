@@ -325,7 +325,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             await responder.RespondAsync(new InteractionReply
             {
-                Content = DiscordText.RemovalConfirmForce(proposal.Label, proposal.Seasons, _settings.DeleteFiles),
+                Content = DiscordText.RemovalConfirmForce(proposal, _settings.DeleteFiles),
                 Ephemeral = true,
                 Buttons = new List<InteractionButton> { new() { CustomId = $"{RemovalRoutes.ForceYes}:{proposal.Id}", Label = DiscordText.ConfirmDeleteLabel, Style = ButtonStyle.Danger } }
             });

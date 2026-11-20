@@ -28,16 +28,17 @@ namespace Requestarr.Core.Portal
     // Something that happened, from the audit log: when, what, who did it and any detail (a reason, seasons).
     public record PortalEvent(DateTime At, string What, string Who, string Detail);
 
-    // Keeps: the members who pressed Keep it on its vote. IsOpen: an admin can still force or drop it.
+    // Keeps: the members who pressed Keep it on its vote. IsOpen: an admin can still force or drop it. RecordOnly: Sonarr
+    // and Radarr don't have the title, so passing drops the request from Requestarr's lists and nothing is deleted.
     public record PortalRemoval(int Id, RemovalStatus Status, IReadOnlyList<int> Seasons, DateTime Created, DateTime? Closed, string StartedBy, string ClosedBy,
-                                IReadOnlyList<string> Keeps, bool IsOpen);
+                                IReadOnlyList<string> Keeps, bool IsOpen, bool RecordOnly);
 
     // An open removal of a title nobody requested through Requestarr, which has no request page: its own feed card in
     // Discord.
     public record PortalTitleRemoval(string Title, PortalRemoval Removal);
 
     // Actions: what an admin can do to it now, as its feed card in Discord offers (approve, deny, available, cancel,
-    // searchAgain, retry, addSeasons, remove, forceRemoval or deletedByHand, dropRemoval, deleteRecord). HistoryTrimmedAfter: how long the audit log keeps
+    // searchAgain, retry, addSeasons, remove, forceRemoval or deletedByHand, dropRemoval). HistoryTrimmedAfter: how long the audit log keeps
     // an entry now ("1 year", or "forever" once trimmed before) when its first events were trimmed; otherwise null.
     // Followers: everyone following it with when they followed, earliest first; the list views show only a count.
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,
@@ -65,5 +66,9 @@ namespace Requestarr.Core.Portal
     // One thing waiting on an admin, as the admin channel's queue has it. Kind: request, trouble, mediaServerLink,
     // instanceDown, removal or accessRequest; RequestId or MemberId says which page it opens.
     public record PortalQueueItem(string Key, string Kind, DateTime Since, string Title, string Who, int? RequestId, int? MemberId, string WhoAvatar = null,
-                                  string WhoHandle = null);
+                                  string WhoHandle = null)
+    {
+        // A removal of a request Sonarr and Radarr don't have: Force drops it from Requestarr's lists and deletes nothing.
+        public bool RecordOnly { get; init; }
+    }
 }

@@ -10,7 +10,6 @@ const DANGER = [
   'cancel',
   'remove',
   'forceRemoval',
-  'deleteRecord',
   'suspend',
   'remove-member',
 ];

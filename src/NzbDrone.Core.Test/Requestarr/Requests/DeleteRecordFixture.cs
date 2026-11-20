@@ -10,8 +10,8 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Requests
 {
-    // Delete record: a history request (Not in library, from an import) leaves Requestarr's records with its follows,
-    // and the audit log keeps that it went. A live request is refused.
+    // A history request (Not in library, from an import) whose removal passed leaves Requestarr's records with its
+    // follows, and the audit log keeps that it went. A live request is never deleted this way.
     [TestFixture]
     public class DeleteRecordFixture : DbTest<RequestService, Request>
     {
@@ -39,13 +39,11 @@ namespace Requestarr.Core.Test.Requests
             follows.Insert(new RequestSubscriber { RequestId = old.Id, UserId = 2, Added = DateTime.UtcNow });
             follows.Insert(new RequestSubscriber { RequestId = kept.Id, UserId = 2, Added = DateTime.UtcNow });
 
-            var result = Subject.DeleteRecord(old.Id, Admin);
+            Subject.DeleteRecord(old.Id, Admin);
 
-            result.Success.Should().BeTrue();
-            result.Message.Should().Contain("Dune (2021)").And.Contain("Nothing in Sonarr, Radarr or Discord changed");
             Mocker.Resolve<IRequestRepository>().All().Select(r => r.Id).Should().Equal(kept.Id);
             follows.All().Select(f => f.RequestId).Should().Equal(kept.Id);
-            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, "request.deleteRecord", "request", old.Id.ToString(), "Dune (2021)"), Times.Once());
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, RequestService.DeleteRecordAction, "request", old.Id.ToString(), "Dune (2021)"), Times.Once());
         }
 
         [Test]
@@ -53,10 +51,8 @@ namespace Requestarr.Core.Test.Requests
         {
             var live = Insert(RequestStatus.Approved);
 
-            var result = Subject.DeleteRecord(live.Id, Admin);
+            Subject.DeleteRecord(live.Id, Admin);
 
-            result.Success.Should().BeFalse();
-            result.Message.Should().Contain("live request");
             Mocker.Resolve<IRequestRepository>().All().Should().ContainSingle();
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(It.IsAny<Actor>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never());
         }

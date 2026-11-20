@@ -21,11 +21,11 @@ namespace Requestarr.Core.Portal
         Task<ServiceResult> CancelAsync(int requestId, string reason, Actor admin);
         Task<ServiceResult> MarkAvailableAsync(int requestId, Actor admin);
         Task<ServiceResult> SearchAgainAsync(int requestId, Actor admin);
-        ServiceResult DeleteRecord(int requestId, Actor admin);
         Task<ServiceResult> RetryAsync(int requestId, Actor admin);
         Task<ServiceResult> AddSeasonsAsync(int requestId, SeasonChoice seasons, Actor admin);
 
-        // Seasons empty: the whole title. Force deletes now instead of asking the requester or holding a vote.
+        // Seasons empty: the whole title. Force deletes now instead of asking the requester or holding a vote. A request
+        // Sonarr and Radarr don't have (history) runs the same removal on its record: passing drops it from the lists.
         Task<ServiceResult> StartRemovalAsync(int requestId, IReadOnlyCollection<int> seasons, bool force, Actor admin);
         Task<ServiceResult> StartLibraryRemovalAsync(int instanceId, int itemId, IReadOnlyCollection<int> seasons, bool force, Actor admin);
         Task<IReadOnlyList<PortalLibraryTitle>> SearchUnrequestedAsync(string term);
@@ -68,8 +68,6 @@ namespace Requestarr.Core.Portal
 
         public Task<ServiceResult> SearchAgainAsync(int requestId, Actor admin) => _requests.SearchAgainAsync(requestId, admin);
 
-        public ServiceResult DeleteRecord(int requestId, Actor admin) => _requests.DeleteRecord(requestId, admin);
-
         public bool DeletesFiles => _removals.DeletesFiles;
 
         public Task<ServiceResult> RetryAsync(int requestId, Actor admin) => _requests.RetrySendAsync(requestId, admin);
@@ -100,6 +98,11 @@ namespace Requestarr.Core.Portal
 
         public async Task<ServiceResult> StartRemovalAsync(int requestId, IReadOnlyCollection<int> seasons, bool force, Actor admin)
         {
+            if (_requests.Find(requestId) is { } request && RemovalService.IsRecordOnly(request))
+            {
+                return await _removals.StartRecordByAdminAsync(admin, NameOf(admin), admin.UserId, requestId, seasons ?? new List<int>(), force);
+            }
+
             var target = await _removals.TargetForRequestAsync(requestId);
 
             if (target.Error != null)

@@ -8,6 +8,9 @@ import useDeletesFiles, { forceRemovalMessage } from '../useDeletesFiles';
 interface ForceRemovalConfirmProps {
   // What it removes, when the dialog isn't on that title's own page.
   title?: string;
+
+  // Sonarr and Radarr don't have it: Force drops the request from Requestarr's lists and deletes nothing.
+  isRecordOnly?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,6 +19,7 @@ interface ForceRemovalConfirmProps {
 // it's known whether deleting is on.
 function ForceRemovalConfirm({
   title,
+  isRecordOnly = false,
   onConfirm,
   onCancel,
 }: ForceRemovalConfirmProps) {
@@ -26,7 +30,11 @@ function ForceRemovalConfirm({
       isOpen={deletesFiles !== undefined}
       kind={kinds.DANGER}
       title={actionHeading('forceRemoval', title)}
-      message={forceRemovalMessage(deletesFiles)}
+      message={
+        isRecordOnly
+          ? translate('PortalRecordOnlyForce')
+          : forceRemovalMessage(deletesFiles)
+      }
       confirmLabel={translate('PortalActionForceRemoval')}
       onConfirm={onConfirm}
       onCancel={onCancel}

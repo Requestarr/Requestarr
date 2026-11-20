@@ -289,8 +289,7 @@ namespace Requestarr.Core.Portal
             Add(actions, request is { ContentType: ContentType.Tv, IsActive: true }, "addSeasons");
             Add(actions, removal?.IsOpen == true && removal.Status != RemovalStatus.DeleteByHand, "forceRemoval", "dropRemoval");
             Add(actions, removal?.Status == RemovalStatus.DeleteByHand, "deletedByHand", "dropRemoval");
-            Add(actions, removal?.IsOpen != true && RequestCards.Downloaded(request), "remove");
-            Add(actions, request.Status == RequestStatus.NotInLibrary, "deleteRecord");
+            Add(actions, removal?.IsOpen != true && (RequestCards.Downloaded(request) || RemovalService.IsRecordOnly(request)), "remove");
 
             return actions;
         }
@@ -310,7 +309,7 @@ namespace Requestarr.Core.Portal
             var keeps = _flags.ForProposal(proposal.Id).Select(f => names.GetValueOrDefault(f.UserId)).ToList();
             var seasons = proposal.Seasons ?? new List<int>();
 
-            return new PortalRemoval(proposal.Id, proposal.Status, seasons, proposal.Created, proposal.Closed, startedBy, closedBy, keeps, proposal.IsOpen);
+            return new PortalRemoval(proposal.Id, proposal.Status, seasons, proposal.Created, proposal.Closed, startedBy, closedBy, keeps, proposal.IsOpen, proposal.RecordOnly);
         }
 
         // What the admin channel's queue item is about, in the portal's words; null when it's gone since.
@@ -343,7 +342,7 @@ namespace Requestarr.Core.Portal
                 return new PortalQueueItem(item.Key, "deleteByHand", item.Since, instance != null ? $"{removal.Label} · {instance}" : removal.Label, who, removal.RequestId, memberId);
             }
 
-            return new PortalQueueItem(item.Key, "removal", item.Since, removal.Label, who, removal.RequestId, memberId);
+            return new PortalQueueItem(item.Key, "removal", item.Since, removal.Label, who, removal.RequestId, memberId) { RecordOnly = removal.RecordOnly };
         }
 
         private PortalQueueItem RequestItem(QueueItem item, string kind, Dictionary<int, string> names) =>

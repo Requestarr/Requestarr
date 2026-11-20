@@ -156,7 +156,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             return new InteractionReply
             {
-                Content = DiscordText.RemovalConfirmForce(proposal.Label, proposal.Seasons, _removals.DeletesFiles),
+                Content = DiscordText.RemovalConfirmForce(proposal, _removals.DeletesFiles),
                 Buttons = new List<InteractionButton>
                 {
                     new() { CustomId = $"{WalkRoutes.Do}:rm-force-yes:{at.Ticks}:{at.Key}", Label = DiscordText.ConfirmDeleteLabel, Style = ButtonStyle.Danger },

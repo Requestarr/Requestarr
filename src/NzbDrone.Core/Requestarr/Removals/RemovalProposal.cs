@@ -128,6 +128,10 @@ namespace Requestarr.Core.Removals
 
         public bool WholeTitle => Seasons == null || Seasons.Count == 0;
 
+        // A request Sonarr and Radarr don't have (history, usually imported): passing drops the request from
+        // Requestarr's lists, and nothing is deleted anywhere.
+        public bool RecordOnly => !ExternalItemId.HasValue;
+
         public string Label => Requests.Titles.WithYear(Title, Year);
 
         public int? ExternalId => ContentType == ContentType.Tv ? TvdbId : TmdbId;

@@ -138,7 +138,7 @@ namespace Requestarr.Core.Test.Qa.Web
         [Test]
         public Task request_views() => CheckAsync(nameof(request_views), async (browser, check) =>
         {
-            const string Shown = "document.querySelector('[class*=\"RequestViews-\"], table, [class*=\"Portal-empty\"]')";
+            const string Shown = "document.querySelector('[class*=\"RequestViews-\"], table, [class*=\"Alert-info\"]')";
             await SignInAsync(browser);
 
             foreach (var theme in Themes)
@@ -147,7 +147,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.GoAsync($"{Url}/requests");
                 await browser.WaitForAsync(Shown);
 
-                if (await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"Portal-empty\"]')"))
+                if (await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"Alert-info\"]')"))
                 {
                     check.Saw($"requests ({theme}): no requests on this server");
                     return;

@@ -93,7 +93,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. Do it again in the dark theme.
     4. Press Open in Sonarr on a request.
   - Expect:
-    - Overview has posters with each title's details; Posters is a grid of posters.
+    - Posters is a grid of posters; Overview adds each title's details.
     - Table has a small poster on each row.
     - The same filters and sorting in all three.
     - The series' page in Sonarr opens in a new tab.
@@ -192,26 +192,26 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - A Delete it yourself item naming the title and the Radarr it's in.
     - Once it's deleted, the removal closes.
   - Checked automatically: the live deleting turned off check.
-- **Row actions**
+- **Acting on one request**
   - Steps:
-    1. In the web app, open Requests, in each view.
-    2. Look beside a row's title and status.
-    3. Open its menu, then press a history row's Delete record.
+    1. In Requests, press Select Requests, then tick one Not in library row.
+    2. Press Start removal in the toolbar, then start it.
   - Expect:
-    - Approve, Start removal or Delete record as its own button, in view.
-    - The menu offers what the request's page offers, and Open in Sonarr.
-    - Delete record asks first, naming the title.
+    - No buttons on rows or posters.
+    - Left of Refresh: Approve, Deny, Start removal, plus what its page offers.
+    - Those it doesn't allow are greyed out.
+    - A removal vote starts, as for a title in the library.
   - Checked automatically: the web app request actions check.
 - **Picking requests**
   - Steps:
-    1. In Requests, tick three rows.
-    2. Tick the header's box.
-    3. Press Clear selection.
+    1. In Requests, press Select Requests, then tick three rows.
+    2. Press Select All, then Unselect All.
+    3. Press Stop Selecting.
   - Expect:
-    - No Select button: every row has its box.
-    - The row at the top says 3 selected; nothing below it moves.
-    - Only the actions all three allow are shown.
-    - The page picked, then nothing picked after Clear.
+    - A box on each row, as in Sonarr; nothing below the list.
+    - An action is live when any of the three allows it.
+    - Select All picks every request, on every page.
+    - The boxes and actions go away after Stop Selecting.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
   - Steps:
@@ -223,13 +223,14 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app request actions check.
 - **Paging long lists**
   - Steps:
-    1. In Requests, go to the next page.
-    2. Set Member to someone with many requests.
-    3. Tick the header's box, then Select all matching.
+    1. In Requests, go to the next page, then open Options.
+    2. Choose Movies in Filter.
+    3. Press Select Requests, then Select All.
   - Expect:
-    - 25 a page, with the pager and a per-page choice.
-    - The count and the pages cover only their requests.
-    - Every match across the pages picked.
+    - 100 a page with Sonarr's pager; the page size under Options.
+    - The pager's total and the footer's totals count only movies.
+    - The footer's colours match the status labels.
+    - Every movie picked, across the pages.
   - Checked automatically: the web app paging check.
 - **Member page sections**
   - Steps:
@@ -239,9 +240,9 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Each section has its own pager.
     - No Requester column in their own requests.
   - Checked automatically: the web app paging check.
-- **Add member list**
+- **Onboard list**
   - Steps:
-    1. In Members, press Add member.
+    1. In Members, press Onboard.
     2. Type part of a name in the box at the top.
     3. Tick someone, then press Set up.
   - Expect:
@@ -251,19 +252,27 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app add member check.
 - **Onboarding from the list**
   - Steps:
-    1. In Add member, tick someone, press Set up, then Confirm.
+    1. In Onboard, tick someone, press Set up, then Confirm.
   - Expect:
     - Each person's progress, then who was added and who failed and why.
     - Their role, channel and panel in Discord.
   - Checked automatically: the web app add member check.
 - **Picking members**
   - Steps:
-    1. In Members, tick a member.
-    2. Press Suspend in the bar, then Unsuspend.
+    1. In Members, press Select Members, then tick a member.
+    2. Press Suspend in the toolbar, then Unsuspend.
   - Expect:
-    - Every row has its box and its actions beside its status.
-    - The bar offers Suspend, Unsuspend and Change access.
-    - Each asks first, naming who, and the status changes.
+    - Left of Onboard: Suspend, Unsuspend, Change access, Remove member.
+    - Those no pick allows are greyed out.
+    - The status changes each time.
+  - Checked automatically: the web app add member check.
+- **Onboarding from Members**
+  - Steps:
+    1. In Members, press Select Members, then tick people imported but not onboarded.
+    2. Press Onboard, then Cancel.
+  - Expect:
+    - One window over the list, naming only those who can be onboarded.
+    - What they get, then Confirm; no other pages.
   - Checked automatically: the web app add member check.
 - **Acting from the web app**
   - Steps:

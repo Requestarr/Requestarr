@@ -1,4 +1,5 @@
-import React, { useContext } from 'react';
+import React, { ReactNode, useCallback } from 'react';
+import { useSelect } from 'App/SelectContext';
 import Link from 'Components/Link/Link';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -16,46 +17,27 @@ import {
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
-import {
-  RequestRowsContext,
-  RowActions,
-  RowSelect,
-} from '../Requests/RequestRows';
+import RequestStatusLabel from '../Requests/RequestStatusLabel';
 import useSortedRows, { SortValues } from '../useSortedRows';
 import FollowerStack from './FollowerStack';
 import MemberLink from './MemberLink';
+import SelectCell from './Select/SelectCell';
 import styles from '../Portal.css';
 import viewStyles from '../Requests/RequestViews.css';
 
-const titleColumns: Column[] = [
+// The columns a list of requests outside the Requests page shows (a member's page); the Requests page takes its own
+// from Table Options.
+const COLUMNS: Column[] = [
   { name: 'title', label: () => translate('PortalTitle') },
   { name: 'type', label: () => translate('PortalType') },
   { name: 'status', label: () => translate('PortalStatus') },
-].map((column) => ({ ...column, isVisible: true, isSortable: true }));
-
-const otherColumns: Column[] = [
   { name: 'requester', label: () => translate('PortalRequester') },
   { name: 'followers', label: () => translate('PortalFollowers') },
   { name: 'instance', label: () => translate('PortalInstance') },
   { name: 'requested', label: () => translate('PortalRequested') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: true }));
 
-// Each row's actions, beside its title and status, on the Requests page only.
-const actionsColumn: Column = {
-  name: 'actions',
-  label: '',
-  isVisible: true,
-  isSortable: false,
-};
-
-const posterColumn: Column = {
-  name: 'poster',
-  label: '',
-  isVisible: true,
-  isSortable: false,
-};
-
-export const sortValues: SortValues<PortalRequest> = {
+const sortValues: SortValues<PortalRequest> = {
   title: (r) => r.title,
   type: (r) => contentTypeText(r.contentType),
   status: (r) => requestStatusText(r),
@@ -65,70 +47,150 @@ export const sortValues: SortValues<PortalRequest> = {
   requested: (r) => r.requested,
 };
 
-interface RequestRowProps {
-  request: PortalRequest;
-  withPoster: boolean;
-  withRequester: boolean;
-}
-
-function RequestRow({ request, withPoster, withRequester }: RequestRowProps) {
+function TitleCell({ request }: { request: PortalRequest }) {
   const seasons = seasonsText(request.seasons);
-  const rows = useContext(RequestRowsContext);
 
   return (
-    <TableRow>
-      {rows && (
-        <TableRowCell>
-          <RowSelect request={request} />
-        </TableRowCell>
-      )}
-      {withPoster && (
-        <TableRowCell>
+    <TableRowCell>
+      <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
+      {seasons && <div className={styles.muted}>{seasons}</div>}
+      <OpenInLink media={request.media} />
+    </TableRowCell>
+  );
+}
+
+// One cell of a request's row, by its column's name, as Sonarr main's SeriesIndexRow draws them.
+function requestCell(name: string, request: PortalRequest): ReactNode {
+  switch (name) {
+    case 'poster':
+      return (
+        <TableRowCell key={name}>
           <RequestPoster
             url={request.media?.poster}
             className={viewStyles.tablePoster}
           />
         </TableRowCell>
-      )}
-      <TableRowCell>
-        <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
-        {seasons && <div className={styles.muted}>{seasons}</div>}
-        <OpenInLink media={request.media} />
-      </TableRowCell>
-      <TableRowCell>{contentTypeText(request.contentType)}</TableRowCell>
-      <TableRowCell>{requestStatusText(request)}</TableRowCell>
-      {rows && (
-        <TableRowCell>
-          <RowActions request={request} />
+      );
+    case 'title':
+      return <TitleCell key={name} request={request} />;
+    case 'type':
+      return (
+        <TableRowCell key={name}>
+          {contentTypeText(request.contentType)}
         </TableRowCell>
-      )}
-      {withRequester && (
-        <TableRowCell>
+      );
+    case 'status':
+      return (
+        <TableRowCell key={name}>
+          <RequestStatusLabel request={request} />
+        </TableRowCell>
+      );
+    case 'requester':
+      return (
+        <TableRowCell key={name}>
           <MemberLink person={request.requester} size="small" />
         </TableRowCell>
-      )}
-      <TableRowCell>
-        <FollowerStack requestId={request.id} followers={request.followers} />
-      </TableRowCell>
-      <TableRowCell>{request.instance ?? ''}</TableRowCell>
-      <RelativeDateCell date={request.requested} />
+      );
+    case 'followers':
+      return (
+        <TableRowCell key={name}>
+          <FollowerStack requestId={request.id} followers={request.followers} />
+        </TableRowCell>
+      );
+    case 'instance':
+      return <TableRowCell key={name}>{request.instance ?? ''}</TableRowCell>;
+    default:
+      return (
+        <RelativeDateCell
+          key={name}
+          date={request[name as 'requested' | 'decided' | 'fulfilled'] ?? ''}
+        />
+      );
+  }
+}
+
+interface RequestRowProps {
+  request: PortalRequest;
+  columns: Column[];
+  isSelectMode: boolean;
+}
+
+function RequestRow({ request, columns, isSelectMode }: RequestRowProps) {
+  return (
+    <TableRow>
+      {isSelectMode && <SelectCell id={request.id} />}
+      {columns
+        .filter((column) => column.isVisible)
+        .map((column) => requestCell(column.name, request))}
     </TableRow>
   );
 }
 
-// How a table outside the page's own sorting is sorted: the rows in order and the column pressed.
-export interface RequestsSort {
-  sorted: PortalRequest[];
+// The Requests page's header box: picks or clears every request the filter shows, as Sonarr main's
+// SeriesIndexTableHeader does.
+function useSelectAll() {
+  const [selectState, selectDispatch] = useSelect();
+  const onSelectAllChange = useCallback(
+    ({ value }: { value: boolean }) =>
+      selectDispatch({ type: value ? 'selectAll' : 'unselectAll' }),
+    [selectDispatch]
+  );
+
+  return { ...selectState, onSelectAllChange };
+}
+
+// A sort kept outside the table (the Requests page's store, or the server for a paged list), which the table shows
+// and changes when a column is pressed.
+interface RequestsSort {
   sortKey: string;
   sortDirection: string;
   onSortPress: (key: string) => void;
 }
 
+interface RequestsIndexTableProps {
+  requests: PortalRequest[];
+  columns: Column[];
+  sort: RequestsSort;
+  isSelectMode: boolean;
+  onTableOptionChange: (payload: unknown) => void;
+}
+
+// The Requests page's table: its columns from Table Options, its rows already sorted and filtered, and in select mode
+// a box on each row and one in the header.
+export function RequestsIndexTable(props: RequestsIndexTableProps) {
+  const { requests, columns, sort, isSelectMode, onTableOptionChange } = props;
+  const select = useSelectAll();
+
+  return (
+    <Table
+      selectAll={isSelectMode}
+      allSelected={select.allSelected}
+      allUnselected={select.allUnselected}
+      columns={columns}
+      sortKey={sort.sortKey}
+      sortDirection={sort.sortDirection}
+      onSelectAllChange={select.onSelectAllChange}
+      onSortPress={sort.onSortPress}
+      onTableOptionChange={onTableOptionChange}
+    >
+      <TableBody>
+        {requests.map((request) => (
+          <RequestRow
+            key={request.id}
+            request={request}
+            columns={columns}
+            isSelectMode={isSelectMode}
+          />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 interface RequestsTableProps {
   requests: PortalRequest[];
-  withPosters?: boolean;
 
-  // The sorting of a page that also shows the requests other ways (already applied to requests).
+  // The sort of a list paged on the server (already applied to requests).
   sort?: RequestsSort;
 
   // False for a member's own requests: every row would name them.
@@ -138,7 +200,6 @@ interface RequestsTableProps {
 // Requests in a table, newest first until a column is pressed: each title opens its request, each name its member.
 function RequestsTable({
   requests,
-  withPosters = false,
   sort,
   withRequester = true,
 }: RequestsTableProps) {
@@ -148,34 +209,22 @@ function RequestsTable({
     'requested',
     sortDirections.DESCENDING
   );
-  const rows = useContext(RequestRowsContext);
   const { sorted, sortKey, sortDirection, onSortPress } = sort
     ? { ...sort, sorted: requests }
     : own;
+  const columns = COLUMNS.filter(
+    (column) => withRequester || column.name !== 'requester'
+  );
 
   if (!requests.length) {
     return <div className={styles.empty}>{translate('PortalNoRequests')}</div>;
   }
 
-  // On the Requests page, the header's box picks or clears the page shown.
-  const selection = rows?.selection;
-
   return (
     <Table
-      selectAll={!!selection}
-      allSelected={selection?.allOnPage ?? false}
-      allUnselected={selection?.noneOnPage ?? true}
-      columns={[
-        ...(withPosters ? [posterColumn] : []),
-        ...titleColumns,
-        ...(rows ? [actionsColumn] : []),
-        ...otherColumns.filter(
-          (column) => withRequester || column.name !== 'requester'
-        ),
-      ]}
+      columns={columns}
       sortKey={sortKey}
       sortDirection={sortDirection}
-      onSelectAllChange={selection?.onPageChange}
       onSortPress={onSortPress}
     >
       <TableBody>
@@ -183,8 +232,8 @@ function RequestsTable({
           <RequestRow
             key={request.id}
             request={request}
-            withPoster={withPosters}
-            withRequester={withRequester}
+            columns={columns}
+            isSelectMode={false}
           />
         ))}
       </TableBody>

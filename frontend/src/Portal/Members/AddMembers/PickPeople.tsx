@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { SelectProvider, useSelect } from 'App/SelectContext';
 import Label from 'Components/Label';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -8,18 +9,17 @@ import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import { sortDirections } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import getSelectedIds from 'Utilities/Table/getSelectedIds';
 import Person from '../../Components/Person';
-import RowCheckbox from '../../Components/Selection/RowCheckbox';
-import SelectionBar from '../../Components/Selection/SelectionBar';
-import useSelection, {
-  Selection,
-} from '../../Components/Selection/useSelection';
+import SelectCell from '../../Components/Select/SelectCell';
+import SelectFooter from '../../Components/Select/SelectFooter';
 import { PortalServerMember } from '../../PortalTypes';
 import useSortedRows, { SortValues } from '../../useSortedRows';
 import styles from './AddMembers.css';
 
-// A server member as a row: its ID is their Discord ID.
-type Candidate = PortalServerMember & { id: string };
+// A server member as a row. Servarr's select state keys rows by a number, and a Discord ID is too long for one, so a
+// row's ID is its place in the list.
+type Candidate = PortalServerMember & { id: number };
 
 const columns: Column[] = [
   { name: 'name', label: () => translate('PortalMember') },
@@ -49,18 +49,10 @@ function matches(candidate: Candidate, words: string) {
   );
 }
 
-function CandidateRow({
-  candidate,
-  selection,
-}: {
-  candidate: Candidate;
-  selection: Selection;
-}) {
+function CandidateRow({ candidate }: { candidate: Candidate }) {
   return (
     <TableRow>
-      <TableRowCell>
-        <RowCheckbox id={candidate.id} selection={selection} />
-      </TableRowCell>
+      <SelectCell id={candidate.id} />
       <TableRowCell>
         <Person
           name={candidate.name}
@@ -84,6 +76,50 @@ function CandidateRow({
   );
 }
 
+// The people picked, in the list's order, and the header box's state and change for the people the filter shows: a
+// pick the filter hides stays picked, as Sonarr's own select state keeps picks off the page.
+function usePicks(candidates: Candidate[], shown: Candidate[], kept: string[]) {
+  const [selectState, selectDispatch] = useSelect();
+  const { selectedState } = selectState;
+  const picked = useMemo(() => {
+    const ids = getSelectedIds(selectedState);
+
+    return candidates.filter((candidate) => ids.includes(candidate.id));
+  }, [candidates, selectedState]);
+  const pickShown = useCallback(
+    (isSelected: boolean, among: Candidate[]) =>
+      among.forEach((candidate) =>
+        selectDispatch({
+          type: 'toggleSelected',
+          id: candidate.id,
+          isSelected,
+          shiftKey: false,
+        })
+      ),
+    [selectDispatch]
+  );
+  const onSelectAllChange = useCallback(
+    ({ value }: { value: boolean }) => pickShown(value, shown),
+    [pickShown, shown]
+  );
+
+  // Who was picked before (a member page's Onboard, or Back), once the rows are there.
+  useEffect(() => {
+    pickShown(
+      true,
+      candidates.filter((candidate) => kept.includes(candidate.discordId))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the first picks, not again on every change
+  }, []);
+
+  return {
+    picked,
+    allSelected: shown.length > 0 && shown.every((c) => selectedState[c.id]),
+    allUnselected: !shown.some((c) => selectedState[c.id]),
+    onSelectAllChange,
+  };
+}
+
 interface PickPeopleProps {
   people: PortalServerMember[];
   // Who's picked to begin with (a member page's Onboard, or the picks before Back), by Discord ID.
@@ -91,14 +127,14 @@ interface PickPeopleProps {
   onNext: (picked: PortalServerMember[]) => void;
 }
 
-// Add member's first step: everyone in the server who isn't onboarded, people with imported history first, narrowed
-// as you type and sorted by any column; pick one or many (a pick the filter hides stays picked), then set them up.
-function PickPeople({ people, kept, onNext }: PickPeopleProps) {
+// The list to pick from: a box on every row and one for everyone the filter shows (a pick the filter hides stays
+// picked), and the bar to set up the people picked.
+function PickList({
+  candidates,
+  kept,
+  onNext,
+}: PickPeopleProps & { candidates: Candidate[] }) {
   const [words, setWords] = useState('');
-  const candidates = useMemo(
-    () => people.map((person) => ({ ...person, id: person.discordId })),
-    [people]
-  );
   const shown = useMemo(
     () => candidates.filter((candidate) => matches(candidate, words)),
     [candidates, words]
@@ -109,7 +145,7 @@ function PickPeople({ people, kept, onNext }: PickPeopleProps) {
     'imported',
     sortDirections.DESCENDING
   );
-  const selection = useSelection(candidates, sort.sorted, kept);
+  const selection = usePicks(candidates, sort.sorted, kept);
   const onWords = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) =>
       setWords(event.target.value),
@@ -124,7 +160,7 @@ function PickPeople({ people, kept, onNext }: PickPeopleProps) {
       name: 'setUp',
       label: translate('PortalSetUpPeople', { count: selection.picked.length }),
       isDanger: false,
-      isOffered: true,
+      isOffered: selection.picked.length > 0,
     },
   ];
 
@@ -136,34 +172,46 @@ function PickPeople({ people, kept, onNext }: PickPeopleProps) {
         value={words}
         onChange={onWords}
       />
-      <SelectionBar
-        selection={selection}
-        actions={actions}
-        isBusy={false}
-        summary={translate('PortalPeopleToAdd', { count: shown.length })}
-        onAction={onSetUp}
-      />
       <Table
         selectAll={true}
-        allSelected={selection.allOnPage}
-        allUnselected={selection.noneOnPage}
+        allSelected={selection.allSelected}
+        allUnselected={selection.allUnselected}
         columns={columns}
         sortKey={sort.sortKey}
         sortDirection={sort.sortDirection}
-        onSelectAllChange={selection.onPageChange}
+        onSelectAllChange={selection.onSelectAllChange}
         onSortPress={sort.onSortPress}
       >
         <TableBody>
           {sort.sorted.map((candidate) => (
-            <CandidateRow
-              key={candidate.id}
-              candidate={candidate}
-              selection={selection}
-            />
+            <CandidateRow key={candidate.id} candidate={candidate} />
           ))}
         </TableBody>
       </Table>
+      <SelectFooter
+        actions={actions}
+        isBusy={false}
+        selectedText={translate('PortalCountPeopleSelected', {
+          count: selection.picked.length,
+        })}
+        onAction={onSetUp}
+      />
     </>
+  );
+}
+
+// Add member's first step: everyone in the server who isn't onboarded, people with imported history first, narrowed
+// as you type and sorted by any column; pick one or many, then set them up.
+function PickPeople(props: PickPeopleProps) {
+  const candidates = useMemo(
+    () => props.people.map((person, index) => ({ ...person, id: index })),
+    [props.people]
+  );
+
+  return (
+    <SelectProvider items={candidates}>
+      <PickList {...props} candidates={candidates} />
+    </SelectProvider>
   );
 }
 

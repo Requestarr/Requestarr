@@ -118,7 +118,7 @@ namespace Requestarr.Core.Portal
             private readonly Dictionary<string, string> _askedAs;
             private readonly Dictionary<string, string> _deleted;
 
-            // deleted: Delete record's entries, whose detail is the title the record had.
+            // deleted: the entries for history records that left with their removal, whose detail is the title it had.
             public Subjects(
                 IEnumerable<Request> requests,
                 IEnumerable<RequestarrUser> users,

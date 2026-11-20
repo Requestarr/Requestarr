@@ -2,8 +2,7 @@ import React, { useCallback, useState } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
-import ConfirmModal from 'Components/Modal/ConfirmModal';
-import { inputTypes, kinds } from 'Helpers/Props';
+import { inputTypes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionModal from '../Components/ActionModal';
 import ForceRemovalConfirm from '../Components/ForceRemovalConfirm';
@@ -12,20 +11,13 @@ import RemovalModal from '../Components/RemovalModal';
 import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
 import { actionHeading, actionLabel } from './ActionButton';
 
-export type RequestDialog =
-  | 'deny'
-  | 'cancel'
-  | 'seasons'
-  | 'remove'
-  | 'force'
-  | 'deleteRecord';
+export type RequestDialog = 'deny' | 'cancel' | 'seasons' | 'remove' | 'force';
 
 interface RequestDialogAnswers {
   onReason: (dialog: 'deny' | 'cancel', reason: string) => void;
   onSeasons: (seasons: number[], future: boolean) => void;
   onRemove: (seasons: number[], force: boolean) => void;
   onForce: () => void;
-  onDeleteRecord: () => void;
 }
 
 interface RequestActionDialogsProps extends RequestDialogAnswers {
@@ -33,6 +25,9 @@ interface RequestActionDialogsProps extends RequestDialogAnswers {
 
   // The request's title, as the confirmations name it.
   title: string;
+
+  // Sonarr and Radarr don't have it (Not in library): its removal has no seasons and deletes nothing.
+  isRecordOnly: boolean;
   onClose: () => void;
 }
 
@@ -58,35 +53,23 @@ function promptFor(title: string, dialog?: RequestDialog) {
 interface ConfirmDialogsProps {
   dialog?: RequestDialog;
   title: string;
+  isRecordOnly: boolean;
   onForce: () => void;
-  onDeleteRecord: () => void;
   onClose: () => void;
 }
 
-// The actions that only ask "are you sure?": Force removal, and Delete record, which names the title.
+// The action that only asks "are you sure?": Force removal.
 function ConfirmDialogs(props: ConfirmDialogsProps) {
-  const { dialog, title, onForce, onDeleteRecord, onClose } = props;
+  const { dialog, title, isRecordOnly, onForce, onClose } = props;
 
-  return (
-    <>
-      {dialog === 'force' && (
-        <ForceRemovalConfirm
-          title={title}
-          onConfirm={onForce}
-          onCancel={onClose}
-        />
-      )}
-      <ConfirmModal
-        isOpen={dialog === 'deleteRecord'}
-        kind={kinds.DANGER}
-        title={actionHeading('deleteRecord', title)}
-        message={translate('PortalDeleteRecordMessage', { title })}
-        confirmLabel={translate('PortalActionDeleteRecord')}
-        onConfirm={onDeleteRecord}
-        onCancel={onClose}
-      />
-    </>
-  );
+  return dialog === 'force' ? (
+    <ForceRemovalConfirm
+      title={title}
+      isRecordOnly={isRecordOnly}
+      onConfirm={onForce}
+      onCancel={onClose}
+    />
+  ) : null;
 }
 
 // The choices a request's actions ask for, as Discord's forms do: a reason, seasons, what a removal covers, and the
@@ -150,6 +133,7 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
       <RemovalModal
         isOpen={dialog === 'remove'}
         title={props.title}
+        isRecordOnly={props.isRecordOnly}
         onStart={onRemove}
         onClose={onClose}
       />
@@ -157,8 +141,8 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
       <ConfirmDialogs
         dialog={dialog}
         title={props.title}
+        isRecordOnly={props.isRecordOnly}
         onForce={props.onForce}
-        onDeleteRecord={props.onDeleteRecord}
         onClose={onClose}
       />
     </>

@@ -88,6 +88,9 @@ export interface PortalRemoval {
   closedBy: string | null;
   keeps: string[];
   isOpen: boolean;
+
+  // A removal of a request Sonarr and Radarr don't have: Force drops it from Requestarr's lists, deleting nothing.
+  recordOnly: boolean;
 }
 
 // Someone following a request, with when they followed it.
@@ -156,6 +159,9 @@ export interface PortalQueueItem {
   memberId: number | null;
   whoAvatar: string | null;
   whoHandle: string | null;
+
+  // A removal of a request Sonarr and Radarr don't have (see PortalRemoval).
+  recordOnly: boolean;
 }
 
 export interface PortalInstance {

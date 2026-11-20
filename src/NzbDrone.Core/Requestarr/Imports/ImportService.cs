@@ -9,6 +9,7 @@ using NLog;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
+using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Users;
 
@@ -63,6 +64,7 @@ namespace Requestarr.Core.Imports
         private readonly IBackendService _backends;
         private readonly IRequestRepository _requests;
         private readonly IRequestSubscriberRepository _subscribers;
+        private readonly IRemovalProposalRepository _removals;
         private readonly IUserIdentityRepository _identities;
         private readonly IUserManagementService _users;
         private readonly IImportedMessageRepository _imported;
@@ -78,6 +80,7 @@ namespace Requestarr.Core.Imports
                              IBackendService backends,
                              IRequestRepository requests,
                              IRequestSubscriberRepository subscribers,
+                             IRemovalProposalRepository removals,
                              IUserIdentityRepository identities,
                              IUserManagementService users,
                              IImportedMessageRepository imported,
@@ -94,6 +97,7 @@ namespace Requestarr.Core.Imports
             _backends = backends;
             _requests = requests;
             _subscribers = subscribers;
+            _removals = removals;
             _identities = identities;
             _users = users;
             _imported = imported;
@@ -238,6 +242,7 @@ namespace Requestarr.Core.Imports
             _imported.MessageIds(),
             library,
             _requests.All().ToList(),
+            _removals.All().Where(p => p.IsOpen && p.RequestId.HasValue).Select(p => p.RequestId.Value).ToHashSet(),
             _subscribers.All().ToLookup(s => s.RequestId, s => s.UserId),
             _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider && ulong.TryParse(i.ExternalId, out _))
                 .GroupBy(i => ulong.Parse(i.ExternalId)).ToDictionary(g => g.Key, g => g.First().UserId),

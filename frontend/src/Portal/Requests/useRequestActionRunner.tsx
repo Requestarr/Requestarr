@@ -25,7 +25,6 @@ const ASKING: Record<string, RequestDialog> = {
   addSeasons: 'seasons',
   remove: 'remove',
   forceRemoval: 'force',
-  deleteRecord: 'deleteRecord',
 };
 
 interface Asking {
@@ -35,25 +34,25 @@ interface Asking {
 
 // Runs any of a request's actions by name, as its page and its row in a list offer them (the request's own list, from
 // the same rules), asking first where Discord asks. One runner serves a whole list: its dialogs and the outcome are
-// for the request acted on last. onRecordDeleted: where to go once Delete record worked (the request's own page has
-// nothing left to show); otherwise onDone, as after every other action.
+// for the request acted on last; onDone follows every action. onRequestGone: where to go when a forced removal of a
+// request Sonarr and Radarr don't have just dropped it (its own page has nothing left to show).
 function useRequestActionRunner(
   onDone: () => void,
-  onRecordDeleted?: () => void
+  onRequestGone?: () => void
 ) {
-  const isDeleting = useRef(false);
+  const isDropping = useRef(false);
   const afterAction = useCallback(
     (isDone: boolean) => {
-      const deleted = isDeleting.current && isDone;
-      isDeleting.current = false;
+      const isGone = isDropping.current && isDone;
+      isDropping.current = false;
 
-      if (deleted && onRecordDeleted) {
-        onRecordDeleted();
+      if (isGone && onRequestGone) {
+        onRequestGone();
       } else {
         onDone();
       }
     },
-    [onDone, onRecordDeleted]
+    [onDone, onRequestGone]
   );
   const action = usePortalAction(afterAction);
   const { act } = action;
@@ -75,11 +74,12 @@ function useRequestActionRunner(
 
   const onClose = useCallback(() => setAsking(undefined), []);
   const answer = useCallback(
-    (to: string, body?: unknown) => {
+    (to: string, body?: unknown, isForce = false) => {
+      isDropping.current = isForce && asking?.request.status === 'notInLibrary';
       setAsking(undefined);
       act(to, body);
     },
-    [act]
+    [act, asking]
   );
   const onReason = useCallback(
     (which: 'deny' | 'cancel', reason: string) =>
@@ -93,28 +93,24 @@ function useRequestActionRunner(
   );
   const onRemove = useCallback(
     (seasons: number[], force: boolean) =>
-      answer(`${path}/removal`, { seasons, force }),
+      answer(`${path}/removal`, { seasons, force }, force),
     [answer, path]
   );
   const onForce = useCallback(
-    () => answer(`removals/${asking?.request.removalId}/force`),
+    () => answer(`removals/${asking?.request.removalId}/force`, {}, true),
     [answer, asking]
   );
-  const onDeleteRecord = useCallback(() => {
-    isDeleting.current = true;
-    answer(`${path}/delete-record`);
-  }, [answer, path]);
 
   const dialogs = (
     <RequestActionDialogs
       key={asking?.request.id ?? 'none'}
       dialog={asking?.dialog}
       title={asking ? titleText(asking.request) : ''}
+      isRecordOnly={asking?.request.status === 'notInLibrary'}
       onReason={onReason}
       onSeasons={onSeasons}
       onRemove={onRemove}
       onForce={onForce}
-      onDeleteRecord={onDeleteRecord}
       onClose={onClose}
     />
   );
