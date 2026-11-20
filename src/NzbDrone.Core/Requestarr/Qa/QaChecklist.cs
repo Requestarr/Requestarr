@@ -123,7 +123,7 @@ namespace Requestarr.Core.Qa
 
         // An item's wording, as its key is made from: "Steps:\n1. Open Settings.\nExpect:\n- It saves." (docker/qa_checks.py
         // builds the same, to record a result on exactly the item whose words were checked).
-        public static string Wording(IEnumerable<string> steps, IEnumerable<string> expect) =>
+        private static string Wording(IEnumerable<string> steps, IEnumerable<string> expect) =>
             string.Join("\n", new[] { "Steps:" }.Concat(steps.Select((s, n) => $"{n + 1}. {s}")).Append("Expect:").Concat(expect.Select(e => $"- {e}")));
 
         private static QaChecker Checker(Match checkedBy) =>

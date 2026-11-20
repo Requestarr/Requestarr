@@ -53,8 +53,9 @@ namespace Requestarr.Core.Qa
     // The QA test checklist in Discord: a summary card, then one card per item with Passes and Failing, for every version
     // QA has that staging doesn't. The record is the truth; the cards show it. Dev keeps a record of the running
     // version's items, where the automated results are recorded before a promotion, and posts no cards (owner,
-    // 2026-11-20: the checklist is the owner's QA work, on the QA server only). A new promotion to QA adds the new versions' items (as not tested yet) and drops the
-    // versions staging now has; every pass or failure already recorded stays.
+    // 2026-11-20: the checklist is the owner's QA work, on the QA server only). A new promotion to QA adds the new
+    // versions' items (as not tested yet) and drops the versions staging now has; every pass or failure already recorded
+    // stays.
     public class QaChecklistService : IQaChecklistService, IHandleAsync<DiscordReadyEvent>
     {
         private static readonly SemaphoreSlim Gate = new(1, 1);

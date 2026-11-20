@@ -31,8 +31,9 @@ namespace Requestarr.Core.Test.Qa
     // Live check in the dev Discord server (DEV_DISCORD_* from docker/secrets.env, the dev stack's bot stopped:
     // dev.ps1 -Stack dev down, or reset-dev --stopped). The dev server has no QA checklist, so the check makes one for the
     // running version in a Requestarr QA group, and removes it at the end; the server owner (an admin) passes an item,
-    // uses up his own report limit from the bug reports panel, then fails three items in a row, each opening its own linked report; the test member reports a problem and
-    // hits the limit; the bug reports channel is read back in order; then every item passes and the checklist completes.
+    // uses up his own report limit from the bug reports panel, then fails three items in a row, each opening its own
+    // linked report; the test member reports a problem and hits the limit; the bug reports channel is read back in
+    // order; then every item passes and the checklist completes.
     // With DEV_GITHUB_ISSUES_TOKEN set, reports are filed as real issues (labelled "test") and closed at the end. Clicks
     // go through the real handlers; the effects are read back from Discord. The checklist's state is saved after each
     // step in the API's format (LIVE_QA_STATE_DIR) for docker/qa-gate.py. Its own report cards are removed at the end.

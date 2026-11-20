@@ -201,17 +201,20 @@ namespace Requestarr.Core.Discord
         // The checklist channel with its cards, then the Requestarr QA group once nothing else is in it.
         private async Task RemoveQaGroupAsync(DiscordGuildConfig config)
         {
-            if ((await ExistingOrNull(Parse(config.QaChecklistChannelId)) ?? await _gateway.FindTextChannelAsync(Qa.QaText.ChecklistChannelName)) is { } checklist)
+            var checklist = await ExistingOrNull(Parse(config.QaChecklistChannelId)) ?? await _gateway.FindTextChannelAsync(Qa.QaText.ChecklistChannelName);
+
+            if (checklist != null)
             {
-                await _gateway.DeleteChannelAsync(checklist);
+                await _gateway.DeleteChannelAsync(checklist.Value);
                 _logger.Info("Removed the QA checklist channel: only the QA server has one");
                 _audit.Record(Actor.System, "discord.qa-checklist-channel.delete", "channel", checklist.ToString());
             }
 
-            if ((await ExistingOrNull(Parse(config.QaCategoryId)) ?? await _gateway.FindCategoryAsync(ChannelLayout.QaCategoryName)) is { } qaGroup &&
-                await _gateway.GetChannelCountInCategoryAsync(qaGroup) == 0)
+            var qaGroup = await ExistingOrNull(Parse(config.QaCategoryId)) ?? await _gateway.FindCategoryAsync(ChannelLayout.QaCategoryName);
+
+            if (qaGroup != null && await _gateway.GetChannelCountInCategoryAsync(qaGroup.Value) == 0)
             {
-                await _gateway.DeleteChannelAsync(qaGroup);
+                await _gateway.DeleteChannelAsync(qaGroup.Value);
                 _logger.Info("Removed the empty '{0}' group", ChannelLayout.QaCategoryName);
                 _audit.Record(Actor.System, "discord.category.delete", "channel", qaGroup.ToString(), ChannelLayout.QaCategoryName);
             }

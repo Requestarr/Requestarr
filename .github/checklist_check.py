@@ -124,9 +124,10 @@ def item_line(number, line, item):
 
 def part(number, line, item):
     wanted = "steps" if line == STEPS_LINE else "expect"
-    already = item["part"] == wanted or (wanted == "steps" and item["part"] == "expect")
+    # Steps come first and Expect last, so either heading after Expect, or a second Steps, is out of place.
+    out_of_place = item["part"] in ("expect", wanted)
     item["part"] = wanted
-    return [(number, "item '%s': Steps once, then Expect once" % item["name"])] if already else []
+    return [(number, "item '%s': Steps once, then Expect once" % item["name"])] if out_of_place else []
 
 
 def finished(item, wordings):
