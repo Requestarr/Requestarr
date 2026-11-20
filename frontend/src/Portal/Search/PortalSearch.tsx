@@ -109,7 +109,7 @@ function PortalSearch() {
         onFocus={onFocus}
         onBlur={onBlur}
       />
-      {isOpen && results && (
+      {isOpen && (results || library) && (
         <PortalSearchResults
           items={items}
           highlight={highlight}

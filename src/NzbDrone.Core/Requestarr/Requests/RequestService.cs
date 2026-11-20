@@ -152,6 +152,9 @@ namespace Requestarr.Core.Requests
 
     public class RequestService : IRequestService
     {
+        // The audit log's action for Delete record; its detail is the title the record had.
+        public const string DeleteRecordAction = "request.deleteRecord";
+
         public const int MaxSearchResults = 10;
 
         private readonly IRequestRepository _requests;
@@ -689,7 +692,7 @@ namespace Requestarr.Core.Requests
 
             _subscribers.DeleteMany(_subscribers.ForRequest(requestId));
             _requests.Delete(requestId);
-            _audit.Record(admin, "request.deleteRecord", "request", requestId.ToString(), request.Label);
+            _audit.Record(admin, DeleteRecordAction, "request", requestId.ToString(), request.Label);
 
             return ServiceResult.Ok(DiscordText.RecordDeleted(request.Label));
         }

@@ -52,11 +52,15 @@ function AllMatching({ selection }: { selection: Selection }) {
     );
   }
 
-  return allOnPage ? (
+  if (!allOnPage) {
+    return null;
+  }
+
+  return (
     <Link onPress={onSelectAllMatching}>
       {translate('PortalSelectAllMatching', { count: matchingCount })}
     </Link>
-  ) : null;
+  );
 }
 
 interface SelectionBarProps {

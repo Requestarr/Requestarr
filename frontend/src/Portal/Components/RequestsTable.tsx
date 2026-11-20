@@ -33,7 +33,7 @@ const titleColumns: Column[] = [
   { name: 'status', label: () => translate('PortalStatus') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: true }));
 
-const columns: Column[] = [
+const otherColumns: Column[] = [
   { name: 'requester', label: () => translate('PortalRequester') },
   { name: 'followers', label: () => translate('PortalFollowers') },
   { name: 'instance', label: () => translate('PortalInstance') },
@@ -156,7 +156,7 @@ function RequestsTable({
         ...(withPosters ? [posterColumn] : []),
         ...titleColumns,
         ...(rows ? [actionsColumn] : []),
-        ...columns,
+        ...otherColumns,
       ]}
       sortKey={sortKey}
       sortDirection={sortDirection}

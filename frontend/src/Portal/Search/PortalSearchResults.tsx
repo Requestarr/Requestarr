@@ -142,7 +142,11 @@ function PortalSearchResults({
       )}
 
       {items.map((item, index) => (
-        <React.Fragment key={`${item.group}-${item.path ?? item.label}`}>
+        <React.Fragment
+          key={
+            item.path ?? `${item.library?.instanceId}-${item.library?.itemId}`
+          }
+        >
           {(index === 0 || items[index - 1].group !== item.group) && (
             <div className={styles.group}>{item.group}</div>
           )}

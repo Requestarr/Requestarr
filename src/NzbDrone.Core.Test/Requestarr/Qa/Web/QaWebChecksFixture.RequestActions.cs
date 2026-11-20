@@ -29,7 +29,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Requests' actions and picking, at the owner's window width, in both themes. No Select toggle: every row has its
         // box and its actions beside its title and status. Three rows picked show the bar with the count and what all
-        // three allow; the header's box picks the page and the bar offers every match; Clear empties it. A row's menu
+        // three allow; the header's box picks every row shown; Clear empties it. A row's menu
         // lists what its page offers. Marked rows are approved and deleted and read back; real rows only get the
         // confirmations, cancelled. A library title nobody requested gets Start removal from the header search.
         [Test]
@@ -61,7 +61,12 @@ namespace Requestarr.Core.Test.Qa.Web
             var offering = $"r.filter(q => q.actions.includes('{action}'))";
             var marked = await PortalAsync<int[]>(browser, "requests", $"r => {offering}.filter(q => q.title === '{Marked}{name}').map(q => q.id)");
 
-            return marked.Length > 0 ? (marked, true) : (await PortalAsync<int[]>(browser, "requests", $"r => {offering}.map(q => q.id)"), false);
+            if (marked.Length > 0)
+            {
+                return (marked, true);
+            }
+
+            return (await PortalAsync<int[]>(browser, "requests", $"r => {offering}.map(q => q.id)"), false);
         }
 
         private static async Task OpenRequestsTableAsync(HeadlessBrowser browser)
@@ -118,7 +123,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
             await browser.RunAsync($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).forEach(r => r.querySelector('input[type=checkbox]').click())");
             await browser.WaitForAsync($"{Bar}?.innerText.includes('{Picks} selected')");
-            var off = await browser.EvalAsync<string>(Bar + ".querySelectorAll('button').length ? [..." + Bar + ".querySelectorAll('button')].filter(b => b.disabled).map(b => b.innerText.trim() + ' (' + b.parentElement.title + ')').join('; ') : ''");
+            var off = await browser.EvalAsync<string>($"[...{Bar}.querySelectorAll('button')].filter(b => b.disabled).map(b => b.innerText.trim() + ' (' + b.parentElement.title + ')').join('; ')");
             check.Saw($"{Picks} picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"; off, with why: {off}");
             (await browser.EvalAsync<double>($"{Bar}.getBoundingClientRect().top - document.querySelector('table').getBoundingClientRect().top")).Should().BeLessThan(0, "the bar sits above the list");
             await check.ShotAsync(browser, $"picked-{theme}");
@@ -240,7 +245,10 @@ namespace Requestarr.Core.Test.Qa.Web
 
         private static async Task RemovalFromSearchAsync(HeadlessBrowser browser, WebCheck check)
         {
-            var found = await PortalAsync<string[]>(browser, "library?term=", "t => t.length ? [t[0].title, t[0].label] : ['', '']");
+            // A title without an open removal, so the check never touches one it didn't start.
+            var open = await PortalAsync<int[]>(browser, "title-removals", "r => r.map(x => x.removal.id)");
+            var openTitles = await PortalAsync<string[]>(browser, "title-removals", "r => r.map(x => x.title)");
+            var found = await PortalAsync<string[]>(browser, "library?term=", $"t => (x => x ? [x.title, x.label] : ['', ''])(t.find(x => !{JsonSerializer.Serialize(openTitles)}.includes(x.label)))");
             var (title, label) = (found[0], found[1]);
 
             if (title.Length == 0)
@@ -267,20 +275,31 @@ namespace Requestarr.Core.Test.Qa.Web
                 return;
             }
 
-            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].find(b => b.innerText.trim() === 'Start removal').click()");
-            var said = await OutcomeAsync(browser);
-            var removal = await PortalAsync<int>(browser, "title-removals", $"r => r.find(x => x.title === {JsonSerializer.Serialize(label)})?.removal.id ?? 0");
-            check.Saw($"Start removal on {label} from the search: \"{said}\"; its open removal: {removal}");
-            await ShotBothAsync(browser, check, "search-removal");
+            var started = $"r => r.find(x => x.title === {JsonSerializer.Serialize(label)} && !{JsonSerializer.Serialize(open)}.includes(x.removal.id))?.removal.id ?? 0";
+            var removal = 0;
 
-            if (removal != 0)
+            try
             {
-                // Dropped again; the run that asked for it removes the record afterwards.
-                await browser.EvalAsync<bool>($"fetch(window.Requestarr.urlBase + '/api/v1/portal/removals/{removal}/drop', {{ method: 'POST', headers: {{ 'X-Api-Key': window.Requestarr.apiKey, 'Content-Type': 'application/json' }}, body: '{{}}' }}).then(r => r.ok)");
-                check.Saw($"removal {removal} dropped again");
+                await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].find(b => b.innerText.trim() === 'Start removal').click()");
+                var said = await OutcomeAsync(browser);
+                var worked = await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"ModalBody\"] [class*=\"Alert-success\"]')");
+                removal = await PortalAsync<int>(browser, "title-removals", started);
+                check.Saw($"Start removal on {label} from the search: \"{said}\" (done: {worked}); the removal it started: {removal}");
+                await ShotBothAsync(browser, check, "search-removal");
+                worked.Should().BeTrue("the search's Start removal started one");
+                removal.Should().NotBe(0, "the removal it started is open on that title");
             }
+            finally
+            {
+                // Dropped again, whatever happened; the run that asked for it removes the record afterwards.
+                removal = removal != 0 ? removal : await PortalAsync<int>(browser, "title-removals", started);
 
-            removal.Should().NotBe(0, "the search's Start removal started one on that title");
+                if (removal != 0)
+                {
+                    await browser.EvalAsync<bool>($"fetch(window.Requestarr.urlBase + '/api/v1/portal/removals/{removal}/drop', {{ method: 'POST', headers: {{ 'X-Api-Key': window.Requestarr.apiKey, 'Content-Type': 'application/json' }}, body: '{{}}' }}).then(r => r.ok)");
+                    check.Saw($"removal {removal} dropped again");
+                }
+            }
         }
     }
 }
