@@ -241,12 +241,18 @@ namespace Requestarr.Core.Portal
                 byType);
         }
 
-        // Someone known only from an import first appears in Requestarr's history with their earliest request or follow.
+        // Someone known only from an import first appears in Requestarr's history with their earliest imported request, or
+        // with their earliest follow when they only followed requests.
         private static DateTime FirstSeen(RequestarrUser user, IReadOnlyCollection<DateTime> asked, IEnumerable<RequestSubscriber> follows)
         {
-            var dates = asked.Concat(follows.Select(f => f.Added)).ToList();
+            if (!user.IsImported)
+            {
+                return user.Added;
+            }
 
-            return user.IsImported && dates.Count > 0 ? dates.Min() : user.Added;
+            var dates = asked.Count > 0 ? asked : follows.Select(f => f.Added).ToList();
+
+            return dates.Count > 0 ? dates.Min() : user.Added;
         }
 
         private static PortalAccess Access(UserMediaAccess access, Dictionary<int, string> instances)

@@ -41,8 +41,8 @@ namespace Requestarr.Core.Portal
     // A member's access to one content type: its level, their limit (requests per so many days) and their instance.
     public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays, string Instance);
 
-    // Added: when they were added, or for someone known only from an import, when they first asked for anything (the
-    // import itself is just when Requestarr heard of it). FirstRequest and LastRequest: their own requests'; ByType: how
+    // Added: when they were added, or for someone known only from an import, their earliest imported request (their
+    // earliest follow when they only followed; the import itself is just when Requestarr heard of it). FirstRequest and LastRequest: their own requests'; ByType: how
     // many of their requests are of each type.
     public record PortalMember(int Id, string Name, string DiscordName, string DiscordId, UserStatus Status, DateTime Added, IReadOnlyList<PortalAccess> Access,
                                int Requests, int Active, int Pending, int Following, string Avatar, DateTime? FirstRequest, DateTime? LastRequest,

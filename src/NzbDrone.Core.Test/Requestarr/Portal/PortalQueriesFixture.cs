@@ -78,7 +78,10 @@ namespace Requestarr.Core.Test.Portal
 
             var member = Subject.Members().Single(m => m.Id == imported.Id);
 
-            member.Added.Should().Be(Start.AddHours(3), "the import itself is only when Requestarr heard of them");
+            Db.Insert(new RequestSubscriber { RequestId = Requested("Earlier", _alice, RequestStatus.Approved, 1).Id, UserId = imported.Id, Added = Start.AddHours(1) });
+            member = Subject.Members().Single(m => m.Id == imported.Id);
+
+            member.Added.Should().Be(Start.AddHours(3), "their earliest imported request: not the import, nor an earlier follow");
             (member.FirstRequest, member.LastRequest).Should().Be((Start.AddHours(3), Start.AddHours(9)));
             member.ByType.Should().Equal(new PortalTypeCount(ContentType.Movie, 2), new PortalTypeCount(ContentType.Tv, 1));
             (member.Avatar, member.DiscordName).Should().Be(("https://cdn.discordapp.com/avatars/42/a.png", "chaz"));
