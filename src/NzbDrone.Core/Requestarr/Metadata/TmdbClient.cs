@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -87,8 +88,8 @@ namespace Requestarr.Core.Metadata
 
         // A refused key (401) or one over its rate limit (429) is the key's problem; anything else, such as a title it
         // doesn't know (404), says the key works.
-        private static string KeyProblem(System.Net.HttpStatusCode status) =>
-            status is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.TooManyRequests ? $"HTTP {(int)status}" : null;
+        private static string KeyProblem(HttpStatusCode status) =>
+            status is HttpStatusCode.Unauthorized or HttpStatusCode.TooManyRequests ? $"HTTP {(int)status}" : null;
 
         private void Report(string problem)
         {

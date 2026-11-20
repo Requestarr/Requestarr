@@ -48,12 +48,7 @@ namespace Requestarr.Core.Metadata
 
         private string _key;
         private string _builtInProblem;
-        private Lazy<string> _builtIn;
-
-        public TmdbSettingsStore()
-        {
-            BuiltIn = ReadBuiltIn;
-        }
+        private Lazy<string> _builtIn = new(ReadBuiltIn);
 
         public Func<string, string> Variable { get; set; } = Environment.GetEnvironmentVariable;
 
@@ -64,11 +59,11 @@ namespace Requestarr.Core.Metadata
             set => _builtIn = new Lazy<string>(value);
         }
 
-        public string ApiKey => Sources().FirstOrDefault(s => s.Key != null).Key;
+        public string ApiKey => InUse().Key;
 
         public bool Enabled => ApiKey != null;
 
-        public TmdbKeySource Source => Sources().FirstOrDefault(s => s.Key != null).Source;
+        public TmdbKeySource Source => InUse().Source;
 
         public string BuiltInProblem => Source == TmdbKeySource.BuiltIn ? _builtInProblem : null;
 
@@ -88,13 +83,13 @@ namespace Requestarr.Core.Metadata
             return true;
         }
 
-        private (string Key, TmdbKeySource Source)[] Sources() => new[]
+        // The first source that has a key, or (null, None) when none has.
+        private (string Key, TmdbKeySource Source) InUse() => new (string Key, TmdbKeySource Source)[]
         {
             (_key, TmdbKeySource.ProvisioningFile),
             (Clean(Variable(KeyVariable)), TmdbKeySource.Environment),
-            (Clean(BuiltIn()), TmdbKeySource.BuiltIn),
-            ((string)null, TmdbKeySource.None)
-        };
+            (Clean(BuiltIn()), TmdbKeySource.BuiltIn)
+        }.FirstOrDefault(s => s.Key != null);
 
         private static string Clean(string key) => string.IsNullOrWhiteSpace(key) ? null : key.Trim();
 

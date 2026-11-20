@@ -4,10 +4,14 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Moq;
 using NLog;
 using NLog.Config;
 using NLog.Targets;
 using NUnit.Framework;
+using NzbDrone.Core.HealthCheck;
+using NzbDrone.Core.Localization;
+using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Metadata;
@@ -173,9 +177,9 @@ namespace Requestarr.Core.Test.Polish
         public async Task a_refused_built_in_key_raises_the_health_warning_until_it_works_again()
         {
             var store = new TmdbSettingsStore { Variable = _ => null, BuiltIn = () => "built-in" };
-            var events = new Moq.Mock<NzbDrone.Core.Messaging.Events.IEventAggregator>();
+            var events = new Mock<IEventAggregator>();
             var client = new TmdbClient(store, events.Object, LogManager.CreateNullLogger());
-            var check = new TmdbKeyCheck(store, Moq.Mock.Of<NzbDrone.Core.Localization.ILocalizationService>());
+            var check = new TmdbKeyCheck(store, Mock.Of<ILocalizationService>());
             var status = HttpStatusCode.Unauthorized;
             client.Transport = (_, _) => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent("{}") });
 
@@ -183,20 +187,20 @@ namespace Requestarr.Core.Test.Polish
             await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
 
             check.Check().Message.Should().Be(TmdbKeyCheck.Message("HTTP 401")).And.Contain(TmdbSettingsStore.KeyVariable);
-            events.Verify(e => e.PublishEvent(Moq.It.IsAny<TmdbKeyChangedEvent>()), Moq.Times.Once(), "checked again only when it changes");
+            events.Verify(e => e.PublishEvent(It.IsAny<TmdbKeyChangedEvent>()), Times.Once(), "checked again only when it changes");
 
             status = HttpStatusCode.NotFound;
             await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
 
-            check.Check().Type.Should().Be(NzbDrone.Core.HealthCheck.HealthCheckResult.Ok, "a title it doesn't know says the key works");
-            events.Verify(e => e.PublishEvent(Moq.It.IsAny<TmdbKeyChangedEvent>()), Moq.Times.Exactly(2));
+            check.Check().Type.Should().Be(HealthCheckResult.Ok, "a title it doesn't know says the key works");
+            events.Verify(e => e.PublishEvent(It.IsAny<TmdbKeyChangedEvent>()), Times.Exactly(2));
         }
 
         [Test]
         public async Task an_admins_own_key_failing_raises_no_warning_about_the_built_in_one()
         {
             var store = new TmdbSettingsStore { Variable = _ => "their-own", BuiltIn = () => "built-in" };
-            var client = new TmdbClient(store, Moq.Mock.Of<NzbDrone.Core.Messaging.Events.IEventAggregator>(), LogManager.CreateNullLogger());
+            var client = new TmdbClient(store, Mock.Of<IEventAggregator>(), LogManager.CreateNullLogger());
             client.Transport = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests));
 
             await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
@@ -214,7 +218,7 @@ namespace Requestarr.Core.Test.Polish
             var store = new TmdbSettingsStore();
             store.Set(Key);
 
-            return new TmdbClient(store, Moq.Mock.Of<NzbDrone.Core.Messaging.Events.IEventAggregator>(), factory.GetLogger("tmdb-test"));
+            return new TmdbClient(store, Mock.Of<IEventAggregator>(), factory.GetLogger("tmdb-test"));
         }
     }
 }
