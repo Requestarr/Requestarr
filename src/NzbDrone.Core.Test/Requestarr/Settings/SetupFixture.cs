@@ -35,7 +35,7 @@ namespace Requestarr.Core.Test.Settings
             status.AdminAccount.Should().BeFalse();
             status.Discord.Should().BeFalse();
             status.Instance.Should().BeFalse();
-            status.InviteUrl.Should().BeNull();
+            (status.InviteUrl, status.ReadOnlyInviteUrl).Should().Be((null, null));
         }
 
         [Test]
@@ -47,7 +47,7 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
-        public void an_install_with_a_sign_in_a_bot_and_an_instance_is_ready_with_an_invite_link()
+        public void an_install_with_a_sign_in_a_bot_and_an_instance_is_ready_with_both_invite_links()
         {
             Given(AuthenticationType.Forms, true, Instance(enabled: true));
 
@@ -55,6 +55,7 @@ namespace Requestarr.Core.Test.Settings
 
             status.Needed.Should().BeFalse();
             status.InviteUrl.Should().Contain("client_id=42").And.Contain($"permissions={SetupService.InvitePermissions}");
+            status.ReadOnlyInviteUrl.Should().Contain("client_id=42").And.Contain($"permissions={SetupService.ReadOnlyInvitePermissions}");
         }
 
         [Test]

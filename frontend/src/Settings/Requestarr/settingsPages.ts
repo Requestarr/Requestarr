@@ -15,6 +15,7 @@ export const DISCORD_CONNECTION: SettingsSection = {
     ['discordAdminRoleId', 'text'],
     ['discordAdminRoleName', 'text'],
   ],
+  advanced: ['discordAdminRoleId', 'discordAdminRoleName'],
 };
 
 export const DISCORD_SECTIONS: SettingsSection[] = [
@@ -74,18 +75,23 @@ export const SETTING_CHOICES: Record<string, [value: string, label: string][]> =
     ],
   };
 
-export const CONNECTION_SECTIONS: SettingsSection[] = [
-  {
-    legend: 'SettingsDownloads',
-    fields: [
-      ['availabilityWebhookUrl', 'text'],
-      ['availabilityPollMinutes', 'number'],
-    ],
-  },
+// The Connections page's Options, under its cards: how Sonarr and Radarr reach Requestarr, and how often it looks.
+export const CONNECTION_OPTIONS: SettingsSection = {
+  legend: 'Options',
+  fields: [
+    ['availabilityWebhookUrl', 'text'],
+    ['availabilityPollMinutes', 'number'],
+  ],
+};
+
+export const TMDB_SECTIONS: SettingsSection[] = [
   {
     legend: 'SettingsTmdb',
     fields: [['tmdbApiKey', 'password']],
   },
+];
+
+export const BUG_REPORT_SECTIONS: SettingsSection[] = [
   {
     legend: 'SettingsBugReports',
     fields: [
@@ -94,6 +100,11 @@ export const CONNECTION_SECTIONS: SettingsSection[] = [
       ['bugReportsGithubToken', 'password'],
       ['bugReportsPerDay', 'number'],
       ['bugReportsMinutesBetween', 'number'],
+    ],
+    advanced: [
+      'bugReportsRepository',
+      'bugReportsPerDay',
+      'bugReportsMinutesBetween',
     ],
   },
 ];

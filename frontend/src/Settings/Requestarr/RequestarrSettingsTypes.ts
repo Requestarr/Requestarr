@@ -8,9 +8,11 @@ export interface AppSettings {
 
 export type SettingInput = 'text' | 'number' | 'check' | 'password' | 'select';
 
+// Advanced: the fields shown only with Show Advanced on, where a page has that button.
 export interface SettingsSection {
   legend: string;
   fields: [name: string, input: SettingInput][];
+  advanced?: string[];
 }
 
 export type BotState =
@@ -28,6 +30,7 @@ export interface SetupStatus {
   botState: BotState;
   botProblem?: string;
   inviteUrl?: string;
+  readOnlyInviteUrl?: string;
 }
 
 export interface InstanceSettings {

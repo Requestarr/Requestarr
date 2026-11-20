@@ -12,6 +12,7 @@ export interface GeneralAppState
 export type UiSettingsAppState = AppSectionItemState<UiSettings>;
 
 interface SettingsAppState {
+  advancedSettings: boolean;
   general: GeneralAppState;
   ui: UiSettingsAppState;
 }
