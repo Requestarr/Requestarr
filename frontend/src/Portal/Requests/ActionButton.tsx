@@ -10,27 +10,45 @@ const DANGER = [
   'cancel',
   'remove',
   'forceRemoval',
+  'deleteRecord',
   'suspend',
   'remove-member',
 ];
 
-interface ActionButtonProps {
-  action: string;
-  isBusy: boolean;
-  onPress: (action: string) => void;
-}
-
-// One of an item's actions, by its name in the portal's answer; its words are PortalAction and the name.
-function ActionButton({ action, isBusy, onPress }: ActionButtonProps) {
-  const onButtonPress = useCallback(() => onPress(action), [action, onPress]);
-  const kind: Kind = DANGER.includes(action) ? kinds.DANGER : kinds.DEFAULT;
+// An action's words, by its name in the portal's answer: PortalAction and the name ("forceRemoval": Force removal).
+export function actionLabel(action: string) {
   const name = action.replace(/(^|-)(\w)/g, (_, __, letter: string) =>
     letter.toUpperCase()
   );
 
+  return translate(`PortalAction${name}`);
+}
+
+interface ActionButtonProps {
+  action: string;
+  isBusy: boolean;
+  isDisabled?: boolean;
+  onPress: (action: string) => void;
+}
+
+// One of an item's actions, red when it's destructive.
+function ActionButton({
+  action,
+  isBusy,
+  isDisabled,
+  onPress,
+}: ActionButtonProps) {
+  const onButtonPress = useCallback(() => onPress(action), [action, onPress]);
+  const kind: Kind = DANGER.includes(action) ? kinds.DANGER : kinds.DEFAULT;
+
   return (
-    <SpinnerButton kind={kind} isSpinning={isBusy} onPress={onButtonPress}>
-      {translate(`PortalAction${name}`)}
+    <SpinnerButton
+      kind={kind}
+      isSpinning={isBusy}
+      isDisabled={isDisabled}
+      onPress={onButtonPress}
+    >
+      {actionLabel(action)}
     </SpinnerButton>
   );
 }

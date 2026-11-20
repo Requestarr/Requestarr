@@ -5,6 +5,7 @@ import { shortcuts } from 'Components/keyboardShortcuts';
 import { icons } from 'Helpers/Props';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
+import { useLibraryRemoval } from './LibraryRemovalModal';
 import PortalSearchResults from './PortalSearchResults';
 import usePortalSearch, { searchItems } from './usePortalSearch';
 import styles from './PortalSearch.css';
@@ -39,16 +40,17 @@ function useFocusShortcut(input: React.RefObject<HTMLInputElement>) {
   }, [input]);
 }
 
-// The header's search: requests by title and members by name or Discord username, each opening its page. It only
-// finds what Requestarr has; it never looks up or requests a new title.
+// The header's search: requests by title and members by name or Discord username, each opening its page, and titles in
+// a Sonarr or Radarr library that nobody requested here, each with its removal. It never looks up or requests a new
+// title.
 function PortalSearch() {
   const history = useHistory();
   const input = useRef<HTMLInputElement>(null);
   const [term, setTerm] = useState('');
   const [highlight, setHighlight] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const results = usePortalSearch(term);
-  const items = searchItems(results);
+  const { results, library } = usePortalSearch(term);
+  const items = searchItems(results, library);
 
   useFocusShortcut(input);
 
@@ -56,6 +58,9 @@ function PortalSearch() {
     setTerm('');
     input.current?.blur();
   }, []);
+
+  const removal = useLibraryRemoval(onOpen);
+  const { onRemove } = removal;
 
   // Closed when the box loses focus, a moment later so a click on a result still opens it.
   const onFocus = useCallback(() => setIsOpen(true), []);
@@ -78,14 +83,16 @@ function PortalSearch() {
         setHighlight((current) =>
           Math.min(Math.max(current + step, 0), Math.max(items.length - 1, 0))
         );
-      } else if (event.key === 'Enter' && items[highlight]) {
+      } else if (event.key === 'Enter' && items[highlight]?.library) {
+        onRemove(items[highlight].library, false);
+      } else if (event.key === 'Enter' && items[highlight]?.path) {
         history.push(getPathWithUrlBase(items[highlight].path));
         onOpen();
       } else if (event.key === 'Escape') {
         onOpen();
       }
     },
-    [history, items, highlight, onOpen]
+    [history, items, highlight, onOpen, onRemove]
   );
 
   return (
@@ -106,8 +113,10 @@ function PortalSearch() {
           items={items}
           highlight={highlight}
           onOpen={onOpen}
+          onRemove={onRemove}
         />
       )}
+      {removal.modal}
     </div>
   );
 }

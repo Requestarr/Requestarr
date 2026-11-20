@@ -13,6 +13,7 @@
 }
 
 .overviewBody {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -54,15 +55,19 @@
 .posterPeople {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   min-width: 0;
   gap: 6px;
 }
 
 /* The requester's link may narrow, so a long name ends in its ellipsis instead of pushing the followers out of the row. */
-.people > a:first-child,
-.posterPeople > a:first-child {
+.people > a:first-of-type,
+.posterPeople > a:first-of-type {
   min-width: 0;
+}
+
+/* Under a poster, the follower count and the actions menu sit at the right. */
+.posterPeople > a:first-of-type {
+  margin-right: auto;
 }
 
 .posterImage {

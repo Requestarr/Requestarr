@@ -12,6 +12,7 @@ import {
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
+import { RowActions, RowSelect } from './RequestRows';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
 
@@ -34,6 +35,7 @@ function OverviewRow({ request }: { request: PortalRequest }) {
 
   return (
     <div className={styles.overviewRow}>
+      <RowSelect request={request} />
       <RequestPoster url={media?.poster} className={styles.overviewPoster} />
       <div className={styles.overviewBody}>
         <div className={styles.overviewTitle}>
@@ -50,6 +52,7 @@ function OverviewRow({ request }: { request: PortalRequest }) {
         {details && <div className={portalStyles.muted}>{details}</div>}
         <OpenInLink media={media} />
       </div>
+      <RowActions request={request} />
     </div>
   );
 }

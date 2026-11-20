@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import Link from 'Components/Link/Link';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -16,6 +16,11 @@ import {
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
+import {
+  RequestRowsContext,
+  RowActions,
+  RowSelect,
+} from '../Requests/RequestRows';
 import useSortedRows, { SortValues } from '../useSortedRows';
 import FollowerStack from './FollowerStack';
 import MemberLink from './MemberLink';
@@ -31,6 +36,21 @@ const columns: Column[] = [
   { name: 'instance', label: () => translate('PortalInstance') },
   { name: 'requested', label: () => translate('PortalRequested') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: true }));
+
+// Select mode's checkboxes, and each row's actions menu, on the Requests page only.
+const selectColumn: Column = {
+  name: 'select',
+  label: '',
+  isVisible: true,
+  isSortable: false,
+};
+
+const actionsColumn: Column = {
+  name: 'actions',
+  label: '',
+  isVisible: true,
+  isSortable: false,
+};
 
 const posterColumn: Column = {
   name: 'poster',
@@ -56,9 +76,15 @@ interface RequestRowProps {
 
 function RequestRow({ request, withPoster }: RequestRowProps) {
   const seasons = seasonsText(request.seasons);
+  const rows = useContext(RequestRowsContext);
 
   return (
     <TableRow>
+      {rows?.isSelecting && (
+        <TableRowCell>
+          <RowSelect request={request} />
+        </TableRowCell>
+      )}
       {withPoster && (
         <TableRowCell>
           <RequestPoster
@@ -82,6 +108,11 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
       </TableRowCell>
       <TableRowCell>{request.instance ?? ''}</TableRowCell>
       <RelativeDateCell date={request.requested} />
+      {rows && (
+        <TableRowCell>
+          <RowActions request={request} />
+        </TableRowCell>
+      )}
     </TableRow>
   );
 }
@@ -108,6 +139,7 @@ function RequestsTable({
     'requested',
     sortDirections.DESCENDING
   );
+  const rows = useContext(RequestRowsContext);
   const { sorted, sortKey, sortDirection, onSortPress } = sort
     ? { ...sort, sorted: requests }
     : own;
@@ -118,7 +150,12 @@ function RequestsTable({
 
   return (
     <Table
-      columns={withPosters ? [posterColumn, ...columns] : columns}
+      columns={[
+        ...(rows?.isSelecting ? [selectColumn] : []),
+        ...(withPosters ? [posterColumn] : []),
+        ...columns,
+        ...(rows ? [actionsColumn] : []),
+      ]}
       sortKey={sortKey}
       sortDirection={sortDirection}
       onSortPress={onSortPress}

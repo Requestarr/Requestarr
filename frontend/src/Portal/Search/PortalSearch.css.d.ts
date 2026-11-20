@@ -11,6 +11,7 @@ interface CssExports {
   'nothing': string;
   'open': string;
   'poster': string;
+  'removal': string;
   'result': string;
   'resultRow': string;
   'results': string;

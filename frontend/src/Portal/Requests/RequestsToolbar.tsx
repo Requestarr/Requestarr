@@ -31,25 +31,29 @@ const VIEW_LABELS: Record<RequestView, string> = {
 interface RequestsToolbarProps {
   view: RequestView;
   sort: RequestsSort;
+  isSelecting: boolean;
   onViewChange: (view: RequestView) => void;
-  onRemovePress: () => void;
+  onSelectPress: () => void;
 }
 
-// Remove a title on the left; on the right, the view (Overview, Posters, Table) and the sort, as Sonarr's and Radarr's
-// lists have them.
+// Select on the left (select mode, as Sonarr's Select Series); on the right, the view (Overview, Posters, Table) and
+// the sort, as Sonarr's and Radarr's lists have them.
 function RequestsToolbar({
   view,
   sort,
+  isSelecting,
   onViewChange,
-  onRemovePress,
+  onSelectPress,
 }: RequestsToolbarProps) {
   return (
     <PageToolbar>
       <PageToolbarSection>
         <PageToolbarButton
-          label={translate('PortalRemoveTitle')}
-          iconName={icons.DELETE}
-          onPress={onRemovePress}
+          label={translate(
+            isSelecting ? 'PortalStopSelecting' : 'PortalSelect'
+          )}
+          iconName={isSelecting ? icons.SQUARE : icons.CHECK_SQUARE}
+          onPress={onSelectPress}
         />
       </PageToolbarSection>
 

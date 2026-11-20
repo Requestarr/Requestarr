@@ -65,6 +65,10 @@ export interface PortalRequest {
   decided: string | null;
   fulfilled: string | null;
   media?: PortalMedia;
+
+  // What an admin can do to it now, as its page offers; the removal those actions act on, while one is open.
+  actions: string[];
+  removalId: number | null;
 }
 
 export interface PortalEvent {
@@ -228,6 +232,10 @@ export interface PortalLibraryTitle {
   title: string;
   requester: string | null;
   seasons: number[];
+  poster: string | null;
+
+  // It has a request here, so the search shows it under Requests instead.
+  requested: boolean;
 }
 
 export interface PortalVersion {
