@@ -21,6 +21,7 @@ namespace Requestarr.Core.Portal
             ["request.approve"] = "Approved",
             ["request.deny"] = "Denied",
             ["request.cancel"] = "Cancelled",
+            ["request.deleteRecord"] = "Record deleted",
             ["request.send"] = "Sent to Sonarr or Radarr",
             ["request.refused"] = "Request refused",
             ["anime.switch"] = "Sub or dub switched",

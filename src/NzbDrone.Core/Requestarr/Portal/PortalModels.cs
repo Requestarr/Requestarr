@@ -11,10 +11,11 @@ namespace Requestarr.Core.Portal
     // Avatar: their Discord picture's address, or null for Discord's default one.
     public record PortalPerson(int Id, string Name, string Avatar, string Handle);
 
-    // One request: its requester, and everyone who asked for the same title after them (its followers).
+    // One request: its requester, and everyone who asked for the same title after them (its followers). Actions: what an
+    // admin can do to it now, the same list its own page has; RemovalId: its open removal, which the removal actions act on.
     public record PortalRequest(int Id, string Title, int? Year, ContentType ContentType, RequestStatus Status, DownloadProgress Progress, PortalPerson Requester,
                                 IReadOnlyList<PortalPerson> Followers, int? InstanceId, string Instance, IReadOnlyList<int> Seasons, DateTime Requested, DateTime? Decided, DateTime? Fulfilled,
-                                PortalMedia Media);
+                                PortalMedia Media, IReadOnlyList<string> Actions, int? RemovalId);
 
     // A follower on a request's own page, with when they followed it.
     public record PortalFollower(PortalPerson Person, DateTime Followed);
@@ -36,7 +37,7 @@ namespace Requestarr.Core.Portal
     public record PortalTitleRemoval(string Title, PortalRemoval Removal);
 
     // Actions: what an admin can do to it now, as its feed card in Discord offers (approve, deny, available, cancel,
-    // searchAgain, retry, addSeasons, remove, forceRemoval or deletedByHand, dropRemoval). HistoryTrimmedAfter: how long the audit log keeps
+    // searchAgain, retry, addSeasons, remove, forceRemoval or deletedByHand, dropRemoval, deleteRecord). HistoryTrimmedAfter: how long the audit log keeps
     // an entry now ("1 year", or "forever" once trimmed before) when its first events were trimmed; otherwise null.
     // Followers: everyone following it with when they followed, earliest first; the list views show only a count.
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,

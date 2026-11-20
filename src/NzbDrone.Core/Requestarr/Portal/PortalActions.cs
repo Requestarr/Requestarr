@@ -10,8 +10,9 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
-    // A title in a Sonarr or Radarr library that a removal can start on, from Remove a title's search.
-    public record PortalLibraryTitle(int InstanceId, int ItemId, string Instance, string Title, string Requester, IReadOnlyList<int> Seasons);
+    // A title in a Sonarr or Radarr library that a removal can start on, from the header search. Requested: it has a
+    // request here (the search shows that under Requests instead).
+    public record PortalLibraryTitle(int InstanceId, int ItemId, string Instance, string Title, string Requester, IReadOnlyList<int> Seasons, string Poster, bool Requested);
 
     public interface IPortalActions
     {
@@ -20,6 +21,7 @@ namespace Requestarr.Core.Portal
         Task<ServiceResult> CancelAsync(int requestId, string reason, Actor admin);
         Task<ServiceResult> MarkAvailableAsync(int requestId, Actor admin);
         Task<ServiceResult> SearchAgainAsync(int requestId, Actor admin);
+        ServiceResult DeleteRecord(int requestId, Actor admin);
         Task<ServiceResult> RetryAsync(int requestId, Actor admin);
         Task<ServiceResult> AddSeasonsAsync(int requestId, SeasonChoice seasons, Actor admin);
 
@@ -27,6 +29,9 @@ namespace Requestarr.Core.Portal
         Task<ServiceResult> StartRemovalAsync(int requestId, IReadOnlyCollection<int> seasons, bool force, Actor admin);
         Task<ServiceResult> StartLibraryRemovalAsync(int instanceId, int itemId, IReadOnlyCollection<int> seasons, bool force, Actor admin);
         Task<IReadOnlyList<PortalLibraryTitle>> SearchLibraryAsync(string term);
+
+        // Whether a removal deletes in Sonarr or Radarr here; when it doesn't, the web app's confirmations say so.
+        bool DeletesFiles { get; }
         Task<ServiceResult> ForceRemovalAsync(int removalId, Actor admin);
         Task<ServiceResult> DropRemovalAsync(int removalId, Actor admin);
         Task<ServiceResult> DeletedByHandAsync(int removalId, Actor admin);
@@ -62,6 +67,10 @@ namespace Requestarr.Core.Portal
         public Task<ServiceResult> MarkAvailableAsync(int requestId, Actor admin) => _requests.MarkAvailableAsync(requestId, admin, NameOf(admin));
 
         public Task<ServiceResult> SearchAgainAsync(int requestId, Actor admin) => _requests.SearchAgainAsync(requestId, admin);
+
+        public ServiceResult DeleteRecord(int requestId, Actor admin) => _requests.DeleteRecord(requestId, admin);
+
+        public bool DeletesFiles => _removals.DeletesFiles;
 
         public Task<ServiceResult> RetryAsync(int requestId, Actor admin) => _requests.RetrySendAsync(requestId, admin);
 
@@ -108,7 +117,7 @@ namespace Requestarr.Core.Portal
         {
             var found = await _removals.SearchLibraryAsync(term ?? string.Empty);
 
-            return found.Select(t => new PortalLibraryTitle(t.Instance.Id, t.Title.Id, t.Instance.Name, t.Label, t.Requester?.DisplayName, t.Title.SeasonsWithFiles ?? new List<int>()))
+            return found.Select(t => new PortalLibraryTitle(t.Instance.Id, t.Title.Id, t.Instance.Name, t.Label, t.Requester?.DisplayName, t.Title.SeasonsWithFiles ?? new List<int>(), t.Title.PosterUrl, t.Request != null))
                 .ToList();
         }
 

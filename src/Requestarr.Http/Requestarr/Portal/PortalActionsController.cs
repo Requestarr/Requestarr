@@ -60,6 +60,12 @@ namespace Requestarr.Http.Portal
         [HttpPost("/api/v1/portal/requests/{id:int}/search-again")]
         public Task<IActionResult> SearchAgain(int id) => Act(admin => _actions.SearchAgainAsync(id, admin));
 
+        [HttpPost("/api/v1/portal/requests/{id:int}/delete-record")]
+        public Task<IActionResult> DeleteRecord(int id) => Act(admin => Task.FromResult(_actions.DeleteRecord(id, admin)));
+
+        [HttpGet("/api/v1/portal/removals/deletes-files")]
+        public IActionResult DeletesFiles() => Json(new { _actions.DeletesFiles });
+
         [HttpPost("/api/v1/portal/requests/{id:int}/retry")]
         public Task<IActionResult> Retry(int id) => Act(admin => _actions.RetryAsync(id, admin));
 

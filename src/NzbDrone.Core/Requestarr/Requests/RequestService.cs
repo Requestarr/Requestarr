@@ -92,6 +92,10 @@ namespace Requestarr.Core.Requests
         // Closes a pending request as already available (the title is already there).
         Task<ServiceResult> MarkAvailableAsync(int requestId, Actor admin, string adminName);
 
+        // Deletes a history request (Not in library, from an import) from Requestarr's records, with its follows.
+        // Nothing in Sonarr, Radarr or Discord changes; the audit log keeps that it was deleted.
+        ServiceResult DeleteRecord(int requestId, Actor admin);
+
         // What Sonarr / Radarr now say about a sent request. A change (downloading, stuck, failed,
         // seasons available, all there) reposts its messages and feed card; no change does nothing.
         Task<bool> ApplyProgressAsync(Request request, ProgressSnapshot snapshot);
@@ -671,6 +675,27 @@ namespace Requestarr.Core.Requests
 
         // The admin can cancel while it waits for approval, or once sent while nothing is
         // downloading or there yet (later, removal is the way: task 4).
+        public ServiceResult DeleteRecord(int requestId, Actor admin)
+        {
+            var request = _requests.Find(requestId);
+
+            if (request == null)
+            {
+                return ServiceResult.Fail(DiscordText.RequestNotFound);
+            }
+
+            if (request.Status != RequestStatus.NotInLibrary)
+            {
+                return ServiceResult.Fail(DiscordText.OnlyHistoryDeleted(request.Label));
+            }
+
+            _subscribers.DeleteMany(_subscribers.ForRequest(requestId));
+            _requests.Delete(requestId);
+            _audit.Record(admin, "request.deleteRecord", "request", requestId.ToString(), request.Label);
+
+            return ServiceResult.Ok(DiscordText.RecordDeleted(request.Label));
+        }
+
         public static bool AdminCanCancel(Request request) =>
             request.Status == RequestStatus.Pending ||
             Admin.TroubleSource.InTrouble(request) ||
