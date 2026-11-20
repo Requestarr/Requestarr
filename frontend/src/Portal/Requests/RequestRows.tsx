@@ -14,9 +14,10 @@ import styles from './RequestRows.css';
 
 // What the Requests page lets its rows do: each row's actions. A list of requests elsewhere (a member's page) has none
 // of it.
-// isBusy: an action is under way, so the rows' own buttons wait for it.
 export interface RequestRows {
   onAction: (request: PortalRequest, action: string) => void;
+
+  // An action is under way, so the rows' own buttons wait for it.
   isBusy: boolean;
 }
 
@@ -33,15 +34,11 @@ const LIKELY: [string, typeof icons.CHECK][] = [
 interface RowActionProps {
   request: PortalRequest;
   action: string;
+  isBusy: boolean;
   onAction: RequestRows['onAction'];
 }
 
-function RowActionItem({
-  request,
-  action,
-  isBusy,
-  onAction,
-}: RowActionProps & { isBusy: boolean }) {
+function RowActionItem({ request, action, isBusy, onAction }: RowActionProps) {
   const onPress = useCallback(
     () => onAction(request, action),
     [request, action, onAction]
@@ -56,7 +53,6 @@ function RowActionItem({
 
 interface LikelyButtonProps extends RowActionProps {
   icon: typeof icons.CHECK;
-  isBusy: boolean;
 }
 
 function LikelyButton(props: LikelyButtonProps) {

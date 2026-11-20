@@ -146,25 +146,25 @@ function useSelectAll() {
   return { ...selectState, onSelectAllChange };
 }
 
-// How a table outside the page's own sorting is sorted: the column pressed.
+// A sort kept outside the table (the Requests page's store, or the server for a paged list), which the table shows
+// and changes when a column is pressed.
 interface RequestsSort {
   sortKey: string;
   sortDirection: string;
   onSortPress: (key: string) => void;
 }
 
-interface SelectingTableProps {
+interface RequestsIndexTableProps {
   requests: PortalRequest[];
   columns: Column[];
   sort: RequestsSort;
+  isSelectMode: boolean;
   onTableOptionChange: (payload: unknown) => void;
 }
 
 // The Requests page's table: its columns from Table Options, its rows already sorted and filtered, and in select mode
 // a box on each row and one in the header.
-export function RequestsIndexTable(
-  props: SelectingTableProps & { isSelectMode: boolean }
-) {
+export function RequestsIndexTable(props: RequestsIndexTableProps) {
   const { requests, columns, sort, isSelectMode, onTableOptionChange } = props;
   const select = useSelectAll();
 

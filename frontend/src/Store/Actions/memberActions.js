@@ -1,3 +1,4 @@
+import { filterTypes } from 'Helpers/Props';
 import { accessText, isImported, memberStatusText } from 'Portal/portalText';
 import { createThunk, handleThunks } from 'Store/thunks';
 import dateFilterPredicate from 'Utilities/Date/dateFilterPredicate';
@@ -23,7 +24,7 @@ function statusFilter(status) {
   return {
     key: status,
     label: () => memberStatusText(status),
-    filters: [{ key: 'status', value: status, type: 'equal' }]
+    filters: [{ key: 'status', value: status, type: filterTypes.EQUAL }]
   };
 }
 
@@ -34,7 +35,7 @@ export const filters = [
   {
     key: 'imported',
     label: () => translate('PortalImportedMembers'),
-    filters: [{ key: 'imported', value: true, type: 'equal' }]
+    filters: [{ key: 'imported', value: true, type: filterTypes.EQUAL }]
   }
 ];
 

@@ -60,7 +60,8 @@
 .default {
   composes: legendItemColor;
 
-  background-color: var(--defaultColor);
+  /* The colour of a default Label, so the swatch matches the labels it explains. */
+  background-color: var(--themeLightColor);
 }
 
 .statistics {
