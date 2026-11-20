@@ -120,7 +120,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"{Bar}?.innerText.includes('{Picks} selected')");
             var off = await browser.EvalAsync<string>(Bar + ".querySelectorAll('button').length ? [..." + Bar + ".querySelectorAll('button')].filter(b => b.disabled).map(b => b.innerText.trim() + ' (' + b.parentElement.title + ')').join('; ') : ''");
             check.Saw($"{Picks} picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"; off, with why: {off}");
-            (await browser.EvalAsync<int>($"{Bar}.getBoundingClientRect().top - document.querySelector('table').getBoundingClientRect().top")).Should().BeLessThan(0, "the bar sits above the list");
+            (await browser.EvalAsync<double>($"{Bar}.getBoundingClientRect().top - document.querySelector('table').getBoundingClientRect().top")).Should().BeLessThan(0, "the bar sits above the list");
             await check.ShotAsync(browser, $"picked-{theme}");
 
             await browser.RunAsync("document.querySelector('thead input[type=checkbox]').click()");
