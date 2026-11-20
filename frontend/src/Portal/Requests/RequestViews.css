@@ -6,6 +6,12 @@
   gap: 15px;
 }
 
+/* The poster, with the round select tick over its corner in select mode. */
+.posterContainer {
+  position: relative;
+  flex: 0 0 auto;
+}
+
 .overviewPoster {
   flex: 0 0 auto;
   width: 80px;

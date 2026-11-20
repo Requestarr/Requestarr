@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext } from 'react';
-import CheckInput from 'Components/Form/CheckInput';
 import Icon from 'Components/Icon';
 import Button from 'Components/Link/Button';
 import Menu from 'Components/Menu/Menu';
@@ -8,19 +7,17 @@ import MenuContent from 'Components/Menu/MenuContent';
 import MenuItem from 'Components/Menu/MenuItem';
 import { align, icons, kinds, sizes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import { Selection } from '../Components/Selection/useSelection';
 import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { actionLabel } from './ActionButton';
 import styles from './RequestRows.css';
 
-// What the Requests page lets its rows do: each row's actions, and picking rows. A list of requests elsewhere (a
-// member's page) has none of it.
+// What the Requests page lets its rows do: each row's actions. A list of requests elsewhere (a member's page) has none
+// of it.
 // isBusy: an action is under way, so the rows' own buttons wait for it.
 export interface RequestRows {
   onAction: (request: PortalRequest, action: string) => void;
   isBusy: boolean;
-  selection: Selection;
 }
 
 export const RequestRowsContext = createContext<RequestRows | null>(null);
@@ -131,28 +128,5 @@ export function RowActions({ request }: { request: PortalRequest }) {
         </MenuContent>
       </Menu>
     </span>
-  );
-}
-
-// A row's checkbox, always there, as in an email list.
-export function RowSelect({ request }: { request: PortalRequest }) {
-  const rows = useContext(RequestRowsContext);
-  const onSelect = rows?.selection.onSelect;
-  const onChange = useCallback(
-    ({ value }: { value: boolean }) => onSelect?.(request.id, value),
-    [onSelect, request.id]
-  );
-
-  if (!rows) {
-    return null;
-  }
-
-  return (
-    <CheckInput
-      containerClassName={styles.select}
-      name={`select-${request.id}`}
-      value={rows.selection.selected.has(request.id)}
-      onChange={onChange}
-    />
   );
 }

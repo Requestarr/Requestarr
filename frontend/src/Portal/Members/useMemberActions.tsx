@@ -5,7 +5,7 @@ import { kinds } from 'Helpers/Props';
 import { callApi } from 'Settings/Requestarr/requestarrApi';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
-import runEach from '../Components/Selection/runEach';
+import runEach from '../Components/runEach';
 import { PortalMember } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
 import { ActionOutcome } from '../usePortalAction';

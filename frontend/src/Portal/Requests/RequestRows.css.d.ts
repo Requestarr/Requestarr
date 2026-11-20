@@ -3,7 +3,6 @@
 interface CssExports {
   'actions': string;
   'button': string;
-  'select': string;
 }
 export const cssExports: CssExports;
 export default cssExports;

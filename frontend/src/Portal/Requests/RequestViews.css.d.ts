@@ -9,6 +9,7 @@ interface CssExports {
   overviewTitle: string;
   people: string;
   posterCard: string;
+  posterContainer: string;
   posterImage: string;
   posterMissing: string;
   posterPeople: string;

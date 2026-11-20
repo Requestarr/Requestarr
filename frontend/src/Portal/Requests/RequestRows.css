@@ -18,16 +18,3 @@
 .button:hover {
   background-color: var(--inputBackgroundColor);
 }
-
-/* CheckInput's own container grows to fill a form row; a list row's checkbox keeps its size, and its box drops the
-   form's top margin so the row stays one line high. */
-.select {
-  position: relative;
-  display: flex;
-  flex: 0 0 auto;
-  user-select: none;
-}
-
-.select div {
-  margin-top: 0;
-}

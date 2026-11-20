@@ -82,7 +82,7 @@ function requestsPage(withRequester: boolean) {
     return (
       <RequestsTable
         requests={records}
-        sort={{ ...sort, sorted: records }}
+        sort={sort}
         withRequester={withRequester}
       />
     );
