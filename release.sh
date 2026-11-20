@@ -84,12 +84,12 @@ fetch() {
 
 # The build number tagged on exactly this commit (v0.7.0005 gives 0.7.0005), or nothing.
 number_of() {
-    git tag --points-at "$1" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' | sed 's/^v//' | sort -V | tail -1
+    git tag --points-at "$1" | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' || true; } | sed 's/^v//' | sort -V | tail -1
 }
 
 # The oldest numbered goal build that the commit has and staging doesn't: where the staging heading's "with" starts.
 first_new_build() {
-    git tag --merged "$1" --no-merged origin/staging | grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' | sed 's/^v//' | sort -V | head -1
+    git tag --merged "$1" --no-merged origin/staging | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' || true; } | sed 's/^v//' | sort -V | head -1
 }
 
 # dev's newest numbered commit.
