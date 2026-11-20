@@ -5,11 +5,16 @@
   flex: 4 0 220px;
 }
 
-.status,
+.status {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 0 0 190px;
+}
+
 .access {
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
 
-  flex: 0 0 120px;
+  flex: 0 0 110px;
 }
 
 .requests,
@@ -18,7 +23,7 @@
 .following {
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
 
-  flex: 0 0 90px;
+  flex: 0 0 80px;
 }
 
 .byType {
@@ -32,5 +37,5 @@
 .added {
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
 
-  flex: 0 0 120px;
+  flex: 0 0 110px;
 }

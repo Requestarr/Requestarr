@@ -12,11 +12,16 @@
   flex: 4 0 220px;
 }
 
-.status,
+.status {
+  composes: cell;
+
+  flex: 0 0 190px;
+}
+
 .access {
   composes: cell;
 
-  flex: 0 0 120px;
+  flex: 0 0 110px;
 }
 
 .requests,
@@ -25,7 +30,7 @@
 .following {
   composes: cell;
 
-  flex: 0 0 90px;
+  flex: 0 0 80px;
 }
 
 .byType {
@@ -39,5 +44,5 @@
 .added {
   composes: cell;
 
-  flex: 0 0 120px;
+  flex: 0 0 110px;
 }
