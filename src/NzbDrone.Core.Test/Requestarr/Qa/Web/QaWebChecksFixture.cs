@@ -185,21 +185,29 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task PosterOptionsAsync(HeadlessBrowser browser, WebCheck check)
         {
             const string Poster = "document.querySelector('[class*=\"RequestIndexPoster-content\"]').getBoundingClientRect().width";
-            const string Size = "document.querySelector('[class*=\"ModalBody\"] select[name=size]')";
             await browser.GoAsync($"{Url}/requests");
             await ChooseViewAsync(browser, "Posters", "[class*=\"RequestIndexPoster-content\"]");
             var before = await browser.EvalAsync<double>(Poster);
             await PressToolbarAsync(browser, "Options");
-            await browser.WaitForAsync($"!!{Size}");
-            await browser.RunAsync($"const e = {Size}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(e, 'small'); e.dispatchEvent(new Event('change', {{ bubbles: true }}))");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"ModalBody\"] [class*=\"EnhancedSelectInput-enhancedSelect\"]')");
+            await ChoosePosterSizeAsync(browser, "Small");
             await browser.WaitForAsync($"{Poster} < {before.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
             var after = await browser.EvalAsync<double>(Poster);
             var options = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"ModalBody\"] label')].map(l => l.innerText.trim()).filter(Boolean).join(', ')");
             check.Saw($"Posters' Options: {options}; Poster Size Small draws posters {after:0}px wide, down from {before:0}px");
             await check.ShotAsync(browser, "poster-options");
-            await browser.RunAsync($"const e = {Size}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(e, 'large'); e.dispatchEvent(new Event('change', {{ bubbles: true }}))");
+            await ChoosePosterSizeAsync(browser, "Large");
             await AnswerAsync(browser, "Close", true);
             after.Should().BeLessThan(before);
+        }
+
+        // The Poster Size choice in the open Options, as a person picks it from Servarr's drop-down.
+        private static async Task ChoosePosterSizeAsync(HeadlessBrowser browser, string size)
+        {
+            const string Options = "[...document.querySelectorAll('[class*=\"EnhancedSelectInputOption-option\"]')]";
+            await browser.RunAsync("document.querySelector('[class*=\"ModalBody\"] [class*=\"EnhancedSelectInput-enhancedSelect\"]').click()");
+            await browser.WaitForAsync($"{Options}.some(o => o.innerText.trim() === '{size}')");
+            await browser.RunAsync($"{Options}.find(o => o.innerText.trim() === '{size}').click()");
         }
 
         // Sorted by title, the letter bar beside the list jumps to a letter; opening a request and coming back returns to
@@ -456,7 +464,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Every Members row has a picture and an @handle, and someone imported is first seen (Added) with their first
         // request. The list draws only the rows on screen, so the check scrolls through it, reading each row as it's
-        // drawn, and photographs its end.
+        // drawn (leaving out the person a check run seeds), and photographs its end.
         private static async Task MemberRowsAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             const string Rows = "[...document.querySelectorAll('[class*=\"IndexTable-row\"]')]";
@@ -464,7 +472,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 $"(async () => {{ const body = {IndexBody}; const header = [...document.querySelector('[class*=\"VirtualTableHeader-header\"]').children]; " +
                 "const column = name => header.findIndex(t => t.innerText.trim().startsWith(name)); const first = column('First request'), added = column('Added'); " +
                 "const rows = new Map(); for (let top = 0; ; top += body.clientHeight / 2) { body.scrollTo(0, top); await new Promise(r => setTimeout(r, 150)); " +
-                $"for (const r of {Rows}) {{ const c = r.children; rows.set(c[0].querySelector('a').innerText, {{ picture: !!c[0].querySelector('img'), handle: c[0].innerText.includes('@'), " +
+                $"for (const r of {Rows}) {{ const c = r.children; if (c[0].innerText.startsWith('Automated check')) continue; rows.set(c[0].querySelector('a').innerText, {{ picture: !!c[0].querySelector('img'), handle: c[0].innerText.includes('@'), " +
                 "notFirstSeen: first >= 0 && c[1].innerText.startsWith('Imported, ') && c[first].innerText !== c[added].innerText }); } if (top >= body.scrollHeight) break; } " +
                 "const all = [...rows.entries()]; return { rows: all.length, pictures: all.filter(([, r]) => r.picture).length, handles: all.filter(([, r]) => r.handle).length, " +
                 "notFirstSeen: all.filter(([, r]) => r.notFirstSeen).map(([n]) => n).join(', ') }; })()");
