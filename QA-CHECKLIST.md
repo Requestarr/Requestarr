@@ -121,14 +121,15 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app portal pages check.
 - **Requestarr's settings pages**
   - Steps:
-    1. In the web app, open Settings, then Discord, Sonarr and Radarr.
-    2. Open Requests, Connections and Changes.
-    3. Do it again in the dark theme.
+    1. In the web app, open Settings, then Connections.
+    2. Press the + card, then a Sonarr card.
+    3. Open Requests and Changes.
+    4. Do it again in the dark theme.
   - Expect:
-    - Every setting the provisioning file sets is read-only, with a note saying so.
-    - Requests keeps the audit log for 1 year.
-    - Connections shows the bot's status and both test instances.
-    - Changes lists who changed a setting, when, and from what to what.
+    - Cards under Discord, Media managers, Metadata and Bug reports, with Options below.
+    - The + card lists Sonarr and Radarr; a card opens with Test, Cancel and Save.
+    - Provisioned settings are read-only with a note; Requests keeps the audit log 1 year.
+    - Changes lists who changed what, when.
   - Checked automatically: the web app settings pages check.
 - **Followers**
   - Steps:

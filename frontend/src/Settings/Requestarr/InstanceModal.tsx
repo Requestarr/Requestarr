@@ -1,13 +1,12 @@
 import React from 'react';
-import Button from 'Components/Link/Button';
-import SpinnerButton from 'Components/Link/SpinnerButton';
+import Alert from 'Components/Alert';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
-import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { kinds, sizes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import ConnectionModalFooter from './Connections/ConnectionModalFooter';
 import InstanceFields from './InstanceFields';
 import { Instance } from './RequestarrSettingsTypes';
 import useInstanceForm from './useInstanceForm';
@@ -41,21 +40,27 @@ function InstanceModalContent({
       <ModalHeader>{title}</ModalHeader>
 
       <ModalBody>
-        <InstanceFields form={form} isReadOnly={isReadOnly} />
+        {isReadOnly && (
+          <Alert kind={kinds.INFO}>
+            {translate('SettingsProvisionedNotice')}
+          </Alert>
+        )}
+
+        <InstanceFields
+          form={form}
+          isReadOnly={isReadOnly}
+          hasTestButton={false}
+        />
       </ModalBody>
 
-      <ModalFooter>
-        <Button onPress={onClose}>{translate('Cancel')}</Button>
-
-        <SpinnerButton
-          kind={kinds.PRIMARY}
-          isSpinning={form.isBusy}
-          isDisabled={isReadOnly}
-          onPress={form.onSave}
-        >
-          {translate('Save')}
-        </SpinnerButton>
-      </ModalFooter>
+      <ConnectionModalFooter
+        isReadOnly={isReadOnly}
+        isBusy={form.isBusy}
+        canSave={true}
+        onTest={form.onTest}
+        onCancel={onClose}
+        onSave={form.onSave}
+      />
     </ModalContent>
   );
 }

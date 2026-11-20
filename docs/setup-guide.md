@@ -870,14 +870,16 @@ Open `http://<your server's address>:19797`. A new install opens its first-run s
 2. **This server and the Discord bot.** **This server is:** choose **Beta**, before adding Sonarr and Radarr: left on Production, Requestarr would name its connection there like production's, and it refuses to take over a connection another Requestarr owns. It gives the web app the BETA strip and beta's icons (from the next page you open), keeps every "what's new" post for good, and names Requestarr's connection in Sonarr and Radarr for beta. Then paste the beta bot's token, its application ID and the Requestarr Beta server's ID, and **Save**. **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if it isn't there yet.
 3. **Production's Sonarr.** Press **Add Sonarr**: a name (`Sonarr`), its address as the Synology reaches it (`http://<your server's address>:8989`, the server's own address, never a container name), its API key. Press **Test**, choose its quality profile and the root folder your TV is in, tick **Default**, and **Save**.
 
-The setup then says Requestarr is ready. Finish under **Settings**:
+The setup then says Requestarr is ready. Finish under **Settings → Connections**, which holds everything Requestarr connects to as cards, the way Sonarr's Indexers page does: **Discord**, **Media managers** (Sonarr and Radarr), **Metadata** (The Movie Database) and **Bug reports** (GitHub), with **Options** below. Press a card to change it; the **+** card adds a Sonarr or Radarr.
 
-- **Settings → Sonarr and Radarr → Add Radarr:** production's Radarr the same way (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
-- **Settings → Connections:** **Requestarr's address for Sonarr and Radarr** `http://<your server's address>:19797` (Sonarr and Radarr call it there), **Check downloads every** `5` minutes; the **GitHub key** for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr); and optionally **The Movie Database key** ([4.6](#46-cast-from-the-movie-database-optional)). **Save Changes**.
+- **Media managers, the + card, Radarr:** production's Radarr the same way (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
+- **Options:** **Requestarr's address for Sonarr and Radarr** `http://<your server's address>:19797` (Sonarr and Radarr call it there) and **Check downloads every** `5` minutes, then **Save Changes** in the toolbar.
+- **Bug reports, the GitHub card:** the **GitHub key** (a fine-grained token with only Issues: read and write on Requestarr/Requestarr), **Save**.
+- **Metadata, The Movie Database card** (optional): its key ([4.6](#46-cast-from-the-movie-database-optional)), **Save**.
 
-Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again. **This server is** stays under **Settings → Discord**.
+Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again. **This server is** stays on the **Discord** card under **Settings → Connections**.
 
-**Check:** the web app shows the BETA strip; **Settings → Sonarr and Radarr** shows both Connected; **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
+**Check:** the web app shows the BETA strip; **Settings → Connections** shows both Sonarr and Radarr cards Connected (**Test All Connections** checks them again); **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
 
 ### B.4 Delete files, and why it starts off
 

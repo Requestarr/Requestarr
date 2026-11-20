@@ -325,7 +325,7 @@ The web UI and backend are built on the runner's own platform and the backend is
 
 ### Version posts
 
-The "what's new" posts in `#requestarr-admin` (both sections) and `#requestarr-announcements` (For users) are one-line cards with **Read changes**, which shows the full card privately (task 4e). They're a record that stays, kept in step with each environment. Requestarr reads `REQUESTARR_ENVIRONMENT` (`dev`, `qa`, `staging`), which the dev and QA stacks set; unset, the role chosen in the first-run setup decides (Settings, then Discord: **This server is** Production or Beta, Beta behaving as `staging`), so the published image needs no variable to run as beta:
+The "what's new" posts in `#requestarr-admin` (both sections) and `#requestarr-announcements` (For users) are one-line cards with **Read changes**, which shows the full card privately (task 4e). They're a record that stays, kept in step with each environment. Requestarr reads `REQUESTARR_ENVIRONMENT` (`dev`, `qa`, `staging`), which the dev and QA stacks set; unset, the role chosen in the first-run setup decides (Settings, then Connections, the Discord card: **This server is** Production or Beta, Beta behaving as `staging`), so the published image needs no variable to run as beta:
 
 | Environment | Shows | How it knows |
 |---|---|---|

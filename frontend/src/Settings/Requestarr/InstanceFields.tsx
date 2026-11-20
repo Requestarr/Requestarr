@@ -11,9 +11,11 @@ import { InstanceForm } from './useInstanceForm';
 const SONARR = 'Sonarr';
 const SERIES_TYPES = ['standard', 'anime', 'daily'];
 
+// HasTestButton: false where the modal's footer has Test instead.
 interface InstanceFieldsProps {
   form: InstanceForm;
   isReadOnly: boolean;
+  hasTestButton?: boolean;
 }
 
 // The choices for a quality profile or root folder: what Test found, or else the saved value on its own.
@@ -24,7 +26,11 @@ function options(found: string[] | undefined, saved: string | undefined) {
 }
 
 // A Sonarr or Radarr's settings: how to reach it, then what its requests use once Test has listed the choices.
-function InstanceFields({ form, isReadOnly }: InstanceFieldsProps) {
+function InstanceFields({
+  form,
+  isReadOnly,
+  hasTestButton = true,
+}: InstanceFieldsProps) {
   const { values, test, problem, isBusy, apiKeySet, onTest } = form;
   const field = { form, isReadOnly };
 
@@ -44,13 +50,15 @@ function InstanceFields({ form, isReadOnly }: InstanceFieldsProps) {
           <Alert kind={kinds.INFO}>{translate('InstanceApiKeySaved')}</Alert>
         )}
 
-        <SpinnerButton
-          isSpinning={isBusy}
-          isDisabled={isReadOnly}
-          onPress={onTest}
-        >
-          {translate('Test')}
-        </SpinnerButton>
+        {hasTestButton && (
+          <SpinnerButton
+            isSpinning={isBusy}
+            isDisabled={isReadOnly}
+            onPress={onTest}
+          >
+            {translate('Test')}
+          </SpinnerButton>
+        )}
 
         {problem && <Alert kind={kinds.DANGER}>{problem}</Alert>}
 

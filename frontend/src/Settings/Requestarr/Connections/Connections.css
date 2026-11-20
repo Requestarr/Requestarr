@@ -1,0 +1,9 @@
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.problems {
+  margin: 0;
+  padding-left: 20px;
+}

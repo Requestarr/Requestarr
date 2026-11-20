@@ -1,5 +1,5 @@
 import React from 'react';
-import { Route } from 'react-router-dom';
+import { Redirect, Route } from 'react-router-dom';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
 import AccessRequestsPage from 'Portal/AccessRequests/AccessRequestsPage';
@@ -13,10 +13,8 @@ import RequestsPage from 'Portal/Requests/RequestsPage';
 import WhatsNewPage from 'Portal/WhatsNew/WhatsNewPage';
 import DevelopmentSettingsConnector from 'Settings/Development/DevelopmentSettingsConnector';
 import GeneralSettingsConnector from 'Settings/General/GeneralSettingsConnector';
-import ConnectionSettings from 'Settings/Requestarr/ConnectionSettings';
-import DiscordSettings from 'Settings/Requestarr/DiscordSettings';
+import ConnectionsSettings from 'Settings/Requestarr/Connections/ConnectionsSettings';
 import ImportPage from 'Settings/Requestarr/Import/ImportPage';
-import InstancesSettings from 'Settings/Requestarr/InstancesSettings';
 import RequestSettings from 'Settings/Requestarr/RequestSettings';
 import SettingsChanges from 'Settings/Requestarr/SettingsChanges';
 import Settings from 'Settings/Settings';
@@ -30,6 +28,24 @@ import Logs from 'System/Logs/Logs';
 import Status from 'System/Status/Status';
 import Tasks from 'System/Tasks/Tasks';
 import Updates from 'System/Updates/Updates';
+import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
+
+// A page Connections replaced: its address, in docs and Discord messages, lands on the matching section.
+function movedToConnections(section: string) {
+  return function MovedToConnections() {
+    return (
+      <Redirect to={getPathWithUrlBase(`/settings/connections#${section}`)} />
+    );
+  };
+}
+
+const MOVED_TO_CONNECTIONS = [
+  { from: '/settings/discord', component: movedToConnections('discord') },
+  {
+    from: '/settings/instances',
+    component: movedToConnections('media-managers'),
+  },
+];
 
 function AppRoutes() {
   return (
@@ -83,13 +99,13 @@ function AppRoutes() {
 
       <Route path="/settings/ui" component={UISettingsConnector} />
 
-      <Route path="/settings/discord" component={DiscordSettings} />
-
-      <Route path="/settings/instances" component={InstancesSettings} />
-
       <Route path="/settings/requests" component={RequestSettings} />
 
-      <Route path="/settings/connections" component={ConnectionSettings} />
+      <Route path="/settings/connections" component={ConnectionsSettings} />
+
+      {MOVED_TO_CONNECTIONS.map(({ from, component }) => (
+        <Route key={from} path={from} component={component} />
+      ))}
 
       <Route path="/settings/changes" component={SettingsChanges} />
 

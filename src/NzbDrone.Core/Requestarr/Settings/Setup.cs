@@ -12,8 +12,8 @@ namespace Requestarr.Core.Settings
 {
     // A new install without a provisioning file starts with nothing set. Needed: some step isn't done yet, so the web
     // app opens the first-run setup: the admin's sign-in (the sign-in dialog every fresh install shows), the Discord
-    // bot, and at least one Sonarr or Radarr. InviteUrl adds the bot to a server, once its application ID is known;
-    // ReadOnlyInviteUrl adds it to another server only to read there (an import from Requestrr).
+    // bot, and at least one Sonarr or Radarr. InviteUrl adds the bot to a server, once its application ID is known, and
+    // the read-only one adds it to another server only to read there, for an import from Requestrr.
     public record SetupStatus(bool Needed, bool AdminAccount, bool Discord, bool Instance, DiscordBotState BotState, string BotProblem, string InviteUrl,
                               string ReadOnlyInviteUrl);
 
@@ -67,8 +67,9 @@ namespace Requestarr.Core.Settings
             var invite = InviteUrl(applicationId, InvitePermissions, InviteScope);
             var readOnlyInvite = InviteUrl(applicationId, ReadOnlyInvitePermissions, ReadOnlyInviteScope);
 
-            return new SetupStatus(!_provisioning.UsesFile && !(adminAccount && discord && instance), adminAccount, discord, instance, _discordHost.State, _discordHost.LastError, invite,
-                                   readOnlyInvite);
+            var needed = !_provisioning.UsesFile && !(adminAccount && discord && instance);
+
+            return new SetupStatus(needed, adminAccount, discord, instance, _discordHost.State, _discordHost.LastError, invite, readOnlyInvite);
         }
 
         // Null until the bot's application ID is known.
