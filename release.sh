@@ -98,10 +98,10 @@ first_new_build() {
     git tag --merged "$1" --no-merged origin/staging | build_numbers_in | head -1
 }
 
-# dev's newest numbered commit.
+# dev's newest goal build: numbered, on dev, and not on staging (a fix into staging comes down with its number).
 newest_numbered() {
     local number
-    number=$(git tag --merged origin/dev | build_numbers_in | tail -1)
+    number=$(git tag --merged origin/dev --no-merged origin/staging | build_numbers_in | tail -1)
     [ -n "$number" ] && git rev-parse "v$number^{commit}"
 }
 
@@ -211,9 +211,15 @@ check_changelog() {
     if [[ "$pr_branch" == dependabot/* ]] || printf '%s\n' "${PR_BODY:-}" | grep -qE '^No changelog: .{5,}'; then
         flags+=(--no-changelog)
     fi
-    # The next number as it was before this pull request (its branches may already have moved to it); a major when the
-    # promotion recorded the owner's word, or from 1.0 a "Before you upgrade" line asks for one.
-    if [ "$kind" = release ] || [ "$kind" = staging-fix ]; then
+    # A release carries the number of the build QA ran (the tag on the commit it sits on). A fix into staging takes the
+    # next number as it was before this pull request (its branches may already have moved to it); a major when the
+    # owner's word is recorded, or from 1.0 a "Before you upgrade" line asks for one.
+    if [ "$kind" = release ]; then
+        local carried
+        carried=$(number_of "$pr_head^")
+        [ -n "$carried" ] || { echo "::error::A release commit sits on a numbered build (./release.sh number, then promote-qa)."; rm -rf "$work"; return 1; }
+        flags+=(--number "$carried")
+    elif [ "$kind" = staging-fix ]; then
         local major=()
         printf '%s\n' "${PR_BODY:-}" | grep -qE '^Major roll-up: .+' && major=(--major)
         flags+=(--number "$(numbers next --before "$pr_head" --changelog "$work/base/CHANGELOG.md" "${major[@]}")")

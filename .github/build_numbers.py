@@ -93,11 +93,13 @@ def tagged_builds(tags):
 
 
 def next_number(taken, shipped, major=False):
-    """The next build's number: one more than the newest, a minor up once the newest has shipped."""
+    """The next build's number: one more than the newest, a minor up once a build of the newest's minor has shipped
+    (goals go on numbering dev while a build waits in staging, so the newest isn't always the one that ships)."""
     newest = max(taken) if taken else FIRST_NUMBERED + (EARLIER_BUILDS,)
     if major:
         return (newest[0] + 1, 0, 1)
-    return (newest[0], newest[1] + (1 if newest in shipped else 0), newest[2] + 1)
+    rolled = any(build[:2] == newest[:2] for build in shipped)
+    return (newest[0], newest[1] + (1 if rolled else 0), newest[2] + 1)
 
 
 def git(*args):
@@ -146,13 +148,21 @@ def numbers_on(tags, sha):
     return {version for version, tagged in tagged_builds(tags).items() if tagged == sha}
 
 
-def label(stack, sha, tags, upcoming):
-    """How a stack's build is labelled: its number when its commit has one (0.7.0005-qa), otherwise the next number
-    and the commit (0.7.0006-dev.4f2a9c1). A test publish always shows its commit."""
-    own = numbers_on(tags, sha)
+def label(stack, sha, tags, upcoming, released=None):
+    """How a stack's build is labelled: its number when its commit has one (0.7.0005-qa), or the number a release
+    commit carries (released: its changelog's top number when Unreleased is gone, as on qa after a staging promotion);
+    otherwise the next number and the commit (0.7.0006-dev.4f2a9c1). A test publish always shows its commit."""
+    own = numbers_on(tags, sha) or ({released} if released else set())
     if own and stack != "test":
         return "%s-%s" % (text(max(own)), stack)
     return "%s-%s.%s" % (text(upcoming), stack, sha[:7])
+
+
+def released_number(sha):
+    """The number a release commit carries: its changelog's top number, when no Unreleased is above it (from 0.7)."""
+    shown = git("show", sha + ":CHANGELOG.md")
+    top, pending = top_number(shown.stdout) if shown.returncode == 0 else (None, True)
+    return top if top and not pending and top[:2] >= FIRST_NUMBERED else None
 
 
 def is_ancestor(older, newer):
@@ -160,10 +170,20 @@ def is_ancestor(older, newer):
     return git("merge-base", "--is-ancestor", older, newer).returncode == 0
 
 
-def upgrade_in(sha):
-    """Whether the commit's changelog has a "Before you upgrade" line for admins under Unreleased."""
+def upgrade_lines(sha):
+    """The "Before you upgrade" lines for admins under Unreleased in the commit's changelog."""
     shown = git("show", sha + ":CHANGELOG.md")
-    return shown.returncode == 0 and upgrade_needs_admins(shown.stdout)
+    if shown.returncode != 0:
+        return set()
+    return {row for row in (parse(shown.stdout)[1] or {}).get(ADMINS, []) if row.startswith(UPGRADE_LEAD)}
+
+
+def new_upgrade(sha, tags):
+    """A "Before you upgrade" line the newest numbered build before this commit didn't have: Unreleased keeps the
+    line until the staging promotion, so only the goal that added it rolls the major up."""
+    before = [(version, tagged) for version, tagged in tagged_builds(tags).items() if is_ancestor(tagged, sha)]
+    previous = upgrade_lines(max(before)[1]) if before else set()
+    return bool(upgrade_lines(sha) - previous)
 
 
 def take_number(commit, major=False, dry_run=False):
@@ -180,17 +200,25 @@ def take_number(commit, major=False, dry_run=False):
     if own:
         return max(own), False
     later = sorted(version for version, tagged in tagged_builds(tags).items() if is_ancestor(sha, tagged))
-    if later:
+    is_qa = sha == git("rev-parse", "origin/qa").stdout.strip()
+    if later and not is_qa:
         raise SystemExit("%s comes before %s, already numbered: numbers only go up along dev" % (sha[:7], text(later[-1])))
     number = next_from_git()
-    if major or (upgrade_in(sha) and number[0] >= 1):
+    if major or (number[0] >= 1 and new_upgrade(sha, tags)):
         number = next_from_git(major=True)
     if not dry_run:
-        for step in (("tag", "v" + text(number), sha), ("push", "-q", "origin", "refs/tags/v" + text(number))):
-            done = git(*step)
-            if done.returncode != 0:
-                raise SystemExit("couldn't record %s on %s: %s" % (text(number), sha[:7], done.stderr.strip()))
+        record(number, sha)
     return number, True
+
+
+def record(number, sha):
+    """Tags the commit on origin; a push that fails takes the local tag away again, so nothing claims the number."""
+    name = "v" + text(number)
+    tagged = git("tag", name, sha)
+    pushed = git("push", "-q", "origin", "refs/tags/" + name) if tagged.returncode == 0 else tagged
+    if pushed.returncode != 0:
+        git("tag", "-d", name)
+        raise SystemExit("couldn't record %s on %s: %s" % (text(number), sha[:7], pushed.stderr.strip()))
 
 
 # ---- published images ---------------------------------------------------------------------------------------------
@@ -204,16 +232,21 @@ def top_number(changelog):
     return (max(sections) if sections else None), unreleased is not None
 
 
-def same_commit(older, newer):
-    return older == newer
+def same_commit(numbered, sha):
+    return numbered == sha
 
 
-def image_plan(event, branch, sha, changelog, tags, upcoming, test_tag="", contains=same_commit):
+def release_of(numbered, sha):
+    """The commit is the numbered one, or the release commit the staging promotion made right on top of it."""
+    return numbered == sha or git("rev-parse", sha + "^").stdout.strip() == numbered
+
+
+def image_plan(event, branch, sha, changelog, tags, upcoming, test_tag="", built_from=same_commit):
     """What the Image workflow does: {"mode": "build" or "retag", "number", "label", "tags", "source", "record"}, or
     {"error": why}. Staging builds the image for the number on top of its changelog: the number the goal's dev commit
-    was given (its tag is on that commit, which the release commit comes after), or a staging fix's new number (whose
-    tag it records). Main never builds: it adds the release tags to the image staging published. contains(older,
-    newer): whether the commit older is newer or comes before it."""
+    was given (the release commit sits right on top of it), or a staging fix's new number (whose tag it records). Main
+    never builds: it adds the release tags to the image staging published. built_from(numbered, sha): whether sha is
+    the numbered commit or its release commit."""
     top, pending = top_number(changelog)
     tagged = tagged_builds(tags)
     if event == "push" and branch == "staging":
@@ -223,7 +256,7 @@ def image_plan(event, branch, sha, changelog, tags, upcoming, test_tag="", conta
         if top[:2] < FIRST_NUMBERED:
             return {"error": "staging's top version is %s, from before build numbers: a build sent to testers takes "
                              "the next number (./release.sh next-version)" % text(top)}
-        if top in tagged and not contains(tagged[top], sha):
+        if top in tagged and not built_from(tagged[top], sha):
             return {"error": "%s was already published from another commit: a number is never reused" % text(top)}
         if top not in tagged and tagged and top < max(tagged):
             return {"error": "%s is below %s, already published: numbers only go up" % (text(top), text(max(tagged)))}
@@ -231,7 +264,7 @@ def image_plan(event, branch, sha, changelog, tags, upcoming, test_tag="", conta
         return {"mode": "build", "number": number, "label": number, "source": "",
                 "tags": "%s:beta,%s:%s" % (IMAGE, IMAGE, number), "record": "" if top in tagged else "v" + number}
     if event == "push" and branch == "main":
-        if top is None or top not in tagged or not contains(tagged[top], sha):
+        if top is None or top not in tagged or not built_from(tagged[top], sha):
             return {"error": "main is only ever a build staging published (v<number> on this commit or before it): "
                              "./release.sh ship-it"}
         number = text(top)
@@ -503,7 +536,9 @@ def self_test():
         (next_number(set(), set()) == (0, 7, 4), "the first build under build numbers is 0.7.0004 (three were sent before)"),
         (next_number(built(tags), set()) == (0, 7, 6), "every build sent takes the next number"),
         (next_number(built(tags), {(0, 7, 5)}) == (0, 8, 6), "once the newest build ships, the next one is a minor up"),
-        (next_number(built(tags), {(0, 7, 4)}) == (0, 7, 6), "an older build shipping doesn't move the minor again"),
+        (next_number({(0, 7, 4), (0, 8, 5)}, {(0, 7, 4)}) == (0, 8, 6), "an older minor shipping doesn't move the minor again"),
+        (next_number({(0, 7, 11), (0, 7, 12), (0, 7, 13)}, {(0, 7, 11)}) == (0, 8, 14),
+         "goals numbered while a build waited in staging don't stop the minor rolling up once it ships"),
         (next_number(built(tags), set(), major=True) == (1, 0, 1), "a major: minor to 0, the count starts again"),
         (next_number({(1, 0, 1)}, set()) == (1, 0, 2), "after a major the count goes on from there"),
         (text((0, 7, 4)) == "0.7.0004" and text((0, 6, 0)) == "0.6.0" and text((0, 7, 12345)) == "0.7.12345",
@@ -558,6 +593,8 @@ def self_test():
         (label("qa", "abc1234567", {"v0.7.0005": "abc1234567"}, (0, 7, 6)) == "0.7.0005-qa", "and QA the same number"),
         (label("dev", "def5678901", {"v0.7.0005": "abc1234567"}, (0, 7, 6)) == "0.7.0006-dev.def5678",
          "a dev build between goals shows the next number and its commit"),
+        (label("qa", "def5678901", {"v0.7.0005": "abc1234567"}, (0, 7, 6), (0, 7, 5)) == "0.7.0005-qa",
+         "QA on the staging promotion's release commit shows the number it carries"),
     ]
     staging = image_plan("push", "staging", "abc1234", released["CHANGELOG.md"], {}, first)
     rerun = image_plan("push", "staging", "abc1234", released["CHANGELOG.md"], {"v0.7.0004": "abc1234"}, (0, 7, 5))
@@ -582,16 +619,18 @@ def self_test():
         (image_plan("workflow_dispatch", "x", "abc1234567", "", {}, first, "test-a").get("label") == "0.7.0004-test.abc1234",
          "a test publish is labelled, not numbered"),
     ]
-    # A goal's dev commit dev1 numbered 0.7.0004; the release commit rel comes after it, on qa and staging.
-    after = lambda older, newer: (older, newer) in {("dev1", "rel"), ("dev1", "dev1"), ("rel", "rel")}
-    carried = image_plan("push", "staging", "rel", released["CHANGELOG.md"], {"v0.7.0004": "dev1"}, (0, 7, 5), contains=after)
+    # A goal's dev commit dev1 numbered 0.7.0004; the release commit rel sits right on top of it, on qa and staging.
+    after = lambda numbered, sha: (numbered, sha) in {("dev1", "rel"), ("dev1", "dev1")}
+    carried = image_plan("push", "staging", "rel", released["CHANGELOG.md"], {"v0.7.0004": "dev1"}, (0, 7, 5), built_from=after)
     cases += [
         (carried.get("mode") == "build" and carried["number"] == "0.7.0004" and carried["record"] == "",
          "staging publishes the number the goal's dev commit took, and adds no tag"),
-        ("error" in image_plan("push", "staging", "other", released["CHANGELOG.md"], {"v0.7.0004": "dev1"}, (0, 7, 5), contains=after),
-         "a number tagged on a commit staging doesn't have isn't published"),
-        (image_plan("push", "main", "rel", released["CHANGELOG.md"], {"v0.7.0004": "dev1"}, (0, 8, 5), contains=after).get("mode") == "retag",
+        ("error" in image_plan("push", "staging", "later", released["CHANGELOG.md"], {"v0.7.0004": "dev1"}, (0, 7, 5), built_from=after),
+         "a later commit with a number already published isn't built again under it"),
+        (image_plan("push", "main", "rel", released["CHANGELOG.md"], {"v0.7.0004": "dev1"}, (0, 8, 5), built_from=after).get("mode") == "retag",
          "ship it retags the build staging published from the numbered commit"),
+        ("error" in image_plan("push", "main", "later", released["CHANGELOG.md"], {"v0.7.0004": "dev1"}, (0, 8, 5), built_from=after),
+         "main retags only staging's own build"),
     ]
     checklist_base = "# QA checklist\n\n## Unreleased\n- **Old:** Do it. You should see it.\n  - Checked automatically: the live bug reports check.\n- **Kept:** Do it. You should see it.\n  - Checked automatically: the live bug reports check.\n"
     checklist_fix = checklist_base.replace("- **Old:** Do it. You should see it.\n  - Checked automatically: the live bug reports check.\n",
@@ -664,13 +703,13 @@ def main(argv):
     if len(args) in (4, 5) and args[0] == "image":
         with open("CHANGELOG.md", encoding="utf-8") as handle:
             plan = image_plan(args[1], args[2], args[3], handle.read(), remote_tags(), next_from_git(),
-                              args[4] if len(args) == 5 else "", is_ancestor)
+                              args[4] if len(args) == 5 else "", release_of)
         for key, value in plan.items():
             print("%s=%s" % (key, value))
         return 1 if "error" in plan else 0
     if len(args) == 3 and args[0] == "label":
         sha = git("rev-parse", "--verify", "-q", args[2] + "^{commit}").stdout.strip() or args[2]
-        print(label(args[1], sha, remote_tags(), next_from_git()))
+        print(label(args[1], sha, remote_tags(), next_from_git(), released_number(sha)))
         return 0
     if len(args) >= 4 and args[0] == "release":
         security = SECURITY_LINE if "--security" in args else None
