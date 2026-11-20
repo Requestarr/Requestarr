@@ -34,8 +34,9 @@ namespace Requestarr.Core.Announcements
         // Whether the stack it runs in says which server this is (dev and QA), so the role setting has no say.
         bool SetByStack { get; }
 
-        // How a version is shown: the version this build runs as its build label (0.7.0004, or 0.7.0004-dev.4f2a9c1 for
-        // a dev build, docs/development.md#versions), every other one as its number.
+        // How a version is shown: the version this build runs as its build label (0.7.0005; 0.7.0005-dev or -qa for a
+        // goal's numbered build; 0.7.0006-dev.4f2a9c1 for a dev build between goals, docs/development.md#versions),
+        // every other one as its number.
         string Shown(Version version);
     }
 
@@ -47,11 +48,11 @@ namespace Requestarr.Core.Announcements
         // QA only: staging's versions ("0.1.0,0.2.0,..."), from the staging branch's changelog when the QA stack starts.
         public const string StagedVersionsVariable = "REQUESTARR_STAGED_VERSIONS";
 
-        // The build's label, set in the image when it is built: its number, and for a build that isn't sent to testers
-        // the stage and commit after it.
+        // The build's label, set in the image when it is built: its number, then for dev and QA the stack, and for a dev
+        // build between goals (a commit without a number) its commit too.
         public const string ReleaseVersionVariable = "REQUESTARR_RELEASE_VERSION";
 
-        private static readonly Regex Label = new(@"^(?<number>\d+\.\d+\.\d+)(?:-(?:dev|qa|test)\.[0-9a-f]{7,40})?$");
+        private static readonly Regex Label = new(@"^(?<number>\d+\.\d+\.\d+)(?:-(?:dev|qa)|-(?:dev|qa|test)\.[0-9a-f]{7,40})?$");
 
         private readonly IConfigService _config;
 

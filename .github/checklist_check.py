@@ -38,7 +38,8 @@ from build_numbers import text as shown  # noqa: E402
 from qa_checks import CHECKS, CHECKED_BY, ITEM, STEP, BULLET, STEPS_LINE, EXPECT_LINE, CHECKED_LINE  # noqa: E402
 
 FIRST = (0, 4, 3)
-VERSION = re.compile(r"^## (\d+)\.(\d+)\.(\d+) \((\d{4}-\d{2}-\d{2})\)$")
+# A version heading; the changelog's for a staging build may name the goals' builds it includes after the day.
+VERSION = re.compile(r"^## (\d+)\.(\d+)\.(\d+) \((\d{4}-\d{2}-\d{2})\)(?:, with \d+\.\d+\.\d{4,} to \d+\.\d+\.\d{4,})?$")
 UNRELEASED = "## Unreleased"
 MAX_STEPS = 5
 MAX_EXPECT = 4

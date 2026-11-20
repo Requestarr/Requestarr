@@ -259,6 +259,8 @@ namespace Requestarr.Core.Test.Announcements
                 new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.ReleaseVersionVariable ? label : null }.Shown(new Version(version));
 
             Shown("0.7.0004-dev.4f2a9c1", "0.7.4.11354").Should().Be("0.7.0004-dev.4f2a9c1");
+            Shown("0.7.0004-dev", "0.7.4").Should().Be("0.7.0004-dev", "a goal's numbered dev build shows its number");
+            Shown("0.7.0004-qa", "0.7.4").Should().Be("0.7.0004-qa", "and QA the same number");
             Shown(" 0.7.0004-qa.4f2a9c1 ", "0.7.4").Should().Be("0.7.0004-qa.4f2a9c1");
             Shown("0.7.0004", "0.7.4").Should().Be("0.7.0004", "a build sent to testers shows its number");
             Shown("0.7.0004-dev.4f2a9c1", "0.6.0").Should().Be("0.6.0", "an older version keeps its own number");

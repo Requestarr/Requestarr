@@ -76,6 +76,15 @@ namespace Requestarr.Core.Test.Announcements
         }
 
         [Test]
+        public void a_staging_heading_naming_the_goals_builds_keeps_its_day()
+        {
+            var version = Changelog.Parse("# Changelog\n\n## 0.7.0011 (2026-12-01), with 0.7.0005 to 0.7.0011\n\n### For users\n- **Numbers:** shown.\n").Single();
+
+            version.Version.Should().Be(new Version(0, 7, 11));
+            version.Date.Should().Be(new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc));
+        }
+
+        [Test]
         public async Task the_full_list_goes_to_admins_and_only_user_lines_to_members()
         {
             await StartOn("0.2.0");

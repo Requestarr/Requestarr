@@ -135,7 +135,7 @@ namespace Requestarr.Core.Test.Announcements
             // The dev server keeps only the build running now (task 4d), as the dev stack does: the next build number and
             // this commit, the label the dev image is built with (.github/build_numbers.py label dev <commit>).
             var label = Environment.GetEnvironmentVariable(ReleaseEnvironment.ReleaseVersionVariable);
-            label.Should().MatchRegex(@"^\d+\.\d+\.\d{4,}-dev\.[0-9a-f]{7}$", "the live check runs as a dev build: set it to what ./release.sh next-version says dev builds show");
+            label.Should().MatchRegex(@"^\d+\.\d+\.\d{4,}-dev(\.[0-9a-f]{7})?$", "the live check runs as a dev build: set it to what ./release.sh next-version says dev shows");
 
             // Step 3b runs as the QA server would, on the dev server: the same code, QA's way of keeping cards.
             var stack = "dev";
@@ -283,7 +283,7 @@ namespace Requestarr.Core.Test.Announcements
                 // folded into it loses its card on the next start; nothing else in the channel goes.
                 var embedded = Changelog.Embedded().Replace("\r\n", "\n");
                 stack = "qa";
-                shownAs = label.Replace("-dev.", "-qa.");
+                shownAs = Regex.Replace(label, @"-dev(?=\.|$)", "-qa");
                 staged = string.Join(",", Changelog.Parse(embedded).Select(v => v.Version));
                 announcements.CurrentVersion = () => build;
                 var firstNumbered = embedded.IndexOf("\n## 0.", StringComparison.Ordinal) + 1;

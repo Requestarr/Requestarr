@@ -3,7 +3,8 @@
 pull request; run it locally with `python3 .github/changelog_check.py CHANGELOG.md`.
 
 "## Unreleased" (the lines pull requests add until the next build sent to testers, always on top) and every
-"## x.y.zzzz (YYYY-MM-DD)" build (the text above the first heading is free) is checked for:
+"## x.y.zzzz (YYYY-MM-DD)" build (a staging build's may add ", with 0.7.0005 to 0.7.0011"; the text above the first
+heading is free) is checked for:
   - sections: only "### For users" and "### For admins", each at most once; no "Internal" or any other section;
   - no empty section: a heading with no "- " line under it;
   - only headings and "- " lines: no loose text inside a version;
@@ -111,10 +112,10 @@ def check(text):
                 version, unreleased_line = UNRELEASED, number
                 continue
             close_unreleased()
-            match = re.fullmatch(r"## ((\d+)\.(\d+)\.(\d+)) \((\d{4})-(\d{2})-(\d{2})\)", line)
+            match = re.fullmatch(r"## ((\d+)\.(\d+)\.(\d+)) \((\d{4})-(\d{2})-(\d{2})\)(?:, with \d+\.\d+\.\d{4,} to \d+\.\d+\.\d{4,})?", line)
             version = tuple(int(part) for part in match.groups()[1:4]) if match else None
             if not match or not real_date(*match.groups()[4:]) or shown(version) != match.group(1):
-                problems.append((number, "a version heading is '## 0.7.0004 (YYYY-MM-DD)' (up to 0.6.0 'x.y.z'), the day it was made, and nothing else"))
+                problems.append((number, "a version heading is '## 0.7.0004 (YYYY-MM-DD)' (up to 0.6.0 'x.y.z'), the day it was made, and at most the goals' builds it includes (', with 0.7.0005 to 0.7.0011')"))
                 version = None
                 continue
             if version in seen_versions:
@@ -190,6 +191,11 @@ Text before the first version is free.
 
 ### For users
 - **Build numbers:** each test build now shows which build it is, the same number everywhere you look.
+
+## 0.7.0005 (2026-10-26), with 0.7.0005 to 0.7.0005
+
+### For users
+- **Numbers:** a staging build names the goals' builds it includes.
 
 ## 0.7.0004 (2026-10-25)
 
