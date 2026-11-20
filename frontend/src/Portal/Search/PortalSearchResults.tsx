@@ -52,6 +52,15 @@ function Result({ item, isHighlighted, onOpen }: ResultProps) {
       >
         <ResultLabel item={item} />
         {item.detail && <span className={styles.detail}>{item.detail}</span>}
+        {item.requester && (
+          <span className={styles.detail}>
+            <Person
+              name={item.requester.name ?? translate('PortalUnknownMember')}
+              avatar={item.requester.avatar}
+              size="small"
+            />
+          </span>
+        )}
       </Link>
       {item.media?.openUrl && (
         <span className={styles.open}>

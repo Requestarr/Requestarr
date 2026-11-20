@@ -1,4 +1,5 @@
-/* The picture's height is the two lines' together: medium 2 × 19px, large 36px + 28px. */
+/* The picture's height is the two lines' together: medium 2 × 19px, large 36px + 28px; small is one line of 20px. */
+.small,
 .medium,
 .large {
   display: inline-flex;
@@ -8,6 +9,10 @@
   max-width: 100%;
 
   vertical-align: middle;
+}
+
+.small {
+  gap: 6px;
 }
 
 .large {
@@ -27,6 +32,10 @@
 .handle {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.small .lines {
+  line-height: 20px;
 }
 
 .medium .lines {

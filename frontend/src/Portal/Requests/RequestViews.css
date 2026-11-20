@@ -21,12 +21,13 @@
   font-size: 16px;
 }
 
+/* One line: a long name ends in an ellipsis rather than wrapping. */
 .people {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   margin: 4px 0;
-  gap: 6px 14px;
+  min-width: 0;
+  gap: 14px;
 }
 
 /* Three lines of the overview at most. */
@@ -47,6 +48,15 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* The requester under the poster, the follower count beside them. */
+.posterPeople {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 6px;
 }
 
 .posterImage {

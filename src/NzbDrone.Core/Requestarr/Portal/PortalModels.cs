@@ -16,6 +16,9 @@ namespace Requestarr.Core.Portal
                                 IReadOnlyList<PortalPerson> Followers, int? InstanceId, string Instance, IReadOnlyList<int> Seasons, DateTime Requested, DateTime? Decided, DateTime? Fulfilled,
                                 PortalMedia Media);
 
+    // A follower on a request's own page, with when they followed it.
+    public record PortalFollower(PortalPerson Person, DateTime Followed);
+
     // What the title is, as the feed card shows it: the poster, overview and dates, its page on The Movie Database or
     // TheTVDB, and (when it's in a Sonarr or Radarr a browser can reach) its page there. Values not known are left out.
     public record PortalMedia(string Poster, string Overview, DateTime? InCinemas, DateTime? DigitalRelease, DateTime? PhysicalRelease, DateTime? FirstAired,
@@ -35,8 +38,10 @@ namespace Requestarr.Core.Portal
     // Actions: what an admin can do to it now, as its feed card in Discord offers (approve, deny, available, cancel,
     // searchAgain, retry, addSeasons, remove, forceRemoval or deletedByHand, dropRemoval). HistoryTrimmedAfter: how long the audit log keeps
     // an entry now ("1 year", or "forever" once trimmed before) when its first events were trimmed; otherwise null.
+    // Followers: everyone following it with when they followed, earliest first; the list views show only a count.
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,
-                                      PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions, string HistoryTrimmedAfter);
+                                      PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions, string HistoryTrimmedAfter,
+                                      IReadOnlyList<PortalFollower> Followers);
 
     // A member's access to one content type: its level, their limit (requests per so many days) and their instance.
     public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays, string Instance);

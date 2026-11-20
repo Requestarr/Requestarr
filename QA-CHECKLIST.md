@@ -134,11 +134,13 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app settings pages check.
 - **Followers**
   - Steps:
-    1. In the web app, open a request's page.
-    2. Look at Followers.
+    1. In the web app, open Requests, in each view.
+    2. Press a title's follower pictures.
   - Expect:
-    - Every member who asked for the title after its requester.
-  - Checked automatically: the web app portal pages check.
+    - Each row names the requester small, then at most five follower pictures and "+37 following".
+    - Rows stay one line however many follow a title.
+    - The request's page opens at Followers, listing everyone with their @handle and when they followed.
+  - Checked automatically: the web app request views check.
 - **Importing from Requestrr**
   - Steps:
     1. Open Settings, then Import from Requestrr.

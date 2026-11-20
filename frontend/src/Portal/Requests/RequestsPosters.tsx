@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
+import { FollowerBadge } from '../Components/FollowerStack';
 import MemberLink from '../Components/MemberLink';
 import { requestStatusText, titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
@@ -31,7 +32,7 @@ function Poster({ request }: { request: PortalRequest }) {
   );
 }
 
-// Every request as a poster, with its title, status and requester under it.
+// Every request as a poster, with its title, status, requester and follower count under it.
 function RequestsPosters({ requests }: { requests: PortalRequest[] }) {
   if (!requests.length) {
     return (
@@ -46,7 +47,13 @@ function RequestsPosters({ requests }: { requests: PortalRequest[] }) {
           <Poster request={request} />
           <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
           <div className={portalStyles.muted}>{requestStatusText(request)}</div>
-          <MemberLink person={request.requester} />
+          <div className={styles.posterPeople}>
+            <MemberLink person={request.requester} size="small" />
+            <FollowerBadge
+              requestId={request.id}
+              followers={request.followers}
+            />
+          </div>
           <OpenInLink media={request.media} />
         </div>
       ))}

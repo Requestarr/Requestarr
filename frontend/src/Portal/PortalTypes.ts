@@ -86,6 +86,12 @@ export interface PortalRemoval {
   isOpen: boolean;
 }
 
+// Someone following a request, with when they followed it.
+export interface PortalFollower {
+  person: PortalPerson;
+  followed: string;
+}
+
 export interface PortalRequestDetail {
   request: PortalRequest;
   decisionReason: string | null;
@@ -96,6 +102,7 @@ export interface PortalRequestDetail {
   timeline: PortalEvent[];
   actions: string[];
   historyTrimmedAfter: string | null;
+  followers: PortalFollower[];
 }
 
 export interface PortalAccess {

@@ -1,0 +1,34 @@
+.stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  white-space: nowrap;
+}
+
+/* Each picture after the first tucks under the one before, with a ring of the page's colour between them. */
+.pictures {
+  display: inline-flex;
+}
+
+.pictures img {
+  box-shadow: 0 0 0 2px var(--pageBackground);
+}
+
+.pictures img + img {
+  margin-left: -6px;
+}
+
+.count {
+  color: var(--helpTextColor);
+}
+
+.badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: 10px;
+  background-color: var(--inputBackgroundColor);
+  color: var(--helpTextColor);
+  font-size: 12px;
+  line-height: 20px;
+}

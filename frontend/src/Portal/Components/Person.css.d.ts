@@ -7,6 +7,7 @@ interface CssExports {
   'medium': string;
   'muted': string;
   'name': string;
+  'small': string;
 }
 export const cssExports: CssExports;
 export default cssExports;
