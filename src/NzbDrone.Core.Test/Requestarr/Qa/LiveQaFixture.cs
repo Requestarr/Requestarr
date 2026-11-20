@@ -29,10 +29,11 @@ using Requestarr.Core.Users;
 namespace Requestarr.Core.Test.Qa
 {
     // Live check in the dev Discord server (DEV_DISCORD_* from docker/secrets.env, the dev stack's bot stopped:
-    // dev.ps1 -Stack dev down, or reset-dev --stopped). The QA checklist is posted for the running version in its own
-    // Requestarr QA group; the server owner (an admin) passes an item, uses up his own report limit from the bug reports
-    // panel, then fails three items in a row, each opening its own linked report; the test member reports a problem and
-    // hits the limit; the bug reports channel is read back in order; then every item passes and the checklist completes.
+    // dev.ps1 -Stack dev down, or reset-dev --stopped). The dev server has no QA checklist, so the check makes one for the
+    // running version in a Requestarr QA group, and removes it at the end; the server owner (an admin) passes an item,
+    // uses up his own report limit from the bug reports panel, then fails three items in a row, each opening its own
+    // linked report; the test member reports a problem and hits the limit; the bug reports channel is read back in
+    // order; then every item passes and the checklist completes.
     // With DEV_GITHUB_ISSUES_TOKEN set, reports are filed as real issues (labelled "test") and closed at the end. Clicks
     // go through the real handlers; the effects are read back from Discord. The checklist's state is saved after each
     // step in the API's format (LIVE_QA_STATE_DIR) for docker/qa-gate.py. Its own report cards are removed at the end.
@@ -150,7 +151,9 @@ namespace Requestarr.Core.Test.Qa
 
             try
             {
-                await leftovers.NoteAsync(ulong.Parse(guildSetup.GetConfig().QaChecklistChannelId), ulong.Parse(guildSetup.GetConfig().BugReportsChannelId));
+                // The dev server has no checklist (only QA does): the check makes its own, and removes it at the end.
+                await guildSetup.EnsureQaChecklistAsync();
+                await leftovers.NoteAsync(ulong.Parse(guildSetup.GetConfig().BugReportsChannelId));
                 await checklist.EnsureAsync();
                 await panels.EnsureAllAsync();
 
@@ -191,6 +194,16 @@ namespace Requestarr.Core.Test.Qa
                 Log($"[checklist]   {Text(posted[1])}  buttons [{string.Join("] [", Buttons(posted[1]))}]");
                 posted.Should().HaveCount(entries.Count + 1);
                 Buttons(posted[1]).Should().Equal(QaText.PassLabel, QaText.FailLabel);
+
+                // Each card's steps are a numbered list and what to expect bullets, a line each, as Discord keeps them.
+                var lines = Lines(posted[1]);
+                Log($"[checklist] the first item's card as Discord has it, line by line:");
+                foreach (var line in lines.Split('\n'))
+                {
+                    Log($"[checklist]   | {line}");
+                }
+
+                lines.Should().Contain("\n**Steps**\n1. ").And.Contain("\n\n**Expect**\n- ").And.Contain("\n\n-# ");
                 Save(stateDir, "1-posted", checklist, Mocker.Resolve<IBugReportRepository>());
 
                 FakeInteraction AsOwner(FakeInteraction i) => i.By(guild.OwnerId, "owner", "the owner").InGuild(guild.Id).InChannel(checklistChannel);
@@ -287,8 +300,9 @@ namespace Requestarr.Core.Test.Qa
 
                 // 8. A promotion rehearsal: the next build has the same items under Unreleased, one reworded, one new.
                 var items = QaChecklist.Parse(text, tested).Single(v => v.Version == tested).Items;
-                var promoted = text.Replace("## Unreleased\n", "## Unreleased\n- **Live check new item:** Press Passes. You should see it passed.\n")
-                    .Replace($"- **{items[1].Name}:** {items[1].Text}", $"- **{items[1].Name}:** {items[1].Text} Then look again.");
+                var firstStep = $"- **{items[1].Name}**\n  - Steps:\n    1. {items[1].Steps[0]}";
+                var promoted = text.Replace("## Unreleased\n", "## Unreleased\n- **Live check new item**\n  - Steps:\n    1. Press Passes.\n  - Expect:\n    - It passed.\n")
+                    .Replace(firstStep, firstStep + " Then look again.");
                 build = "0.0.0-test.2222222";
                 checklist.ChecklistText = () => promoted;
                 await checklist.EnsureAsync();
@@ -341,6 +355,13 @@ namespace Requestarr.Core.Test.Qa
             }
             finally
             {
+                // Its checklist channel goes first, with its cards (version 0.0.0, the made-up item, the failing ones) and its
+                // group, so nothing below that fails can leave it on the dev server.
+                await guildSetup.RemoveQaChecklistAsync();
+                var checklistLeft = await gateway.FindTextChannelAsync(QaText.ChecklistChannelName);
+                var groupLeft = await gateway.FindCategoryAsync(ChannelLayout.QaCategoryName);
+                Log($"[cleanup] the check's own checklist channel and group removed: {checklistLeft == null && groupLeft == null}");
+
                 if (membersRole != null)
                 {
                     await gateway.RemoveRoleFromMemberAsync(member.Id, membersRole.Value);
@@ -362,9 +383,8 @@ namespace Requestarr.Core.Test.Qa
                     }
                 }
 
-                // Its checklist (version 0.0.0, the made-up item, the failing ones) goes too; the dev stack posts its own.
                 var (removed, left) = await leftovers.RemoveAsync();
-                Log($"[cleanup] removed the {removed} message(s) the check posted in the checklist and bug reports channels; left behind: {left}");
+                Log($"[cleanup] removed the {removed} message(s) the check posted in the bug reports channel; left behind: {left}");
                 await host.StopAsync();
                 if (Directory.Exists(appData))
                 {
@@ -398,6 +418,8 @@ namespace Requestarr.Core.Test.Qa
 
         private static string Text(IMessage message) =>
             string.Join(" / ", message.Components.OfType<ContainerComponent>().Select(c => string.Join(" ", All(c.Components).OfType<TextDisplayComponent>().Select(t => t.Content)).Replace("\n", " | ")));
+
+        private static string Lines(IMessage message) => string.Join("\n", All(message.Components).OfType<TextDisplayComponent>().Select(t => t.Content));
 
         private static IEnumerable<IMessageComponent> All(IEnumerable<IMessageComponent> components) =>
             components.SelectMany(c => new[] { c }.Concat(All(c switch

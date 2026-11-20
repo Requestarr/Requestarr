@@ -12,15 +12,15 @@ using Requestarr.Core.Announcements;
 
 namespace Requestarr.Core.Qa
 {
-    // One thing to test in a version: "- **Name:** what to do. You should see what happens." Key: its name and wording
-    // ("name-in-words.3f9a2c1d"), so a result stays with the same words wherever they move (a promotion, a fold into
-    // Unreleased, a build number replacing Unreleased) and new words start untested. EarlierKey is the key results were
-    // recorded under before (its heading and name: "0.4.15/name-in-words", or "build-5/name-in-words" under Unreleased),
-    // which a result recorded then is moved from.
-    // Who checks it is on the line below the item and isn't part of its wording, so classifying an item keeps its result.
-    public record QaChecklistEntry(Version Version, string Key, string Name, string Text, string EarlierKey)
+    // One thing to test in a version: a bold name, its numbered Steps and the Expect bullets. Key: its name and wording
+    // ("name-in-words.3f9a2c1d"), so a result stays with the same words wherever they move (a promotion, a build number
+    // replacing Unreleased) and new words start untested. Text is the wording: the steps, then what to expect.
+    // Who checks it is on the last line and isn't part of its wording, so classifying an item keeps its result.
+    public record QaChecklistEntry(Version Version, string Key, string Name, string Text)
     {
         public QaChecker Checker { get; init; } = QaChecker.Unclassified;
+        public IReadOnlyList<string> Steps { get; init; } = Array.Empty<string>();
+        public IReadOnlyList<string> Expect { get; init; } = Array.Empty<string>();
     }
 
     // Who checks an item: the automated checks, with the check named on the item (docker/qa_checks.py), or the owner,
@@ -48,12 +48,19 @@ namespace Requestarr.Core.Qa
     {
         public const string ResourceName = "Requestarr.QA-CHECKLIST.md";
 
+        // An item: "- **Importing from Requestrr**", then "  - Steps:" over "    1. Open Settings.", "  - Expect:" over
+        // "    - One list of past requests.", and who checks it.
+        private const string StepsLine = "  - Steps:";
+        private const string ExpectLine = "  - Expect:";
+
         private static readonly Regex Heading = new(@"^## (?:(?<unreleased>Unreleased)|(?<version>\d+\.\d+\.\d+)(?: \(\d{4}-\d{2}-\d{2}\))?)\s*$");
-        private static readonly Regex Item = new(@"^- \*\*(?<name>[^*:]+):\*\* (?<text>.+)$");
+        private static readonly Regex Item = new(@"^- \*\*(?<name>[^*]+)\*\*$");
+        private static readonly Regex Step = new(@"^    \d+\. (?<text>.+)$");
+        private static readonly Regex Bullet = new(@"^    - (?<text>.+)$");
 
         // "  - Checked automatically: the web app status page check." or
         // "  - Checked by the owner, needs human eyes: how the profile popout looks in the Discord app."
-        private static readonly Regex CheckedBy = new(@"^- Checked (?:automatically: the (?<check>.+) check|by the owner, (?<reason>needs human eyes|unsure of the desired behavior|couldn't verify): (?<why>.+?))\.?$");
+        private static readonly Regex CheckedBy = new(@"^  - Checked (?:automatically: the (?<check>.+) check|by the owner, (?<reason>needs human eyes|unsure of the desired behavior|couldn't verify): (?<why>.+?))\.?$");
 
         public static string Embedded()
         {
@@ -74,18 +81,19 @@ namespace Requestarr.Core.Qa
         {
             var versions = new List<QaChecklistVersion>();
             Version current = null;
-            string keyPrefix = null;
             List<QaChecklistEntry> items = null;
+            ItemLines item = null;
 
             foreach (var raw in (text ?? string.Empty).Split('\n'))
             {
-                var line = raw.Trim();
-                var heading = Heading.Match(line);
+                var line = raw.TrimEnd();
+                var heading = Heading.Match(line.Trim());
 
                 if (heading.Success)
                 {
+                    item?.AddTo(items, current);
+                    item = null;
                     current = heading.Groups["unreleased"].Success ? unreleased : Version.Parse(heading.Groups["version"].Value);
-                    keyPrefix = heading.Groups["unreleased"].Success ? $"build-{unreleased?.Build}" : current.ToString();
                     items = new List<QaChecklistEntry>();
 
                     if (current != null)
@@ -96,43 +104,35 @@ namespace Requestarr.Core.Qa
                     continue;
                 }
 
-                if (current != null)
+                var name = Item.Match(line);
+
+                if (current != null && name.Success)
                 {
-                    AddLine(items, line, current, keyPrefix);
+                    item?.AddTo(items, current);
+                    item = new ItemLines(name.Groups["name"].Value.Trim());
+                }
+                else
+                {
+                    item?.Add(line);
                 }
             }
 
+            item?.AddTo(items, current);
             return versions;
         }
 
-        // An item, or who checks the item above it.
-        private static void AddLine(List<QaChecklistEntry> items, string line, Version version, string keyPrefix)
-        {
-            var item = Item.Match(line);
-
-            if (item.Success)
-            {
-                var name = item.Groups["name"].Value.Trim();
-                var text = item.Groups["text"].Value.Trim();
-                items.Add(new QaChecklistEntry(version, WordingKey(name, text), name, text, $"{keyPrefix}/{Slug(name)}"));
-                return;
-            }
-
-            var checkedBy = CheckedBy.Match(line);
-
-            if (checkedBy.Success && items.Count > 0)
-            {
-                items[^1] = items[^1] with { Checker = Checker(checkedBy) };
-            }
-        }
+        // An item's wording, as its key is made from: "Steps:\n1. Open Settings.\nExpect:\n- It saves." (docker/qa_checks.py
+        // builds the same, to record a result on exactly the item whose words were checked).
+        private static string Wording(IEnumerable<string> steps, IEnumerable<string> expect) =>
+            string.Join("\n", new[] { "Steps:" }.Concat(steps.Select((s, n) => $"{n + 1}. {s}")).Append("Expect:").Concat(expect.Select(e => $"- {e}")));
 
         private static QaChecker Checker(Match checkedBy) =>
             checkedBy.Groups["check"].Success
                 ? new QaChecker(true, checkedBy.Groups["check"].Value.Trim(), null, null)
                 : new QaChecker(false, null, checkedBy.Groups["reason"].Value, checkedBy.Groups["why"].Value.Trim());
 
-        // The versions this server tests: QA every version staging doesn't have yet; dev only the one running (where the
-        // checklist is tried out). Other servers have no checklist.
+        // The versions this server tests: QA every version staging doesn't have yet; dev only the one running (its record
+        // takes the automated results, and has no channel). Other servers have no checklist.
         public static IReadOnlyList<QaChecklistVersion> ForServer(IReadOnlyList<QaChecklistVersion> versions, IReleaseEnvironment environment, Version running)
         {
             var current = Changelog.Release(running);
@@ -145,7 +145,8 @@ namespace Requestarr.Core.Qa
             };
         }
 
-        public static bool HasChecklist(IReleaseEnvironment environment) => environment.VersionPosts != VersionPostMode.Standing;
+        // The checklist channel: the owner's QA work, on the QA server only (owner, 2026-11-20).
+        public static bool HasChecklist(IReleaseEnvironment environment) => environment.VersionPosts == VersionPostMode.NotYetStaged;
 
         private static string Slug(string name) => Regex.Replace(name.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
 
@@ -156,6 +157,48 @@ namespace Requestarr.Core.Qa
             var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(wording)));
 
             return $"{Slug(name)}.{hash[..8].ToLowerInvariant()}";
+        }
+
+        // One item's lines as they're read: its steps, what to expect, and who checks it.
+        private sealed class ItemLines
+        {
+            private readonly string _name;
+            private readonly List<string> _steps = new();
+            private readonly List<string> _expect = new();
+            private List<string> _part;
+            private QaChecker _checker = QaChecker.Unclassified;
+
+            public ItemLines(string name) => _name = name;
+
+            public void Add(string line)
+            {
+                var checkedBy = CheckedBy.Match(line);
+
+                if (checkedBy.Success)
+                {
+                    _checker = Checker(checkedBy);
+                    return;
+                }
+
+                if (line is StepsLine or ExpectLine)
+                {
+                    _part = line == StepsLine ? _steps : _expect;
+                    return;
+                }
+
+                var entry = (_part == _steps ? Step : Bullet).Match(line);
+
+                if (_part != null && entry.Success)
+                {
+                    _part.Add(entry.Groups["text"].Value.Trim());
+                }
+            }
+
+            public void AddTo(List<QaChecklistEntry> items, Version version)
+            {
+                var text = Wording(_steps, _expect);
+                items.Add(new QaChecklistEntry(version, WordingKey(_name, text), _name, text) { Checker = _checker, Steps = _steps, Expect = _expect });
+            }
         }
     }
 

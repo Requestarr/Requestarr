@@ -20,6 +20,10 @@ namespace Requestarr.Core.Discord
         ulong? MembersRoleId { get; }
         ulong? AnnouncementsChannelId { get; }
         ulong? BlockedRoleId { get; }
+
+        // A live check on dev tries the QA checklist out in a channel of its own, then removes it with what's in it.
+        Task EnsureQaChecklistAsync();
+        Task RemoveQaChecklistAsync();
     }
 
     // Makes sure the two channel groups exist with what belongs in them: Requestarr Admin (the admin channel and the
@@ -71,11 +75,15 @@ namespace Requestarr.Core.Discord
 
             await EnsureAdminGroupAsync(config, settings, group);
 
-            // QA and dev only: the QA checklist, admin-only, in a Requestarr QA group of its own, so testing stays apart
-            // from running the server.
+            // QA only: the QA checklist, admin-only, in a Requestarr QA group of its own, so testing stays apart from
+            // running the server. The dev server had one until November 20, 2026: it goes.
             if (Qa.QaChecklist.HasChecklist(_environment))
             {
                 await EnsureQaGroupAsync(config, group);
+            }
+            else if (_environment.VersionPosts == Announcements.VersionPostMode.CurrentOnly)
+            {
+                await RemoveQaGroupAsync(config);
             }
 
             // One shared role for every member (it costs one of the server's 250 roles, not one each) reads the
@@ -174,6 +182,46 @@ namespace Requestarr.Core.Discord
                 config.QaChecklistChannelId = checklist.ToString();
                 config.QaChecklistSummaryMessageId = null;
             }
+        }
+
+        public async Task EnsureQaChecklistAsync()
+        {
+            var config = GetConfig();
+            await EnsureQaGroupAsync(config, ChannelLayout.Group(_gateway.GuildId, _gateway.BotUserId, ulong.Parse(config.AdminRoleId)));
+            _repository.Upsert(config);
+        }
+
+        public async Task RemoveQaChecklistAsync()
+        {
+            var config = GetConfig();
+            await RemoveQaGroupAsync(config);
+            _repository.Upsert(config);
+        }
+
+        // The checklist channel with its cards, then the Requestarr QA group once nothing else is in it.
+        private async Task RemoveQaGroupAsync(DiscordGuildConfig config)
+        {
+            var checklist = await ExistingOrNull(Parse(config.QaChecklistChannelId)) ?? await _gateway.FindTextChannelAsync(Qa.QaText.ChecklistChannelName);
+
+            if (checklist != null)
+            {
+                await _gateway.DeleteChannelAsync(checklist.Value);
+                _logger.Info("Removed the QA checklist channel: only the QA server has one");
+                _audit.Record(Actor.System, "discord.qa-checklist-channel.delete", "channel", checklist.ToString());
+            }
+
+            var qaGroup = await ExistingOrNull(Parse(config.QaCategoryId)) ?? await _gateway.FindCategoryAsync(ChannelLayout.QaCategoryName);
+
+            if (qaGroup != null && await _gateway.GetChannelCountInCategoryAsync(qaGroup.Value) == 0)
+            {
+                await _gateway.DeleteChannelAsync(qaGroup.Value);
+                _logger.Info("Removed the empty '{0}' group", ChannelLayout.QaCategoryName);
+                _audit.Record(Actor.System, "discord.category.delete", "channel", qaGroup.ToString(), ChannelLayout.QaCategoryName);
+            }
+
+            config.QaChecklistChannelId = null;
+            config.QaChecklistSummaryMessageId = null;
+            config.QaCategoryId = null;
         }
 
         // A group found again (stored ID, then name) or created, with exactly these permissions.

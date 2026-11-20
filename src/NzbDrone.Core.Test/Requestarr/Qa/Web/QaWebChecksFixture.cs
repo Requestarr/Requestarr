@@ -13,7 +13,7 @@ namespace Requestarr.Core.Test.Qa.Web
     // The automated web app checks for the QA checklist (docker/qa_checks.py run): a real browser against the dev stack
     // at the commit QA receives, signed in with a throwaway login, in the light and dark theme, never the QA server.
     // Each test is one check an item names ("the web app status page check") and writes what it saw and its screenshots
-    // for the automation to look at against the item's "You should see". The dev stack shows the dev logo where QA shows
+    // for the automation to look at against the item's Expect. The dev stack shows the dev logo where QA shows
     // QA's; the checks put QA's own logo files in the page where QA shows them (the logo is the only part that differs
     // between environments). Needs QA_CHECKS_URL, QA_CHECKS_USERNAME, QA_CHECKS_PASSWORD, QA_CHECKS_DIR and
     // QA_CHECKS_COMMIT (the run sets them).

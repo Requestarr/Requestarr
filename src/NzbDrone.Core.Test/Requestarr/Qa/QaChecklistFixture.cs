@@ -24,17 +24,32 @@ namespace Requestarr.Core.Test.Qa
         private const string Text = @"# QA checklist
 
 ## 0.4.15 (2026-10-25)
-- **Passing an item:** Press Passes. You should see it passed.
-- **Failing an item:** Press Failing. You should see it failing.
+- **Passing an item**
+  - Steps:
+    1. Press Passes.
+  - Expect:
+    - It passed.
+- **Failing an item**
+  - Steps:
+    1. Press Failing.
+    2. Send the report.
+  - Expect:
+    - It failing.
 
 ## 0.4.14 (2026-10-25)
 
 ## 0.4.13 (2026-10-25)
-- **Sign-in logo:** Sign out. You should see the logo.
+- **Sign-in logo**
+  - Steps:
+    1. Sign out.
+  - Expect:
+    - The logo.
+    - The light arrow.
 ";
 
-        // The fold's 11 carried items, the two rewritten ones and the build-number item kept under Unreleased.
-        private const int ItemsFromTheFold = 15;
+        private const string Passed = "    - It passed.";
+        private const string PassingAutomated = Passed + "\n  - Checked automatically: the live passing check.";
+        private const string NewThing = "- **New thing**\n  - Steps:\n    1. Do it.\n  - Expect:\n    - It.";
 
         private static readonly QaCheckers NoCheckers = new(0, 0, 0, 0, Array.Empty<string>());
 
@@ -90,7 +105,7 @@ namespace Requestarr.Core.Test.Qa
             QaChecklist.Embedded().Replace("\r\n", "\n").Should().Be(file.Replace("\r\n", "\n"));
             QaChecklist.Parse(file).Select(v => v.Version).Should().Equal(Changelog.Parse(changelog).Select(v => v.Version).Where(v => v >= new Version(0, 4, 3)), "the staging promotion numbers both files together");
             versions.SelectMany(v => v.Items).Select(i => i.Key).Should().OnlyHaveUniqueItems();
-            versions.SelectMany(v => v.Items).Should().OnlyContain(i => i.Text.Contains("You should see"));
+            versions.SelectMany(v => v.Items).Should().OnlyContain(i => i.Steps.Count > 0 && i.Expect.Count > 0);
         }
 
         [Test]
@@ -102,19 +117,36 @@ namespace Requestarr.Core.Test.Qa
             versions[0].Items.Select(i => i.Key).Should().OnlyContain(k => k.Length < 60).And.SatisfyRespectively(
                 k => k.Should().MatchRegex(@"^passing-an-item\.[0-9a-f]{8}$"),
                 k => k.Should().MatchRegex(@"^failing-an-item\.[0-9a-f]{8}$"));
-            versions[0].Items.Select(i => i.EarlierKey).Should().Equal("0.4.15/passing-an-item", "0.4.15/failing-an-item");
             versions[1].Items.Should().BeEmpty();
             versions[2].Items.Single().Name.Should().Be("Sign-in logo");
+        }
+
+        [Test]
+        public void an_item_is_its_numbered_steps_and_what_to_expect_and_its_wording_is_both()
+        {
+            var item = QaChecklist.Parse(Text)[0].Items[1];
+
+            item.Steps.Should().Equal("Press Failing.", "Send the report.");
+            item.Expect.Should().Equal("It failing.");
+            item.Text.Should().Be("Steps:\n1. Press Failing.\n2. Send the report.\nExpect:\n- It failing.", "docker/qa_checks.py keys a result by the same words");
+        }
+
+        [Test]
+        public void a_card_shows_the_steps_as_a_numbered_list_and_what_to_expect_as_bullets_one_per_line()
+        {
+            var item = QaChecklist.Parse(Text)[2].Items.Single() with { Checker = new QaChecker(false, null, "needs human eyes", "how it looks") };
+
+            QaText.Item(item, null, null).Should().Be(
+                "**Sign-in logo** · 0.4.13\n**Steps**\n1. Sign out.\n\n**Expect**\n- The logo.\n- The light arrow.\n\n-# 👤 For you to check, needs human eyes: how it looks\n⏳ Not tested yet");
         }
 
         [Test]
         public void the_same_words_under_another_heading_are_the_same_item_and_new_words_are_a_new_one()
         {
             var moved = QaChecklist.Parse(Text.Replace("## 0.4.15 (2026-10-25)", "## Unreleased"), new Version(0, 7, 4));
-            var reworded = QaChecklist.Parse(Text.Replace("You should see it passed.", "You should see a green tick."));
+            var reworded = QaChecklist.Parse(Text.Replace(Passed, "    - A green tick."));
 
             moved[0].Items.Select(i => i.Key).Should().Equal(Keys("Passing an item", "Failing an item"), "a fold into Unreleased or a build number keeps the result");
-            moved[0].Items[0].EarlierKey.Should().Be("build-4/passing-an-item");
             reworded[0].Items[0].Key.Should().NotBe(Key("Passing an item"), "changed words are a changed test");
             reworded[0].Items[1].Key.Should().Be(Key("Failing an item"));
             QaChecklist.Parse(Text.Replace("Press Passes.", "Press   Passes.")).SelectMany(v => v.Items).Select(i => i.Key).Should().Equal(Keys("Passing an item", "Failing an item", "Sign-in logo"), "spacing isn't wording");
@@ -123,7 +155,7 @@ namespace Requestarr.Core.Test.Qa
         [Test]
         public void unreleased_items_are_the_build_qa_runs()
         {
-            const string Pending = "# QA checklist\n\n## Unreleased\n- **Build number:** open System, then Status. You should see the build's number.\n\n## 0.6.0 (2026-11-13)\n";
+            const string Pending = "# QA checklist\n\n## Unreleased\n- **Build number**\n  - Steps:\n    1. Open System, then Status.\n  - Expect:\n    - The build's number.\n\n## 0.6.0 (2026-11-13)\n";
             var running = new Version(0, 7, 5);
 
             var unreleased = QaChecklist.Parse(Pending, running);
@@ -143,71 +175,14 @@ namespace Requestarr.Core.Test.Qa
 
             // The next promotion: one item reworded, one new, all of it folded under Unreleased.
             Mocker.GetMock<IReleaseEnvironment>().Setup(e => e.Shown(It.IsAny<Version>())).Returns("0.7.0004-qa.2222222");
-            Subject.ChecklistText = () => Text.Replace("## 0.4.15 (2026-10-25)", "## Unreleased\n- **New thing:** Do it. You should see it.")
-                .Replace("You should see the logo.", "You should see the new logo.");
+            Subject.ChecklistText = () => Text.Replace("## 0.4.15 (2026-10-25)", "## Unreleased\n" + NewThing)
+                .Replace("    - The logo.", "    - The new logo.");
             Subject.CurrentVersion = () => new Version(0, 7, 4, 1);
             var state = Subject.State();
 
             state.Items.Select(i => (i.Name, i.State, i.By)).Should().Equal(
                 ("New thing", "Pending", null), ("Passing an item", "Passed", "Alex"), ("Failing an item", "Passed", "Alex"), ("Sign-in logo", "Pending", null));
             state.Should().BeEquivalentTo(new { Total = 4, Passed = 2, Carried = 2, New = 2, Complete = false });
-        }
-
-        [Test]
-        public void a_result_recorded_by_version_and_name_moves_to_its_wording_with_its_bug_report()
-        {
-            Mocker.GetMock<IReleaseEnvironment>().Setup(e => e.Shown(It.IsAny<Version>())).Returns("0.7.0004-qa.2222222");
-            var report = new BugReport { Id = 9, ChecklistItemKey = "0.4.15/failing-an-item" };
-            var earlier = new BugReport { Id = 8, ChecklistItemKey = "0.4.15/failing-an-item" };
-            Mocker.GetMock<IBugReportRepository>().Setup(r => r.Find(9)).Returns(report);
-            Mocker.GetMock<IBugReportRepository>().Setup(r => r.All()).Returns(new[] { earlier, report, new BugReport { Id = 7, ChecklistItemKey = "0.4.15/other" } });
-            _records["0.4.15/failing-an-item"] = new QaChecklistItem { Id = 50, ItemKey = "0.4.15/failing-an-item", State = QaItemState.Failing, ByName = "Alex", BugReportId = 9 };
-            _records["0.4.13/sign-in-logo"] = new QaChecklistItem { Id = 51, ItemKey = "0.4.13/sign-in-logo", State = QaItemState.Passed, ByName = "Sam" };
-
-            var state = Subject.State();
-
-            state.Should().BeEquivalentTo(new { Passed = 1, Failing = 1, Carried = 1 });
-            _records.Keys.Should().BeEquivalentTo(Keys("Passing an item", "Failing an item", "Sign-in logo"));
-            _records[Key("Sign-in logo")].Id.Should().Be(51, "the same record, under its new key");
-            new[] { earlier, report }.Should().OnlyContain(r => r.ChecklistItemKey == Key("Failing an item"), "every report on the item still finds it");
-        }
-
-        // What the QA server recorded before the fold: all 27 items passed (November 14, 2026).
-        private static readonly string[] BeforeTheFold =
-        {
-            "0.4.10/dark-theme-icons", "0.4.10/full-height-logo", "0.4.11/logo-on-the-purple-header", "0.4.11/charcoal-arrow", "0.4.12/bot-picture-and-banner",
-            "0.4.13/sign-in-logo", "0.4.13/loading-screen", "0.4.15/test-checklist", "0.4.15/passing-an-item", "0.4.15/failing-an-item", "0.4.15/report-a-problem",
-            "0.4.15/report-limit", "0.4.16/passes-without-errors", "0.4.16/failing-in-a-row", "0.4.16/member-limit-still-holds", "0.4.16/bug-reports-channel-order",
-            "0.4.16/why-a-report-isn-t-on-github", "0.4.16/qa-group", "0.5.0/version-on-the-logo", "0.5.0/version-in-status", "0.5.6/project-links",
-            "0.5.6/bug-report-at-the-new-home", "0.6.0/update-card-titles", "0.6.0/admin-channel-update-cards", "0.6.0/read-changes-unchanged",
-            "build-4/build-number-on-update-cards", "build-4/build-number-in-the-web-app"
-        };
-
-        // Passed on QA after the fold, under wording reworded since (November 18, 2026): folded the same way.
-        private static readonly string[] PassedSince = { "only-your-items-on-qa.7b89baa0" };
-
-        [TestCase(null, "Update cards", "Read changes")]
-        [TestCase("0.4.11/charcoal-arrow", "Update cards", "Read changes", "Web app logo")]
-        public void the_fold_keeps_a_merged_items_pass_only_when_every_item_it_came_from_passed(string untested, params string[] toTest)
-        {
-            foreach (var key in BeforeTheFold.Concat(PassedSince).Where(k => k != untested))
-            {
-                _records[key] = new QaChecklistItem { Id = _nextId++, ItemKey = key, State = QaItemState.Passed, ByName = "EaZyCheaZ", At = new DateTime(2026, 11, 14, 18, 57, 5) };
-            }
-
-            Subject.ChecklistText = QaChecklist.Embedded;
-            Subject.CurrentVersion = () => new Version(0, 7, 4, 1);
-
-            // The automated folded items show on dev; the carry works the same on every server.
-            OnDev();
-            var state = Subject.State();
-
-            // The items that came out of the fold (later pull requests add their own, untested).
-            var folded = state.Items.Where(i => QaChecklistFold.EarlierKeys.ContainsKey(i.Key) || i.Name is "Update cards" or "Read changes" or "Build number in the web app").ToList();
-            folded.Where(i => i.State != "Passed").Select(i => i.Name).Should().Equal(toTest);
-            folded.Where(i => i.State == "Passed").Should().OnlyContain(i => i.By == "EaZyCheaZ").And.HaveCount(ItemsFromTheFold - toTest.Length);
-            QaChecklistFold.EarlierKeys.Keys.Should().BeSubsetOf(QaChecklist.Parse(QaChecklist.Embedded(), new Version(0, 7, 4)).SelectMany(v => v.Items).Select(i => i.Key),
-                "each entry names a folded item by its words; drop an entry once its item is reworded");
         }
 
         [TestCase(0, 0, "⏳ **1 left to test.**")]
@@ -218,7 +193,7 @@ namespace Requestarr.Core.Test.Qa
         }
 
         [Test]
-        public void qa_tests_what_staging_doesnt_have_dev_tries_out_the_running_version_and_other_servers_have_none()
+        public void qa_tests_what_staging_doesnt_have_dev_records_the_running_version_and_only_qa_has_a_channel()
         {
             var versions = QaChecklist.Parse(Text);
             var running = new Version(0, 4, 15, 7);
@@ -228,6 +203,7 @@ namespace Requestarr.Core.Test.Qa
             QaChecklist.ForServer(versions, Environment("staging"), running).Should().BeEmpty();
             QaChecklist.ForServer(versions, Environment(null), running).Should().BeEmpty();
             QaChecklist.HasChecklist(Environment("qa")).Should().BeTrue();
+            QaChecklist.HasChecklist(Environment("dev")).Should().BeFalse("the checklist is the owner's QA work, on the QA server only");
             QaChecklist.HasChecklist(Environment(null)).Should().BeFalse();
         }
 
@@ -277,7 +253,7 @@ namespace Requestarr.Core.Test.Qa
 
             // Staging got 0.4.13, and QA got 0.4.16 with one new item.
             OnQa("0.4.13");
-            Subject.ChecklistText = () => Text.Replace("# QA checklist", "# QA checklist\n\n## 0.4.16 (2026-10-26)\n- **New thing:** Do it. You should see it.");
+            Subject.ChecklistText = () => Text.Replace("# QA checklist", "# QA checklist\n\n## 0.4.16 (2026-10-26)\n" + NewThing);
             Subject.CurrentVersion = () => new Version(0, 4, 16, 1);
             var state = Subject.State();
 
@@ -289,8 +265,8 @@ namespace Requestarr.Core.Test.Qa
         public void the_line_under_an_item_says_who_checks_it_and_isnt_part_of_its_wording()
         {
             var checkedText = Text
-                .Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.")
-                .Replace("You should see the logo.", "You should see the logo.\n  - Checked by the owner, needs human eyes: how it looks in the Discord app.");
+                .Replace(Passed, PassingAutomated)
+                .Replace("    - The light arrow.", "    - The light arrow.\n  - Checked by the owner, needs human eyes: how it looks in the Discord app.");
 
             var items = QaChecklist.Parse(checkedText).SelectMany(v => v.Items).ToList();
 
@@ -306,7 +282,8 @@ namespace Requestarr.Core.Test.Qa
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
             unreleased.Where(i => !i.Checker.Automated).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Only your items on QA", "Bot picture and banner", "Installing the beta in Container Manager", "Importing from Requestrr");
+            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo(
+                "Only your items on QA", "Bot picture and banner", "Installing the beta", "Importing from Requestrr", "Imported people", "Reading another server");
         }
 
         [Test]
@@ -324,7 +301,7 @@ namespace Requestarr.Core.Test.Qa
         public async Task an_automated_pass_is_recorded_under_no_member_and_its_card_shows_what_it_saw_and_its_screenshots()
         {
             OnDev();
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
+            Subject.ChecklistText = () => Text.Replace(Passed, PassingAutomated);
             Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100", QaChecklistSummaryMessageId = "200" });
             var key = Subject.State().Items[0].Key;
             _records[key].MessageId = "300";
@@ -356,7 +333,7 @@ namespace Requestarr.Core.Test.Qa
         public async Task a_card_discord_wont_edit_keeping_its_screenshots_sends_them_again()
         {
             OnDev();
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
+            Subject.ChecklistText = () => Text.Replace(Passed, PassingAutomated);
             Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { QaChecklistChannelId = "100" });
             var key = Subject.State().Items[0].Key;
             _records[key].MessageId = "300";
@@ -373,7 +350,7 @@ namespace Requestarr.Core.Test.Qa
         [Test]
         public async Task qa_shows_only_the_owners_items_and_forgets_the_automated_results_keeping_the_owners()
         {
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
+            Subject.ChecklistText = () => Text.Replace(Passed, PassingAutomated);
             var automatedKey = QaChecklist.Parse(Subject.ChecklistText()).SelectMany(v => v.Items).Single(i => i.Name == "Passing an item").Key;
             _records[automatedKey] = new QaChecklistItem { Id = 70, ItemKey = automatedKey, Name = "Passing an item", State = QaItemState.Passed, ByName = "automation", EvidenceFiles = new List<string> { "a.jpg" } };
             _records[Key("Sign-in logo")] = new QaChecklistItem { Id = 71, ItemKey = Key("Sign-in logo"), Name = "Sign-in logo", State = QaItemState.Passed, ByDiscordUserId = "1", ByName = "EaZyCheaZ" };
@@ -399,7 +376,7 @@ namespace Requestarr.Core.Test.Qa
         public void dev_shows_the_automated_items_with_their_results()
         {
             OnDev();
-            Subject.ChecklistText = () => Text.Replace("You should see it passed.", "You should see it passed.\n  - Checked automatically: the live passing check.");
+            Subject.ChecklistText = () => Text.Replace(Passed, PassingAutomated);
 
             Subject.State().Items.Select(i => (i.Name, i.CheckedBy)).Should().Equal(("Passing an item", "automation"), ("Failing an item", "owner"));
         }

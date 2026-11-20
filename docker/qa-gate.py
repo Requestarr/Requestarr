@@ -3,7 +3,7 @@
 
 Run through the stack scripts, which pass the stack's address and API key (never printed):
     .\\docker\\dev.ps1 qa-gate          docker/dev.sh qa-gate          ./release.sh qa-gate
-(-Stack dev / --stack dev reads the dev stack instead, where the checklist is tried out.)
+(-Stack dev / --stack dev reads the dev stack instead, whose checklist record takes the automated results.)
 
 Reads the checklist from Requestarr (GET /api/v1/qa/checklist) and the open issues from GitHub (gh): any open issue
 labelled with this server's environment ("env: qa") and a version the checklist covers counts, whether or not it came

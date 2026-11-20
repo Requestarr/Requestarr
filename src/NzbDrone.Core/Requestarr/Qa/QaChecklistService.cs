@@ -51,9 +51,11 @@ namespace Requestarr.Core.Qa
     }
 
     // The QA test checklist in Discord: a summary card, then one card per item with Passes and Failing, for every version
-    // this server has that staging doesn't (QA), or the running one (dev, where it's tried out). The record is the
-    // truth; the cards show it. A new promotion to QA adds the new versions' items (as not tested yet) and drops the
-    // versions staging now has; every pass or failure already recorded stays.
+    // QA has that staging doesn't. The record is the truth; the cards show it. Dev keeps a record of the running
+    // version's items, where the automated results are recorded before a promotion, and posts no cards (owner,
+    // 2026-11-20: the checklist is the owner's QA work, on the QA server only). A new promotion to QA adds the new
+    // versions' items (as not tested yet) and drops the versions staging now has; every pass or failure already recorded
+    // stays.
     public class QaChecklistService : IQaChecklistService, IHandleAsync<DiscordReadyEvent>
     {
         private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -99,7 +101,7 @@ namespace Requestarr.Core.Qa
             QaChecklist.ForServer(QaChecklist.Parse(ChecklistText(), Changelog.Release(CurrentVersion())), _environment, CurrentVersion());
 
         // QA's checklist is the owner's: the automated items run on dev before a build is promoted and never show on QA.
-        // Dev shows them, with their automated results.
+        // Dev's record has them, with their automated results.
         public IReadOnlyList<QaChecklistEntry> Entries() => Versions().SelectMany(v => v.Items).Where(e => !(e.Checker.Automated && OwnersOnly)).ToList();
 
         public QaChecklistEntry Find(string key) => Entries().FirstOrDefault(e => e.Key == key);
@@ -133,7 +135,9 @@ namespace Requestarr.Core.Qa
 
         public async Task EnsureAsync()
         {
-            if (!QaChecklist.HasChecklist(_environment) || !ulong.TryParse(_guildSetup.GetConfig()?.QaChecklistChannelId, out var channel))
+            // Only QA's guild setup makes a checklist channel (and a live check on dev, which removes it again); beta and
+            // production never post one, even with a channel ID copied from QA.
+            if (_environment.VersionPosts == VersionPostMode.Standing || !ulong.TryParse(_guildSetup.GetConfig()?.QaChecklistChannelId, out var channel))
             {
                 return;
             }
@@ -284,70 +288,11 @@ namespace Requestarr.Core.Qa
 
             foreach (var entry in entries)
             {
-                var record = _items.FindByKey(entry.Key) ?? MovedFromEarlierKey(entry) ?? CarriedThroughFold(entry);
-
-                if (record == null)
-                {
-                    record = _items.Insert(new QaChecklistItem { ItemKey = entry.Key, Version = Changelog.Display(entry.Version), Name = entry.Name, State = QaItemState.Pending, AddedOn = RunningBuild() });
-                }
-
-                records[entry.Key] = record;
+                records[entry.Key] = _items.FindByKey(entry.Key) ??
+                    _items.Insert(new QaChecklistItem { ItemKey = entry.Key, Version = Changelog.Display(entry.Version), Name = entry.Name, State = QaItemState.Pending, AddedOn = RunningBuild() });
             }
 
             return records;
-        }
-
-        // A result recorded before results followed the wording (keyed by heading and name) moves to the wording's key.
-        private QaChecklistItem MovedFromEarlierKey(QaChecklistEntry entry)
-        {
-            var record = _items.FindByKey(entry.EarlierKey);
-
-            if (record == null)
-            {
-                return null;
-            }
-
-            record.ItemKey = entry.Key;
-            _items.SetFields(record, r => r.ItemKey);
-
-            // Its bug reports find the item by its key too (to show the issue link once one is filed).
-            foreach (var report in _reports.All().Where(r => r.ChecklistItemKey == entry.EarlierKey))
-            {
-                report.ChecklistItemKey = entry.Key;
-                _reports.SetFields(report, r => r.ChecklistItemKey);
-            }
-
-            return record;
-        }
-
-        // A folded item is passed when every item it came from passed (QaChecklistFold), with the last pass's who and when.
-        private QaChecklistItem CarriedThroughFold(QaChecklistEntry entry)
-        {
-            if (!QaChecklistFold.EarlierKeys.TryGetValue(entry.Key, out var earlierKeys))
-            {
-                return null;
-            }
-
-            var earlier = earlierKeys.Select(_items.FindByKey).ToList();
-
-            if (earlier.Any(r => r?.State != QaItemState.Passed))
-            {
-                return null;
-            }
-
-            var last = earlier.MaxBy(r => r.At);
-
-            return _items.Insert(new QaChecklistItem
-            {
-                ItemKey = entry.Key,
-                Version = Changelog.Display(entry.Version),
-                Name = entry.Name,
-                State = QaItemState.Passed,
-                ByDiscordUserId = last.ByDiscordUserId,
-                ByName = last.ByName,
-                At = last.At,
-                RecordedOn = last.RecordedOn
-            });
         }
 
         // Results the automation recorded on QA before its items left QA's checklist (November 15, 2026) go, with their

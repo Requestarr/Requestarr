@@ -14,7 +14,7 @@ run: the checkout must be at the commit (the tests are built from it). It builds
      checks (headless Edge or Chrome, light and dark theme), stops it and runs every live check on the dev server (the
      test Sonarr and Radarr emptied before each, so no check finds another's titles), resets the dev stack and runs the
      read-back of the running stack. Results, read-backs and screenshots go in DIR (default _qa-checks/<short commit>).
-record: after the automation has looked at every screenshot against its item's "You should see" (one that doesn't match
+record: after the automation has looked at every screenshot against its item's Expect (one that doesn't match
      is --fail), records the results on the dev stack's checklist (the automation's server; it must run that commit) and
      marks the run reviewed. QA never takes them.
 verify: whether the run for SHA is ready for the promotion (release.sh promote-qa): a full run that passed the suite,
@@ -82,7 +82,13 @@ CHECKS = {
     "live report limit": Check("live", "LiveQaFixture", "other", ("[limit]",)),
 }
 
-ITEM = re.compile(r"^- \*\*([^*:]+):\*\* (.+)$")
+# An item (QA-CHECKLIST.md): "- **Name**", "  - Steps:" over "    1. ...", "  - Expect:" over "    - ...", then who checks it.
+ITEM = re.compile(r"^- \*\*([^*]+)\*\*$")
+STEP = re.compile(r"^    (\d+)\. (.+)$")
+BULLET = re.compile(r"^    - (.+)$")
+STEPS_LINE = "  - Steps:"
+EXPECT_LINE = "  - Expect:"
+CHECKED_LINE = "  - Checked "
 CHECKED_BY = re.compile(r"^- Checked (?:automatically: the (?P<check>.+) check|by the owner, (?P<reason>needs human eyes|"
                         r"unsure of the desired behavior|couldn't verify): (?P<why>.+?))\.?$")
 UNRELEASED = "## Unreleased"
@@ -108,22 +114,45 @@ def item_key(name, text):
     return "%s.%s" % (slug, hashlib.sha256(wording.encode("utf-8")).hexdigest()[:8])
 
 
+def item_text(steps, expect):
+    """An item's wording as the server keeps it (QaChecklist.Wording): its steps numbered, then what to expect."""
+    return "\n".join(["Steps:"] + ["%d. %s" % (n, s) for n, s in enumerate(steps, 1)] + ["Expect:"] + ["- " + e for e in expect])
+
+
 def checklist_items(text):
     """The Unreleased items with who checks them: [{name, text, key, check}] (check None for the owner's)."""
-    items, inside = [], False
+    items, inside, part = [], False, None
     for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("## "):
-            inside = stripped == UNRELEASED
+        line = line.rstrip()
+        if line.startswith("## "):
+            inside = line == UNRELEASED
             continue
-        item = ITEM.match(stripped)
-        checked = CHECKED_BY.match(stripped)
+        item = ITEM.match(line)
         if inside and item:
-            name, words = item.group(1).strip(), item.group(2).strip()
-            items.append({"name": name, "text": words, "key": item_key(name, words), "check": None})
-        elif inside and checked and items:
-            items[-1]["check"] = checked.group("check")
+            items.append({"name": item.group(1).strip(), "steps": [], "expect": [], "check": None})
+            part = None
+        elif inside and items:
+            part = item_line(items[-1], line, part)
+    for item in items:
+        item["text"] = item_text(item.pop("steps"), item.pop("expect"))
+        item["key"] = item_key(item["name"], item["text"])
     return items
+
+
+def item_line(item, line, part):
+    """Reads one of an item's lines into it; returns the part (steps or expect) the next lines belong to."""
+    checked = CHECKED_BY.match(line.strip())
+    if line.startswith(CHECKED_LINE) and checked:
+        item["check"] = checked.group("check")
+        return part
+    if line in (STEPS_LINE, EXPECT_LINE):
+        return "steps" if line == STEPS_LINE else "expect"
+    step, bullet = STEP.match(line), BULLET.match(line)
+    if part == "steps" and step:
+        item["steps"].append(step.group(2).strip())
+    elif part == "expect" and bullet:
+        item["expect"].append(bullet.group(1).strip())
+    return part
 
 
 def live_result(ran, log, tags):
@@ -336,7 +365,7 @@ def report(results, out, total):
         print("%s  %-32s the %s check (%s)" % ("PASS" if r["passed"] else "FAIL", r["name"], r["check"], shots))
     passed = sum(1 for r in results if r["passed"])
     print("\n%d of %d of the automated items passed in %.0f minutes. Results: %s" % (passed, len(results), total / 60, os.path.join(out, "results.json")))
-    print("Look at every screenshot against its item's \"You should see\", then record them on dev (QA never takes them):")
+    print("Look at every screenshot against its item's Expect, then record them on dev (QA never takes them):")
     print('  python3 docker/qa_checks.py record [--fail "Item name=what is wrong"]')
 
 
@@ -501,17 +530,38 @@ def option(args, name):
 SAMPLE = """# QA checklist
 
 ## Unreleased
-- **Build number:** Open System, then Status. You should see the number.
+- **Build number**
+  - Steps:
+    1. Open System, then Status.
+  - Expect:
+    - The number.
   - Checked automatically: the web app status page check.
-- **Bot picture:** Open the bot's profile. You should see the picture.
+- **Bot picture**
+  - Steps:
+    1. Open the bot's profile.
+  - Expect:
+    - The picture.
   - Checked by the owner, needs human eyes: the profile popout is only in the Discord app.
-- **Passing an item:** Press Passes. You should see it passed.
+- **Passing an item**
+  - Steps:
+    1. Press Passes.
+    2. Press it again.
+  - Expect:
+    - It passed.
   - Checked automatically: the live passing check.
-- **Gone:** Do it. You should see it.
+- **Gone**
+  - Steps:
+    1. Do it.
+  - Expect:
+    - It.
   - Checked automatically: the retired check.
 
 ## 0.6.0 (2026-11-01)
-- **Old:** Do it. You should see it.
+- **Old**
+  - Steps:
+    1. Do it.
+  - Expect:
+    - It.
 """
 
 
@@ -547,6 +597,7 @@ def self_test():
     expected = [
         ("only Unreleased items, in order", [i["name"] for i in items] == ["Build number", "Bot picture", "Passing an item", "Gone"]),
         ("the owner's item has no check", items[1]["check"] is None and "Bot picture" not in results),
+        ("an item's wording, as the server keeps it", items[2]["text"] == "Steps:\n1. Press Passes.\n2. Press it again.\nExpect:\n- It passed."),
         ("a web check's own result", results["Build number"]["passed"] and results["Build number"]["screenshots"] == ["s/status-light.jpg"]),
         ("a live check's tagged lines", results["Passing an item"]["evidence"] == "Passed on the dev server; the check read back 1 line(s):\n[pass] the owner presses Passes"),
         ("an unknown check fails", not results["Gone"]["passed"] and "No such check" in results["Gone"]["evidence"]),

@@ -11,8 +11,8 @@ using Requestarr.Core.Test.Welcome;
 
 namespace Requestarr.Core.Test.Qa
 {
-    // The QA checklist has a channel group of its own, Requestarr QA, admin-only like Requestarr Admin, on every server
-    // that has a checklist (QA and dev); beta and production get none. An existing checklist channel is moved there with
+    // The QA checklist has a channel group of its own, Requestarr QA, admin-only like Requestarr Admin, on the QA server
+    // only; dev, beta and production get none (dev's goes). An existing checklist channel is moved there with
     // its cards, on the next start.
     [TestFixture]
     public class QaGroupFixture : WelcomeScenario
@@ -60,9 +60,30 @@ namespace Requestarr.Core.Test.Qa
             Discord.ChannelNamed(QaText.ChecklistChannelName).CategoryId.Should().Be(Group(ChannelLayout.QaCategoryName).Id);
         }
 
-        private Task StartOnQa()
+        [Test]
+        public async Task the_dev_server_removes_its_checklist_channel_and_group_and_a_live_check_can_make_one_for_itself()
         {
-            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.VersionPosts).Returns(VersionPostMode.NotYetStaged);
+            await StartOn(VersionPostMode.NotYetStaged);
+            var checklist = Discord.ChannelNamed(QaText.ChecklistChannelName).Id;
+            await Discord.SendMessageAsync(checklist, new InteractionReply { Cards = { new InteractionCard { Text = "## QA checklist" } } });
+
+            await StartOn(VersionPostMode.CurrentOnly);
+
+            Discord.ChannelNamed(QaText.ChecklistChannelName).Should().BeNull("the checklist is the owner's QA work, on the QA server only");
+            Group(ChannelLayout.QaCategoryName).Should().BeNull();
+            new[] { Config.QaChecklistChannelId, Config.QaCategoryId, Config.QaChecklistSummaryMessageId }.Should().OnlyContain(id => id == null);
+
+            await Mocker.Resolve<IGuildSetupService>().EnsureQaChecklistAsync();
+            Discord.ChannelNamed(QaText.ChecklistChannelName).CategoryId.Should().Be(Group(ChannelLayout.QaCategoryName).Id);
+            await Mocker.Resolve<IGuildSetupService>().RemoveQaChecklistAsync();
+            new[] { Discord.ChannelNamed(QaText.ChecklistChannelName), Group(ChannelLayout.QaCategoryName) }.Should().OnlyContain(c => c == null);
+        }
+
+        private Task StartOnQa() => StartOn(VersionPostMode.NotYetStaged);
+
+        private Task StartOn(VersionPostMode posts)
+        {
+            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.VersionPosts).Returns(posts);
             return Mocker.Resolve<IGuildSetupService>().EnsureAsync();
         }
     }
