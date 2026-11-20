@@ -8,7 +8,7 @@ import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import Avatar from '../Components/Avatar';
+import Person from '../Components/Person';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
 import PortalToolbar from '../Components/PortalToolbar';
@@ -98,12 +98,12 @@ function MemberRow({
     <TableRow>
       <TableRowCell>
         <Link to={`/members/${member.id}`}>
-          <Avatar url={member.avatar} />
-          {member.name}
+          <Person
+            name={member.name}
+            handle={member.discordName}
+            avatar={member.avatar}
+          />
         </Link>
-        {member.discordName && (
-          <div className={styles.muted}>@{member.discordName}</div>
-        )}
       </TableRowCell>
       <TableRowCell>{memberStatusText(member.status)}</TableRowCell>
       {types.map((type) => (

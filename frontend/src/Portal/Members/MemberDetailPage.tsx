@@ -6,7 +6,7 @@ import FieldSet from 'Components/FieldSet';
 import ClipboardButton from 'Components/Link/ClipboardButton';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import Avatar from '../Components/Avatar';
+import Person from '../Components/Person';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
 import RequestsTable from '../Components/RequestsTable';
@@ -36,10 +36,6 @@ function memberRows(
 ): [string, ReactNode][] {
   const { member } = detail;
   const rows: [string, ReactNode][] = [
-    [
-      translate('PortalDiscordName'),
-      member.discordName && `@${member.discordName}`,
-    ],
     [
       translate('PortalDiscordId'),
       member.discordId && <DiscordId id={member.discordId} />,
@@ -83,10 +79,15 @@ function MemberDetail({ detail, onDone }: MemberDetailProps) {
   return (
     <>
       <FieldSet legend={detail.member.name}>
-        <div className={styles.detail}>
-          <Avatar url={detail.member.avatar} size="large" />
-          <Summary detail={detail} />
+        <div className={styles.memberHeader}>
+          <Person
+            name={detail.member.name}
+            handle={detail.member.discordName}
+            avatar={detail.member.avatar}
+            size="large"
+          />
         </div>
+        <Summary detail={detail} />
       </FieldSet>
 
       <MemberActions detail={detail} onDone={onDone} />

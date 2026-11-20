@@ -105,7 +105,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - Every request with its requester, followers, status and instance, with filters.
     - A request's page with its timeline in plain words and its actions.
-    - Each member's access and limits, with their counts.
+    - Each member's picture beside their name and @handle, as tall as both, with access and counts.
     - A member's page with their requests, follows, removals, history and actions.
   - Checked automatically: the web app portal pages check.
 - **Queue, outages and audit log**
@@ -169,18 +169,6 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The invite asks only to view channels and read their history.
     - The bot created and posted nothing there.
   - Checked by the owner, couldn't verify: the automated checks never touch a second real server.
-- **Installing the beta**
-  - Steps:
-    1. On the Synology, open the setup guide's Running the beta.
-    2. Download the beta image from GitHub's registry.
-    3. Run it with only a name, port 19797, the requestarr-beta folder and your time zone.
-    4. Choose Beta under This server is.
-  - Expect:
-    - The image found and downloaded, or the guide's fallback works.
-    - The container running, with Application started in its log.
-    - The web app on port 19797 with the BETA strip.
-    - Requestarr Beta (availability) in production's Sonarr and Radarr connections.
-  - Checked by the owner, couldn't verify: Container Manager only exists on the Synology; the automated checks ran the same image in Docker.
 - **Titles Requestarr didn't add**
   - Steps:
     1. In your request channel, request a movie already in the test Radarr, not requested through Requestarr.

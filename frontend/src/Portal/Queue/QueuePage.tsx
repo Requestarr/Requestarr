@@ -8,7 +8,7 @@ import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
-import Avatar from '../Components/Avatar';
+import Person from '../Components/Person';
 import PortalPage from '../Components/PortalPage';
 import RemovalActions from '../Components/RemovalActions';
 import { queueKindText } from '../portalText';
@@ -53,8 +53,7 @@ function WhoCell({ item }: { item: PortalQueueItem }) {
     <TableRowCell>
       {item.memberId ? (
         <Link to={`/members/${item.memberId}`}>
-          <Avatar url={item.whoAvatar} />
-          {who}
+          <Person name={who} handle={item.whoHandle} avatar={item.whoAvatar} />
         </Link>
       ) : (
         who

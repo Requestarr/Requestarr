@@ -12,6 +12,7 @@ interface CssExports {
   'filters': string;
   'found': string;
   'links': string;
+  'memberHeader': string;
   'muted': string;
   'poster': string;
   'search': string;

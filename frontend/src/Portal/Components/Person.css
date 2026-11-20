@@ -1,0 +1,48 @@
+/* The picture's height is the two lines' together: medium 2 × 19px, large 36px + 28px. */
+.medium,
+.large {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  max-width: 100%;
+
+  vertical-align: middle;
+}
+
+.large {
+  gap: 14px;
+}
+
+/* A name and @handle never wrap: a table's column widens to fit them, and where the space is fixed (a poster card)
+   they end in an ellipsis instead of running over what's beside them. */
+.lines {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.name,
+.handle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.medium .lines {
+  line-height: 19px;
+}
+
+.large .name {
+  font-size: 24px;
+  line-height: 36px;
+}
+
+.large .handle {
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.muted {
+  color: var(--helpTextColor);
+}

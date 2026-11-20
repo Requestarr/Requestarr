@@ -22,7 +22,10 @@ their items under "## Unreleased", the way they add changelog lines; the staging
     "  - Checked by the owner, <reason>: <why>." with the reason a person has to: needs human eyes, unsure of the
     desired behavior, or couldn't verify;
   - plain words, as in the changelog: no backticks, file names, paths, command flags, settings keys or environment
-    variable names, since the owner reads these in Discord.
+    variable names, since the owner reads these in Discord;
+  - only what the QA server can test (owner, 2026-11-20): no Unreleased item needs the beta or production server
+    (the Synology, Container Manager, installing or updating beta or production). Those come only after a staging
+    promotion, so as a QA item they would block the promotion they need; they go in the setup guide's checks instead.
 """
 import os
 import re
@@ -42,6 +45,16 @@ MAX_EXPECT = 4
 MAX_SENTENCE_WORDS = 20
 MAX_ITEM_WORDS = 80
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+# What only the beta or production server has: an item needing one can't be tested on QA.
+BETA_ONLY = [
+    (re.compile(r"\bSynology\b", re.I), "the Synology"),
+    (re.compile(r"\bContainer Manager\b", re.I), "Container Manager"),
+    (re.compile(r"\b(install|installs|installed|installing|update|updates|updated|updating|upgrade|upgrading) (the |a )?(beta|production)\b",
+                re.I),
+     "installing or updating beta or production"),
+    (re.compile(r"\b(beta|production)(['’]s)? (server|install|container|image|Sonarr|Radarr)\b", re.I),
+     "the beta or production server"),
+]
 SHAPE = ("each item is '- **Name**', then '  - Steps:' over '    1. ...', '  - Expect:' over '    - ...', "
          "then who checks it")
 
@@ -147,6 +160,8 @@ def finished(item, wordings):
     if count > MAX_ITEM_WORDS:
         problems.append((line, "item '%s' has %d words; at most %d in its name, steps and Expect: make it two items"
                          % (name, count, MAX_ITEM_WORDS)))
+    if item["unreleased"]:
+        problems += beta_only(line, name, " ".join([name] + steps + expect))
     wording = " ".join(" ".join([name] + steps + ["Expect:"] + expect).split())
     if wording in wordings:
         problems.append((line, "item '%s' is already on the checklist word for word: reword it or drop the copy" % name))
@@ -155,6 +170,12 @@ def finished(item, wordings):
         problems.append((line, "item '%s' must say who checks it on its last line: '  - Checked automatically: the <check> check.' "
                                "or '  - Checked by the owner, <needs human eyes | unsure of the desired behavior | couldn't verify>: <why>.'" % name))
     return problems
+
+
+def beta_only(line, name, text):
+    return [(line, "item '%s' needs %s, which the QA server hasn't: put it in the setup guide's checks and the staging "
+                   "promotion's reply instead" % (name, what))
+            for pattern, what in BETA_ONLY if pattern.search(text)][:1]
 
 
 def long_sentences(number, name, text):
@@ -243,6 +264,8 @@ BREAKS = {
     "word for word": "- **Logo**\n  - Steps:\n    1. Open the web app and look at the header.\n  - Expect:\n    - The Dev logo.\n"
                      "  - Checked automatically: the web app header check.",
     "backticks": "- **Code**\n  - Steps:\n    1. Open `the file`.\n  - Expect:\n    - It.\n  - Checked automatically: the live passing check.",
+    "which the QA server hasn't": "- **Beta install**\n  - Steps:\n    1. On the Synology, run the beta image.\n  - Expect:\n"
+                                  "    - It starts.\n  - Checked by the owner, couldn't verify: only on the Synology.",
     "a file name": "- **File**\n  - Steps:\n    1. Open provisioning.yml.\n  - Expect:\n    - It.\n  - Checked automatically: the live passing check.",
     "only version headings": "### Section",
     "goes once, on top": "## Unreleased",

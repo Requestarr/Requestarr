@@ -85,7 +85,7 @@ namespace Requestarr.Core.Portal
 
         public IReadOnlyList<PortalRequest> Requests()
         {
-            var rows = new Rows(Names(), Avatars(), Backends(), _subscribers.All());
+            var rows = new Rows(Names(), DiscordAccounts(), Backends(), _subscribers.All());
 
             return _requests.All().OrderByDescending(r => r.Requested).Select(rows.Of).ToList();
         }
@@ -101,7 +101,7 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var latest = _removals.LatestFor(id);
-            var row = new Rows(names, Avatars(), Backends(), _subscribers.ForRequest(id)).Of(request);
+            var row = new Rows(names, DiscordAccounts(), Backends(), _subscribers.ForRequest(id)).Of(request);
             var removal = latest == null ? null : Removal(latest, names);
 
             return new PortalRequestDetail(
@@ -125,11 +125,11 @@ namespace Requestarr.Core.Portal
             // Only follows of requests that still exist, as the member's own page lists them.
             var following = _subscribers.All().Where(s => ids.Contains(s.RequestId)).ToLookup(s => s.UserId);
             var instances = Instances();
-            var avatars = Avatars();
+            var accounts = DiscordAccounts();
 
             return _users.All()
                 .OrderBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .Select(u => Member(u, requests[u.Id].ToList(), following[u.Id].ToList(), instances, avatars))
+                .Select(u => Member(u, requests[u.Id].ToList(), following[u.Id].ToList(), instances, accounts))
                 .ToList();
         }
 
@@ -144,8 +144,8 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var instances = Instances();
-            var avatars = Avatars();
-            var rows = new Rows(names, avatars, Backends(), _subscribers.All());
+            var accounts = DiscordAccounts();
+            var rows = new Rows(names, accounts, Backends(), _subscribers.All());
             var all = _requests.All().ToDictionary(r => r.Id);
             var own = all.Values.Where(r => r.OwnerUserId == id).OrderByDescending(r => r.Requested).ToList();
             var follows = _subscribers.ForUser(id).Where(s => all.ContainsKey(s.RequestId)).ToList();
@@ -157,7 +157,7 @@ namespace Requestarr.Core.Portal
             var importedFrom = user.IsImported ? user.ImportedFrom ?? Imports.RequestrrSource.SourceName : null;
 
             return new PortalMemberDetail(
-                Member(user, own, follows, instances, avatars),
+                Member(user, own, follows, instances, accounts),
                 own.Select(rows.Of).ToList(),
                 following.Select(rows.Of).ToList(),
                 removals,
@@ -170,10 +170,12 @@ namespace Requestarr.Core.Portal
         public IReadOnlyList<PortalQueueItem> Queue()
         {
             var names = Names();
-            var avatars = Avatars();
+            var accounts = DiscordAccounts();
 
             return _queue.Items().Select(i => QueueItem(i, names)).Where(i => i != null)
-                .Select(i => i.MemberId.HasValue ? i with { WhoAvatar = avatars.GetValueOrDefault(i.MemberId.Value) } : i)
+                .Select(i => i.MemberId.HasValue && accounts.GetValueOrDefault(i.MemberId.Value) is { } account
+                    ? i with { WhoAvatar = account.AvatarUrl, WhoHandle = account.Username }
+                    : i)
                 .ToList();
         }
 
@@ -214,9 +216,9 @@ namespace Requestarr.Core.Portal
             IReadOnlyCollection<Request> requests,
             IReadOnlyCollection<RequestSubscriber> follows,
             Dictionary<int, string> instances,
-            Dictionary<int, string> avatars)
+            Dictionary<int, UserIdentity> accounts)
         {
-            var discord = _identities.GetForUser(user.Id).FirstOrDefault(i => i.Provider == UserIdentity.DiscordProvider);
+            var discord = accounts.GetValueOrDefault(user.Id);
             var access = _access.GetForUser(user.Id).OrderBy(a => a.ContentType).Select(a => Access(a, instances)).ToList();
             var active = requests.Count(r => r.IsActive);
             var pending = requests.Count(r => r.Status == RequestStatus.Pending);
@@ -235,7 +237,7 @@ namespace Requestarr.Core.Portal
                 active,
                 pending,
                 follows.Count,
-                avatars.GetValueOrDefault(user.Id),
+                discord?.AvatarUrl,
                 asked.Count > 0 ? asked.Min() : null,
                 asked.Count > 0 ? asked.Max() : null,
                 byType);
@@ -351,9 +353,10 @@ namespace Requestarr.Core.Portal
 
         private Dictionary<int, string> Names() => _users.All().ToDictionary(u => u.Id, u => u.DisplayName);
 
-        // Each member's Discord picture, by member.
-        private Dictionary<int, string> Avatars() =>
-            _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider && i.AvatarUrl != null).GroupBy(i => i.UserId).ToDictionary(g => g.Key, g => g.First().AvatarUrl);
+        // Each member's Discord account, for their picture and @handle: one with a picture when they have several.
+        private Dictionary<int, UserIdentity> DiscordAccounts() =>
+            _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider).GroupBy(i => i.UserId)
+                .ToDictionary(g => g.Key, g => g.FirstOrDefault(i => i.AvatarUrl != null) ?? g.First());
 
         private Dictionary<int, string> Instances() => _backends.All().ToDictionary(b => b.Id, b => b.Name);
 
@@ -363,14 +366,14 @@ namespace Requestarr.Core.Portal
         private sealed class Rows
         {
             private readonly Dictionary<int, string> _names;
-            private readonly Dictionary<int, string> _avatars;
+            private readonly Dictionary<int, UserIdentity> _accounts;
             private readonly Dictionary<int, BackendInstance> _instances;
             private readonly ILookup<int, RequestSubscriber> _followers;
 
-            public Rows(Dictionary<int, string> names, Dictionary<int, string> avatars, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers)
+            public Rows(Dictionary<int, string> names, Dictionary<int, UserIdentity> accounts, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers)
             {
                 _names = names;
-                _avatars = avatars;
+                _accounts = accounts;
                 _instances = instances;
                 _followers = followers.ToLookup(s => s.RequestId);
             }
@@ -416,7 +419,12 @@ namespace Requestarr.Core.Portal
                     open == null ? null : instance.Implementation);
             }
 
-            private PortalPerson Person(int userId) => new(userId, _names.GetValueOrDefault(userId), _avatars.GetValueOrDefault(userId));
+            private PortalPerson Person(int userId)
+            {
+                var account = _accounts.GetValueOrDefault(userId);
+
+                return new PortalPerson(userId, _names.GetValueOrDefault(userId), account?.AvatarUrl, account?.Username);
+            }
         }
     }
 }

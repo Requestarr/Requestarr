@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
-import MemberLink from '../Components/MemberLink';
+import MemberLink, { MemberLinks } from '../Components/MemberLink';
 import useDateText from '../Components/useDateText';
 import {
   contentTypeText,
@@ -14,22 +14,24 @@ import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
 
-function Followers({ request }: { request: PortalRequest }) {
-  if (!request.followers.length) {
-    return null;
-  }
+// Who asked for it, then who follows it, on a line of their own.
+function People({ request }: { request: PortalRequest }) {
+  const { followers } = request;
 
   return (
-    <>
-      {' · '}
-      {translate('PortalFollowedBy')}{' '}
-      {request.followers.map((follower, index) => (
-        <span key={follower.id}>
-          {index > 0 && ', '}
-          <MemberLink person={follower} />
-        </span>
-      ))}
-    </>
+    <div className={styles.people}>
+      <MemberLink person={request.requester} />
+      {followers.length > 0 && (
+        <MemberLinks
+          people={followers}
+          before={
+            <span className={portalStyles.muted}>
+              {translate('PortalFollowedBy')}
+            </span>
+          }
+        />
+      )}
+    </div>
   );
 }
 
@@ -49,9 +51,9 @@ function OverviewRow({ request }: { request: PortalRequest }) {
         </div>
         <div>
           {contentTypeText(request.contentType)} · {requestStatusText(request)}{' '}
-          · <MemberLink person={request.requester} />
-          <Followers request={request} /> · {dateText(request.requested)}
+          · {dateText(request.requested)}
         </div>
+        <People request={request} />
         {media?.overview && (
           <div className={styles.overviewText}>{media.overview}</div>
         )}

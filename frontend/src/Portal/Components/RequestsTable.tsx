@@ -17,7 +17,7 @@ import {
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
 import useSortedRows, { SortValues } from '../useSortedRows';
-import MemberLink from './MemberLink';
+import MemberLink, { MemberLinks } from './MemberLink';
 import styles from '../Portal.css';
 import viewStyles from '../Requests/RequestViews.css';
 
@@ -77,12 +77,7 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
         <MemberLink person={request.requester} />
       </TableRowCell>
       <TableRowCell>
-        {request.followers.map((follower, index) => (
-          <span key={follower.id}>
-            {index > 0 && ', '}
-            <MemberLink person={follower} />
-          </span>
-        ))}
+        <MemberLinks people={request.followers} />
       </TableRowCell>
       <TableRowCell>{request.instance ?? ''}</TableRowCell>
       <RelativeDateCell date={request.requested} />

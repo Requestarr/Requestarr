@@ -898,6 +898,16 @@ Turn it on once you trust removals on beta. The change is recorded on **Settings
 
 Then add yourself and the testers from the admin panel's member picker ([5.5](#55-add-your-first-user)), once they've joined the Requestarr Beta server.
 
+### After installing, check
+
+These need the beta server, so they aren't on the QA checklist. Check them once beta runs, and the update after its next build:
+
+- **The image:** Container Manager found and downloaded `ghcr.io/requestarr/requestarr:beta` (B.1), or one of its fallbacks did.
+- **The folder's permission is enough:** the container's log ends with "Application started", with no access denied under `/config` (B.2).
+- **The web app** on port 19797 shows the BETA strip (B.3).
+- **The connection in production:** production's Sonarr and Radarr list **Requestarr Beta (availability)** under **Settings → Connect**, and its **Test** passes (B.3).
+- **Updates:** when the next build reaches beta, **Image** shows **Update available** on it (B.6), or downloading it again works.
+
 ### B.6 Updating
 
 Updates happen only when you ask, never on a schedule. When a new build reaches beta:

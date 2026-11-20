@@ -102,6 +102,11 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* A member's @handle, as light as a request's detail on the header's colour. */
+.handle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .nothing {
   padding: 10px 12px;
   color: rgba(255, 255, 255, 0.7);

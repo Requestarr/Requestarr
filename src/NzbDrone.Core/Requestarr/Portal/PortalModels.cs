@@ -9,7 +9,7 @@ namespace Requestarr.Core.Portal
     // What the admin portal's pages show (docs/admin-portal.md): read views of requests, members and the queue, built
     // from Requestarr's own records. Names are as Discord shows them.
     // Avatar: their Discord picture's address, or null for Discord's default one.
-    public record PortalPerson(int Id, string Name, string Avatar);
+    public record PortalPerson(int Id, string Name, string Avatar, string Handle);
 
     // One request: its requester, and everyone who asked for the same title after them (its followers).
     public record PortalRequest(int Id, string Title, int? Year, ContentType ContentType, RequestStatus Status, DownloadProgress Progress, PortalPerson Requester,
@@ -58,5 +58,6 @@ namespace Requestarr.Core.Portal
 
     // One thing waiting on an admin, as the admin channel's queue has it. Kind: request, trouble, mediaServerLink,
     // instanceDown, removal or accessRequest; RequestId or MemberId says which page it opens.
-    public record PortalQueueItem(string Key, string Kind, DateTime Since, string Title, string Who, int? RequestId, int? MemberId, string WhoAvatar = null);
+    public record PortalQueueItem(string Key, string Kind, DateTime Since, string Title, string Who, int? RequestId, int? MemberId, string WhoAvatar = null,
+                                  string WhoHandle = null);
 }
