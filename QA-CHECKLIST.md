@@ -192,14 +192,14 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - A Delete it yourself item naming the title and the Radarr it's in.
     - Once it's deleted, the removal closes.
   - Checked automatically: the live deleting turned off check.
-- **Row actions**
+- **Acting on one request**
   - Steps:
-    1. In the web app, open Requests, in each view.
-    2. Look beside a row's title and status.
-    3. Open its menu, then press a history row's Delete record.
+    1. In Requests, press Select Requests, then tick one history row.
+    2. Press Delete record in the toolbar.
   - Expect:
-    - Approve, Start removal or Delete record as its own button, in view.
-    - The menu offers what the request's page offers, and Open in Sonarr.
+    - No buttons on rows or posters.
+    - Left of Refresh: Approve, Deny, Start removal, Delete record, plus what its page offers.
+    - Those it doesn't allow are greyed out.
     - Delete record asks first, naming the title.
   - Checked automatically: the web app request actions check.
 - **Picking requests**
@@ -208,10 +208,10 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     2. Press Select All, then Unselect All.
     3. Press Stop Selecting.
   - Expect:
-    - A box on each row, as in Sonarr; a bar along the bottom says 3 request(s) selected.
-    - Only the actions all three allow are shown.
+    - A box on each row, as in Sonarr; nothing below the list.
+    - Only the actions all three allow are live in the toolbar.
     - Select All picks every request, on every page.
-    - The boxes go away after Stop Selecting.
+    - The boxes and actions go away after Stop Selecting.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
   - Steps:
@@ -260,11 +260,11 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
 - **Picking members**
   - Steps:
     1. In Members, press Select Members, then tick a member.
-    2. Press Suspend in the bar, then Unsuspend.
+    2. Press Suspend in the toolbar, then Unsuspend.
   - Expect:
-    - Every row has its actions beside its status.
-    - The bar along the bottom offers Suspend, Unsuspend and Change access.
-    - Each asks first, naming who, and the status changes.
+    - Left of Add member: Onboard, Suspend, Unsuspend, Change access, Remove member.
+    - Those the member doesn't allow are greyed out.
+    - The status changes each time.
   - Checked automatically: the web app add member check.
 - **Acting from the web app**
   - Steps:

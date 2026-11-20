@@ -77,8 +77,19 @@ namespace Requestarr.Core.Test.Qa.Web
 
             await PressToolbarAsync(browser, "Select Requests");
             await PressToolbarAsync(browser, "Select All");
-            await browser.WaitForAsync($"{Bar}?.innerText.includes('{movies} request(s) selected')");
-            check.Saw($"Select All with the filter ({theme}): \"{await BarTextAsync(browser)}\"");
+            await browser.WaitForAsync("document.querySelectorAll('tbody input[type=checkbox]').length > 0 && document.querySelectorAll('tbody input[type=checkbox]:not(:checked)').length === 0");
+
+            // Every match is picked, so the next page's rows come ticked too.
+            if (movies > PageSize)
+            {
+                var topMovie = await browser.EvalAsync<string>("document.querySelector('tbody tr a[href*=\"/requests/\"]').innerText");
+                await browser.RunAsync($"{NextPage}.click()");
+                await browser.WaitForAsync($"document.querySelector('tbody tr a[href*=\"/requests/\"]').innerText !== {JsonSerializer.Serialize(topMovie)}");
+            }
+
+            var unticked = await browser.EvalAsync<int>("document.querySelectorAll('tbody input[type=checkbox]:not(:checked)').length");
+            check.Saw($"Select All with the filter ({theme}): {unticked} rows unticked on the {(movies > PageSize ? "next" : "only")} page");
+            unticked.Should().Be(0, "Select All picks every match across the pages");
             await check.ShotAsync(browser, $"requests-filtered-{theme}");
             await PressToolbarAsync(browser, "Stop Selecting");
             await ChooseFilterAsync(browser, "All");

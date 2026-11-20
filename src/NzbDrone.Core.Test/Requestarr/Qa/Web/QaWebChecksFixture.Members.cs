@@ -20,9 +20,9 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Add member and the Members list, at the owner's width, in both themes. Add member lists the server's people
         // with a box each and one in the header, narrows as you type, and picking someone shows the bar's Set up, whose
-        // step sums up what they'll get. The Members list has its actions on every row, and Select Members shows a box on
-        // each and the bar along the bottom, offering Suspend, Unsuspend and Change access. With a test member named,
-        // they're onboarded, suspended and unsuspended.
+        // step sums up what they'll get. The Members list has no buttons on its rows; Select Members shows a box on each
+        // and the actions on what's picked in the toolbar, left of Add member. With a test member named, they're
+        // onboarded, suspended and unsuspended.
         [Test]
         public Task add_members() => CheckAsync(nameof(add_members), AddMembersAsync, OwnersWidth);
 
@@ -98,20 +98,21 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.GoAsync($"{Url}/members");
             await browser.WaitForAsync("!!document.querySelector('tbody tr, [class*=\"Alert-info\"]')");
             var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
-            var offscreen = await browser.EvalAsync<int>("[...document.querySelectorAll('tbody [class*=\"RequestRows-actions\"]')].filter(a => a.getBoundingClientRect().right > innerWidth).length");
-            check.Saw($"Members ({theme}): {rows} rows; {offscreen} rows' actions past the window's edge");
-            offscreen.Should().Be(0);
+            var rowButtons = await browser.EvalAsync<int>("document.querySelectorAll('tbody button').length");
+            check.Saw($"Members ({theme}): {rows} rows, {rowButtons} buttons on them");
+            rowButtons.Should().Be(0, "actions are in the toolbar, not on rows");
 
             if (rows > 0)
             {
                 await PressToolbarAsync(browser, "Select Members");
                 await browser.WaitForAsync("!!document.querySelector('thead input[type=checkbox]')");
                 var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
-                var total = await PortalAsync<int>(browser, "members", "m => m.length");
                 await PressToolbarAsync(browser, "Select All");
-                await browser.WaitForAsync($"{Bar}?.innerText.includes('{total} member(s) selected')");
-                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows; \"{await BarTextAsync(browser)}\"");
+                await browser.WaitForAsync("document.querySelectorAll('tbody input[type=checkbox]:not(:checked)').length === 0");
+                var actions = await browser.EvalAsync<string[]>("(b => b.slice(0, b.findIndex(x => x.innerText.trim() === 'Add member')))([...document.querySelectorAll('[class*=\"PageToolbar\"] button')]).map(b => b.innerText.trim())");
+                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows, all ticked; left of Add member: {string.Join(", ", actions)}");
                 boxes.Should().Be(rows);
+                actions.Should().Equal("Onboard", "Suspend", "Unsuspend", "Change access", "Remove member");
                 await check.ShotAsync(browser, $"members-picked-{theme}");
                 await PressToolbarAsync(browser, "Stop Selecting");
             }
@@ -135,7 +136,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await ShotBothAsync(browser, check, "onboarded");
         }
 
-        // From the Members list's bar in select mode: Suspend, then Unsuspend, each asked first and read back.
+        // From the toolbar in select mode, the test member picked alone: Suspend, then Unsuspend, each read back.
         private static async Task SuspendAndUnsuspendAsync(HeadlessBrowser browser, WebCheck check)
         {
             foreach (var (action, status) in new[] { ("Suspend", "suspended"), ("Unsuspend", "active") })
@@ -145,13 +146,10 @@ namespace Requestarr.Core.Test.Qa.Web
                 await PressToolbarAsync(browser, "Select Members");
                 await browser.WaitForAsync($"!!{TestMemberRow}.querySelector('input[type=checkbox]')");
                 await browser.RunAsync($"{TestMemberRow}.querySelector('input[type=checkbox]').click()");
-                await browser.WaitForAsync($"{Bar}?.innerText.includes('1 member(s) selected')");
-                await browser.RunAsync($"{BarButtons}.find(b => b.innerText.trim() === '{action}').click()");
-                await browser.WaitForAsync($"{ModalButton}.some(b => b.innerText.trim() === '{action}')");
-                await AnswerAsync(browser, action, true);
-                var said = await MessageAsync(browser, $"{action}:");
+                await PressToolbarAsync(browser, action);
+                var said = await OutcomeAsync(browser);
                 var now = await PortalAsync<string>(browser, "members", $"m => m.find(x => x.discordName === {JsonSerializer.Serialize(TestMember)})?.status ?? ''");
-                check.Saw($"the bar's {action}: \"{said}\"; the test member is now {now}");
+                check.Saw($"the toolbar's {action}: \"{said}\"; the test member is now {now}");
                 now.Should().Be(status);
                 await ShotBothAsync(browser, check, action.ToLowerInvariant());
             }

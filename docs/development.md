@@ -74,6 +74,12 @@ The web app's lint configuration is `frontend/eslint.config.js` (ESLint 9's form
 
 Anything can run Requestarr's automation, so nothing in the repository names the AI tool that happens to run it: code, comments, data, logs, the audit log, bug reports, the checklist, the changelog, docs, scripts, commit messages and file metadata (images included) say "automation" or "automated checks". The automated checks are recorded as `automation` (the audit log's author, and who passed or failed a checklist item, shown as "Passed automatically"). `.github/tool_names_check.py` (CI's Changelog job, with a self-test) fails on any tracked file whose bytes, or whose PNG metadata once decompressed, name such a tool or its maker; run it with `python3 .github/tool_names_check.py`. Images carry only what draws them: strip anything else (text, times, editing software, content credentials) before adding one. The coding tool's own settings and notes are untracked and listed in `.gitignore`.
 
+### Deviations from Servarr
+
+The web app uses Sonarr's, Radarr's and Prowlarr's own parts and patterns (`docs/servarr-reuse.md`). Where the owner chose otherwise, it's listed here:
+
+- **Actions on what's picked are in the toolbar** (the owner, 2026-11-20). Servarr's select mode puts them in a bar along the bottom (Prowlarr's `IndexerIndexSelectFooter`). On Requests and Members they are toolbar buttons to the left of the page's own (Refresh, Add member), shown in select mode, greyed out unless every pick allows them; with one pick they include everything that item's page offers. There's no bar along the bottom and no selected count, and rows, posters and overview entries have no action buttons of their own. Add member keeps its Set up bar: it's the list's next step, as Sonarr's Library Import has its Import button below the list.
+
 ## Continuous integration
 
 `.github/workflows/build.yml` runs on every push and pull request using standard GitHub-hosted runners. The `build` job is the single required status for `dev`, `qa`, `staging` and `main`, which accept changes only through a pull request with this check passing (see [Release flow](#release-flow)).
