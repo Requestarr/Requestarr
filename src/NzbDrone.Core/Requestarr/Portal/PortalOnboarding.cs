@@ -113,9 +113,9 @@ namespace Requestarr.Core.Portal
                     return (false, added.Message);
                 }
 
-                foreach (var type in access)
+                foreach (var typeAccess in access)
                 {
-                    SetOwn(id, type, admin);
+                    SetOwn(id, typeAccess, admin);
                 }
 
                 return (true, added.Message);
@@ -127,16 +127,16 @@ namespace Requestarr.Core.Portal
             }
         }
 
-        private void SetOwn(ulong id, OnboardAccess type, Actor admin)
+        private void SetOwn(ulong id, OnboardAccess typeAccess, Actor admin)
         {
-            if (type.InstanceId is { } instanceId && _backends.Find(instanceId) is { } instance)
+            if (typeAccess.InstanceId is { } instanceId && _backends.Find(instanceId) is { } instance)
             {
-                _users.SetAccess(id, type.ContentType, type.State, admin, instance.Name);
+                _users.SetAccess(id, typeAccess.ContentType, typeAccess.State, admin, instance.Name);
             }
 
-            if (type.Limit is { } limit && type.Days is { } days)
+            if (typeAccess.Limit is { } limit && typeAccess.Days is { } days)
             {
-                _users.SetQuota(id, type.ContentType, limit, days, admin);
+                _users.SetQuota(id, typeAccess.ContentType, limit, days, admin);
             }
         }
 

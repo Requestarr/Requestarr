@@ -1,35 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import translate from 'Utilities/String/translate';
 import { BarAction } from '../Components/Selection/SelectionBar';
-import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { ActionOutcome } from '../usePortalAction';
 import { actionLabel } from './ActionButton';
 import BulkActionModal from './BulkActionModal';
 import runBulk, { BULK_PATHS } from './runBulk';
 
-// Titles a disabled action names on hover, before "and 4 more".
-const NAMED = 3;
-
-// Why an action is off for what's picked: the requests that don't offer it now. Null when every one does.
-function whyNot(picked: PortalRequest[], action: string) {
-  const lacking = picked.filter((request) => !request.actions.includes(action));
-
-  if (!lacking.length) {
-    return null;
-  }
-
-  const named = lacking.slice(0, NAMED).map(titleText).join(', ');
-  const titles =
-    lacking.length > NAMED
-      ? translate('PortalAndMoreNamed', {
-          names: named,
-          count: lacking.length - NAMED,
-        })
-      : named;
-
-  return translate('PortalNotOffered', { action: actionLabel(action), titles });
-}
+// Removing a title and deleting a record are red; approving and denying look like the app's other buttons.
+const DESTRUCTIVE = ['remove', 'deleteRecord'];
 
 // What the selection bar offers for the requests picked (Approve, Deny, Start removal, Delete record), each asking
 // first with the list of titles, then done to each in turn.
@@ -43,8 +21,8 @@ function useRequestBulk(picked: PortalRequest[], onDone: () => void) {
       Object.keys(BULK_PATHS).map((name) => ({
         name,
         label: actionLabel(name),
-        isDanger: name !== 'approve',
-        whyNot: whyNot(picked, name),
+        isDanger: DESTRUCTIVE.includes(name),
+        isOffered: picked.every((request) => request.actions.includes(name)),
       })),
     [picked]
   );

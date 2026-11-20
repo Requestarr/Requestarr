@@ -13,19 +13,18 @@ function pageValue(selection: Selection) {
   return selection.noneOnPage ? false : null;
 }
 
-// The box that picks or clears every row on the page shown, above a list that isn't a table (a table has it in its
-// header).
+// The box that picks or clears every row on the page shown, in the selection row of a list that isn't a table (a table
+// has it in its header).
 function PageCheckbox({ selection }: { selection: Selection }) {
   return (
-    <label className={styles.page}>
+    <span title={translate('PortalSelectPage')}>
       <CheckInput
         containerClassName={styles.box}
         name="selectPage"
         value={pageValue(selection)}
         onChange={selection.onPageChange}
       />
-      {translate('PortalSelectPage')}
-    </label>
+    </span>
   );
 }
 

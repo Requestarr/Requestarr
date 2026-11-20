@@ -65,8 +65,9 @@ namespace Requestarr.Core.Discord.Gateway
         public Task<IReadOnlyDictionary<ulong, string>> GetRoleNamesAsync()
         {
             var guild = RequireGuild();
+            var roles = guild.Roles.Where(r => r.Id != guild.EveryoneRole.Id).ToDictionary(r => r.Id, r => r.Name);
 
-            return Task.FromResult<IReadOnlyDictionary<ulong, string>>(guild.Roles.Where(r => r.Id != guild.EveryoneRole.Id).ToDictionary(r => r.Id, r => r.Name));
+            return Task.FromResult<IReadOnlyDictionary<ulong, string>>(roles);
         }
 
         public Task<int> GetRoleCountAsync() => Task.FromResult(RequireGuild().Roles.Count);

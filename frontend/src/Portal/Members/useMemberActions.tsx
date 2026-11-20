@@ -36,9 +36,9 @@ function callFor(action: string, changes: AccessChange[]) {
   };
 }
 
-// Runs a member action from their row or for everyone picked: suspend and unsuspend at once for one member, asking
-// first (with the names) for several; remove after asking; change access in its dialog; onboard on Add member's
-// setup step. One outcome for the last action, which names anyone it couldn't do.
+// Runs a member action from their row (run: suspend and unsuspend at once) or from the selection bar (ask: always asks
+// first, naming everyone picked); remove after asking; change access in its dialog; onboard on Add member's setup
+// step. One outcome for the last action, which names anyone it couldn't do.
 function useMemberActions(onDone: () => void) {
   const history = useHistory();
   const [asking, setAsking] = useState<Asking>();
@@ -68,13 +68,17 @@ function useMemberActions(onDone: () => void) {
         history.push(
           getPathWithUrlBase(`/members/add?pick=${members[0].discordId}`)
         );
-      } else if (members.length === 1 && action.endsWith('suspend')) {
+      } else if (action.endsWith('suspend')) {
         perform(action, members);
       } else {
         setAsking({ action, members });
       }
     },
     [history, perform]
+  );
+  const ask = useCallback(
+    (members: PortalMember[], action: string) => setAsking({ action, members }),
+    []
   );
 
   const onClose = useCallback(() => setAsking(undefined), []);
@@ -88,6 +92,7 @@ function useMemberActions(onDone: () => void) {
     [asking, perform]
   );
   const isChanging = asking?.action === 'changeAccess';
+  const confirmLabel = actionLabel(asking?.action ?? 'suspend');
 
   const dialogs = (
     <>
@@ -100,19 +105,19 @@ function useMemberActions(onDone: () => void) {
       <ConfirmModal
         isOpen={!!asking && !isChanging}
         kind={kinds.DANGER}
-        title={actionLabel(asking?.action ?? 'suspend')}
+        title={confirmLabel}
         message={translate('PortalMembersConfirm', {
-          action: actionLabel(asking?.action ?? 'suspend'),
+          action: confirmLabel,
           names: asking?.members.map((member) => member.name).join(', ') ?? '',
         })}
-        confirmLabel={actionLabel(asking?.action ?? 'suspend')}
+        confirmLabel={confirmLabel}
         onConfirm={onConfirm}
         onCancel={onClose}
       />
     </>
   );
 
-  return { run, isBusy, outcome, dialogs };
+  return { run, ask, isBusy, outcome, dialogs };
 }
 
 export default useMemberActions;

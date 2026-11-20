@@ -24,6 +24,9 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string ModalButton = "[...document.querySelectorAll('[class*=\"ModalFooter\"] button')]";
         private const string Bar = "document.querySelector('[class*=\"SelectionBar-bar\"]')";
 
+        // The bar's actions for requests, by their name in the portal's answer, in the bar's order.
+        private const string BulkLabels = "{ approve: 'Approve', deny: 'Deny', remove: 'Start removal', deleteRecord: 'Delete record' }";
+
         // Starting a removal from the search changes the dev server (a vote): only when the run asks, and cleans up.
         private static bool ActsOnLibrary => Environment.GetEnvironmentVariable("QA_CHECKS_ACT_ON_LIBRARY") == "1";
 
@@ -123,8 +126,13 @@ namespace Requestarr.Core.Test.Qa.Web
 
             await browser.RunAsync($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).forEach(r => r.querySelector('input[type=checkbox]').click())");
             await browser.WaitForAsync($"{Bar}?.innerText.includes('{Picks} selected')");
-            var off = await browser.EvalAsync<string>($"[...{Bar}.querySelectorAll('button')].filter(b => b.disabled).map(b => b.innerText.trim() + ' (' + b.parentElement.title + ')').join('; ')");
-            check.Saw($"{Picks} picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"; off, with why: {off}");
+
+            // Only what every one of the three offers is shown.
+            var ids = await browser.EvalAsync<int[]>($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).map(r => Number(r.querySelector('a[href*=\"/requests/\"]').getAttribute('href').split('/').pop()))");
+            var expected = await PortalAsync<string[]>(browser, "requests", $"r => (picked => Object.entries({BulkLabels}).filter(([a]) => picked.every(q => q.actions.includes(a))).map(([, label]) => label))(r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)))");
+            var shown = await browser.EvalAsync<string[]>($"[...{Bar}.querySelectorAll('button')].map(b => b.innerText.trim())");
+            check.Saw($"{Picks} picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"; all three offer: {string.Join(", ", expected)}");
+            shown.Should().Equal(expected, "the bar shows only what every pick offers");
             (await browser.EvalAsync<double>($"{Bar}.getBoundingClientRect().top - document.querySelector('table').getBoundingClientRect().top")).Should().BeLessThan(0, "the bar sits above the list");
             await check.ShotAsync(browser, $"picked-{theme}");
 
@@ -138,9 +146,9 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, $"all-matching-{theme}");
 
             await browser.RunAsync($"[...{Bar}.querySelectorAll('a, button')].find(e => e.innerText.trim() === 'Clear selection').click()");
-            await browser.WaitForAsync($"!{Bar}");
+            await browser.WaitForAsync($"!{Bar}.innerText.includes('selected')");
             var ticked = await browser.EvalAsync<int>("document.querySelectorAll('tbody input[type=checkbox]:checked').length");
-            check.Saw($"Clear selection ({theme}): the bar is gone, {ticked} boxes ticked");
+            check.Saw($"Clear selection ({theme}): the bar says \"{await BarTextAsync(browser)}\", {ticked} boxes ticked");
             ticked.Should().Be(0);
         }
 

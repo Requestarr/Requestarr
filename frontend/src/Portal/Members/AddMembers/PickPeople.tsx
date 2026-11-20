@@ -124,7 +124,7 @@ function PickPeople({ people, pick, onNext }: PickPeopleProps) {
       name: 'setUp',
       label: translate('PortalSetUpPeople', { count: selection.picked.length }),
       isDanger: false,
-      whyNot: null,
+      isOffered: true,
     },
   ];
 
@@ -140,6 +140,7 @@ function PickPeople({ people, pick, onNext }: PickPeopleProps) {
         selection={selection}
         actions={actions}
         isBusy={false}
+        summary={translate('PortalPeopleToAdd', { count: shown.length })}
         onAction={onSetUp}
       />
       <Table

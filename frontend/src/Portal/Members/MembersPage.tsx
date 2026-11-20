@@ -97,18 +97,6 @@ function sortValuesFor(types: ContentType[]): SortValues<PortalMember> {
   return values;
 }
 
-// Why an action is off for the members picked: those it isn't for now. Null when it's for every one.
-function whyNot(picked: PortalMember[], action: string) {
-  const lacking = picked.filter((m) => !memberActions(m).includes(action));
-
-  return lacking.length
-    ? translate('PortalNotOfferedMembers', {
-        action: actionLabel(action),
-        names: lacking.map((m) => m.name).join(', '),
-      })
-    : null;
-}
-
 interface MemberRowProps {
   member: PortalMember;
   types: ContentType[];
@@ -117,9 +105,13 @@ interface MemberRowProps {
   onAction: (members: PortalMember[], action: string) => void;
 }
 
-function MemberRow(props: MemberRowProps) {
-  const { member, types, selection, isBusy, onAction } = props;
-
+function MemberRow({
+  member,
+  types,
+  selection,
+  isBusy,
+  onAction,
+}: MemberRowProps) {
   return (
     <TableRow>
       <TableRowCell>
@@ -192,20 +184,20 @@ function useMemberBulk(sorted: PortalMember[], onDone: () => void) {
     onClear();
     onDone();
   }, [onClear, onDone]);
-  const { run, isBusy, outcome, dialogs } = useMemberActions(onActionDone);
+  const { run, ask, isBusy, outcome, dialogs } = useMemberActions(onActionDone);
   const barActions = useMemo(
     () =>
       BULK_MEMBER_ACTIONS.map((name) => ({
         name,
         label: actionLabel(name),
-        isDanger: name === 'suspend',
-        whyNot: whyNot(picked, name),
+        isDanger: false,
+        isOffered: picked.every((m) => memberActions(m).includes(name)),
       })),
     [picked]
   );
   const onBulk = useCallback(
-    (name: string) => run(picked, name),
-    [run, picked]
+    (name: string) => ask(picked, name),
+    [ask, picked]
   );
 
   return { selection, run, isBusy, outcome, dialogs, barActions, onBulk };
@@ -239,6 +231,10 @@ function MembersList({ members, onDone }: MembersListProps) {
         selection={selection}
         actions={barActions}
         isBusy={isBusy}
+        summary={translate('PortalShowingMembers', {
+          shown: sorted.length,
+          total: members.length,
+        })}
         onAction={onBulk}
       />
       <Table

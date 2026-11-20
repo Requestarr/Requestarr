@@ -103,12 +103,11 @@ function summary(count: number, access: OnboardAccess[]) {
   return translate('PortalOnboardSummary', {
     count,
     access: access
-      .map(
-        (a) =>
-          `${contentTypeText(a.contentType)} ${accessStateText(
-            a.state
-          ).toLowerCase()}`
-      )
+      .map((a) => {
+        const state = accessStateText(a.state).toLowerCase();
+
+        return `${contentTypeText(a.contentType)} ${state}`;
+      })
       .join(', '),
   });
 }

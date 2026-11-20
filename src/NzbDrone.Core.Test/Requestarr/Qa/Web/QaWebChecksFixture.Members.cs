@@ -15,6 +15,9 @@ namespace Requestarr.Core.Test.Qa.Web
         // Without one, the check changes nothing.
         private static string TestMember => Environment.GetEnvironmentVariable("QA_CHECKS_TEST_MEMBER");
 
+        // The test member's row in the list shown, by their Discord username.
+        private static string TestMemberRow => $"[...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('@{TestMember}'))";
+
         // Add member and the Members list, at the owner's width, in both themes. Add member lists the server's people
         // with a box each and one in the header, narrows as you type, and picking someone shows the bar's Set up, whose
         // step sums up what they'll get. The Members list has a box and its actions on every row, and the bar offers
@@ -103,7 +106,7 @@ namespace Requestarr.Core.Test.Qa.Web
             if (rows > 0)
             {
                 await browser.RunAsync("document.querySelector('thead input[type=checkbox]').click()");
-                await browser.WaitForAsync($"!!{Bar}");
+                await browser.WaitForAsync($"{Bar}?.innerText.includes('selected')");
                 check.Saw($"every member picked ({theme}): \"{await BarTextAsync(browser)}\"");
                 await check.ShotAsync(browser, $"members-picked-{theme}");
                 await browser.RunAsync($"[...{Bar}.querySelectorAll('a, button')].find(e => e.innerText.trim() === 'Clear selection').click()");
@@ -114,9 +117,9 @@ namespace Requestarr.Core.Test.Qa.Web
         {
             await OpenAddMembersAsync(browser);
             await TypeAsync(browser, AddMembersFilter, TestMember);
-            await browser.WaitForAsync($"[...document.querySelectorAll('tbody tr')].some(r => r.innerText.includes('@{TestMember}'))");
+            await browser.WaitForAsync($"!!{TestMemberRow}");
             check.Saw($"the test member is listed: {await browser.EvalAsync<string>("document.querySelector('tbody').innerText.replace(/\\s+/g, ' ')")}");
-            await browser.RunAsync($"[...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('@{TestMember}')).querySelector('input[type=checkbox]').click()");
+            await browser.RunAsync($"{TestMemberRow}.querySelector('input[type=checkbox]').click()");
             await browser.RunAsync($"[...{Bar}.querySelectorAll('button')].find(b => b.innerText.startsWith('Set up')).click()");
             await browser.WaitForAsync("[...document.querySelectorAll('button')].some(b => b.innerText.trim() === 'Confirm')");
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Confirm').click()");
@@ -134,9 +137,9 @@ namespace Requestarr.Core.Test.Qa.Web
             foreach (var (action, status) in new[] { ("Suspend", "suspended"), ("Unsuspend", "active") })
             {
                 await browser.GoAsync($"{Url}/members");
-                await browser.WaitForAsync($"[...document.querySelectorAll('tbody tr')].some(r => r.innerText.includes('@{TestMember}'))");
-                await browser.RunAsync($"[...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('@{TestMember}')).querySelector('input[type=checkbox]').click()");
-                await browser.WaitForAsync($"!!{Bar}");
+                await browser.WaitForAsync($"!!{TestMemberRow}");
+                await browser.RunAsync($"{TestMemberRow}.querySelector('input[type=checkbox]').click()");
+                await browser.WaitForAsync($"{Bar}?.innerText.includes('selected')");
                 await browser.RunAsync($"[...{Bar}.querySelectorAll('button')].find(b => b.innerText.trim() === '{action}').click()");
                 await browser.WaitForAsync($"{ModalButton}.some(b => b.innerText.trim() === '{action}')");
                 await AnswerAsync(browser, action, true);

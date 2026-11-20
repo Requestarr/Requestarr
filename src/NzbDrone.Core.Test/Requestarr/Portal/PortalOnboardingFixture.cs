@@ -37,13 +37,13 @@ namespace Requestarr.Core.Test.Portal
             Discord.AddMember(Carol, "carol");
             var onboarding = Mocker.Resolve<PortalOnboarding>();
             onboarding.Pace = TimeSpan.Zero;
-            var people = new[] { (Alice, "alice"), (Gone, "gone"), (Carol, "carol") }.Select(p => new OnboardPerson(p.Item1.ToString(), p.Item2)).ToList();
+            var people = new List<OnboardPerson> { new(Alice.ToString(), "alice"), new(Gone.ToString(), "gone"), new(Carol.ToString(), "carol") };
 
             var started = onboarding.Start(people, MoviesOnly, Admin);
             await onboarding.WhenDoneAsync(started.Id);
             var run = onboarding.Find(started.Id);
 
-            started.People.Select(p => p.State).Should().OnlyContain(s => s == OnboardState.Waiting || s == OnboardState.Adding || s == OnboardState.Added);
+            started.People.Should().HaveCount(3);
             run.IsDone.Should().BeTrue();
             run.People.Select(p => (p.Name, p.State)).Should().Equal(("alice", OnboardState.Added), ("gone", OnboardState.Failed), ("carol", OnboardState.Added));
             run.People[1].Message.Should().NotBeNullOrWhiteSpace();

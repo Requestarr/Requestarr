@@ -61,7 +61,12 @@ function Steps({ people, pick }: StepsProps) {
   );
 
   if (runId) {
-    return <OnboardProgress key={runId} runId={runId} onRetry={onRetry} />;
+    return (
+      <>
+        <ActionOutcomeAlert outcome={refused} />
+        <OnboardProgress key={runId} runId={runId} onRetry={onRetry} />
+      </>
+    );
   }
 
   if (picked) {
