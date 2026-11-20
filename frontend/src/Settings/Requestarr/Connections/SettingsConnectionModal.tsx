@@ -71,7 +71,7 @@ interface SettingsConnectionModalProps extends ContentProps {
   isOpen: boolean;
 }
 
-// The edit modal of a connection kept in Requestarr's settings (the Discord bot, The Movie Database, GitHub): its
+// The edit modal of a connection kept in Requestarr's settings (the Discord bot): its
 // fields start from what's saved each time it opens, and Save keeps only what changed.
 function SettingsConnectionModal({
   isOpen,

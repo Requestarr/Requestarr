@@ -37,8 +37,10 @@ namespace NzbDrone.Core.Configuration
         string BotProfileAvatarSet { get; set; }
         string BotProfileBannerSet { get; set; }
 
-        // Requestarr's bug reports; read through Requestarr.Core.Qa.BugReportSettings
+        // Whether the first-run setup's Sonarr or Radarr step was skipped; read through Requestarr.Core.Settings.SetupService
         bool SetupInstanceSkipped { get; set; }
+
+        // Requestarr's bug reports; read through Requestarr.Core.Qa.BugReportSettings
         bool BugReportsFileIssues { get; set; }
         string BugReportsRepository { get; set; }
         int BugReportsPerDay { get; set; }

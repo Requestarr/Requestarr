@@ -908,7 +908,9 @@ These need the beta server, so they aren't on the QA checklist. Check them once 
 - **The folder's permission is enough:** the container's log ends with "Application started", with no access denied under `/config` (B.2).
 - **The web app** on port 19797 shows the BETA strip (B.3).
 - **The connection in production:** production's Sonarr and Radarr list **Requestarr Beta (availability)** under **Settings → Connect**, and its **Test** passes (B.3).
+- **The GitHub key reaches beta:** a report sent with **Report a problem** gets a card with its GitHub link (the key set on the container in B.2).
 - **Updates:** when the next build reaches beta, **Image** shows **Update available** on it (B.6), or downloading it again works.
+- **Skipping Sonarr or Radarr** (on a fresh install, if you try it): **Skip for now** in the setup's third step finishes the setup, and **Settings → Connections** shows only the **+** card under Media managers.
 
 ### B.6 Updating
 

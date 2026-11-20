@@ -29,8 +29,8 @@ interface SettingsCardSectionProps {
   onSaved: () => void;
 }
 
-// A section with the one connection Requestarr keeps in its settings (the Discord bot, The Movie Database, GitHub):
-// a heading over its card, which opens its edit modal.
+// A section with the one connection Requestarr keeps in its settings (the Discord bot): a heading over its card, which
+// opens its edit modal.
 export function SettingsCardSection({
   id,
   legend,

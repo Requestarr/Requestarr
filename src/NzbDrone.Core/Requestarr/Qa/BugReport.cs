@@ -134,9 +134,9 @@ namespace Requestarr.Core.Qa
         }
     }
 
-    // Bug report settings: kept in Requestarr's settings (the admin web portal reads and changes them there), set by
-    // provisioning when it names them. The GitHub access key is in memory only, never in the database or config: from
-    // provisioning, or else from REQUESTARR_GITHUB_ISSUES_TOKEN.
+    // Bug report settings: built in (the repository and limits below), changed only by a provisioning file that names
+    // them, never in the web app. The GitHub access key is in memory only, never in the database or config: from
+    // provisioning, or else from the server's REQUESTARR_GITHUB_ISSUES_TOKEN.
     public interface IBugReportSettings
     {
         // File each report as a GitHub issue. Off unless the admin turns it on (reports become public). Always on for
