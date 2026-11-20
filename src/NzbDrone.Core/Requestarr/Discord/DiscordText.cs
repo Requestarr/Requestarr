@@ -132,6 +132,11 @@ namespace Requestarr.Core.Discord
         public const string InLibraryShort = "In library";
         public const string Dot = " · ";
 
+        public static string OnlyHistoryDeleted(string label) =>
+            $"{label} is a live request, so its record stays. Only history (Not in library) can be deleted.";
+
+        public static string RecordDeleted(string label) => $"Deleted the record of {label}. Nothing in Sonarr, Radarr or Discord changed.";
+
         // Steps of a request block, shown after its header.
         public const string StepDetails = "details";
         public const string StepSeasons = "choose seasons";

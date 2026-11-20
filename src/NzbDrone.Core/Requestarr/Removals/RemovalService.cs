@@ -43,7 +43,8 @@ namespace Requestarr.Core.Removals
         Task<LookupOutcome<RemovalTarget>> TargetForRequestAsync(int requestId);
 
         // The library of every connected Sonarr and Radarr, by title (titles nobody requested too).
-        Task<List<RemovalTarget>> SearchLibraryAsync(string term);
+        // unrequestedOnly: only titles without an active request here, so the first matches aren't all requested ones.
+        Task<List<RemovalTarget>> SearchLibraryAsync(string term, bool unrequestedOnly = false);
 
         // User-initiated: the requester removes their own title (or seasons), straight to the vote.
         Task<ServiceResult> StartByUserAsync(RequestarrUser user, Actor actor, int requestId, IReadOnlyCollection<int> seasons);
@@ -173,7 +174,7 @@ namespace Requestarr.Core.Removals
             return await TargetAsync(request.BackendId.Value, request.ExternalItemId.Value);
         }
 
-        public async Task<List<RemovalTarget>> SearchLibraryAsync(string term)
+        public async Task<List<RemovalTarget>> SearchLibraryAsync(string term, bool unrequestedOnly = false)
         {
             var found = new List<RemovalTarget>();
             term = (term ?? string.Empty).Trim();
@@ -191,7 +192,7 @@ namespace Requestarr.Core.Removals
                 }
             }
 
-            return found.OrderBy(t => t.Title.Title, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.Instance.Name).Take(DiscordLimits.ChoicesPerMenu).ToList();
+            return found.Where(t => !unrequestedOnly || t.Request == null).OrderBy(t => t.Title.Title, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.Instance.Name).Take(DiscordLimits.ChoicesPerMenu).ToList();
         }
 
         public async Task<ServiceResult> StartByUserAsync(RequestarrUser user, Actor actor, int requestId, IReadOnlyCollection<int> seasons)

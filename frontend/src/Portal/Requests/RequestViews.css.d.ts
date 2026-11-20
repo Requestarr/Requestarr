@@ -2,6 +2,7 @@
 // Please do not change this file!
 interface CssExports {
   overviewBody: string;
+  overviewMeta: string;
   overviewPoster: string;
   overviewRow: string;
   overviewText: string;
@@ -11,6 +12,7 @@ interface CssExports {
   posterImage: string;
   posterMissing: string;
   posterPeople: string;
+  posterStatus: string;
   posters: string;
   tablePoster: string;
 }

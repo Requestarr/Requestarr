@@ -12,6 +12,7 @@ import {
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
+import { RowActions, RowSelect } from './RequestRows';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
 
@@ -34,14 +35,18 @@ function OverviewRow({ request }: { request: PortalRequest }) {
 
   return (
     <div className={styles.overviewRow}>
+      <RowSelect request={request} />
       <RequestPoster url={media?.poster} className={styles.overviewPoster} />
       <div className={styles.overviewBody}>
         <div className={styles.overviewTitle}>
           <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
         </div>
-        <div>
-          {contentTypeText(request.contentType)} · {requestStatusText(request)}{' '}
-          · {dateText(request.requested)}
+        <div className={styles.overviewMeta}>
+          <span>
+            {contentTypeText(request.contentType)} ·{' '}
+            {requestStatusText(request)} · {dateText(request.requested)}
+          </span>
+          <RowActions request={request} />
         </div>
         <People request={request} />
         {media?.overview && (

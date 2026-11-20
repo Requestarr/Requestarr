@@ -40,7 +40,6 @@ namespace Requestarr.Core.Portal
         private readonly IUserMediaAccessRepository _access;
         private readonly IBackendRepository _backends;
         private readonly IAuditRepository _audit;
-        private readonly IRemovalService _removals;
         private readonly IRemovalProposalRepository _proposals;
         private readonly IRemovalFlagRepository _flags;
         private readonly IMediaServerAccountRepository _mediaAccounts;
@@ -57,7 +56,6 @@ namespace Requestarr.Core.Portal
             IUserMediaAccessRepository access,
             IBackendRepository backends,
             IAuditRepository audit,
-            IRemovalService removals,
             IRemovalProposalRepository proposals,
             IRemovalFlagRepository flags,
             IMediaServerAccountRepository mediaAccounts,
@@ -73,7 +71,6 @@ namespace Requestarr.Core.Portal
             _access = access;
             _backends = backends;
             _audit = audit;
-            _removals = removals;
             _proposals = proposals;
             _flags = flags;
             _mediaAccounts = mediaAccounts;
@@ -85,7 +82,7 @@ namespace Requestarr.Core.Portal
 
         public IReadOnlyList<PortalRequest> Requests()
         {
-            var rows = new Rows(Names(), DiscordAccounts(), Backends(), _subscribers.All());
+            var rows = new Rows(Names(), DiscordAccounts(), Backends(), _subscribers.All(), _proposals.All());
 
             return _requests.All().OrderByDescending(r => r.Requested).Select(rows.Of).ToList();
         }
@@ -100,8 +97,9 @@ namespace Requestarr.Core.Portal
             }
 
             var names = Names();
-            var latest = _removals.LatestFor(id);
-            var rows = new Rows(names, DiscordAccounts(), Backends(), _subscribers.ForRequest(id));
+            var removals = _proposals.ForRequest(id);
+            var latest = Latest(removals);
+            var rows = new Rows(names, DiscordAccounts(), Backends(), _subscribers.ForRequest(id), removals);
             var removal = latest == null ? null : Removal(latest, names);
 
             return new PortalRequestDetail(
@@ -146,7 +144,7 @@ namespace Requestarr.Core.Portal
             var names = Names();
             var instances = Instances();
             var accounts = DiscordAccounts();
-            var rows = new Rows(names, accounts, Backends(), _subscribers.All());
+            var rows = new Rows(names, accounts, Backends(), _subscribers.All(), _proposals.All());
             var all = _requests.All().ToDictionary(r => r.Id);
             var own = all.Values.Where(r => r.OwnerUserId == id).OrderByDescending(r => r.Requested).ToList();
             var follows = _subscribers.ForUser(id).Where(s => all.ContainsKey(s.RequestId)).ToList();
@@ -273,6 +271,10 @@ namespace Requestarr.Core.Portal
             return linked == null ? null : $"{linked.Provider}: {linked.Username}";
         }
 
+        // As RemovalService.LatestFor: the open removal, or else the newest. A request's page and its row both use it.
+        private static RemovalProposal Latest(IEnumerable<RemovalProposal> removals) =>
+            removals.Where(p => p.IsOpen).MaxBy(p => p.Id) ?? removals.MaxBy(p => p.Id);
+
         // The feed card's rules (RequestCards, RequestService): one place decides each, Discord and the portal ask it.
         private static List<string> Actions(Request request, RemovalProposal removal)
         {
@@ -288,6 +290,7 @@ namespace Requestarr.Core.Portal
             Add(actions, removal?.IsOpen == true && removal.Status != RemovalStatus.DeleteByHand, "forceRemoval", "dropRemoval");
             Add(actions, removal?.Status == RemovalStatus.DeleteByHand, "deletedByHand", "dropRemoval");
             Add(actions, removal?.IsOpen != true && RequestCards.Downloaded(request), "remove");
+            Add(actions, request.Status == RequestStatus.NotInLibrary, "deleteRecord");
 
             return actions;
         }
@@ -370,19 +373,22 @@ namespace Requestarr.Core.Portal
             private readonly Dictionary<int, UserIdentity> _accounts;
             private readonly Dictionary<int, BackendInstance> _instances;
             private readonly ILookup<int, RequestSubscriber> _followers;
+            private readonly ILookup<int, RemovalProposal> _removals;
 
-            public Rows(Dictionary<int, string> names, Dictionary<int, UserIdentity> accounts, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers)
+            public Rows(Dictionary<int, string> names, Dictionary<int, UserIdentity> accounts, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers, IEnumerable<RemovalProposal> removals)
             {
                 _names = names;
                 _accounts = accounts;
                 _instances = instances;
                 _followers = followers.ToLookup(s => s.RequestId);
+                _removals = removals.Where(p => p.RequestId.HasValue).ToLookup(p => p.RequestId.Value);
             }
 
             public PortalRequest Of(Request request)
             {
                 var followers = FollowersOf(request).Select(f => f.Person).ToList();
                 var instance = request.BackendId.HasValue ? _instances.GetValueOrDefault(request.BackendId.Value) : null;
+                var removal = Latest(_removals[request.Id]);
 
                 return new PortalRequest(
                     request.Id,
@@ -399,7 +405,9 @@ namespace Requestarr.Core.Portal
                     request.Requested,
                     request.Decided,
                     request.Fulfilled,
-                    Media(request, instance));
+                    Media(request, instance),
+                    Actions(request, removal),
+                    removal?.IsOpen == true ? removal.Id : null);
             }
 
             public List<PortalFollower> FollowersOf(Request request) =>

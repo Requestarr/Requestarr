@@ -6,6 +6,7 @@ import MemberLink from '../Components/MemberLink';
 import { requestStatusText, titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink } from './RequestMedia';
+import { RowActions, RowSelect } from './RequestRows';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
 
@@ -46,8 +47,14 @@ function RequestsPosters({ requests }: { requests: PortalRequest[] }) {
         <div key={request.id} className={styles.posterCard}>
           <Poster request={request} />
           <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
-          <div className={portalStyles.muted}>{requestStatusText(request)}</div>
+          <div className={styles.posterStatus}>
+            <span className={portalStyles.muted}>
+              {requestStatusText(request)}
+            </span>
+            <RowActions request={request} />
+          </div>
           <div className={styles.posterPeople}>
+            <RowSelect request={request} />
             <MemberLink person={request.requester} size="small" />
             <FollowerBadge
               requestId={request.id}

@@ -1,21 +1,27 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { sortDirections } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
 import RequestsTable, {
   RequestsSort,
   sortValues,
 } from '../Components/RequestsTable';
+import PageCheckbox from '../Components/Selection/PageCheckbox';
+import SelectionBar from '../Components/Selection/SelectionBar';
+import useSelection from '../Components/Selection/useSelection';
 import { contentTypeText, statusText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import usePortal from '../usePortal';
 import useSortedRows from '../useSortedRows';
-import RemoveTitleModal from './RemoveTitleModal';
+import { RequestRows, RequestRowsContext } from './RequestRows';
 import RequestsOverview from './RequestsOverview';
 import RequestsPosters from './RequestsPosters';
 import RequestsToolbar from './RequestsToolbar';
 import { RequestView, savedView, saveView } from './requestView';
+import useRequestActionRunner from './useRequestActionRunner';
+import useRequestBulk from './useRequestBulk';
 import styles from '../Portal.css';
 
 const NO_REQUESTS: PortalRequest[] = [];
@@ -97,14 +103,14 @@ function filterOptions(requests: PortalRequest[]) {
   };
 }
 
-interface RequestsListProps {
+interface ShownProps {
   requests: PortalRequest[];
   view: RequestView;
   sort: RequestsSort;
 }
 
 // The requests, already sorted, in the view chosen.
-function Shown({ requests, view, sort }: RequestsListProps) {
+function Shown({ requests, view, sort }: ShownProps) {
   switch (view) {
     case 'overview':
       return <RequestsOverview requests={requests} />;
@@ -117,7 +123,8 @@ function Shown({ requests, view, sort }: RequestsListProps) {
   }
 }
 
-function RequestsList({ requests, view, sort }: RequestsListProps) {
+// The filters' choices, what they're set to, and the requests they let through.
+function useRequestFilters(requests: PortalRequest[]) {
   const [filters, setFilters] = useState(NO_FILTERS);
   // "Requested in the last 30 days" counts from when it was picked.
   const [since, setSince] = useState<number | null>(null);
@@ -126,7 +133,6 @@ function RequestsList({ requests, view, sort }: RequestsListProps) {
     () => requests.filter((r) => matches(r, filters, since)),
     [requests, filters, since]
   );
-
   const onFilterChange = useCallback((name: string, value: string) => {
     setFilters((current) => ({ ...current, [name]: value }));
 
@@ -135,8 +141,35 @@ function RequestsList({ requests, view, sort }: RequestsListProps) {
     }
   }, []);
 
+  return { filters, options, shown, onFilterChange };
+}
+
+interface RequestsListProps extends ShownProps {
+  onAction: RequestRows['onAction'];
+  isBusy: boolean;
+
+  // After a bulk action: the list as it is now.
+  onDone: () => void;
+}
+
+function RequestsList(props: RequestsListProps) {
+  const { requests, view, sort, onAction, isBusy, onDone } = props;
+  const { filters, options, shown, onFilterChange } =
+    useRequestFilters(requests);
+  const selection = useSelection(shown, shown);
+  const { onClear } = selection;
+  const onBulkDone = useCallback(() => {
+    onClear();
+    onDone();
+  }, [onClear, onDone]);
+  const bulk = useRequestBulk(selection.picked, onBulkDone);
+  const rows = useMemo(
+    () => ({ onAction, isBusy, selection }),
+    [onAction, isBusy, selection]
+  );
+
   return (
-    <>
+    <RequestRowsContext.Provider value={rows}>
       <div className={styles.filters}>
         {FILTER_NAMES.map((name) => (
           <PortalFilter
@@ -155,19 +188,30 @@ function RequestsList({ requests, view, sort }: RequestsListProps) {
           total: requests.length,
         })}
       </div>
+      <ActionOutcomeAlert outcome={bulk.outcome} />
+      <SelectionBar
+        selection={selection}
+        actions={bulk.actions}
+        isBusy={bulk.isBusy}
+        onAction={bulk.onAction}
+      />
+      {view !== 'table' && shown.length > 0 && (
+        <PageCheckbox selection={selection} />
+      )}
       <Shown requests={shown} view={view} sort={sort} />
-    </>
+      {bulk.modal}
+    </RequestRowsContext.Provider>
   );
 }
 
 // Every request, in the Overview, Posters or Table view, filterable by member (requester or follower), type, status,
-// instance and how recent, and sorted the same in every view; Remove a title starts a removal of anything in a library.
+// instance and how recent, and sorted the same in every view. Each row has its actions, as Sonarr's and Radarr's lists
+// do, and a box to pick it: anything picked shows what can be done to all of it.
 function RequestsPage() {
   const result = usePortal<PortalRequest[]>('requests');
   const onActionDone = result.reload;
-  const [isRemoving, setIsRemoving] = useState(false);
-  const onRemovePress = useCallback(() => setIsRemoving(true), []);
-  const onRemoveClose = useCallback(() => setIsRemoving(false), []);
+  const { run, isBusy, outcome, dialogs } =
+    useRequestActionRunner(onActionDone);
   const [view, setView] = useState(savedView);
   const onViewChange = useCallback((chosen: RequestView) => {
     setView(chosen);
@@ -180,16 +224,23 @@ function RequestsPage() {
     sortDirections.DESCENDING
   );
   const renderRequests = useCallback(
-    () => <RequestsList requests={sort.sorted} view={view} sort={sort} />,
-    [sort, view]
+    () => (
+      <>
+        <ActionOutcomeAlert outcome={outcome} />
+        <RequestsList
+          requests={sort.sorted}
+          view={view}
+          sort={sort}
+          isBusy={isBusy}
+          onAction={run}
+          onDone={onActionDone}
+        />
+      </>
+    ),
+    [sort, view, run, isBusy, outcome, onActionDone]
   );
   const toolbar = (
-    <RequestsToolbar
-      view={view}
-      sort={sort}
-      onViewChange={onViewChange}
-      onRemovePress={onRemovePress}
-    />
+    <RequestsToolbar view={view} sort={sort} onViewChange={onViewChange} />
   );
 
   return (
@@ -201,11 +252,7 @@ function RequestsPage() {
       >
         {renderRequests}
       </PortalPage>
-      <RemoveTitleModal
-        isOpen={isRemoving}
-        onClose={onRemoveClose}
-        onDone={onActionDone}
-      />
+      {dialogs}
     </>
   );
 }

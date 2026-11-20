@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import Link from 'Components/Link/Link';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -16,21 +16,37 @@ import {
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
+import {
+  RequestRowsContext,
+  RowActions,
+  RowSelect,
+} from '../Requests/RequestRows';
 import useSortedRows, { SortValues } from '../useSortedRows';
 import FollowerStack from './FollowerStack';
 import MemberLink from './MemberLink';
 import styles from '../Portal.css';
 import viewStyles from '../Requests/RequestViews.css';
 
-const columns: Column[] = [
+const titleColumns: Column[] = [
   { name: 'title', label: () => translate('PortalTitle') },
   { name: 'type', label: () => translate('PortalType') },
   { name: 'status', label: () => translate('PortalStatus') },
+].map((column) => ({ ...column, isVisible: true, isSortable: true }));
+
+const otherColumns: Column[] = [
   { name: 'requester', label: () => translate('PortalRequester') },
   { name: 'followers', label: () => translate('PortalFollowers') },
   { name: 'instance', label: () => translate('PortalInstance') },
   { name: 'requested', label: () => translate('PortalRequested') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: true }));
+
+// Each row's actions, beside its title and status, on the Requests page only.
+const actionsColumn: Column = {
+  name: 'actions',
+  label: '',
+  isVisible: true,
+  isSortable: false,
+};
 
 const posterColumn: Column = {
   name: 'poster',
@@ -56,9 +72,15 @@ interface RequestRowProps {
 
 function RequestRow({ request, withPoster }: RequestRowProps) {
   const seasons = seasonsText(request.seasons);
+  const rows = useContext(RequestRowsContext);
 
   return (
     <TableRow>
+      {rows && (
+        <TableRowCell>
+          <RowSelect request={request} />
+        </TableRowCell>
+      )}
       {withPoster && (
         <TableRowCell>
           <RequestPoster
@@ -74,6 +96,11 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
       </TableRowCell>
       <TableRowCell>{contentTypeText(request.contentType)}</TableRowCell>
       <TableRowCell>{requestStatusText(request)}</TableRowCell>
+      {rows && (
+        <TableRowCell>
+          <RowActions request={request} />
+        </TableRowCell>
+      )}
       <TableRowCell>
         <MemberLink person={request.requester} size="small" />
       </TableRowCell>
@@ -108,6 +135,7 @@ function RequestsTable({
     'requested',
     sortDirections.DESCENDING
   );
+  const rows = useContext(RequestRowsContext);
   const { sorted, sortKey, sortDirection, onSortPress } = sort
     ? { ...sort, sorted: requests }
     : own;
@@ -116,11 +144,23 @@ function RequestsTable({
     return <div className={styles.empty}>{translate('PortalNoRequests')}</div>;
   }
 
+  // On the Requests page, the header's box picks or clears the page shown.
+  const selection = rows?.selection;
+
   return (
     <Table
-      columns={withPosters ? [posterColumn, ...columns] : columns}
+      selectAll={!!selection}
+      allSelected={selection?.allOnPage ?? false}
+      allUnselected={selection?.noneOnPage ?? true}
+      columns={[
+        ...(withPosters ? [posterColumn] : []),
+        ...titleColumns,
+        ...(rows ? [actionsColumn] : []),
+        ...otherColumns,
+      ]}
       sortKey={sortKey}
       sortDirection={sortDirection}
+      onSelectAllChange={selection?.onPageChange}
       onSortPress={onSortPress}
     >
       <TableBody>

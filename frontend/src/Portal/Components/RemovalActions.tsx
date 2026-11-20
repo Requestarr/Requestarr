@@ -1,9 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import ConfirmModal from 'Components/Modal/ConfirmModal';
-import { kinds } from 'Helpers/Props';
-import translate from 'Utilities/String/translate';
 import ActionButton from '../Requests/ActionButton';
 import { PortalAction } from '../usePortalAction';
+import ForceRemovalConfirm from './ForceRemovalConfirm';
 
 interface RemovalActionsProps {
   removalId: number | string;
@@ -48,15 +46,9 @@ function RemovalActions({ removalId, action, byHand }: RemovalActionsProps) {
           />
         )
       )}
-      <ConfirmModal
-        isOpen={isForcing}
-        kind={kinds.DANGER}
-        title={translate('PortalActionForceRemoval')}
-        message={translate('PortalForceRemovalMessage')}
-        confirmLabel={translate('PortalActionForceRemoval')}
-        onConfirm={onForce}
-        onCancel={onCancel}
-      />
+      {isForcing && (
+        <ForceRemovalConfirm onConfirm={onForce} onCancel={onCancel} />
+      )}
     </>
   );
 }

@@ -29,7 +29,7 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | Member card: **Link Plex…** | Link their media server account | The member's page: Link Plex | 5c |
 | The admin panel's **Users** | Every member, with their card | Members | 5a |
 | Member card: **Their requests** | What one member asked for | The member's page, Requests | 5a |
-| The admin panel's **Remove a title** (**Start removal**, **Start the vote**, **Force: delete now**) | Start a removal of any title in any library | Requests: Remove a title (library search, the seasons, Force) | 5c |
+| The admin panel's **Remove a title** (**Start removal**, **Start the vote**, **Force: delete now**) | Start a removal of any title in any library | The header search: a title nobody requested here is listed under In your library, not requested, with Start removal and Force removal; a requested title's own row and page have Start removal | 5c |
 | Upgrade card (**Read changes**) | What changed in this version | System, What's new | 5c |
 | The admin panel's **Help** and `/admin help` | How Requestarr works | Each page's own wording; the setup guide | stays in Discord |
 | Account events (member added, access changed, suspended, Plex linked) | A post per change | The member's page, History; the Audit log | 5a, 5c |
@@ -39,7 +39,7 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | In Discord | What it is | In the portal | Task |
 |---|---|---|---|
 | One card per request, moved to the bottom on every change: who asked, which instance, the state, the seasons | Every request's current state | Requests (a row per request) and the request's page | 5a |
-| Feed card buttons (**Approve**, **Deny**, **Already available**, **Cancel**, **Add seasons**, **Delete**) | The actions valid for the request's state | The request's page: the same actions, for the same states (Delete is Start removal) | 5c |
+| Feed card buttons (**Approve**, **Deny**, **Already available**, **Cancel**, **Add seasons**, **Delete**) | The actions valid for the request's state | The request's page, and its row in every Requests view (a menu and a trash button): the same actions, for the same states (Delete is Start removal) | 5c |
 | Download progress (grabbed, downloading, stalled, imported, available, failed) | Where the download is | Requests (status) and the request's page, Timeline | 5a |
 | Removal cards (asked, voting, kept, forced, deleted) | A removal's state | The request's page, Removal (with who pressed Keep it) and Timeline | 5a, 5c |
 
@@ -56,7 +56,15 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | Requestrr's old request channels (on a server moving from Requestrr) | Who asked for what before Requestarr | Settings, Import from Requestrr: a preview, then the import, recorded in the audit log (setup guide, 5.15) | Requestrr import |
 | The audit log (every action, who and when) | Requestarr's own record, kept for 1 year by default (Settings, Requests: Keep the audit log for) | Each page's Timeline or History; the Audit log, searchable by member, title, action and day | 5a, 5c |
 
-Finding a request or a member quickly: the search in the header (press `/`) finds requests by title and members by name, Discord username, Discord ID or a name they had before. It only finds what Requestarr has; it never looks up or requests a new title.
+Finding a request or a member quickly: the search in the header (press `/`) finds requests by title and members by name, Discord username, Discord ID or a name they had before, and titles in a Sonarr or Radarr library that nobody requested here, each with **Start removal** and **Force removal**. It never looks up or requests a new title.
+
+## Acting on requests where they're listed
+
+As in Sonarr and Radarr, every row in the Requests page's Overview, Posters and Table views has its actions beside its title and status: the most likely one as its own button (**Approve** while it waits, **Start removal** once it's there, **Delete record** for history), and a menu with exactly what the request's own page offers for its state (the same rules, so they never disagree), plus **Open in Sonarr** or **Radarr**.
+
+Picking works as in an email list: every row has a box, always. As soon as one is ticked, a bar sticks to the top of the list with the count, **Approve**, **Deny**, **Start removal** and **Delete record** (an action not every picked request offers is greyed, and says which ones on hover) and **Clear selection**. The header's box picks every row shown (everything the filters let through). Each action confirms with the list of titles; one refused doesn't stop the rest, and the outcome names each one refused and why.
+
+**Delete record** is for history only (Not in library, usually imported): it removes the request and its follows from Requestarr's records. Nothing in Sonarr, Radarr or Discord changes, and the audit log keeps that it was deleted. Where deleting files is turned off (Settings, Requests), every removal's confirmation says that nothing is deleted until an admin does it by hand.
 
 ## Followers
 

@@ -68,7 +68,7 @@ namespace Requestarr.Core.Portal
         public IReadOnlyList<PortalAuditEntry> Find(PortalAuditFilter filter)
         {
             var users = _users.All();
-            var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.All());
+            var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.All(), _audit.ForAction(RequestService.DeleteRecordAction));
             var names = users.ToDictionary(u => u.Id, u => u.DisplayName);
             var discordNames = PortalText.DiscordNames(_identities.All(), names);
 
@@ -117,9 +117,18 @@ namespace Requestarr.Core.Portal
 
             // Someone who isn't a member (a paused person, by their Discord account): the name they last asked to join with.
             private readonly Dictionary<string, string> _askedAs;
+            private readonly Dictionary<string, string> _deleted;
 
-            public Subjects(IEnumerable<Request> requests, IEnumerable<RequestarrUser> users, IEnumerable<RemovalProposal> removals, IEnumerable<AccessRequest> accessRequests, IEnumerable<BackendInstance> instances)
+            // deleted: Delete record's entries, whose detail is the title the record had.
+            public Subjects(
+                IEnumerable<Request> requests,
+                IEnumerable<RequestarrUser> users,
+                IEnumerable<RemovalProposal> removals,
+                IEnumerable<AccessRequest> accessRequests,
+                IEnumerable<BackendInstance> instances,
+                IEnumerable<AuditEntry> deleted)
             {
+                _deleted = deleted.GroupBy(e => e.TargetId).ToDictionary(g => g.Key, g => g.Last().Detail);
                 _requests = requests.ToDictionary(r => r.Id);
                 _users = users.ToDictionary(u => u.Id);
                 _removals = removals.ToDictionary(r => r.Id);
@@ -140,6 +149,7 @@ namespace Requestarr.Core.Portal
             private (string About, int? RequestId, int? MemberId) About(string type, int? id, string raw) => type switch
             {
                 "request" when id.HasValue && _requests.TryGetValue(id.Value, out var request) => (request.Label, request.Id, null),
+                "request" when _deleted.TryGetValue(raw, out var title) => (title, null, null),
                 "removal" when id.HasValue && _removals.TryGetValue(id.Value, out var removal) => (removal.Label, removal.RequestId, null),
                 "user" when id.HasValue && _users.TryGetValue(id.Value, out var user) => (user.DisplayName, null, user.Id),
                 "access-request" when id.HasValue && _accessRequests.TryGetValue(id.Value, out var asked) => (asked.DisplayName ?? asked.Username, null, null),

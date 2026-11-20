@@ -1,0 +1,33 @@
+.actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+
+  line-height: 22px;
+}
+
+/* One line high, so a row's actions never make it taller than its people. */
+.button {
+  padding: 0 8px;
+  border-radius: 4px;
+  color: var(--textColor);
+  line-height: 22px;
+}
+
+.button:hover {
+  background-color: var(--inputBackgroundColor);
+}
+
+/* CheckInput's own container grows to fill a form row; a list row's checkbox keeps its size, and its box drops the
+   form's top margin so the row stays one line high. */
+.select {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.select div {
+  margin-top: 0;
+}

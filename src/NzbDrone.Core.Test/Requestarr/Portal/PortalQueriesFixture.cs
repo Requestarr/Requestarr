@@ -220,6 +220,28 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public void each_list_row_has_the_actions_its_page_has_and_its_open_removal()
+        {
+            var pending = Requested("Arrival", _bob, RequestStatus.Pending, 1);
+            var history = Requested("Heat", _alice, RequestStatus.NotInLibrary, 2);
+            var dune = Requested("Dune", _alice, RequestStatus.Available, 3);
+            var removal = Db.Insert(new RemovalProposal { RequestId = dune.Id, Title = "Dune", Status = RemovalStatus.Voting, Created = Start.AddHours(9) });
+
+            var rows = Subject.Requests().ToDictionary(r => r.Id);
+
+            foreach (var id in new[] { pending.Id, history.Id, dune.Id })
+            {
+                rows[id].Actions.Should().Equal(Subject.Request(id).Actions, "a row offers what its page offers");
+            }
+
+            rows[pending.Id].Actions.Should().Contain("approve").And.Contain("deny").And.NotContain("deleteRecord");
+            rows[history.Id].Actions.Should().Contain("deleteRecord");
+            rows[dune.Id].Actions.Should().Contain("forceRemoval").And.Contain("dropRemoval");
+            rows[dune.Id].RemovalId.Should().Be(removal.Id);
+            rows[pending.Id].RemovalId.Should().BeNull();
+        }
+
+        [Test]
         public void an_unknown_request_or_member_is_not_found()
         {
             Subject.Request(999).Should().BeNull();

@@ -97,6 +97,15 @@
   }
 }
 
+/* A library title's Start removal and Force removal. */
+.removal {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.removal + .removal {
+  margin-left: 10px;
+}
+
 .detail {
   margin-left: 12px;
   color: rgba(255, 255, 255, 0.7);

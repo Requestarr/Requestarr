@@ -92,6 +92,10 @@ namespace Requestarr.Core.Requests
         // Closes a pending request as already available (the title is already there).
         Task<ServiceResult> MarkAvailableAsync(int requestId, Actor admin, string adminName);
 
+        // Deletes a history request (Not in library, from an import) from Requestarr's records, with its follows.
+        // Nothing in Sonarr, Radarr or Discord changes; the audit log keeps that it was deleted.
+        ServiceResult DeleteRecord(int requestId, Actor admin);
+
         // What Sonarr / Radarr now say about a sent request. A change (downloading, stuck, failed,
         // seasons available, all there) reposts its messages and feed card; no change does nothing.
         Task<bool> ApplyProgressAsync(Request request, ProgressSnapshot snapshot);
@@ -148,6 +152,9 @@ namespace Requestarr.Core.Requests
 
     public class RequestService : IRequestService
     {
+        // The audit log's action for Delete record; its detail is the title the record had.
+        public const string DeleteRecordAction = "request.deleteRecord";
+
         public const int MaxSearchResults = 10;
 
         private readonly IRequestRepository _requests;
@@ -667,6 +674,27 @@ namespace Requestarr.Core.Requests
         {
             request.DecidedByUserId = admin.UserId;
             request.DecidedByName = admin.UserId.HasValue ? null : adminName;
+        }
+
+        public ServiceResult DeleteRecord(int requestId, Actor admin)
+        {
+            var request = _requests.Find(requestId);
+
+            if (request == null)
+            {
+                return ServiceResult.Fail(DiscordText.RequestNotFound);
+            }
+
+            if (request.Status != RequestStatus.NotInLibrary)
+            {
+                return ServiceResult.Fail(DiscordText.OnlyHistoryDeleted(request.Label));
+            }
+
+            _subscribers.DeleteMany(_subscribers.ForRequest(requestId));
+            _requests.Delete(requestId);
+            _audit.Record(admin, DeleteRecordAction, "request", requestId.ToString(), request.Label);
+
+            return ServiceResult.Ok(DiscordText.RecordDeleted(request.Label));
         }
 
         // The admin can cancel while it waits for approval, or once sent while nothing is

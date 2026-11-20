@@ -1,0 +1,6 @@
+/* The titles a bulk action covers; a long list scrolls. */
+.titles {
+  overflow-y: auto;
+  margin: 0 0 15px;
+  max-height: 240px;
+}
