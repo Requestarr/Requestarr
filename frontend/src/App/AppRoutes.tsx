@@ -18,7 +18,6 @@ import ImportPage from 'Settings/Requestarr/Import/ImportPage';
 import RequestSettings from 'Settings/Requestarr/RequestSettings';
 import SettingsChanges from 'Settings/Requestarr/SettingsChanges';
 import Settings from 'Settings/Settings';
-import TagSettings from 'Settings/Tags/TagSettings';
 import UISettingsConnector from 'Settings/UI/UISettingsConnector';
 import HomeRedirect from 'Setup/HomeRedirect';
 import SetupPage from 'Setup/SetupPage';
@@ -92,8 +91,6 @@ function AppRoutes() {
       */}
 
       <Route exact={true} path="/settings" component={Settings} />
-
-      <Route path="/settings/tags" component={TagSettings} />
 
       <Route path="/settings/general" component={GeneralSettingsConnector} />
 

@@ -8,18 +8,14 @@ import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import BotStatus from '../BotStatus';
 import { AppSettings, Instance, SetupStatus } from '../RequestarrSettingsTypes';
-import {
-  BUG_REPORT_SECTIONS,
-  CONNECTION_OPTIONS,
-  DISCORD_SECTIONS,
-  TMDB_SECTIONS,
-} from '../settingsPages';
+import { CONNECTION_OPTIONS, DISCORD_SECTIONS } from '../settingsPages';
 import SettingsSections from '../SettingsSections';
 import useRequestarrApi from '../useRequestarrApi';
 import useSettingsForm, { SettingsForm } from '../useSettingsForm';
-import { discordLabels, keyLabels } from './connectionLabels';
+import { discordLabels } from './connectionLabels';
 import {
   MediaManagersSection,
+  MediaServersSection,
   SettingsCardSection,
 } from './ConnectionSections';
 import ConnectionsToolbar, { useShowAdvanced } from './ConnectionsToolbar';
@@ -81,7 +77,8 @@ interface ConnectionCardsProps {
   onSaved: () => void;
 }
 
-// The sections in the owner's order: Discord, Media managers, Metadata, Bug reports, then Options.
+// The sections in the owner's order: Discord, Media managers, Media servers, then Options. The Movie Database and
+// GitHub keys aren't here: they come from the server's environment, never the web app.
 function ConnectionCards({
   settings,
   setup,
@@ -114,29 +111,7 @@ function ConnectionCards({
         onSaved={onSaved}
       />
 
-      <SettingsCardSection
-        id="metadata"
-        legend={translate('ConnectionsMetadata')}
-        name={translate('SettingsTmdb')}
-        type={translate('ConnectionsMetadata')}
-        labels={keyLabels(settings, 'tmdbApiKey')}
-        sections={TMDB_SECTIONS}
-        {...cards}
-      />
-
-      <SettingsCardSection
-        id="bug-reports"
-        legend={translate('SettingsBugReports')}
-        name={translate('ConnectionGitHub')}
-        type={translate('SettingsBugReports')}
-        labels={keyLabels(
-          settings,
-          'bugReportsGithubToken',
-          !!settings.values.bugReportsFileIssues
-        )}
-        sections={BUG_REPORT_SECTIONS}
-        {...cards}
-      />
+      <MediaServersSection />
 
       <SettingsSections
         sections={[CONNECTION_OPTIONS]}

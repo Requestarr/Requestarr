@@ -12,14 +12,18 @@ namespace Requestarr.Core.Settings
 {
     // A new install without a provisioning file starts with nothing set. Needed: some step isn't done yet, so the web
     // app opens the first-run setup: the admin's sign-in (the sign-in dialog every fresh install shows), the Discord
-    // bot, and at least one Sonarr or Radarr. InviteUrl adds the bot to a server, once its application ID is known, and
+    // bot, and at least one Sonarr or Radarr unless the admin skipped that step (InstanceSkipped: they add them later on
+    // the Connections page). InviteUrl adds the bot to a server, once its application ID is known, and
     // the read-only one adds it to another server only to read there, for an import from Requestrr.
-    public record SetupStatus(bool Needed, bool AdminAccount, bool Discord, bool Instance, DiscordBotState BotState, string BotProblem, string InviteUrl,
-                              string ReadOnlyInviteUrl);
+    public record SetupStatus(bool Needed, bool AdminAccount, bool Discord, bool Instance, bool InstanceSkipped, DiscordBotState BotState, string BotProblem,
+                              string InviteUrl, string ReadOnlyInviteUrl);
 
     public interface ISetupService
     {
         SetupStatus Status();
+
+        // The first-run setup's Sonarr or Radarr step, left for later.
+        SetupStatus SkipInstance();
 
         // Every change made to the settings and the instances, newest first.
         IReadOnlyList<PortalEvent> Changes();
@@ -38,6 +42,7 @@ namespace Requestarr.Core.Settings
 
         private readonly IProvisioningService _provisioning;
         private readonly IConfigFileProvider _configFile;
+        private readonly IConfigService _config;
         private readonly IDiscordSettingsStore _discord;
         private readonly IDiscordClientHost _discordHost;
         private readonly IInstanceSettingsService _instances;
@@ -45,6 +50,7 @@ namespace Requestarr.Core.Settings
 
         public SetupService(IProvisioningService provisioning,
                             IConfigFileProvider configFile,
+                            IConfigService config,
                             IDiscordSettingsStore discord,
                             IDiscordClientHost discordHost,
                             IInstanceSettingsService instances,
@@ -52,6 +58,7 @@ namespace Requestarr.Core.Settings
         {
             _provisioning = provisioning;
             _configFile = configFile;
+            _config = config;
             _discord = discord;
             _discordHost = discordHost;
             _instances = instances;
@@ -63,13 +70,21 @@ namespace Requestarr.Core.Settings
             var adminAccount = _configFile.AuthenticationMethod != AuthenticationType.None;
             var discord = _discord.Current.IsConfigured;
             var instance = _instances.All().Any(i => i.Settings.Enabled);
+            var skipped = _config.SetupInstanceSkipped;
             var applicationId = _discord.Current.ApplicationId;
             var invite = InviteUrl(applicationId, InvitePermissions, InviteScope);
             var readOnlyInvite = InviteUrl(applicationId, ReadOnlyInvitePermissions, ReadOnlyInviteScope);
 
-            var needed = !_provisioning.UsesFile && !(adminAccount && discord && instance);
+            var needed = !_provisioning.UsesFile && !(adminAccount && discord && (instance || skipped));
 
-            return new SetupStatus(needed, adminAccount, discord, instance, _discordHost.State, _discordHost.LastError, invite, readOnlyInvite);
+            return new SetupStatus(needed, adminAccount, discord, instance, skipped, _discordHost.State, _discordHost.LastError, invite, readOnlyInvite);
+        }
+
+        public SetupStatus SkipInstance()
+        {
+            _config.SetupInstanceSkipped = true;
+
+            return Status();
         }
 
         // Null until the bot's application ID is known.

@@ -184,6 +184,12 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("BotProfileBannerSet", value ?? string.Empty); }
         }
 
+        public bool SetupInstanceSkipped
+        {
+            get { return GetValueBoolean("SetupInstanceSkipped", false); }
+            set { SetValue("SetupInstanceSkipped", value); }
+        }
+
         public bool BugReportsFileIssues
         {
             get { return GetValueBoolean("BugReportsFileIssues", false); }
@@ -226,12 +232,6 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("AuditLogTrimmedBefore", value ?? string.Empty); }
         }
 
-        public string BugReportsGithubToken
-        {
-            get { return GetValue("BugReportsGithubToken"); }
-            set { SetValue("BugReportsGithubToken", value ?? string.Empty); }
-        }
-
         public string DiscordBotToken
         {
             get { return GetValue("DiscordBotToken"); }
@@ -260,12 +260,6 @@ namespace NzbDrone.Core.Configuration
         {
             get { return GetValue("DiscordAdminRoleName"); }
             set { SetValue("DiscordAdminRoleName", value ?? string.Empty); }
-        }
-
-        public string TmdbApiKey
-        {
-            get { return GetValue("TmdbApiKey"); }
-            set { SetValue("TmdbApiKey", value ?? string.Empty); }
         }
 
         public string AvailabilityWebhookUrl

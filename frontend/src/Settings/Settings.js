@@ -13,7 +13,6 @@ const PAGES = [
   { to: '/settings/changes', title: 'SettingsChanges', summary: 'SettingsChangesSummary' },
   { to: '/settings/general', title: 'General', summary: 'GeneralSettingsSummary' },
   { to: '/settings/ui', title: 'UI', summary: 'UISettingsSummary' },
-  { to: '/settings/tags', title: 'Tags', summary: 'TagsSettingsSummary' },
   { to: '/settings/import', title: 'ImportFromRequestrr', summary: 'ImportFromRequestrrSummary' },
   { to: '/setup', title: 'Setup', summary: 'SetupSummary' }
 ];

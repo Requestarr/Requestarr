@@ -33,6 +33,10 @@ services:
     pull_policy: always
     environment:
       TZ: *timezone
+      # Set once here, never in the web app: the GitHub key that files beta's bug reports (a fine-grained token with
+      # only Issues: read and write on Requestarr/Requestarr), and optionally The Movie Database key for cast.
+      # REQUESTARR_GITHUB_ISSUES_TOKEN: your-github-key
+      # REQUESTARR_TMDB_API_KEY: your-tmdb-key
     volumes:
       - type: bind
         source: *folder

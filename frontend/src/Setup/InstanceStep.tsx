@@ -3,6 +3,7 @@ import Button from 'Components/Link/Button';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import { kinds } from 'Helpers/Props';
 import InstanceFields from 'Settings/Requestarr/InstanceFields';
+import { callRequestarrApi } from 'Settings/Requestarr/requestarrApi';
 import { SetupStatus } from 'Settings/Requestarr/RequestarrSettingsTypes';
 import useInstanceForm from 'Settings/Requestarr/useInstanceForm';
 import translate from 'Utilities/String/translate';
@@ -37,19 +38,27 @@ interface InstanceStepProps {
   onSaved: () => void;
 }
 
-// The first Sonarr or Radarr: pick which, fill in its address and API key, Test, choose what requests use, Save.
-// More can be added later under Settings, Connections.
+// The first Sonarr or Radarr: pick which, fill in its address and API key, Test, choose what requests use, Save. Skip
+// leaves it for later: Settings, Connections adds them with the Media managers "+" card.
 function InstanceStep({ setup, onSaved }: InstanceStepProps) {
   const [implementation, setImplementation] = useState<string>();
 
   const onSonarrPress = useCallback(() => setImplementation('Sonarr'), []);
   const onRadarrPress = useCallback(() => setImplementation('Radarr'), []);
+  const onSkipPress = useCallback(() => {
+    callRequestarrApi('setup/skip-instance', 'POST').then(onSaved, onSaved);
+  }, [onSaved]);
+  const isDone = setup.instance || setup.instanceSkipped;
 
   return (
-    <SetupStep number={3} title="SetupInstance" isDone={setup.instance}>
+    <SetupStep number={3} title="SetupInstance" isDone={isDone}>
       <div className={styles.intro}>{translate('SetupInstanceIntro')}</div>
 
-      {!setup.instance && !implementation && (
+      {setup.instanceSkipped && !setup.instance && (
+        <div className={styles.intro}>{translate('SetupInstanceSkipped')}</div>
+      )}
+
+      {!isDone && !implementation && (
         <div className={styles.buttons}>
           <Button onPress={onSonarrPress}>
             {translate('InstanceAddSonarr')}
@@ -57,10 +66,11 @@ function InstanceStep({ setup, onSaved }: InstanceStepProps) {
           <Button onPress={onRadarrPress}>
             {translate('InstanceAddRadarr')}
           </Button>
+          <Button onPress={onSkipPress}>{translate('SetupSkip')}</Button>
         </div>
       )}
 
-      {!setup.instance && implementation && (
+      {!isDone && implementation && (
         <NewInstance
           key={implementation}
           implementation={implementation}

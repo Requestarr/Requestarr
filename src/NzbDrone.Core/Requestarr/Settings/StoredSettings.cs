@@ -1,15 +1,14 @@
 using NzbDrone.Core.Configuration;
 using Requestarr.Core.Availability;
 using Requestarr.Core.Discord;
-using Requestarr.Core.Metadata;
 using Requestarr.Core.Provisioning;
-using Requestarr.Core.Qa;
 
 namespace Requestarr.Core.Settings
 {
-    // A provisioning file keeps the bot's connection, The Movie Database key, the download checks and the GitHub key in
-    // memory only. Without a file (beta and production) the web app saves them in Requestarr's settings, and this puts
-    // them where the bot, cast and download checks read them: on start, and after every change.
+    // A provisioning file keeps the bot's connection and the download checks in memory only. Without a file (beta and
+    // production) the web app saves them in Requestarr's settings, and this puts them where the bot and the download
+    // checks read them: on start, and after every change. The Movie Database and GitHub keys come from the server's
+    // environment instead (TmdbSettingsStore, BugReportSettings), never from the web app.
     public interface IStoredSettings
     {
         void Load();
@@ -19,21 +18,15 @@ namespace Requestarr.Core.Settings
     {
         private readonly IConfigService _config;
         private readonly IDiscordSettingsStore _discord;
-        private readonly ITmdbSettingsStore _tmdb;
         private readonly IAvailabilitySettingsStore _availability;
-        private readonly IBugReportSettings _bugReports;
 
         public StoredSettings(IConfigService config,
                               IDiscordSettingsStore discord,
-                              ITmdbSettingsStore tmdb,
-                              IAvailabilitySettingsStore availability,
-                              IBugReportSettings bugReports)
+                              IAvailabilitySettingsStore availability)
         {
             _config = config;
             _discord = discord;
-            _tmdb = tmdb;
             _availability = availability;
-            _bugReports = bugReports;
         }
 
         public void Load()
@@ -47,9 +40,7 @@ namespace Requestarr.Core.Settings
                 AdminRoleName = _config.DiscordAdminRoleName
             }));
 
-            _tmdb.Set(_config.TmdbApiKey);
             _availability.Set(_config.AvailabilityWebhookUrl, _config.AvailabilityPollMinutes);
-            _bugReports.Apply(new BugReportsProvisioning { GithubToken = _config.BugReportsGithubToken });
         }
     }
 }

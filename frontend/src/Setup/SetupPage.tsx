@@ -15,11 +15,15 @@ import SetupStep from './SetupStep';
 import styles from './SetupPage.css';
 
 // The first-run setup of a new install without a provisioning file (beta and production): the admin's sign-in, the
-// Discord bot, and a first Sonarr or Radarr. Everything else has working defaults and lives under Settings.
+// Discord bot, and a first Sonarr or Radarr (which can be skipped and added later). Everything else has working defaults
+// and lives under Settings.
 function SetupPage() {
   const { data: setup, error, reload } = useRequestarrApi<SetupStatus>('setup');
   const isReady =
-    setup && setup.adminAccount && setup.discord && setup.instance;
+    setup &&
+    setup.adminAccount &&
+    setup.discord &&
+    (setup.instance || setup.instanceSkipped);
 
   return (
     <PageContent title={translate('Setup')}>
