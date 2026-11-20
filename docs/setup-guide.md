@@ -291,7 +291,11 @@ Quotas (section 5.6) count requests a user makes over a rolling window. Followin
 
 ### 4.6 Cast from The Movie Database (optional)
 
-Sonarr and Radarr don't return cast. With a free The Movie Database key, Requestarr adds the top three cast to each result line and the card, and the episode count to TV cards. Without a key everything still works: result lines show the genre instead, and nothing errors.
+Sonarr and Radarr don't return cast. With a The Movie Database key, Requestarr adds the top three cast to each result line and the card, and the episode count to TV cards. Without a key everything still works: result lines show the genre instead, and nothing errors.
+
+**Requestarr's published image has its own key built in,** so cast works with nothing to set. To use your own key instead (for example if the built-in one stops working: **System → Status** then says so), set the environment variable `REQUESTARR_TMDB_API_KEY` on the container (Container Manager: the container's **Environment**) and restart Requestarr. It's never set in the web app. Requestarr uses, in order: the provisioning file's key, `REQUESTARR_TMDB_API_KEY`, the built-in key; with none, results show the genre.
+
+With a provisioning file (the local test stacks), the key goes there:
 
 1. Create an account at themoviedb.org, then open **Settings → API** and request a developer key (personal use is free).
 2. Copy the **API Read Access Token** (the long one). The shorter v3 API key also works.
@@ -309,8 +313,6 @@ Sonarr and Radarr don't return cast. With a free The Movie Database key, Request
    ```
 
 5. Restart Requestarr.
-
-Without a provisioning file (beta and production), set the key on the container instead: the environment variable `REQUESTARR_TMDB_API_KEY` (Container Manager: the container's **Environment**). It's never set in the web app. Restart Requestarr after adding it.
 
 The key is kept in memory only. It is never written to the database or logs. Cast lookups are cached for 12 hours and give up after a few seconds, so a slow or unavailable The Movie Database never holds up a request.
 
@@ -859,7 +861,7 @@ In **Image**, select `ghcr.io/requestarr/requestarr:beta` and press **Run**. Eac
 2. **Advanced settings:**
    - **Port settings:** the container's port `9797` (TCP) gets the local port **`19797`** (beta's: the standard 9797 with a 1 in front, so production keeps 9797). Remove any other ports listed.
    - **Volume settings:** **Add Folder**, choose `docker/requestarr-beta`, and mount it at **`/config`**, read and write.
-   - **Environment:** add the variable **`TZ`** with your time zone, for example `Europe/London` ([the list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)). Also add **`REQUESTARR_GITHUB_ISSUES_TOKEN`** with the GitHub key for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr), so beta's reports reach GitHub. Optionally add **`REQUESTARR_TMDB_API_KEY`** with a The Movie Database key for cast ([4.6](#46-cast-from-the-movie-database-optional)). These two are never set in the web app.
+   - **Environment:** add the variable **`TZ`** with your time zone, for example `Europe/London` ([the list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)). Also add **`REQUESTARR_GITHUB_ISSUES_TOKEN`** with the GitHub key for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr), so beta's reports reach GitHub; it's never set in the web app. Cast from The Movie Database needs nothing: the image has Requestarr's own key built in ([4.6](#46-cast-from-the-movie-database-optional) says how to use yours instead).
    - Leave the network as **bridge**. **Next.**
 3. **Summary:** tick **Run this container after the wizard is finished**, then **Done**.
 

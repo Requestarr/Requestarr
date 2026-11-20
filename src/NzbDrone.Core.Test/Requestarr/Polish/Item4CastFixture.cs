@@ -141,7 +141,7 @@ namespace Requestarr.Core.Test.Polish
         [Test]
         public void an_empty_key_disables_cast()
         {
-            var store = new TmdbSettingsStore { Variable = _ => null };
+            var store = new TmdbSettingsStore { Variable = _ => null, BuiltIn = () => null };
 
             store.Set("  ");
             store.Enabled.Should().BeFalse();
@@ -150,13 +150,58 @@ namespace Requestarr.Core.Test.Polish
         }
 
         [Test]
-        public void beta_and_production_take_the_key_from_the_servers_environment()
+        public void the_key_is_the_provisioning_files_then_the_environments_then_the_built_in_one_then_none()
         {
-            var store = new TmdbSettingsStore { Variable = name => name == TmdbSettingsStore.KeyVariable ? $" {Key} " : null };
+            string variable = null;
+            string builtIn = null;
+            var store = new TmdbSettingsStore { Variable = _ => variable, BuiltIn = () => builtIn };
 
-            store.ApiKey.Should().Be(Key, "no provisioning file: the container's environment has it");
+            (store.ApiKey, store.Source, store.Enabled).Should().Be((null, TmdbKeySource.None, false), "a fork's build, with nothing set");
+
+            builtIn = " built-in \n";
+            store.BuiltIn = () => builtIn;
+            (store.ApiKey, store.Source).Should().Be(("built-in", TmdbKeySource.BuiltIn), "the image's own key, with no extra field");
+
+            variable = " their-own ";
+            (store.ApiKey, store.Source).Should().Be(("their-own", TmdbKeySource.Environment), "an admin's own key wins over the built-in one");
+
             store.Set("from-the-file");
-            store.ApiKey.Should().Be("from-the-file", "dev's and QA's provisioning file wins");
+            (store.ApiKey, store.Source).Should().Be(("from-the-file", TmdbKeySource.ProvisioningFile), "dev's and QA's provisioning file wins");
+        }
+
+        [Test]
+        public async Task a_refused_built_in_key_raises_the_health_warning_until_it_works_again()
+        {
+            var store = new TmdbSettingsStore { Variable = _ => null, BuiltIn = () => "built-in" };
+            var events = new Moq.Mock<NzbDrone.Core.Messaging.Events.IEventAggregator>();
+            var client = new TmdbClient(store, events.Object, LogManager.CreateNullLogger());
+            var check = new TmdbKeyCheck(store, Moq.Mock.Of<NzbDrone.Core.Localization.ILocalizationService>());
+            var status = HttpStatusCode.Unauthorized;
+            client.Transport = (_, _) => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent("{}") });
+
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+
+            check.Check().Message.Should().Be(TmdbKeyCheck.Message("HTTP 401")).And.Contain(TmdbSettingsStore.KeyVariable);
+            events.Verify(e => e.PublishEvent(Moq.It.IsAny<TmdbKeyChangedEvent>()), Moq.Times.Once(), "checked again only when it changes");
+
+            status = HttpStatusCode.NotFound;
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+
+            check.Check().Type.Should().Be(NzbDrone.Core.HealthCheck.HealthCheckResult.Ok, "a title it doesn't know says the key works");
+            events.Verify(e => e.PublishEvent(Moq.It.IsAny<TmdbKeyChangedEvent>()), Moq.Times.Exactly(2));
+        }
+
+        [Test]
+        public async Task an_admins_own_key_failing_raises_no_warning_about_the_built_in_one()
+        {
+            var store = new TmdbSettingsStore { Variable = _ => "their-own", BuiltIn = () => "built-in" };
+            var client = new TmdbClient(store, Moq.Mock.Of<NzbDrone.Core.Messaging.Events.IEventAggregator>(), LogManager.CreateNullLogger());
+            client.Transport = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+
+            store.BuiltInProblem.Should().BeNull();
         }
 
         private TmdbClient Client(out MemoryTarget memory)
@@ -169,7 +214,7 @@ namespace Requestarr.Core.Test.Polish
             var store = new TmdbSettingsStore();
             store.Set(Key);
 
-            return new TmdbClient(store, factory.GetLogger("tmdb-test"));
+            return new TmdbClient(store, Moq.Mock.Of<NzbDrone.Core.Messaging.Events.IEventAggregator>(), factory.GetLogger("tmdb-test"));
         }
     }
 }

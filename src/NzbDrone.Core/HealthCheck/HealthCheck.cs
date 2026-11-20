@@ -94,6 +94,7 @@ namespace NzbDrone.Core.HealthCheck
         DiscordDisconnected,
         DiscordMissingPermission,
         BackendUnavailable,
-        WebhookUnreachable
+        WebhookUnreachable,
+        TmdbBuiltInKeyFailing
     }
 }

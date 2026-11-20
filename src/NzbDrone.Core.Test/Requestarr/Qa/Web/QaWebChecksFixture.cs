@@ -90,6 +90,11 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"About says: {copyright}");
             copyright.Should().MatchRegex(@"^Copyright 2026(-20\d\d)? ").And.Contain("Requestarr contributors").And.NotContain("Runemark")
                 .And.EndWith("Portions copyright 2014-2026 prowlarr.com and the Servarr team (GNU General Public v3)");
+
+            // The Movie Database's terms ask every app using its API to credit it.
+            var credit = await browser.EvalAsync<string>("[...document.querySelectorAll('dt')].find(d => d.textContent.trim() === 'The Movie Database')?.nextElementSibling.textContent.trim() ?? ''");
+            check.Saw($"About credits The Movie Database: {credit}");
+            credit.Should().Be("This product uses the TMDB API but is not endorsed or certified by TMDB.");
         });
 
         // The admin portal's pages: Requests, Members, Queue, Access requests, Outages, the Audit log and System, What's

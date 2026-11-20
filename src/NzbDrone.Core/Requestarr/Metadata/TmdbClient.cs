@@ -7,38 +7,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NLog;
+using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Metadata
 {
-    // Optional The Movie Database key: from the provisioning file on dev and QA, otherwise from the server's environment
-    // (REQUESTARR_TMDB_API_KEY, set once on beta's and production's container). Never in the web app, the database or
-    // config.xml, and never logged.
-    public interface ITmdbSettingsStore
-    {
-        string ApiKey { get; }
-        bool Enabled { get; }
-        void Set(string apiKey);
-    }
-
-    public class TmdbSettingsStore : ITmdbSettingsStore
-    {
-        public const string KeyVariable = "REQUESTARR_TMDB_API_KEY";
-
-        private string _key;
-
-        public Func<string, string> Variable { get; set; } = Environment.GetEnvironmentVariable;
-
-        public string ApiKey => _key ?? (string.IsNullOrWhiteSpace(Variable(KeyVariable)) ? null : Variable(KeyVariable).Trim());
-
-        public bool Enabled => !string.IsNullOrWhiteSpace(ApiKey);
-
-        public void Set(string apiKey)
-        {
-            _key = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
-        }
-    }
-
     public record TmdbDetails(IReadOnlyList<string> Cast, int? EpisodeCount);
 
     public interface ITmdbClient
@@ -56,11 +29,13 @@ namespace Requestarr.Core.Metadata
         private static readonly Uri BaseUri = new("https://api.themoviedb.org/3/");
 
         private readonly ITmdbSettingsStore _settings;
+        private readonly IEventAggregator _events;
         private readonly Logger _logger;
 
-        public TmdbClient(ITmdbSettingsStore settings, Logger logger)
+        public TmdbClient(ITmdbSettingsStore settings, IEventAggregator events, Logger logger)
         {
             _settings = settings;
+            _events = events;
             _logger = logger;
         }
 
@@ -81,6 +56,8 @@ namespace Requestarr.Core.Metadata
             try
             {
                 using var response = await Transport(request, cancellationToken);
+
+                Report(KeyProblem(response.StatusCode));
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -105,6 +82,19 @@ namespace Requestarr.Core.Metadata
                 // Only the exception type: messages and URLs could carry the key.
                 _logger.Warn("The Movie Database lookup for {0} {1} failed ({2})", type, tmdbId, ex.GetType().Name);
                 return null;
+            }
+        }
+
+        // A refused key (401) or one over its rate limit (429) is the key's problem; anything else, such as a title it
+        // doesn't know (404), says the key works.
+        private static string KeyProblem(System.Net.HttpStatusCode status) =>
+            status is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.TooManyRequests ? $"HTTP {(int)status}" : null;
+
+        private void Report(string problem)
+        {
+            if (_settings.Report(problem))
+            {
+                _events.PublishEvent(new TmdbKeyChangedEvent());
             }
         }
 

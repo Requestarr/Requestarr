@@ -66,7 +66,7 @@ namespace Requestarr.Core.Test.Requests
             TmdbKey = new TmdbSettingsStore();
             TmdbKey.Set(key);
             Mocker.SetConstant<ITmdbSettingsStore>(TmdbKey);
-            Mocker.SetConstant<ITmdbClient>(new TmdbClient(TmdbKey, NLog.LogManager.GetLogger("LiveTmdb")));
+            Mocker.SetConstant<ITmdbClient>(new TmdbClient(TmdbKey, Moq.Mock.Of<NzbDrone.Core.Messaging.Events.IEventAggregator>(), NLog.LogManager.GetLogger("LiveTmdb")));
         }
 
         // Both season paths through the real handlers into the test Sonarr, then per-season

@@ -30,6 +30,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The version's number, with qa and a short code.
     - The same number on the logo.
     - Under About, the copyright of Requestarr's contributors and the Servarr team's notice.
+    - Under About, the credit to The Movie Database.
   - Checked automatically: the web app status page check.
 - **Web app logo**
   - Steps:

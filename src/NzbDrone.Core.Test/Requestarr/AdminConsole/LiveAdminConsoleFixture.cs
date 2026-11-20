@@ -82,7 +82,7 @@ namespace Requestarr.Core.Test.AdminConsole
             var tmdb = new TmdbSettingsStore();
             tmdb.Set(Environment.GetEnvironmentVariable("TMDB_API_KEY"));
             Mocker.SetConstant<ITmdbSettingsStore>(tmdb);
-            Mocker.SetConstant<ITmdbClient>(new TmdbClient(tmdb, LogManager.GetLogger("LiveTmdb")));
+            Mocker.SetConstant<ITmdbClient>(new TmdbClient(tmdb, Moq.Mock.Of<NzbDrone.Core.Messaging.Events.IEventAggregator>(), LogManager.GetLogger("LiveTmdb")));
             Mocker.SetConstant<IMetadataService>(Mocker.Resolve<MetadataService>());
             Mocker.SetConstant<IAvailabilitySettingsStore>(new AvailabilitySettingsStore());
 

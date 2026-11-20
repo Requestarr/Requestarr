@@ -1102,6 +1102,8 @@
   "TestAllConnections": "Test All Connections",
   "TestAllConnectionsNothing": "Nothing to test: no Sonarr or Radarr is turned on.",
   "TestAllConnectionsPassed": "Every Sonarr and Radarr that's turned on passed its test.",
+  "TheMovieDatabase": "The Movie Database",
+  "TheMovieDatabaseCredit": "This product uses the TMDB API but is not endorsed or certified by TMDB.",
   "TVSearchTypes": "TV Search Types",
   "TableOptions": "Table Options",
   "TableOptionsColumnsMessage": "Choose which columns are visible and which order they appear in",

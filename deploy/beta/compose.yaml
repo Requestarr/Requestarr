@@ -38,7 +38,7 @@ services:
     environment:
       TZ: *timezone
       REQUESTARR_GITHUB_ISSUES_TOKEN: *github_key
-      # Optional, set here and never in the web app: The Movie Database key for cast (the setup guide, 4.6).
+      # Optional: your own The Movie Database key, in place of the one built into the image (the setup guide, 4.6).
       # REQUESTARR_TMDB_API_KEY: your-tmdb-key
     volumes:
       - type: bind
