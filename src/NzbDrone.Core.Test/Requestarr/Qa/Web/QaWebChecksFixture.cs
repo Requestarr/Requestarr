@@ -59,7 +59,7 @@ namespace Requestarr.Core.Test.Qa.Web
         // A list view names its people on one line: the small picture is 20px, so anything taller has wrapped.
         private const int OneLine = 24;
         private const int MaxFollowerPictures = 5;
-        private const string CompactPeople = "[...document.querySelectorAll('[class*=\"RequestViews-people\"], [class*=\"RequestViews-posterPeople\"], [class*=\"FollowerStack-stack\"], [class*=\"Person-small\"]')]";
+        private const string CompactPeople = "[...document.querySelectorAll('[class*=\"RequestIndexPoster-title\"], [class*=\"RequestIndexOverviewInfo-infoRow\"], [class*=\"FollowerStack-stack\"], [class*=\"Person-small\"]')]";
         private const string FollowerStack = "document.querySelector('a[class*=\"FollowerStack-stack\"]')";
 
         private static readonly string[] Themes = { "light", "dark" };
@@ -109,7 +109,7 @@ namespace Requestarr.Core.Test.Qa.Web
         [Test]
         public Task portal_pages() => CheckAsync(nameof(portal_pages), async (browser, check) =>
         {
-            const string Loaded = "document.querySelector('table, fieldset, [class*=\"Portal-empty\"], [class*=\"Alert-\"], [class*=\"RequestViews-\"]')";
+            const string Loaded = "document.querySelector('table, fieldset, [class*=\"Portal-empty\"], [class*=\"Alert-\"], [class*=\"RequestIndex\"], [class*=\"IndexTable-row\"]')";
             const string Failed = "!!document.querySelector('[class*=\"Alert-danger\"], [class*=\"Alert-warning\"]')";
             await SignInAsync(browser);
 
@@ -122,7 +122,7 @@ namespace Requestarr.Core.Test.Qa.Web
                     await browser.GoAsync($"{Url}/{page}");
                     await browser.WaitForAsync(Loaded);
                     (await browser.EvalAsync<bool>(Failed)).Should().BeFalse($"the {page} page loads");
-                    var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
+                    var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr, [class*=\"IndexTable-row\"]').length");
                     check.Saw($"{page} ({theme}): {rows} row(s)");
                     await check.ShotAsync(browser, $"{page.Replace('/', '-')}-{theme}");
                     await OpenFirstAsync(browser, check, page, theme);
@@ -138,7 +138,7 @@ namespace Requestarr.Core.Test.Qa.Web
         [Test]
         public Task request_views() => CheckAsync(nameof(request_views), async (browser, check) =>
         {
-            const string Shown = "document.querySelector('[class*=\"RequestViews-\"], table, [class*=\"Alert-info\"]')";
+            const string Shown = "document.querySelector('[class*=\"RequestIndex\"], [class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')";
             await SignInAsync(browser);
 
             foreach (var theme in Themes)
@@ -153,7 +153,7 @@ namespace Requestarr.Core.Test.Qa.Web
                     return;
                 }
 
-                foreach (var (view, shows) in new[] { ("Overview", "[class*=\"RequestViews-overviewRow\"]"), ("Posters", "[class*=\"RequestViews-posters\"]"), ("Table", "table") })
+                foreach (var (view, shows) in new[] { ("Overview", "[class*=\"RequestIndexOverview-content\"]"), ("Posters", "[class*=\"RequestIndexPoster-content\"]"), ("Table", "[class*=\"IndexTable-row\"]") })
                 {
                     await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
                     await browser.RunAsync($"[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === '{view}' && e.closest('[class*=\"MenuContent\"]')).click()");
@@ -177,7 +177,7 @@ namespace Requestarr.Core.Test.Qa.Web
             var tallest = await browser.EvalAsync<double>($"Math.max(0, ...{CompactPeople}.map(e => e.getBoundingClientRect().height))");
             var pictures = await browser.EvalAsync<int>("Math.max(0, ...[...document.querySelectorAll('[class*=\"FollowerStack-pictures\"]')].map(p => p.children.length))");
             var most = await browser.EvalAsync<int>("Math.max(0, ...[...document.querySelectorAll('[class*=\"FollowerStack-count\"], [class*=\"FollowerStack-badge\"]')].map(e => Number(e.innerText.match(/\\d+/)?.[0] ?? 0)))");
-            var overflowing = await browser.EvalAsync<int>("[...document.querySelectorAll('[class*=\"RequestViews-people\"], [class*=\"RequestViews-posterPeople\"]')].filter(e => e.scrollWidth > e.clientWidth + 1).length");
+            var overflowing = await browser.EvalAsync<int>($"{CompactPeople}.filter(e => e.getBoundingClientRect().right > e.parentElement.getBoundingClientRect().right + 1).length");
             check.Saw($"requests, {where}: people lines at most {tallest}px tall, {overflowing} wider than their row, at most {pictures} follower pictures, the largest count +{most}");
             tallest.Should().BeLessOrEqualTo(OneLine, "a title's people stay on one line however many follow it");
             overflowing.Should().Be(0, "a long name ends in an ellipsis instead of running out of its row");
@@ -210,11 +210,11 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task OpenInSonarrAsync(HeadlessBrowser browser, WebCheck check)
         {
             await browser.GoAsync($"{Url}/requests");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-\"], table')");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestIndex\"], [class*=\"IndexTable-row\"]')");
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
             await browser.RunAsync("[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === 'Overview' && e.closest('[class*=\"MenuContent\"]')).click()");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-overviewRow\"]')");
-            var link = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestViews-overviewRow\"] a')].find(a => a.innerText === 'Open in Sonarr')?.href ?? ''");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestIndexOverview-content\"]')");
+            var link = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestIndexOverview-content\"] a')].find(a => a.innerText === 'Open in Sonarr')?.href ?? ''");
 
             if (string.IsNullOrEmpty(link))
             {
@@ -222,7 +222,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 return;
             }
 
-            var title = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestViews-overviewRow\"]')].find(r => [...r.querySelectorAll('a')].some(a => a.innerText === 'Open in Sonarr')).querySelector('a').innerText");
+            var title = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestIndexOverview-content\"]')].find(r => [...r.querySelectorAll('a')].some(a => a.innerText === 'Open in Sonarr')).querySelector('a').innerText");
             await browser.GoAsync(link);
             var series = title.Contains(" (", StringComparison.Ordinal) ? title[..title.LastIndexOf(" (", StringComparison.Ordinal)] : title;
             await browser.WaitForAsync($"document.title.includes({JsonSerializer.Serialize(series)}) || document.body.innerText.includes({JsonSerializer.Serialize(series)})", TimeSpan.FromSeconds(30));
@@ -237,11 +237,11 @@ namespace Requestarr.Core.Test.Qa.Web
         {
             await SignInAsync(browser);
             await browser.GoAsync(Url + "/requests");
-            await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"], [class*=\"RequestViews-\"]')");
+            await browser.WaitForAsync("document.querySelector('[class*=\"RequestIndex\"], [class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')");
             var title = await browser.EvalAsync<string>("document.querySelector('[class*=\"PageContentBody\"] a[href*=\"/requests/\"]:not(:has(img))')?.textContent ?? ''");
             await browser.GoAsync(Url + "/members");
-            await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
-            var member = await browser.EvalAsync<string>("document.querySelector('tbody a[href*=\"/members/\"]')?.textContent ?? ''");
+            await browser.WaitForAsync("document.querySelector('[class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')");
+            var member = await browser.EvalAsync<string>("document.querySelector('[class*=\"IndexTable-row\"] a[href*=\"/members/\"]')?.textContent ?? ''");
 
             if (title.Length == 0 || member.Length == 0)
             {
@@ -376,9 +376,9 @@ namespace Requestarr.Core.Test.Qa.Web
             {
                 await browser.SetThemeAsync(theme);
                 await browser.GoAsync($"{Url}/members");
-                await browser.WaitForAsync("document.querySelector('table, [class*=\"Portal-empty\"]')");
+                await browser.WaitForAsync("document.querySelector('[class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')");
 
-                var statuses = await browser.EvalAsync<string>("[...new Set([...document.querySelectorAll('tr')].map(r => r.cells[1]?.innerText).filter(t => t?.startsWith('Imported, ')))].join(' | ')");
+                var statuses = await browser.EvalAsync<string>("[...new Set([...document.querySelectorAll('[class*=\"IndexTable-row\"]')].map(r => r.children[1]?.innerText).filter(t => t?.startsWith('Imported, ')))].join(' | ')");
 
                 if (string.IsNullOrEmpty(statuses))
                 {
@@ -390,7 +390,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 await check.ShotAsync(browser, $"imported-members-{theme}");
                 await MemberRowsAsync(browser, check, theme);
 
-                await browser.RunAsync("[...document.querySelectorAll('tr')].find(r => r.cells[1]?.innerText.startsWith('Imported, ')).querySelector('a').click()");
+                await browser.RunAsync("[...document.querySelectorAll('[class*=\"IndexTable-row\"]')].find(r => r.children[1]?.innerText.startsWith('Imported, ')).querySelector('a').click()");
                 await browser.WaitForAsync("document.body.innerText.includes('Imported from')");
                 var source = await browser.EvalAsync<string>("[...document.querySelectorAll('dt')].find(t => t.innerText === 'Imported from')?.nextElementSibling?.innerText ?? ''");
                 check.Saw($"member page ({theme}): Imported from {source}");
@@ -403,15 +403,15 @@ namespace Requestarr.Core.Test.Qa.Web
         // request; the list's end is photographed too, so every row is on a screenshot.
         private static async Task MemberRowsAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
-            const string Rows = "[...document.querySelectorAll('tbody tr')]";
-            const string Column = "(name => [...document.querySelectorAll('thead th')].findIndex(t => t.innerText.trim().startsWith(name)))";
+            const string Rows = "[...document.querySelectorAll('[class*=\"IndexTable-row\"]')]";
+            const string Column = "(name => [...document.querySelector('[class*=\"VirtualTableHeader-header\"]').children].findIndex(t => t.innerText.trim().startsWith(name)))";
             var rows = await browser.EvalAsync<int>($"{Rows}.length");
-            var pictures = await browser.EvalAsync<int>($"{Rows}.filter(r => r.cells[0].querySelector('img')).length");
-            var handles = await browser.EvalAsync<int>($"{Rows}.filter(r => r.cells[0].innerText.includes('@')).length");
+            var pictures = await browser.EvalAsync<int>($"{Rows}.filter(r => r.children[0].querySelector('img')).length");
+            var handles = await browser.EvalAsync<int>($"{Rows}.filter(r => r.children[0].innerText.includes('@')).length");
             var notFirstSeen = await browser.EvalAsync<string>(
                 $"(() => {{ const first = {Column}('First request'), added = {Column}('Added'); " +
-                $"return {Rows}.filter(r => r.cells[1].innerText.startsWith('Imported, ') && r.cells[first].innerText !== r.cells[added].innerText)" +
-                ".map(r => r.cells[0].querySelector('a').innerText).join(', '); })()");
+                $"return {Rows}.filter(r => r.children[1].innerText.startsWith('Imported, ') && r.children[first].innerText !== r.children[added].innerText)" +
+                ".map(r => r.children[0].querySelector('a').innerText).join(', '); })()");
             check.Saw($"members ({theme}): {rows} rows, {pictures} with a picture, {handles} with an @handle; imported rows whose Added isn't their first request: {(notFirstSeen.Length == 0 ? "none" : notFirstSeen)}");
 
             await browser.RunAsync($"{Rows}.pop().scrollIntoView()");

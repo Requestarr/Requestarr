@@ -5,7 +5,8 @@ import translate from 'Utilities/String/translate';
 import Person from '../Components/Person';
 import { PortalLibraryTitle } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
-import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
+import { OpenInLink } from '../Requests/RequestMedia';
+import RequestPoster from '../Requests/RequestPoster';
 import { SearchItem } from './usePortalSearch';
 import styles from './PortalSearch.css';
 

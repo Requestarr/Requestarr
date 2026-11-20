@@ -1,0 +1,8 @@
+/* Sonarr main's Series/Index/Posters/SeriesIndexPosterInfo.css. */
+.info {
+  @add-mixin truncate;
+
+  background-color: var(--requestBackgroundColor);
+  text-align: center;
+  font-size: $smallFontSize;
+}

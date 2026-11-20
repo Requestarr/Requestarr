@@ -47,5 +47,10 @@ module.exports = {
   // Movie
   movieIndexColumnPadding: '10px',
   movieIndexColumnPaddingSmallScreen: '5px',
-  movieIndexOverviewInfoRowHeight: '21px'
+  movieIndexOverviewInfoRowHeight: '21px',
+
+  // Requests, as Sonarr's series index
+  requestIndexColumnPadding: '10px',
+  requestIndexColumnPaddingSmallScreen: '5px',
+  requestIndexOverviewInfoRowHeight: '21px'
 };

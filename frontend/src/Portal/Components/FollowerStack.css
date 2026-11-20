@@ -23,13 +23,3 @@
 .count {
   color: var(--helpTextColor);
 }
-
-.badge {
-  flex: 0 0 auto;
-  padding: 0 6px;
-  border-radius: 10px;
-  background-color: var(--inputBackgroundColor);
-  color: var(--helpTextColor);
-  font-size: 12px;
-  line-height: 20px;
-}

@@ -1,0 +1,35 @@
+/* Sonarr main's Series/Index/Table/SeriesIndexTableHeader.css: the same widths as RequestIndexRow.css. */
+.poster {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 0 0 50px;
+}
+
+.title {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 4 0 180px;
+}
+
+.type,
+.status,
+.instance {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 0 0 120px;
+}
+
+.requester,
+.followers {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 1 0 150px;
+}
+
+.requested,
+.decided,
+.fulfilled {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 0 0 110px;
+}

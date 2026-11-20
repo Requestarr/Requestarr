@@ -1,0 +1,36 @@
+/* Prowlarr's Indexer/Index/Table/IndexerIndexTableHeader.css: the same widths as MembersTableRow.css. */
+.name {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 4 0 220px;
+}
+
+.status,
+.access {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 0 0 120px;
+}
+
+.requests,
+.active,
+.pending,
+.following {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 0 0 90px;
+}
+
+.byType {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 1 0 140px;
+}
+
+.firstRequest,
+.lastRequest,
+.added {
+  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
+
+  flex: 0 0 120px;
+}

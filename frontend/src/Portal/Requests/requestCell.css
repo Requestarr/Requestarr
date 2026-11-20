@@ -1,0 +1,5 @@
+/* A request's poster in a table's poster column. */
+.tablePoster {
+  width: 34px;
+  border-radius: 2px;
+}

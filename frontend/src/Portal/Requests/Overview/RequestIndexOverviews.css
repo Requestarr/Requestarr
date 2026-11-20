@@ -1,0 +1,6 @@
+/* Sonarr main's Series/Index/Overview/SeriesIndexOverviews.css. */
+.container {
+  &:hover {
+    background-color: var(--tableRowHoverBackgroundColor);
+  }
+}

@@ -27,7 +27,6 @@ interface RequestsToolbarProps {
   filters: Filter[];
   customFilters: CustomFilter[];
   columns: Column[];
-  pageSize: number;
   isFetching: boolean;
   selectActions: ToolbarAction[];
   isBusy: boolean;
@@ -35,6 +34,7 @@ interface RequestsToolbarProps {
   isEmpty: boolean;
   onRefreshPress: () => void;
   onSelectModePress: () => void;
+  onOptionsPress: () => void;
   onTableOptionChange: (payload: unknown) => void;
   onViewSelect: (view: string) => void;
   onSortSelect: (sortKey: string) => void;
@@ -42,7 +42,8 @@ interface RequestsToolbarProps {
 }
 
 // The Requests page's toolbar, as Sonarr main's SeriesIndex and Prowlarr's IndexerIndex lay theirs out: Refresh and
-// select mode on the left; Options, View, Sort and Filter on the right. In select mode, what can be done to the
+// select mode on the left; Options (Table Options for the table, the view's own for posters and overview), View, Sort
+// and Filter on the right. In select mode, what can be done to the
 // picks comes first (the owner's choice over Servarr's bar along the bottom).
 function RequestsToolbar(props: RequestsToolbarProps) {
   const { view, isSelectMode, isEmpty } = props;
@@ -85,17 +86,24 @@ function RequestsToolbar(props: RequestsToolbarProps) {
       </PageToolbarSection>
 
       <PageToolbarSection alignContent={align.RIGHT} collapseButtons={false}>
-        <TableOptionsModalWrapper
-          columns={props.columns}
-          pageSize={props.pageSize}
-          canModifyColumns={view === 'table'}
-          onTableOptionChange={props.onTableOptionChange}
-        >
+        {view === 'table' ? (
+          <TableOptionsModalWrapper
+            columns={props.columns}
+            onTableOptionChange={props.onTableOptionChange}
+          >
+            <PageToolbarButton
+              label={translate('Options')}
+              iconName={icons.TABLE}
+            />
+          </TableOptionsModalWrapper>
+        ) : (
           <PageToolbarButton
             label={translate('Options')}
-            iconName={icons.TABLE}
+            iconName={view === 'posters' ? icons.POSTER : icons.OVERVIEW}
+            isDisabled={isEmpty}
+            onPress={props.onOptionsPress}
           />
-        </TableOptionsModalWrapper>
+        )}
 
         <PageToolbarSeparator />
 

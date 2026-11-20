@@ -46,8 +46,8 @@ function FollowersLink({
   );
 }
 
-// A request's followers in a list, one line however many there are: up to five overlapping pictures, then "+37
-// following" for the rest. Nothing when nobody follows it.
+// A request's followers in a list, one line however many there are: up to five overlapping pictures, then "3
+// following", or "+37 following" for the rest beyond the five. Nothing when nobody follows it.
 function FollowerStack({ requestId, followers }: FollowersProps) {
   if (!followers.length) {
     return null;
@@ -69,25 +69,8 @@ function FollowerStack({ requestId, followers }: FollowersProps) {
       <span className={styles.count}>
         {rest > 0
           ? translate('PortalMoreFollowing', { count: rest })
-          : translate('PortalFollowingLabel')}
+          : translate('PortalCountFollowing', { count: followers.length })}
       </span>
-    </FollowersLink>
-  );
-}
-
-// A poster's follower count, as a small badge ("+40").
-export function FollowerBadge({ requestId, followers }: FollowersProps) {
-  if (!followers.length) {
-    return null;
-  }
-
-  return (
-    <FollowersLink
-      className={styles.badge}
-      requestId={requestId}
-      followers={followers}
-    >
-      +{followers.length}
     </FollowersLink>
   );
 }

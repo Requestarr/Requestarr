@@ -8,8 +8,8 @@ import createSetClientSideCollectionSortReducer from './Creators/Reducers/create
 import createSetTableOptionReducer from './Creators/Reducers/createSetTableOptionReducer';
 import { filterPredicates, filters, peopleOf, sortPredicates, uniqueBy } from './requestActions';
 
-// How the Requests page shows them: sort, filters, custom filters, view, columns and page size, remembered in this
-// browser. Sonarr main Store/Actions/seriesIndexActions.js; Prowlarr Store/Actions/indexerIndexActions.js.
+// How the Requests page shows them: sort, filters, custom filters, view, columns and each view's options, remembered
+// in this browser. Sonarr main Store/Actions/seriesIndexActions.js; Prowlarr Store/Actions/indexerIndexActions.js.
 
 //
 // Variables
@@ -25,7 +25,25 @@ export const defaultState = {
   secondarySortKey: 'title',
   secondarySortDirection: sortDirections.ASCENDING,
   view: 'posters',
-  pageSize: 100,
+
+  posterOptions: {
+    detailedProgressBar: false,
+    size: 'large',
+    showTitle: true,
+    showRequester: true,
+    showFollowers: true
+  },
+
+  overviewOptions: {
+    detailedProgressBar: false,
+    size: 'medium',
+    showType: true,
+    showRequester: true,
+    showFollowers: true,
+    showRequested: true,
+    showInstance: true,
+    showReleases: true
+  },
 
   columns: [
     { name: 'poster', columnLabel: () => translate('PortalPoster'), isSortable: false, isVisible: true },
@@ -103,7 +121,8 @@ export const persistState = [
   'requestIndex.selectedFilterKey',
   'requestIndex.view',
   'requestIndex.columns',
-  'requestIndex.pageSize'
+  'requestIndex.posterOptions',
+  'requestIndex.overviewOptions'
 ];
 
 //
@@ -113,6 +132,8 @@ export const SET_REQUEST_SORT = 'requestIndex/setRequestSort';
 export const SET_REQUEST_FILTER = 'requestIndex/setRequestFilter';
 export const SET_REQUEST_VIEW = 'requestIndex/setRequestView';
 export const SET_REQUEST_TABLE_OPTION = 'requestIndex/setRequestTableOption';
+export const SET_REQUEST_POSTER_OPTION = 'requestIndex/setRequestPosterOption';
+export const SET_REQUEST_OVERVIEW_OPTION = 'requestIndex/setRequestOverviewOption';
 
 //
 // Action Creators
@@ -121,6 +142,8 @@ export const setRequestSort = createAction(SET_REQUEST_SORT);
 export const setRequestFilter = createAction(SET_REQUEST_FILTER);
 export const setRequestView = createAction(SET_REQUEST_VIEW);
 export const setRequestTableOption = createAction(SET_REQUEST_TABLE_OPTION);
+export const setRequestPosterOption = createAction(SET_REQUEST_POSTER_OPTION);
+export const setRequestOverviewOption = createAction(SET_REQUEST_OVERVIEW_OPTION);
 
 //
 // Reducers
@@ -133,5 +156,13 @@ export const reducers = createHandleActions({
     return Object.assign({}, state, { view: payload.view });
   },
 
-  [SET_REQUEST_TABLE_OPTION]: createSetTableOptionReducer(section)
+  [SET_REQUEST_TABLE_OPTION]: createSetTableOptionReducer(section),
+
+  [SET_REQUEST_POSTER_OPTION]: function(state, { payload }) {
+    return { ...state, posterOptions: { ...state.posterOptions, ...payload } };
+  },
+
+  [SET_REQUEST_OVERVIEW_OPTION]: function(state, { payload }) {
+    return { ...state, overviewOptions: { ...state.overviewOptions, ...payload } };
+  }
 }, defaultState, section);

@@ -1,33 +1,8 @@
 import moment from 'moment';
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
 import { PortalMedia } from '../PortalTypes';
-
-interface RequestPosterProps {
-  url?: string | null;
-  className: string;
-}
-
-// The title's poster; nothing at all when there isn't one or it doesn't load, never a broken image.
-export function RequestPoster({ url, className }: RequestPosterProps) {
-  const [failed, setFailed] = useState(false);
-  const onError = useCallback(() => setFailed(true), []);
-
-  if (!url || failed) {
-    return null;
-  }
-
-  return (
-    <img
-      className={className}
-      src={url}
-      alt=""
-      loading="lazy"
-      onError={onError}
-    />
-  );
-}
 
 function dated(key: string, date?: string | null) {
   return date
