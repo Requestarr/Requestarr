@@ -123,7 +123,7 @@ namespace Requestarr.Core.Test.Qa.Web
         // Confirm. Cancelled here, so nobody is onboarded.
         private static async Task OnboardWindowAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
-            var onboardable = await PortalAsync<int>(browser, "members", "m => m.filter(x => x.status === 'imported').length");
+            var onboardable = await PortalAsync<int>(browser, "members", "m => m.filter(x => x.status === 'imported' && x.discordId).length");
 
             if (onboardable == 0)
             {
