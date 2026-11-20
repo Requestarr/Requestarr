@@ -1,5 +1,6 @@
 # Requestarr's beta as a compose file, for anyone who prefers one to Container Manager's Run screens. It runs the same
-# container the setup guide's "Running the beta" sets up: the image, a name, a port, a folder and the time zone. Paste
+# container the setup guide's "Running the beta" sets up: the image, a name, a port, a folder, the time zone and the
+# GitHub key for bug reports. Paste
 # all of it into Synology Container Manager (Project, then Create, then "Create docker-compose.yml"), or save it as
 # compose.yaml anywhere Docker Compose runs. Nothing else is needed: no other files, no shell.
 #
@@ -21,6 +22,9 @@ x-values:
   # The folder on the server for Requestarr's settings, database and backups. Make it first in File Station and let
   # Everyone read and write it: Requestarr runs as its own user (the setup guide, Running the beta, What you need).
   folder: &folder /volume1/docker/requestarr-beta
+  # The GitHub key beta files its bug reports with: a fine-grained token with only Issues: read and write on
+  # Requestarr/Requestarr. It's set here, never in the web app.
+  github_key: &github_key paste-the-github-key-here
 # -------------------------------------------------------------------------------------------------------------------------
 
 name: requestarr-beta
@@ -33,9 +37,8 @@ services:
     pull_policy: always
     environment:
       TZ: *timezone
-      # Set once here, never in the web app: the GitHub key that files beta's bug reports (a fine-grained token with
-      # only Issues: read and write on Requestarr/Requestarr), and optionally The Movie Database key for cast.
-      # REQUESTARR_GITHUB_ISSUES_TOKEN: your-github-key
+      REQUESTARR_GITHUB_ISSUES_TOKEN: *github_key
+      # Optional, set here and never in the web app: The Movie Database key for cast (the setup guide, 4.6).
       # REQUESTARR_TMDB_API_KEY: your-tmdb-key
     volumes:
       - type: bind

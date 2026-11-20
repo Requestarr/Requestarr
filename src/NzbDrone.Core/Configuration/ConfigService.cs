@@ -190,30 +190,6 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("SetupInstanceSkipped", value); }
         }
 
-        public bool BugReportsFileIssues
-        {
-            get { return GetValueBoolean("BugReportsFileIssues", false); }
-            set { SetValue("BugReportsFileIssues", value); }
-        }
-
-        public string BugReportsRepository
-        {
-            get { return GetValue("BugReportsRepository"); }
-            set { SetValue("BugReportsRepository", value ?? string.Empty); }
-        }
-
-        public int BugReportsPerDay
-        {
-            get { return GetValueInt("BugReportsPerDay", Requestarr.Core.Qa.BugReportSettings.DefaultReportsPerDay); }
-            set { SetValue("BugReportsPerDay", value); }
-        }
-
-        public int BugReportsMinutesBetween
-        {
-            get { return GetValueInt("BugReportsMinutesBetween", Requestarr.Core.Qa.BugReportSettings.DefaultMinutesBetween); }
-            set { SetValue("BugReportsMinutesBetween", value); }
-        }
-
         public string AuditLogKeepFor
         {
             get { return GetValue("AuditLogKeepFor", Requestarr.Core.Audit.AuditRetention.Default); }

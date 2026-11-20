@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Announcements;
@@ -134,13 +133,13 @@ namespace Requestarr.Core.Qa
         }
     }
 
-    // Bug report settings: built in (the repository and limits below), changed only by a provisioning file that names
-    // them, never in the web app. The GitHub access key is in memory only, never in the database or config: from
+    // Bug report settings: built in, changed only by a provisioning file (dev and QA), never in the web app, and kept in
+    // memory only, never in the database or config, so nothing outlives the file. The GitHub access key comes from
     // provisioning, or else from the server's REQUESTARR_GITHUB_ISSUES_TOKEN.
     public interface IBugReportSettings
     {
-        // File each report as a GitHub issue. Off unless the admin turns it on (reports become public). Always on for
-        // the dev, QA and beta servers: every report from them reaches GitHub, where the gate before staging sees it.
+        // File each report as a GitHub issue. Always on for the dev, QA and beta servers: every report from them reaches
+        // GitHub, where the gate before staging sees it. Production files only when a provisioning file turns it on.
         bool FileIssues { get; }
         string Repository { get; }
         string Token { get; }
@@ -157,51 +156,31 @@ namespace Requestarr.Core.Qa
         public const int DefaultMinutesBetween = 2;
         public const string TokenVariable = "REQUESTARR_GITHUB_ISSUES_TOKEN";
 
-        private readonly IConfigService _config;
         private readonly IReleaseEnvironment _environment;
-        private string _token;
+        private BugReportsProvisioning _provisioning = new();
 
-        public BugReportSettings(IConfigService config, IReleaseEnvironment environment)
+        public BugReportSettings(IReleaseEnvironment environment)
         {
-            _config = config;
             _environment = environment;
         }
 
         public Func<string, string> Variable { get; set; } = System.Environment.GetEnvironmentVariable;
 
-        public bool FileIssues => _environment.IconSet != ReleaseEnvironment.Production || _config.BugReportsFileIssues;
+        public bool FileIssues => _environment.IconSet != ReleaseEnvironment.Production || _provisioning.FileIssues == true;
 
-        public string Repository => string.IsNullOrWhiteSpace(_config.BugReportsRepository) ? DefaultRepository : _config.BugReportsRepository;
+        public string Repository => string.IsNullOrWhiteSpace(_provisioning.Repository) ? DefaultRepository : _provisioning.Repository.Trim();
 
-        public string Token => _token ?? (string.IsNullOrWhiteSpace(Variable(TokenVariable)) ? null : Variable(TokenVariable).Trim());
+        public string Token => FirstSet(_provisioning.GithubToken, Variable(TokenVariable));
 
-        public int ReportsPerDay => Math.Max(1, _config.BugReportsPerDay);
+        public int ReportsPerDay => Math.Max(1, _provisioning.ReportsPerDay ?? DefaultReportsPerDay);
 
-        public int MinutesBetween => Math.Max(0, _config.BugReportsMinutesBetween);
+        public int MinutesBetween => Math.Max(0, _provisioning.MinutesBetween ?? DefaultMinutesBetween);
 
         public void Apply(BugReportsProvisioning provisioning)
         {
-            _token = string.IsNullOrWhiteSpace(provisioning?.GithubToken) ? null : provisioning.GithubToken.Trim();
-
-            if (provisioning?.FileIssues is { } file)
-            {
-                _config.BugReportsFileIssues = file;
-            }
-
-            if (!string.IsNullOrWhiteSpace(provisioning?.Repository))
-            {
-                _config.BugReportsRepository = provisioning.Repository.Trim();
-            }
-
-            if (provisioning?.ReportsPerDay is { } perDay)
-            {
-                _config.BugReportsPerDay = Math.Max(1, perDay);
-            }
-
-            if (provisioning?.MinutesBetween is { } minutes)
-            {
-                _config.BugReportsMinutesBetween = Math.Max(0, minutes);
-            }
+            _provisioning = provisioning ?? new BugReportsProvisioning();
         }
+
+        private static string FirstSet(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
     }
 }

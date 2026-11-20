@@ -181,8 +181,7 @@ namespace Requestarr.Core.Test.Qa
         public void the_test_servers_always_file_and_the_key_can_come_from_the_environment()
         {
             var environment = new Mock<IReleaseEnvironment>();
-            var config = new Mock<NzbDrone.Core.Configuration.IConfigService>();
-            var settings = new BugReportSettings(config.Object, environment.Object) { Variable = v => v == BugReportSettings.TokenVariable ? " from-env " : null };
+            var settings = new BugReportSettings(environment.Object) { Variable = v => v == BugReportSettings.TokenVariable ? " from-env " : null };
 
             foreach (var set in new[] { "dev", "qa", "beta" })
             {
@@ -191,11 +190,16 @@ namespace Requestarr.Core.Test.Qa
             }
 
             environment.SetupGet(e => e.IconSet).Returns("production");
-            settings.FileIssues.Should().BeFalse("someone else's install files only when its admin turns it on");
+            settings.FileIssues.Should().BeFalse("production files only when a provisioning file turns it on");
             settings.Token.Should().Be("from-env");
 
-            settings.Apply(new Requestarr.Core.Provisioning.BugReportsProvisioning { GithubToken = "from-provisioning" });
-            settings.Token.Should().Be("from-provisioning");
+            (settings.Repository, settings.ReportsPerDay, settings.MinutesBetween).Should().Be(("Requestarr/Requestarr", 5, 2), "built in");
+
+            settings.Apply(new Requestarr.Core.Provisioning.BugReportsProvisioning { GithubToken = "from-provisioning", FileIssues = true, ReportsPerDay = 9 });
+            (settings.Token, settings.FileIssues, settings.ReportsPerDay).Should().Be(("from-provisioning", true, 9));
+
+            settings.Apply(null);
+            (settings.Token, settings.FileIssues, settings.ReportsPerDay).Should().Be(("from-env", false, 5), "nothing outlives the provisioning file");
         }
 
         [Test]

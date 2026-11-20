@@ -732,9 +732,9 @@ botProfile:
 
 `#requestarr-bug-reports`, in the Requestarr Users group, lets members and admins tell the people who build Requestarr about a problem. Nobody types in it: **Report a problem** opens a menu of Requestarr's parts, then a short form (what happened, what they expected). Requestarr adds your server's environment, its version, the time and the reporter's Discord name, nothing else from your server, and posts the report as a card in the channel, so you see every report.
 
-**Filing on GitHub is off by default.** Turned on, each report also becomes an issue on Requestarr's public GitHub repository, which anyone can read; the form says so before anything is sent. It needs an access key of your own that can only read and write issues on that repository (GitHub: Settings, Developer settings, Fine-grained tokens, Issues "Read and write", nothing else). Leave it off unless you want your members' reports to be public. Requestarr's own test servers (dev, QA and beta) always file, whatever the setting.
+**Filing on GitHub is off on production.** Only a provisioning file turns it on there (`fileIssues: true` below); there's no setting for it in the web app. Turned on, each report also becomes an issue on Requestarr's public GitHub repository, which anyone can read; the form says so before anything is sent. It needs an access key of your own that can only read and write issues on that repository (GitHub: Settings, Developer settings, Fine-grained tokens, Issues "Read and write", nothing else). Leave it off unless you want your members' reports to be public. Requestarr's own test servers (dev, QA and beta) always file.
 
-Without a provisioning file (beta and production), the access key comes from the container's `REQUESTARR_GITHUB_ISSUES_TOKEN` environment variable; it's never set in the web app. The repository and the limits are built in. A provisioning file can still set them, and the key, as below.
+Without a provisioning file (beta), the access key comes from the container's `REQUESTARR_GITHUB_ISSUES_TOKEN` environment variable; it's never set in the web app. The repository and the limits are built in. A provisioning file can still set them, and the key, as below; they last only while the file names them.
 
 **Each card says where its report is.** The link to its GitHub issue, or exactly why it isn't there: filing is turned off, the server has no access key, or what GitHub said (the key was refused, it can't create issues there, the repository wasn't found) or that GitHub couldn't be reached. A report that couldn't be filed is filed the next time the bot connects, for example after you add the key and restart, without anyone sending it again, and its card then shows the link.
 
@@ -822,7 +822,7 @@ Working on Requestarr itself, or testing a build by hand? Two local stacks, each
 
 For the project owner: an always-on Requestarr for early access testers, on its own Discord server (Requestarr Beta). It uses **your production Sonarr and Radarr**: one library, so testers request from the titles you already have, and nothing downloads twice. It runs the published `beta` image, which only ever holds builds you passed in QA ([release flow](development.md#release-flow)).
 
-It's one container, installed the way you'd install Sonarr or Radarr from a registry: the image from GitHub's registry, then a name, a port, a folder and your time zone. No compose file, no other files, no shell. Everything else is set in its web app.
+It's one container, installed the way you'd install Sonarr or Radarr from a registry: the image from GitHub's registry, then a name, a port, a folder, your time zone and the GitHub key for bug reports. No compose file, no other files, no shell. Everything else is set in its web app.
 
 **Production's files are safe by default.** Requestarr deletes nothing in Sonarr or Radarr until you turn on **Delete files** (B.4). Until then a removal that's agreed only waits in the admin queue for you to delete it by hand.
 
@@ -836,6 +836,7 @@ Do the steps in order; each ends with what to check before going on.
 - Your production Sonarr and Radarr, and their API keys (each one's **Settings → General → API Key**).
 - The Requestarr Beta Discord server, and a Discord application with a bot for it, set up as in [section 2](#2-create-your-discord-bot) (Server Members Intent on, invited with the same permissions). You need its bot token, application ID and the server's ID.
 - **GitHub's registry in Container Manager.** The image is `ghcr.io/requestarr/requestarr`, on GitHub's registry only. In **Container Manager → Registry → Settings**, `ghcr.io` should be listed; if it isn't, **Add**: name `GitHub`, address `https://ghcr.io`. Once the package is public on GitHub it needs no login. While it's private, give that entry your GitHub user and, as the password, a token that can only read packages (GitHub → Settings → Developer settings → Personal access tokens → classic, **read:packages**).
+- **A GitHub key for bug reports:** a fine-grained token with only Issues: read and write on Requestarr/Requestarr (GitHub: Settings, Developer settings, Fine-grained tokens). Beta files every report on GitHub with it; it goes on the container (B.2), never in the web app.
 - **A folder for Requestarr's data.** In **File Station**, in the `docker` shared folder, create `requestarr-beta`. Its settings, database and backups live there, where you can see and back them up. Requestarr runs as its own user inside the container, not as you, so let it write there: right-click the folder, **Properties → Permission → Create**, user or group **Everyone**, tick **Read** and **Write**, apply to this folder, sub-folders and files, **Done**, **Save**.
 
 ### B.1 Download the image
@@ -917,7 +918,7 @@ These need the beta server, so they aren't on the QA checklist. Check them once 
 Updates happen only when you ask, never on a schedule. When a new build reaches beta:
 
 1. **Container Manager → Image.** Container Manager checks its images now and then, and `ghcr.io/requestarr/requestarr:beta` shows **Update available**.
-2. Select it and press **Update**. Container Manager downloads the new build and recreates `requestarr-beta` from it with the same settings: name, port, folder and time zone. Everything in the folder carries over.
+2. Select it and press **Update**. Container Manager downloads the new build and recreates `requestarr-beta` from it with the same settings: name, port, folder, time zone and keys. Everything in the folder carries over.
 
 **If Update doesn't appear** (Container Manager doesn't always check other registries than Docker Hub): download the tag again (**Registry**, `requestarr/requestarr`, **Download**, tag `beta`, which replaces the old image), then in **Container**, stop `requestarr-beta`, **Action → Delete** it (its folder keeps all its data), and **Run** the image again as in B.2.
 
@@ -931,7 +932,7 @@ Each build sent to the beta has its own number, counting every build: 0.7.0005 i
 
 ### B.7 Going to a specific build
 
-To run one particular build, for example to skip a bad one: **Registry**, `requestarr/requestarr`, **Download**, and choose that build's number as the tag (for example `0.7.0004`). Then in **Container**, stop `requestarr-beta`, **Action → Delete** it, and **Run** `ghcr.io/requestarr/requestarr:0.7.0004` as in B.2, with the same name, port, folder and time zone. It stays on that build until you run the `beta` image again the same way.
+To run one particular build, for example to skip a bad one: **Registry**, `requestarr/requestarr`, **Download**, and choose that build's number as the tag (for example `0.7.0004`). Then in **Container**, stop `requestarr-beta`, **Action → Delete** it, and **Run** `ghcr.io/requestarr/requestarr:0.7.0004` as in B.2, with the same name, port, folder, time zone and keys. It stays on that build until you run the `beta` image again the same way.
 
 **Check:** **System → Status** shows that build's number.
 

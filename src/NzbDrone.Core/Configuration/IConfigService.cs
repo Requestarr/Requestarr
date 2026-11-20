@@ -40,12 +40,6 @@ namespace NzbDrone.Core.Configuration
         // Whether the first-run setup's Sonarr or Radarr step was skipped; read through Requestarr.Core.Settings.SetupService
         bool SetupInstanceSkipped { get; set; }
 
-        // Requestarr's bug reports; read through Requestarr.Core.Qa.BugReportSettings
-        bool BugReportsFileIssues { get; set; }
-        string BugReportsRepository { get; set; }
-        int BugReportsPerDay { get; set; }
-        int BugReportsMinutesBetween { get; set; }
-
         // How long Requestarr's audit log keeps an entry; read through Requestarr.Core.Audit.AuditSettings
         string AuditLogKeepFor { get; set; }
         string AuditLogTrimmedBefore { get; set; }

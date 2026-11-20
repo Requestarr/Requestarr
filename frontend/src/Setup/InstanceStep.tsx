@@ -1,10 +1,12 @@
 import React, { useCallback, useState } from 'react';
+import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import { kinds } from 'Helpers/Props';
 import InstanceFields from 'Settings/Requestarr/InstanceFields';
 import { callRequestarrApi } from 'Settings/Requestarr/requestarrApi';
 import { SetupStatus } from 'Settings/Requestarr/RequestarrSettingsTypes';
+import useApiAction from 'Settings/Requestarr/useApiAction';
 import useInstanceForm from 'Settings/Requestarr/useInstanceForm';
 import translate from 'Utilities/String/translate';
 import SetupStep from './SetupStep';
@@ -38,16 +40,18 @@ interface InstanceStepProps {
   onSaved: () => void;
 }
 
-// The first Sonarr or Radarr: pick which, fill in its address and API key, Test, choose what requests use, Save. Skip
-// leaves it for later: Settings, Connections adds them with the Media managers "+" card.
+// The first Sonarr or Radarr: pick which, fill in its address and API key, Test, choose what requests use, Save. Skip,
+// there until the step is done, leaves it for later: Settings, Connections adds them with the Media managers "+" card.
 function InstanceStep({ setup, onSaved }: InstanceStepProps) {
   const [implementation, setImplementation] = useState<string>();
 
   const onSonarrPress = useCallback(() => setImplementation('Sonarr'), []);
   const onRadarrPress = useCallback(() => setImplementation('Radarr'), []);
+  const skip = useApiAction();
+  const { run } = skip;
   const onSkipPress = useCallback(() => {
-    callRequestarrApi('setup/skip-instance', 'POST').then(onSaved, onSaved);
-  }, [onSaved]);
+    run(() => callRequestarrApi('setup/skip-instance', 'POST'), onSaved);
+  }, [run, onSaved]);
   const isDone = setup.instance || setup.instanceSkipped;
 
   return (
@@ -66,7 +70,6 @@ function InstanceStep({ setup, onSaved }: InstanceStepProps) {
           <Button onPress={onRadarrPress}>
             {translate('InstanceAddRadarr')}
           </Button>
-          <Button onPress={onSkipPress}>{translate('SetupSkip')}</Button>
         </div>
       )}
 
@@ -76,6 +79,20 @@ function InstanceStep({ setup, onSaved }: InstanceStepProps) {
           implementation={implementation}
           onSaved={onSaved}
         />
+      )}
+
+      {!isDone && (
+        <div className={styles.buttons}>
+          <SpinnerButton isSpinning={skip.isBusy} onPress={onSkipPress}>
+            {translate('SetupSkip')}
+          </SpinnerButton>
+        </div>
+      )}
+
+      {skip.problem && (
+        <Alert kind={kinds.DANGER}>
+          {translate('SetupSkipFailed', { problem: skip.problem })}
+        </Alert>
       )}
     </SetupStep>
   );
