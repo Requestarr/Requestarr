@@ -23,7 +23,9 @@ function useTestAll(instances: Instance[] | undefined, onDone: () => void) {
   const [problems, setProblems] = useState<string[]>();
 
   const onTestAll = useCallback(() => {
-    const turnedOn = (instances ?? []).filter((i) => i.settings.enabled);
+    const turnedOn = (instances ?? []).filter(
+      (instance) => instance.settings.enabled
+    );
 
     setIsTesting(true);
 

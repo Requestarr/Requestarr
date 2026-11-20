@@ -1,0 +1,5 @@
+/* Wide enough for "Connections" on one line: Servarr's buttons fit shorter words. A minimum, so it wins over the
+   button's own width whichever style loads first. */
+.testAll {
+  min-width: 72px;
+}

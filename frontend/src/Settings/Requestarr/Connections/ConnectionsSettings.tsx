@@ -144,13 +144,16 @@ function ConnectionsSettings() {
   const setup = useRequestarrApi<SetupStatus>('setup');
   const showAdvanced = useShowAdvanced();
   const { settings, reload } = options;
+  const { reload: reloadInstances } = instances;
+  const { reload: reloadSetup } = setup;
   const error = options.error ?? instances.error ?? setup.error;
 
+  // The hooks' reloads keep their identity, so onSaved does too (the hooks' results are new objects each render).
   const onSaved = useCallback(() => {
     reload();
-    instances.reload();
-    setup.reload();
-  }, [reload, instances, setup]);
+    reloadInstances();
+    reloadSetup();
+  }, [reload, reloadInstances, reloadSetup]);
 
   const testAll = useTestAll(instances.data, onSaved);
   useScrollToSection(!!settings && !!instances.data);

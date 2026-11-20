@@ -10,6 +10,7 @@ import AdvancedSettingsButton from 'Settings/AdvancedSettingsButton';
 import { toggleAdvancedSettings } from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
 import { SettingsForm } from '../useSettingsForm';
+import styles from './ConnectionsToolbar.css';
 
 // Show Advanced, the same switch as every settings page's, kept across pages.
 export function useShowAdvanced() {
@@ -57,6 +58,7 @@ function ConnectionsToolbar({
         <PageToolbarSeparator />
 
         <PageToolbarButton
+          className={styles.testAll}
           label={translate('TestAllConnections')}
           iconName={icons.TEST}
           isSpinning={isTesting}

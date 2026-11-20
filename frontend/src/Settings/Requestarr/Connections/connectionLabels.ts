@@ -14,10 +14,10 @@ function failing(): CardLabel {
 }
 
 function grey(key: string): CardLabel {
-  return { text: translate(key), kind: kinds.DEFAULT };
+  return { text: translate(key), kind: kinds.DISABLED };
 }
 
-function provisioned(settings: AppSettings | undefined) {
+function provisioned(settings: AppSettings | undefined): CardLabel[] {
   return settings?.provisioned ? [grey('ConnectionProvisioned')] : [];
 }
 
@@ -42,7 +42,7 @@ export function discordLabels(
   return [...botStatus(setup), ...provisioned(settings)];
 }
 
-function instanceStatus(instance: Instance) {
+function instanceStatus(instance: Instance): CardLabel {
   if (!instance.settings.enabled) {
     return grey('InstanceTurnedOff');
   }
