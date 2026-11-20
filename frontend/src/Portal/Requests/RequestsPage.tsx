@@ -2,6 +2,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { sortDirections } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
+import PortalPager from '../Components/Paging/PortalPager';
+import usePagedRows from '../Components/Paging/usePagedRows';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
 import RequestsTable, {
@@ -155,7 +157,8 @@ function RequestsList(props: RequestsListProps) {
   const { requests, view, sort, onAction, isBusy, onDone } = props;
   const { filters, options, shown, onFilterChange } =
     useRequestFilters(requests);
-  const selection = useSelection(shown, shown);
+  const { pageRows, pager } = usePagedRows(shown);
+  const selection = useSelection(shown, pageRows);
   const { onClear } = selection;
   const onBulkDone = useCallback(() => {
     onClear();
@@ -193,7 +196,8 @@ function RequestsList(props: RequestsListProps) {
         withPageBox={view !== 'table' && shown.length > 0}
         onAction={bulk.onAction}
       />
-      <Shown requests={shown} view={view} sort={sort} />
+      <Shown requests={pageRows} view={view} sort={sort} />
+      <PortalPager {...pager} />
       {bulk.modal}
     </RequestRowsContext.Provider>
   );

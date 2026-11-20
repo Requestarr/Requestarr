@@ -11,6 +11,8 @@ import { icons } from 'Helpers/Props';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
+import PortalPager from '../Components/Paging/PortalPager';
+import usePagedRows from '../Components/Paging/usePagedRows';
 import Person from '../Components/Person';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
@@ -177,8 +179,12 @@ function useStatusFilter(members: PortalMember[]) {
 
 // The members picked and what the bar does to them (suspend, unsuspend, change access), each action clearing the picks
 // once it's done.
-function useMemberBulk(sorted: PortalMember[], onDone: () => void) {
-  const selection = useSelection(sorted, sorted);
+function useMemberBulk(
+  sorted: PortalMember[],
+  pageRows: PortalMember[],
+  onDone: () => void
+) {
+  const selection = useSelection(sorted, pageRows);
   const { picked, onClear } = selection;
   const onActionDone = useCallback(() => {
     onClear();
@@ -212,8 +218,9 @@ function MembersList({ members, onDone }: MembersListProps) {
     values,
     'name'
   );
+  const { pageRows, pager } = usePagedRows(sorted);
   const { selection, run, isBusy, outcome, dialogs, barActions, onBulk } =
-    useMemberBulk(sorted, onDone);
+    useMemberBulk(sorted, pageRows, onDone);
 
   return (
     <>
@@ -248,7 +255,7 @@ function MembersList({ members, onDone }: MembersListProps) {
         onSortPress={onSortPress}
       >
         <TableBody>
-          {sorted.map((member) => (
+          {pageRows.map((member) => (
             <MemberRow
               key={member.id}
               member={member}
@@ -260,6 +267,7 @@ function MembersList({ members, onDone }: MembersListProps) {
           ))}
         </TableBody>
       </Table>
+      <PortalPager {...pager} />
       {dialogs}
     </>
   );

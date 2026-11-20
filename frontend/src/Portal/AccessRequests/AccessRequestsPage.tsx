@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import FieldSet from 'Components/FieldSet';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Table from 'Components/Table/Table';
@@ -8,6 +7,7 @@ import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import columnsOf from '../Components/columnsOf';
+import PagedSection from '../Components/Paging/PagedSection';
 import PortalPage from '../Components/PortalPage';
 import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
 import { contentTypeText } from '../portalText';
@@ -15,7 +15,6 @@ import {
   AccessState,
   ContentType,
   PortalAccessRequest,
-  PortalAccessRequests,
   PortalPaused,
 } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
@@ -111,26 +110,26 @@ function WaitingTable({
   onApprove,
   onDeny,
 }: WaitingTableProps) {
+  if (!waiting.length) {
+    return (
+      <div className={styles.empty}>{translate('PortalNobodyWaiting')}</div>
+    );
+  }
+
   return (
-    <FieldSet legend={translate('PortalWaitingToJoin')}>
-      {waiting.length ? (
-        <Table columns={waitingColumns}>
-          <TableBody>
-            {waiting.map((asked) => (
-              <WaitingRow
-                key={asked.id}
-                asked={asked}
-                action={action}
-                onApprove={onApprove}
-                onDeny={onDeny}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <div className={styles.empty}>{translate('PortalNobodyWaiting')}</div>
-      )}
-    </FieldSet>
+    <Table columns={waitingColumns}>
+      <TableBody>
+        {waiting.map((asked) => (
+          <WaitingRow
+            key={asked.id}
+            asked={asked}
+            action={action}
+            onApprove={onApprove}
+            onDeny={onDeny}
+          />
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -141,39 +140,30 @@ function PausedTable({
   paused: PortalPaused[];
   action: PortalAction;
 }) {
+  if (!paused.length) {
+    return (
+      <div className={styles.empty}>{translate('PortalNobodyPaused')}</div>
+    );
+  }
+
   return (
-    <FieldSet legend={translate('PortalPaused')}>
-      {paused.length ? (
-        <Table columns={pausedColumns}>
-          <TableBody>
-            {paused.map((person) => (
-              <PausedRow
-                key={person.discordId}
-                paused={person}
-                action={action}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <div className={styles.empty}>{translate('PortalNobodyPaused')}</div>
-      )}
-    </FieldSet>
+    <Table columns={pausedColumns}>
+      <TableBody>
+        {paused.map((person) => (
+          <PausedRow key={person.discordId} paused={person} action={action} />
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
-function AccessRequestsView({
-  data,
-  onDone,
-}: {
-  data: PortalAccessRequests;
-  onDone: () => void;
-}) {
+// Both lists a page at a time; round counts actions done, so they're read again after each.
+function AccessRequestsView({ types }: { types: ContentType[] }) {
+  const [round, setRound] = useState(0);
+  const onDone = useCallback(() => setRound((current) => current + 1), []);
   const action = usePortalAction(onDone);
   const [approving, setApproving] = useState<PortalAccessRequest>();
   const [denying, setDenying] = useState<PortalAccessRequest>();
-  const { data: offered } = usePortal<ContentType[]>('types');
-  const types = offered ?? [];
 
   const onClose = useCallback(() => {
     setApproving(undefined);
@@ -193,17 +183,39 @@ function AccessRequestsView({
     },
     [action, denying]
   );
-
-  return (
-    <>
-      <ActionOutcomeAlert outcome={action.outcome} />
+  const waitingPage = useCallback(
+    (waiting: PortalAccessRequest[]) => (
       <WaitingTable
-        waiting={data.waiting}
+        waiting={waiting}
         action={action}
         onApprove={setApproving}
         onDeny={setDenying}
       />
-      <PausedTable paused={data.paused} action={action} />
+    ),
+    [action]
+  );
+  const pausedPage = useCallback(
+    (paused: PortalPaused[]) => <PausedTable paused={paused} action={action} />,
+    [action]
+  );
+
+  return (
+    <>
+      <ActionOutcomeAlert outcome={action.outcome} />
+      <PagedSection
+        key={`waiting-${round}`}
+        title={translate('PortalWaitingToJoin')}
+        path="access-requests/waiting"
+      >
+        {waitingPage}
+      </PagedSection>
+      <PagedSection
+        key={`paused-${round}`}
+        title={translate('PortalPaused')}
+        path="access-requests/paused"
+      >
+        {pausedPage}
+      </PagedSection>
       <ApproveAccessModal
         asked={approving}
         types={types}
@@ -221,21 +233,18 @@ function AccessRequestsView({
   );
 }
 
+function renderView(types: ContentType[]) {
+  return <AccessRequestsView types={types} />;
+}
+
 // People asking to join from the welcome channel, and people whose asking is paused: the access request cards and
 // paused notices of the admin channel.
 function AccessRequestsPage() {
-  const result = usePortal<PortalAccessRequests>('access-requests');
-  const onActionDone = result.reload;
-  const render = useCallback(
-    (data: PortalAccessRequests) => (
-      <AccessRequestsView data={data} onDone={onActionDone} />
-    ),
-    [onActionDone]
-  );
+  const result = usePortal<ContentType[]>('types');
 
   return (
     <PortalPage title={translate('PortalAccessRequests')} result={result}>
-      {render}
+      {renderView}
     </PortalPage>
   );
 }

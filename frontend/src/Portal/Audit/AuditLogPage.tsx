@@ -10,9 +10,10 @@ import TableRow from 'Components/Table/TableRow';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import columnsOf from '../Components/columnsOf';
+import PortalPager from '../Components/Paging/PortalPager';
+import usePagedPortal from '../Components/Paging/usePagedPortal';
 import PortalPage from '../Components/PortalPage';
 import { PortalAuditEntry } from '../PortalTypes';
-import usePortal from '../usePortal';
 import styles from '../Portal.css';
 
 const FILTERS = ['member', 'title', 'action', 'from', 'to'] as const;
@@ -89,14 +90,20 @@ function renderEntries(entries: PortalAuditEntry[]) {
   );
 }
 
-// Everything Requestarr recorded, newest first: find it by member, title, action and day.
+// Everything Requestarr recorded, newest first, a page at a time: find it by member, title, action and day.
 function AuditLogPage() {
   const [typed, setTyped] = useState(NO_FILTERS);
   const [applied, setApplied] = useState(NO_FILTERS);
   const query = new URLSearchParams(
     Object.entries(asSent(applied)).filter(([, value]) => value)
   ).toString();
-  const result = usePortal<PortalAuditEntry[]>(`audit?${query}`);
+  const paged = usePagedPortal<PortalAuditEntry>(`audit?${query}`);
+  const result = {
+    data: paged.records,
+    isLoading: !paged.records && !paged.hasError,
+    isNotFound: false,
+    hasError: paged.hasError,
+  };
 
   const onChange = useCallback(
     ({ name, value }: { name: string; value: string }) => {
@@ -131,6 +138,7 @@ function AuditLogPage() {
             </Button>
           </div>
           {renderEntries(entries)}
+          <PortalPager {...paged.pager} />
         </>
       )}
     </PortalPage>

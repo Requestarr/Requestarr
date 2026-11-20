@@ -824,6 +824,7 @@
   "PortalPausedSince": "Paused since",
   "PortalPending": "Waiting",
   "PortalPeopleToAdd": "{count} people in the server who aren't members",
+  "PortalPerPage": "Per page",
   "PortalPhysicalRelease": "Physical {date}",
   "PortalPlexUsername": "Plex username",
   "PortalPlexUsernameHelpText": "Their Plex account's username or email.",
