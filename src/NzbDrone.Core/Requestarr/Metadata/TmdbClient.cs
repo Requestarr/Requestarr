@@ -58,7 +58,7 @@ namespace Requestarr.Core.Metadata
             {
                 using var response = await Transport(request, cancellationToken);
 
-                Report(KeyProblem(response.StatusCode));
+                ReportKey(response.StatusCode);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -86,14 +86,14 @@ namespace Requestarr.Core.Metadata
             }
         }
 
-        // A refused key (401) or one over its rate limit (429) is the key's problem; anything else, such as a title it
-        // doesn't know (404), says the key works.
-        private static string KeyProblem(HttpStatusCode status) =>
-            status is HttpStatusCode.Unauthorized or HttpStatusCode.TooManyRequests ? $"HTTP {(int)status}" : null;
-
-        private void Report(string problem)
+        // A refused key (401) or one over its rate limit (429) is the key's problem; an answer (2xx) or a title it
+        // doesn't know (404) says the key works. Anything else, such as The Movie Database being down, says nothing.
+        private void ReportKey(HttpStatusCode status)
         {
-            if (_settings.Report(problem))
+            var works = (int)status is >= 200 and < 300 || status == HttpStatusCode.NotFound;
+            var problem = status is HttpStatusCode.Unauthorized or HttpStatusCode.TooManyRequests ? $"HTTP {(int)status}" : null;
+
+            if ((works || problem != null) && _settings.Report(problem))
             {
                 _events.PublishEvent(new TmdbKeyChangedEvent());
             }

@@ -30,7 +30,11 @@ RUN case "$TARGETARCH" in arm64) RID=linux-arm64 ;; *) RID=linux-x64 ;; esac \
 # workflow passes the repository secret TMDB_API_KEY. A build without it (a fork's, the local stacks') has no built-in
 # key. A secret mount, never a build argument, so the key isn't in the image's history or the build log. An admin's
 # own key in REQUESTARR_TMDB_API_KEY wins over it (TmdbSettingsStore).
+# KEY_STAMP changes every workflow run, so this step always runs again: a secret's contents aren't part of the build
+# cache's key, and a cached layer would keep an old key after it's rotated.
+ARG KEY_STAMP=
 RUN --mount=type=secret,id=tmdb_key \
+    : "${KEY_STAMP}" && \
     if [ -s /run/secrets/tmdb_key ]; then tr -d '\r\n' < /run/secrets/tmdb_key > /app/bin/the-movie-database-key.txt; fi
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

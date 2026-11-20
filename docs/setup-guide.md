@@ -316,7 +316,7 @@ With a provisioning file (the local test stacks), the key goes there:
 
 The key is kept in memory only. It is never written to the database or logs. Cast lookups are cached for 12 hours and give up after a few seconds, so a slow or unavailable The Movie Database never holds up a request.
 
-**Attribution:** TMDB's terms ask apps to use TMDB's logo, keep it less prominent than the app's own branding, and show the notice "… uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB." in an About or Credits area. Requestarr does this while a key is set:
+**Attribution:** TMDB's terms ask apps to use TMDB's logo, keep it less prominent than the app's own branding, and show the notice "… uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB." in an About or Credits area. The web app's **System → Status**, under About, always shows the notice, and so does the README. Requestarr also does this while a key is in use:
 
 - **Cards with cast:** a short "Cast from TMDB" footer with TMDB's small logo.
 - **Result lists with cast:** a "Cast from TMDB" line.

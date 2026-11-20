@@ -96,6 +96,7 @@ jobs:
           build-args: |
             BUILD_NUMBER=${{ steps.tags.outputs.number }}
             RELEASE_VERSION=${{ steps.tags.outputs.label }}
+            KEY_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
           # Requestarr's own key for The Movie Database, built in as a file (docker/Dockerfile); empty in a fork.
           secrets: |
             tmdb_key=${{ secrets.TMDB_API_KEY }}
@@ -123,13 +124,12 @@ jobs:
       # Each platform's image, as published: no file that could hold secrets, no secret-looking environment variable or
       # build step, and it starts and answers on its port. The built-in key for The Movie Database is the one file shipped
       # on purpose (the owner's choice): it's there exactly when the repository secret is set, and its contents are never
-      # printed.
+      # printed. Requestarr's own repository fails without it; a fork builds without one.
       - name: Check the published image
         if: steps.tags.outputs.mode == 'build'
         env:
           REF: ${{ steps.tags.outputs.first }}
           TAGS: ${{ steps.tags.outputs.tags }}
-          HAS_TMDB_KEY: ${{ secrets.TMDB_API_KEY != '' }}
         run: |
           set -euo pipefail
           {
@@ -152,7 +152,9 @@ jobs:
             if [ -n "$files" ]; then echo "::error::$platform image has files that could hold secrets: $files"; exit 1; fi
             built_in=$(docker run --rm --platform "$platform" --entrypoint sh "$IMAGE@$digest" -c 'test -s /app/bin/the-movie-database-key.txt && echo yes || echo no')
             echo "$platform: built-in key for The Movie Database: $built_in"
-            if [ "$HAS_TMDB_KEY" = true ] && [ "$built_in" != yes ]; then echo "::error::$platform image is missing the built-in key for The Movie Database"; exit 1; fi
+            if [ "$GITHUB_REPOSITORY" = Requestarr/Requestarr ] && [ "$built_in" != yes ]; then
+              echo "::error::$platform image has no built-in key for The Movie Database: set the repository secret TMDB_API_KEY"; exit 1
+            fi
             env_names=$(docker image inspect "$IMAGE@$digest" --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1)
             echo "Environment: $(echo $env_names)"
             if echo "$env_names" | grep -iE 'TOKEN|SECRET|PASSWORD|API_?KEY'; then echo "::error::secret-looking environment variable"; exit 1; fi

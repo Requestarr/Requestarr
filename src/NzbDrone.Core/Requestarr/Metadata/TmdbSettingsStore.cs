@@ -46,6 +46,7 @@ namespace Requestarr.Core.Metadata
         // Written by the image build next to Requestarr's files; not in the repository.
         public const string BuiltInFile = "the-movie-database-key.txt";
 
+        private readonly object _reportLock = new();
         private string _key;
         private string _builtInProblem;
         private Lazy<string> _builtIn = new(ReadBuiltIn);
@@ -72,15 +73,19 @@ namespace Requestarr.Core.Metadata
             _key = Clean(apiKey);
         }
 
+        // Lookups run in parallel, so one at a time decides whether the state changed.
         public bool Report(string problem)
         {
-            if (Source != TmdbKeySource.BuiltIn || problem == _builtInProblem)
+            lock (_reportLock)
             {
-                return false;
-            }
+                if (Source != TmdbKeySource.BuiltIn || problem == _builtInProblem)
+                {
+                    return false;
+                }
 
-            _builtInProblem = problem;
-            return true;
+                _builtInProblem = problem;
+                return true;
+            }
         }
 
         // The first source that has a key, or (null, None) when none has.
@@ -93,11 +98,19 @@ namespace Requestarr.Core.Metadata
 
         private static string Clean(string key) => string.IsNullOrWhiteSpace(key) ? null : key.Trim();
 
+        // A file that can't be read counts as no built-in key, so it never stops another key from working.
         private static string ReadBuiltIn()
         {
-            var path = Path.Combine(AppContext.BaseDirectory, BuiltInFile);
+            try
+            {
+                var path = Path.Combine(AppContext.BaseDirectory, BuiltInFile);
 
-            return File.Exists(path) ? File.ReadAllText(path) : null;
+                return File.Exists(path) ? File.ReadAllText(path) : null;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
     }
 

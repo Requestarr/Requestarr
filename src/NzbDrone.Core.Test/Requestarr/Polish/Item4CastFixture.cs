@@ -189,6 +189,10 @@ namespace Requestarr.Core.Test.Polish
             check.Check().Message.Should().Be(TmdbKeyCheck.Message("HTTP 401")).And.Contain(TmdbSettingsStore.KeyVariable);
             events.Verify(e => e.PublishEvent(It.IsAny<TmdbKeyChangedEvent>()), Times.Once(), "checked again only when it changes");
 
+            status = HttpStatusCode.ServiceUnavailable;
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+            check.Check().Message.Should().Be(TmdbKeyCheck.Message("HTTP 401"), "The Movie Database being down says nothing about the key");
+
             status = HttpStatusCode.NotFound;
             await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
 
