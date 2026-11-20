@@ -53,6 +53,11 @@
       "count": 1
     }
   },
+  "frontend/src/Components/Table/Cells/TableSelectCell.js": {
+    "max-params": {
+      "count": 1
+    }
+  },
   "frontend/src/Components/Table/Table.js": {
     "max-lines-per-function": {
       "count": 1
@@ -64,6 +69,11 @@
     }
   },
   "frontend/src/Components/Table/TablePager.js": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "frontend/src/Components/Table/VirtualTable.js": {
     "max-lines-per-function": {
       "count": 1
     }
@@ -133,6 +143,11 @@
       "count": 1
     }
   },
+  "frontend/src/Store/Selectors/createClientSideCollectionSelector.js": {
+    "sonarjs/cognitive-complexity": {
+      "count": 1
+    }
+  },
   "frontend/src/System/Backup/Backups.js": {
     "max-lines-per-function": {
       "count": 1
@@ -179,6 +194,11 @@
       "count": 1
     },
     "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "frontend/src/Utilities/Table/toggleSelected.js": {
+    "max-params": {
       "count": 1
     }
   }
