@@ -55,6 +55,20 @@ namespace Requestarr.Core.Discord.Gateway
             return found.Select(ToMember).ToList();
         }
 
+        public async Task<IReadOnlyList<GuildMember>> GetMembersAsync()
+        {
+            var all = await ((IGuild)RequireGuild()).GetUsersAsync(CacheMode.AllowDownload);
+
+            return all.Select(ToMember).ToList();
+        }
+
+        public Task<IReadOnlyDictionary<ulong, string>> GetRoleNamesAsync()
+        {
+            var guild = RequireGuild();
+
+            return Task.FromResult<IReadOnlyDictionary<ulong, string>>(guild.Roles.Where(r => r.Id != guild.EveryoneRole.Id).ToDictionary(r => r.Id, r => r.Name));
+        }
+
         public Task<int> GetRoleCountAsync() => Task.FromResult(RequireGuild().Roles.Count);
 
         public async Task<bool> ChannelExistsAsync(ulong channelId)
@@ -346,7 +360,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         // The gateway's own events carry the member too (a rename, a press).
         internal static GuildMember ToMember(IGuildUser member) =>
-            new(member.Id, member.Username, member.DisplayName ?? member.GlobalName ?? member.Username, member.GetDisplayAvatarUrl(), member.IsBot, member.RoleIds.ToList());
+            new(member.Id, member.Username, member.DisplayName ?? member.GlobalName ?? member.Username, member.GetDisplayAvatarUrl(), member.IsBot, member.RoleIds.ToList(), member.JoinedAt);
 
         private static ChannelMessage Read(IMessage m) => new(
             m.Id,

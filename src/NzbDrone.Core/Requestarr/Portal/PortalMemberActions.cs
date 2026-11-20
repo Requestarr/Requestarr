@@ -7,17 +7,20 @@ using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.MediaServers;
+using Requestarr.Core.Requests;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
-    // Someone in the Discord server who isn't a member yet, from Add member's search.
-    public record PortalServerMember(string DiscordId, string Name, string Username);
+    // Someone in the Discord server who isn't a member yet, for Add member's list: their picture, when they joined, their
+    // roles there, and how many requests an import brought for them (0 for none).
+    public record PortalServerMember(string DiscordId, string Name, string Username, string Avatar, DateTime? Joined, IReadOnlyList<string> Roles,
+                                     int ImportedRequests);
 
     public interface IPortalMemberActions
     {
-        Task<IReadOnlyList<PortalServerMember>> SearchServerAsync(string term);
-        Task<ServiceResult> AddAsync(string discordId, Actor admin);
+        // Everyone in the server who isn't onboarded (bots left out), those with imported history first.
+        Task<IReadOnlyList<PortalServerMember>> ServerMembersAsync();
 
         // InstanceId: the member's own instance for the type; null leaves it as it is.
         ServiceResult SetAccess(int memberId, ContentType type, AccessState state, int? instanceId, Actor admin);
@@ -40,9 +43,6 @@ namespace Requestarr.Core.Portal
     // portal's member pages find from the member.
     public class PortalMemberActions : IPortalMemberActions
     {
-        // As many matches as Discord's member picker lists.
-        private const int SearchLimit = 25;
-
         // Every member is onboarded with their Discord account; this only answers a stale or hand-made address.
         private static readonly ServiceResult NoDiscord = ServiceResult.Fail("That member has no Discord account in Requestarr.");
 
@@ -51,6 +51,7 @@ namespace Requestarr.Core.Portal
         private readonly IUserIdentityRepository _identities;
         private readonly IRequestarrUserRepository _members;
         private readonly IBackendRepository _backends;
+        private readonly IRequestRepository _requests;
         private readonly IDiscordGuildGateway _gateway;
 
         public PortalMemberActions(IUserManagementService users,
@@ -58,6 +59,7 @@ namespace Requestarr.Core.Portal
                                    IUserIdentityRepository identities,
                                    IRequestarrUserRepository members,
                                    IBackendRepository backends,
+                                   IRequestRepository requests,
                                    IDiscordGuildGateway gateway)
         {
             _users = users;
@@ -65,29 +67,39 @@ namespace Requestarr.Core.Portal
             _identities = identities;
             _members = members;
             _backends = backends;
+            _requests = requests;
             _gateway = gateway;
         }
 
-        public async Task<IReadOnlyList<PortalServerMember>> SearchServerAsync(string term)
+        public async Task<IReadOnlyList<PortalServerMember>> ServerMembersAsync()
         {
-            if (string.IsNullOrWhiteSpace(term) || !_gateway.IsConnected)
+            if (!_gateway.IsConnected)
             {
                 return new List<PortalServerMember>();
             }
 
-            // Someone known only from an import can still be found and onboarded.
-            var active = _members.All().Where(u => u.Status is UserStatus.Active or UserStatus.Suspended).Select(u => DiscordId(u.Id)).ToHashSet();
-            var found = await _gateway.SearchMembersAsync(term.Trim(), SearchLimit);
+            // Someone known only from an import is listed, with their history, to be onboarded.
+            var people = _members.All().ToDictionary(u => u.Id);
+            var discordOf = _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider && people.ContainsKey(i.UserId)).ToDictionary(i => i.UserId, i => i.ExternalId);
+            var onboarded = people.Values.Where(u => u.Status is UserStatus.Active or UserStatus.Suspended).Select(u => discordOf.GetValueOrDefault(u.Id)).ToHashSet();
+            var imported = _requests.All().Where(r => people.GetValueOrDefault(r.OwnerUserId)?.IsImported == true && discordOf.ContainsKey(r.OwnerUserId))
+                .GroupBy(r => discordOf[r.OwnerUserId]).ToDictionary(g => g.Key, g => g.Count());
+            var roles = await _gateway.GetRoleNamesAsync();
+            var everyone = await _gateway.GetMembersAsync();
 
-            return found.Where(m => !m.IsBot && !active.Contains(m.Id))
-                .Select(m => new PortalServerMember(m.Id.ToString(), m.DisplayName, m.Username))
+            return everyone.Where(m => !m.IsBot && !onboarded.Contains(m.Id.ToString()))
+                .Select(m => new PortalServerMember(
+                    m.Id.ToString(),
+                    m.DisplayName,
+                    m.Username,
+                    m.AvatarUrl,
+                    m.JoinedAt?.UtcDateTime,
+                    m.RoleIds.Select(r => roles.GetValueOrDefault(r)).Where(n => n != null).ToList(),
+                    imported.GetValueOrDefault(m.Id.ToString())))
+                .OrderByDescending(p => p.ImportedRequests > 0)
+                .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
-
-        public Task<ServiceResult> AddAsync(string discordId, Actor admin) =>
-            ulong.TryParse(discordId, out var id)
-                ? _users.AddAsync(id, new Dictionary<ContentType, AccessState>(), admin)
-                : Task.FromResult(ServiceResult.Fail("Pick someone from the server."));
 
         public ServiceResult SetAccess(int memberId, ContentType type, AccessState state, int? instanceId, Actor admin)
         {

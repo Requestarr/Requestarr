@@ -103,6 +103,10 @@ namespace Requestarr.Core.Test.Discord.Harness
                 .Take(limit)
                 .ToList());
 
+        public Task<IReadOnlyList<GuildMember>> GetMembersAsync() => Task.FromResult<IReadOnlyList<GuildMember>>(Members.Values.ToList());
+
+        public Task<IReadOnlyDictionary<ulong, string>> GetRoleNamesAsync() => Task.FromResult<IReadOnlyDictionary<ulong, string>>(new Dictionary<ulong, string>(Roles));
+
         public Task<int> GetRoleCountAsync() => Task.FromResult(Roles.Count + 1); // + @everyone
 
         public Task<bool> ChannelExistsAsync(ulong channelId) => Task.FromResult(Channels.ContainsKey(channelId));
