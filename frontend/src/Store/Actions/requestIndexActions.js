@@ -25,7 +25,7 @@ export const defaultState = {
   secondarySortKey: 'title',
   secondarySortDirection: sortDirections.ASCENDING,
   view: 'posters',
-  pageSize: 25,
+  pageSize: 100,
 
   columns: [
     { name: 'poster', columnLabel: () => translate('PortalPoster'), isSortable: false, isVisible: true },
