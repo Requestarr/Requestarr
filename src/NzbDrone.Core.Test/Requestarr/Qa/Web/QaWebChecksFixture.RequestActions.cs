@@ -25,9 +25,6 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string Bar = "document.querySelector('[class*=\"SelectFooter-footer\"]')";
         private const string BarButtons = "[...document.querySelectorAll('[class*=\"SelectFooter-footer\"] button')]";
 
-        // Servarr's messages in the sidebar, where a select-mode action reports what it did.
-        private const string Message = "document.querySelector('[class*=\"Message-message\"]')";
-
         // The bar's actions for requests, by their name in the portal's answer, in the bar's order.
         private const string BulkLabels = "{ approve: 'Approve', deny: 'Deny', remove: 'Start removal', deleteRecord: 'Delete record' }";
 
@@ -79,7 +76,7 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task OpenRequestsTableAsync(HeadlessBrowser browser)
         {
             await browser.GoAsync($"{Url}/requests");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-\"], table, [class*=\"Portal-empty\"]')");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-\"], table, [class*=\"Alert-info\"]')");
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
             await browser.RunAsync("[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === 'Table' && e.closest('[class*=\"MenuContent\"]')).click()");
             await browser.WaitForAsync("!!document.querySelector('tbody tr')");
@@ -111,10 +108,12 @@ namespace Requestarr.Core.Test.Qa.Web
         private static Task PressToolbarAsync(HeadlessBrowser browser, string label) =>
             browser.RunAsync($"[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].find(b => b.innerText.trim() === {JsonSerializer.Serialize(label)}).click()");
 
-        private static async Task<string> MessageAsync(HeadlessBrowser browser)
+        // The sidebar message that starts with an action's words, such as "Delete record:".
+        private static async Task<string> MessageAsync(HeadlessBrowser browser, string start)
         {
-            await browser.WaitForAsync($"!!{Message}");
-            return await browser.EvalAsync<string>($"{Message}.innerText.trim()");
+            var mine = $"[...document.querySelectorAll('[class*=\"Message-message\"]')].find(m => m.innerText.trim().startsWith({JsonSerializer.Serialize(start)}))";
+            await browser.WaitForAsync($"!!{mine}");
+            return await browser.EvalAsync<string>($"{mine}.innerText.trim()");
         }
 
         private static Task<string> BarTextAsync(HeadlessBrowser browser) => browser.EvalAsync<string>($"{Bar}?.innerText.replace(/\\s+/g, ' ').trim() ?? ''");
@@ -232,7 +231,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
             if (isMarked)
             {
-                var said = await MessageAsync(browser);
+                var said = await MessageAsync(browser, "Delete record:");
                 var left = await PortalAsync<int>(browser, "requests", $"r => r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)).length");
                 check.Saw($"the bar's Delete record: \"{said}\"; {left} of the {Picks} left");
                 left.Should().Be(0, "every record picked was deleted");

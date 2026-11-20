@@ -1241,5 +1241,8 @@
   "PortalNoMembersMatch": "No members match the filter.",
   "PortalDownloading": "Downloading",
   "PortalOtherStatuses": "Not in library, cancelled or removed",
-  "PortalCountPeopleSelected": "{count} people selected"
+  "PortalCountPeopleSelected": "{count} people selected",
+  "Table": "Table",
+  "Posters": "Posters",
+  "Overview": "Overview"
 }

@@ -95,7 +95,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - Posters is a grid of posters; Overview adds each title's details.
     - Table has a small poster on each row.
-    - The same filters and sorting in all three, and the colour legend with totals at the bottom.
+    - The same filters and sorting in all three.
     - The series' page in Sonarr opens in a new tab.
   - Checked automatically: the web app request views check.
 - **Requests and members pages**
@@ -228,7 +228,8 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. Press Select Requests, then Select All.
   - Expect:
     - 25 a page with Sonarr's pager; the page size under Options.
-    - The pager's total counts only movies.
+    - The pager's total and the footer's totals count only movies.
+    - The footer's colours match the status labels.
     - Every movie picked, across the pages.
   - Checked automatically: the web app paging check.
 - **Member page sections**

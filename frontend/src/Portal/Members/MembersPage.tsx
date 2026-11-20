@@ -75,6 +75,7 @@ function MembersBody(props: MembersBodyProps) {
     state.pageSize,
     JSON.stringify([
       state.selectedFilterKey,
+      state.customFilters,
       state.sortKey,
       state.sortDirection,
     ])
@@ -119,11 +120,14 @@ function MembersIndex() {
   const history = useHistory();
   const [, selectDispatch] = useSelect();
   const [isSelectMode, setIsSelectMode] = useState(false);
-  const onActionDone = useCallback(() => {
+  const onBarDone = useCallback(() => {
     selectDispatch({ type: 'unselectAll' });
     onRefresh();
   }, [selectDispatch, onRefresh]);
-  const { run, ask, isBusy, outcome, dialogs } = useMemberActions(onActionDone);
+  const { run, ask, isBusy, outcome, dialogs } = useMemberActions(
+    onRefresh,
+    onBarDone
+  );
   const onAddPress = useCallback(
     () => history.push(getPathWithUrlBase('/members/add')),
     [history]

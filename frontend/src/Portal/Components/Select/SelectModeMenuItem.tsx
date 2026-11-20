@@ -16,8 +16,10 @@ function SelectModeMenuItem(props: SelectModeMenuItemProps) {
 
   const onPressWrapper = useCallback(() => {
     if (isSelectMode) {
+      // Unselect, not reset: reset empties the list of rows too, and Select All would then pick nothing until the
+      // list changes.
       selectDispatch({
-        type: 'reset',
+        type: 'unselectAll',
       });
     }
 

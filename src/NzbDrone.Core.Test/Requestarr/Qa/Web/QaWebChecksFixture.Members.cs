@@ -96,7 +96,7 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task MembersListAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             await browser.GoAsync($"{Url}/members");
-            await browser.WaitForAsync("!!document.querySelector('tbody tr, [class*=\"Portal-empty\"]')");
+            await browser.WaitForAsync("!!document.querySelector('tbody tr, [class*=\"Alert-info\"]')");
             var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
             var offscreen = await browser.EvalAsync<int>("[...document.querySelectorAll('tbody [class*=\"RequestRows-actions\"]')].filter(a => a.getBoundingClientRect().right > innerWidth).length");
             check.Saw($"Members ({theme}): {rows} rows; {offscreen} rows' actions past the window's edge");
@@ -149,7 +149,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.RunAsync($"{BarButtons}.find(b => b.innerText.trim() === '{action}').click()");
                 await browser.WaitForAsync($"{ModalButton}.some(b => b.innerText.trim() === '{action}')");
                 await AnswerAsync(browser, action, true);
-                var said = await OutcomeAsync(browser);
+                var said = await MessageAsync(browser, $"{action}:");
                 var now = await PortalAsync<string>(browser, "members", $"m => m.find(x => x.discordName === {JsonSerializer.Serialize(TestMember)})?.status ?? ''");
                 check.Saw($"the bar's {action}: \"{said}\"; the test member is now {now}");
                 now.Should().Be(status);

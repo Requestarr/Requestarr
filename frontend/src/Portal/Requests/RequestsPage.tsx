@@ -119,6 +119,7 @@ function RequestsBody(props: RequestsBodyProps) {
     state.pageSize,
     JSON.stringify([
       state.selectedFilterKey,
+      state.customFilters,
       state.sortKey,
       state.sortDirection,
     ])
