@@ -141,15 +141,12 @@ function MemberSections({ detail }: { detail: PortalMemberDetail }) {
 
 interface MemberDetailProps {
   detail: PortalMemberDetail;
+  // Counts actions done, so the sections read their pages again after each.
+  round: number;
   onDone: () => void;
 }
 
-// round: counts actions done, so the sections read their pages again after each.
-function MemberDetail({
-  detail,
-  round,
-  onDone,
-}: MemberDetailProps & { round: number }) {
+function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
   return (
     <>
       <FieldSet legend={detail.member.name}>

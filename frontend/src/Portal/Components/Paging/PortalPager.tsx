@@ -49,7 +49,14 @@ const SIZE_CHOICES = SIZES.map((size) => ({ key: size, value: String(size) }));
 // Servarr's pager (first, previous, page X of Y, next, last) and how many a page shows; nothing for a list that fits
 // on one page of the smallest size.
 function PortalPager(props: PagerProps) {
-  const { page, pageSize, totalRecords, isFetching, onPageChange } = props;
+  const {
+    page,
+    pageSize,
+    totalRecords,
+    isFetching,
+    onPageChange,
+    onPageSizeChange,
+  } = props;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
   const onFirst = useCallback(() => onPageChange(1), [onPageChange]);
   const onPrevious = useCallback(
@@ -64,7 +71,6 @@ function PortalPager(props: PagerProps) {
     () => onPageChange(totalPages),
     [totalPages, onPageChange]
   );
-  const { onPageSizeChange } = props;
   const onSize = useCallback(
     ({ value }: { value: string }) => onPageSizeChange(Number(value)),
     [onPageSizeChange]

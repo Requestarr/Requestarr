@@ -218,7 +218,10 @@ function MembersList({ members, onDone }: MembersListProps) {
     values,
     'name'
   );
-  const { pageRows, pager } = usePagedRows(sorted);
+  const { pageRows, pager } = usePagedRows(
+    sorted,
+    `${status} ${sortKey} ${sortDirection}`
+  );
   const { selection, run, isBusy, outcome, dialogs, barActions, onBulk } =
     useMemberBulk(sorted, pageRows, onDone);
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
+using NzbDrone.Core.Localization;
 using Requestarr.Core.Portal;
 
 namespace Requestarr.Http.Portal
@@ -15,12 +16,14 @@ namespace Requestarr.Http.Portal
         private readonly IPortalQueries _portal;
         private readonly IPortalRecords _records;
         private readonly IPortalAuditLog _auditLog;
+        private readonly PortalSorts _sorts;
 
-        public PortalController(IPortalQueries portal, IPortalRecords records, IPortalAuditLog auditLog)
+        public PortalController(IPortalQueries portal, IPortalRecords records, IPortalAuditLog auditLog, ILocalizationService localization)
         {
             _portal = portal;
             _records = records;
             _auditLog = auditLog;
+            _sorts = new PortalSorts(localization.GetLocalizedString);
         }
 
         [HttpGet("/api/v1/portal/requests")]
@@ -54,7 +57,7 @@ namespace Requestarr.Http.Portal
 
             var shown = _portal.Members().Where(m => string.IsNullOrEmpty(status) || string.Equals(m.Status.ToString(), status, StringComparison.OrdinalIgnoreCase));
 
-            return Json(PortalPaging.Of(shown, PortalPagesController.Asked(page, pageSize, sortKey, sortDirection), PortalSorts.Members));
+            return Json(PortalPaging.Of(shown, PortalPagesController.Asked(page, pageSize, sortKey, sortDirection), _sorts.Members));
         }
 
         // sections=false leaves out their requests, follows, removals and history, which the page reads a page at a time.
@@ -117,7 +120,9 @@ namespace Requestarr.Http.Portal
         {
             var found = _auditLog.Find(new PortalAuditFilter(member, title, action, from, to));
 
-            return page == null ? Json(found) : Json(PortalPaging.Of(found, PortalPagesController.Asked(page, pageSize, null, null), PortalSorts.None<PortalAuditEntry>()));
+            return page == null
+                ? Json(found.Take(PortalAuditLog.PageSize).ToList())
+                : Json(PortalPaging.Of(found, PortalPagesController.Asked(page, pageSize, null, null), PortalSorts.None<PortalAuditEntry>()));
         }
 
         [HttpGet("/api/v1/portal/search")]

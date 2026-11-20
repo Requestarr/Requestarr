@@ -4,6 +4,8 @@ using System.Linq;
 using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Portal;
+using Requestarr.Core.Requests;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Portal
 {
@@ -53,6 +55,27 @@ namespace Requestarr.Core.Test.Portal
             up.TakeLast(6).Should().OnlyContain(r => r.Count == null);
             down.TakeLast(6).Should().OnlyContain(r => r.Count == null);
             PortalPaging.Of(Rows, new PortalPageRequest(1, 60, "nothing", true), Sorts).Records.Should().Equal(Rows);
+        }
+
+        [Test]
+        public void status_and_type_sort_by_the_words_shown_not_the_codes_underneath()
+        {
+            var words = new Dictionary<string, string>
+            {
+                ["PortalStatusPending"] = "Waiting for approval",
+                ["PortalStatusApproved"] = "Approved",
+                ["PortalStatusRemoved"] = "Removed",
+                ["PortalProgressDownloading"] = "downloading"
+            };
+            var sorts = new PortalSorts(phrase => words.GetValueOrDefault(phrase, phrase));
+            PortalRequest Request(RequestStatus status, DownloadProgress progress = DownloadProgress.None) =>
+                new(1, "A", null, ContentType.Movie, status, progress, null, new List<PortalPerson>(), null, null, new List<int>(), DateTime.UtcNow, null, null, null, new List<string>(), null);
+
+            sorts.Requests["status"](Request(RequestStatus.Pending)).Should().Be("Waiting for approval");
+            sorts.Requests["status"](Request(RequestStatus.Approved, DownloadProgress.Downloading)).Should().Be("Approved: downloading");
+            sorts.Requests["type"](Request(RequestStatus.Removed)).Should().Be("PortalMovie", "the translation of the type's phrase");
+            PortalPaging.Of(new[] { Request(RequestStatus.Pending), Request(RequestStatus.Removed) }, new PortalPageRequest(1, 25, "status", false), sorts.Requests)
+                .Records.Select(r => r.Status).Should().Equal(RequestStatus.Removed, RequestStatus.Pending);
         }
     }
 }

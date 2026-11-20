@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import FieldSet from 'Components/FieldSet';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -89,13 +89,15 @@ function historyPage(history: PortalOutage[]) {
   );
 }
 
-function OutagesView({
-  data,
-  onDone,
-}: {
+interface OutagesViewProps {
   data: PortalOutages;
+
+  // Goes up after each action, so the past outages are read again (an ongoing one is in them too).
+  round: number;
   onDone: () => void;
-}) {
+}
+
+function OutagesView({ data, round, onDone }: OutagesViewProps) {
   const action = usePortalAction(onDone);
 
   return (
@@ -121,6 +123,7 @@ function OutagesView({
       </FieldSet>
 
       <PagedSection
+        key={round}
         title={translate('PortalOutageHistory')}
         path="outages/history"
       >
@@ -134,10 +137,17 @@ function OutagesView({
 // every outage long enough to alert the admins.
 function OutagesPage() {
   const result = usePortal<PortalOutages>('outages?history=false');
-  const onActionDone = result.reload;
+  const [round, setRound] = useState(0);
+  const { reload } = result;
+  const onActionDone = useCallback(() => {
+    reload();
+    setRound((current) => current + 1);
+  }, [reload]);
   const render = useCallback(
-    (data: PortalOutages) => <OutagesView data={data} onDone={onActionDone} />,
-    [onActionDone]
+    (data: PortalOutages) => (
+      <OutagesView data={data} round={round} onDone={onActionDone} />
+    ),
+    [round, onActionDone]
   );
 
   return (

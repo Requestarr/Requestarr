@@ -157,7 +157,10 @@ function RequestsList(props: RequestsListProps) {
   const { requests, view, sort, onAction, isBusy, onDone } = props;
   const { filters, options, shown, onFilterChange } =
     useRequestFilters(requests);
-  const { pageRows, pager } = usePagedRows(shown);
+  const { pageRows, pager } = usePagedRows(
+    shown,
+    JSON.stringify([filters, sort.sortKey, sort.sortDirection])
+  );
   const selection = useSelection(shown, pageRows);
   const { onClear } = selection;
   const onBulkDone = useCallback(() => {

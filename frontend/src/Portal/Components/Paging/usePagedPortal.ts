@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { sortDirections } from 'Helpers/Props';
 import usePortal from '../../usePortal';
 import { PagerProps, usePageSize } from './PortalPager';
+import useKeyedPage from './useKeyedPage';
 
 interface PagedAnswer<T> {
   page: number;
@@ -11,14 +12,15 @@ interface PagedAnswer<T> {
 }
 
 // A portal list read from the server a page at a time, sorted there (path: its address, with any filters already in
-// it); pressing a column sorts by it, again turns the order round, and goes back to the first page.
+// it); pressing a column sorts by it, again turns the order round, and goes back to the first page, as a new path
+// (other filters) does.
 function usePagedPortal<T>(
   path: string,
   initialSort?: string,
   initialDirection: string = sortDirections.ASCENDING
 ) {
   const { pageSize, onPageSizeChange } = usePageSize();
-  const [page, setPage] = useState(1);
+  const { page, setPage } = useKeyedPage(path);
   const [sortKey, setSortKey] = useState(initialSort);
   const [sortDirection, setSortDirection] = useState<string>(initialDirection);
   const sorting = sortKey
@@ -39,7 +41,7 @@ function usePagedPortal<T>(
       );
       setPage(1);
     },
-    [sortKey, sortDirection]
+    [sortKey, sortDirection, setPage]
   );
 
   // The page the server answered (it keeps the page within the list when filters shrink it).

@@ -1,5 +1,6 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
+using NzbDrone.Core.Localization;
 using Requestarr.Core.Portal;
 
 namespace Requestarr.Http.Portal
@@ -11,11 +12,13 @@ namespace Requestarr.Http.Portal
     {
         private readonly IPortalQueries _portal;
         private readonly IPortalRecords _records;
+        private readonly PortalSorts _sorts;
 
-        public PortalPagesController(IPortalQueries portal, IPortalRecords records)
+        public PortalPagesController(IPortalQueries portal, IPortalRecords records, ILocalizationService localization)
         {
             _portal = portal;
             _records = records;
+            _sorts = new PortalSorts(localization.GetLocalizedString);
         }
 
         // The page the query asks for; page 1 of the default size when it doesn't say.
@@ -25,12 +28,12 @@ namespace Requestarr.Http.Portal
         [HttpGet("/api/v1/portal/members/{id:int}/requests")]
         [Produces("application/json")]
         public IActionResult MemberRequests(int id, [FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] string sortKey, [FromQuery] string sortDirection) =>
-            _portal.Member(id) is { } member ? Json(PortalPaging.Of(member.Requests, Asked(page, pageSize, sortKey, sortDirection), PortalSorts.Requests)) : NotFound();
+            _portal.Member(id) is { } member ? Json(PortalPaging.Of(member.Requests, Asked(page, pageSize, sortKey, sortDirection), _sorts.Requests)) : NotFound();
 
         [HttpGet("/api/v1/portal/members/{id:int}/following")]
         [Produces("application/json")]
         public IActionResult MemberFollowing(int id, [FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] string sortKey, [FromQuery] string sortDirection) =>
-            _portal.Member(id) is { } member ? Json(PortalPaging.Of(member.Following, Asked(page, pageSize, sortKey, sortDirection), PortalSorts.Requests)) : NotFound();
+            _portal.Member(id) is { } member ? Json(PortalPaging.Of(member.Following, Asked(page, pageSize, sortKey, sortDirection), _sorts.Requests)) : NotFound();
 
         [HttpGet("/api/v1/portal/members/{id:int}/removals")]
         [Produces("application/json")]
