@@ -11,7 +11,7 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string Pager = "document.querySelector('[class*=\"PortalPager-pager\"]')";
 
         // The pager's Next: Servarr's pager draws first, previous, the page number, next and last, in that order.
-        private const string NextPage = "[...document.querySelectorAll('[class*=\"TablePager-controls\"] > *')][3]";
+        private const string NextPage = "document.querySelector('[class*=\"TablePager-controlsContainer\"]').firstElementChild.children[3]";
 
         // Long lists page through, in both themes, changing nothing. The Requests list shows a page of its requests with the
         // pager and goes to the next page; the Member filter narrows all of them (the count says how many of all), and the
