@@ -146,13 +146,14 @@ function useRequestFilters(requests: PortalRequest[]) {
 
 interface RequestsListProps extends ShownProps {
   onAction: RequestRows['onAction'];
+  isBusy: boolean;
 
   // After a bulk action: the list as it is now.
   onDone: () => void;
 }
 
 function RequestsList(props: RequestsListProps) {
-  const { requests, view, sort, onAction, onDone } = props;
+  const { requests, view, sort, onAction, isBusy, onDone } = props;
   const { filters, options, shown, onFilterChange } =
     useRequestFilters(requests);
   const selection = useSelection(shown, shown);
@@ -162,7 +163,10 @@ function RequestsList(props: RequestsListProps) {
     onDone();
   }, [onClear, onDone]);
   const bulk = useRequestBulk(selection.picked, onBulkDone);
-  const rows = useMemo(() => ({ onAction, selection }), [onAction, selection]);
+  const rows = useMemo(
+    () => ({ onAction, isBusy, selection }),
+    [onAction, isBusy, selection]
+  );
 
   return (
     <RequestRowsContext.Provider value={rows}>
@@ -206,7 +210,8 @@ function RequestsList(props: RequestsListProps) {
 function RequestsPage() {
   const result = usePortal<PortalRequest[]>('requests');
   const onActionDone = result.reload;
-  const { run, outcome, dialogs } = useRequestActionRunner(onActionDone);
+  const { run, isBusy, outcome, dialogs } =
+    useRequestActionRunner(onActionDone);
   const [view, setView] = useState(savedView);
   const onViewChange = useCallback((chosen: RequestView) => {
     setView(chosen);
@@ -226,12 +231,13 @@ function RequestsPage() {
           requests={sort.sorted}
           view={view}
           sort={sort}
+          isBusy={isBusy}
           onAction={run}
           onDone={onActionDone}
         />
       </>
     ),
-    [sort, view, run, outcome, onActionDone]
+    [sort, view, run, isBusy, outcome, onActionDone]
   );
   const toolbar = (
     <RequestsToolbar view={view} sort={sort} onViewChange={onViewChange} />

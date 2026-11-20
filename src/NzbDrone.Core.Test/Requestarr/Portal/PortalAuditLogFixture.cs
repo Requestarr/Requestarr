@@ -75,6 +75,18 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public void a_deleted_records_entries_keep_its_title_and_are_found_by_it()
+        {
+            Db.Insert(new AuditEntry { TargetType = "request", TargetId = _dune.Id.ToString(), Action = RequestService.DeleteRecordAction, Actor = "web:owner", Detail = "Dune (2021)", Timestamp = Start.AddHours(96) });
+            Db.Delete(_dune);
+
+            var found = Subject.Find(Filter(title: "dune"));
+
+            found.Select(e => e.What).Should().Equal("Record deleted", "Approved", "Requested");
+            found.Select(e => e.About).Should().OnlyContain(about => about == "Dune (2021)");
+        }
+
+        [Test]
         public void the_header_search_finds_requests_by_title_and_members_by_name()
         {
             var found = Subject.Search("du");

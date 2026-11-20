@@ -205,21 +205,21 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
 - **Picking requests**
   - Steps:
     1. In Requests, tick three rows.
-    2. Tick the header's box, then Select all matching.
+    2. Tick the header's box.
     3. Press Clear selection.
   - Expect:
     - No Select button: every row has its box.
     - A bar at the top: 3 selected, with what all three allow.
     - Actions they don't all allow are greyed, saying why on hover.
-    - All matching selected, then the bar gone after Clear.
+    - Every row picked, then the bar gone after Clear.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
   - Steps:
     1. In the header search, type a title in Radarr nobody requested.
-    2. Press Start removal on it, then Start removal.
+    2. Press Start removal on it.
   - Expect:
     - It's listed under In your library, not requested, with its poster.
-    - The removal starts, and shows in the Queue.
+    - Start removal opens its dialog for that title.
   - Checked automatically: the web app request actions check.
 - **Acting from the web app**
   - Steps:

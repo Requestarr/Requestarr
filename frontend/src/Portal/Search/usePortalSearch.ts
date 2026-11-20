@@ -23,16 +23,13 @@ export interface SearchItem {
   library?: PortalLibraryTitle;
 }
 
-// The header search's results as one list: requests, then library titles nobody requested here, then members.
+// The header search's results as one list: requests, members, then library titles nobody requested here, which come
+// last since their answer is slower and must not move what's highlighted above them.
 export function searchItems(
   results?: PortalSearchResults,
   library: PortalLibraryTitle[] = []
 ): SearchItem[] {
-  if (!results) {
-    return [];
-  }
-
-  const requests = results.requests.map((request) => ({
+  const requests = (results?.requests ?? []).map((request) => ({
     group: translate('PortalRequests'),
     label: titleText(request),
     path: `/requests/${request.id}`,
@@ -47,14 +44,14 @@ export function searchItems(
     library: title,
   }));
 
-  const members = results.members.map((member) => ({
+  const members = (results?.members ?? []).map((member) => ({
     group: translate('PortalMembers'),
     label: member.name,
     path: `/members/${member.id}`,
     person: { avatar: member.avatar, handle: member.discordName },
   }));
 
-  return [...requests, ...titles, ...members];
+  return [...requests, ...members, ...titles];
 }
 
 // The portal's answer at /portal/{path}?term= for the words typed, once typing pauses. Each answer remembers what it

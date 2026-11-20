@@ -5,7 +5,7 @@ import { PortalRequest } from '../PortalTypes';
 import { ActionOutcome } from '../usePortalAction';
 import { actionLabel } from './ActionButton';
 
-// What select mode can do to every request picked, by the path after each request's own.
+// What the selection bar can do to every request picked, by the path after each request's own.
 export const BULK_PATHS: Record<string, string> = {
   approve: 'approve',
   deny: 'deny',

@@ -120,7 +120,7 @@ interface BulkActionModalProps {
   onClose: () => void;
 }
 
-// Select mode's confirmation: the action, every title it acts on, and what it needs (a reason; for a removal, Force).
+// The selection bar's confirmation: the action, every title it acts on, and what it needs (a reason; for a removal, Force).
 function BulkActionModal({
   action,
   requests,
