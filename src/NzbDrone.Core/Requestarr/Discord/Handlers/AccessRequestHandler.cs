@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Requestarr.Core.Access;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Users;
 
@@ -16,12 +17,14 @@ namespace Requestarr.Core.Discord.Handlers
         private readonly ICallerResolver _callers;
         private readonly IAccessRequestService _access;
         private readonly IUserManagementService _users;
+        private readonly IBackendService _backends;
 
-        public AccessRequestHandler(ICallerResolver callers, IAccessRequestService access, IUserManagementService users)
+        public AccessRequestHandler(ICallerResolver callers, IAccessRequestService access, IUserManagementService users, IBackendService backends)
         {
             _callers = callers;
             _access = access;
             _users = users;
+            _backends = backends;
         }
 
         public IEnumerable<(InteractionKind Kind, string Route)> Routes => new[]
@@ -71,7 +74,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             await (interaction.Route switch
             {
-                // A private chooser: one menu per type, starting from what they asked for.
+                // A private chooser: one menu per type, starting from what they asked for at each type's default access.
                 AccessRoutes.Approve => responder.RespondAsync(Chooser(request, AskedLevels(request))),
                 AccessRoutes.Level => responder.UpdateMessageAsync(Chooser(request, ChosenLevels(interaction))),
                 AccessRoutes.Confirm => ApproveAsync(responder, request, Decode(args.ElementAtOrDefault(1)), actor, adminName),
@@ -111,8 +114,8 @@ namespace Requestarr.Core.Discord.Handlers
             await responder.Ephemeral(result.Message);
         }
 
-        private static Dictionary<ContentType, AccessState> AskedLevels(AccessRequest request) =>
-            ContentTypes.Offered.ToDictionary(t => t, t => request.ContentTypes.Contains(t) ? AccessState.NeedsApproval : AccessState.Off);
+        private Dictionary<ContentType, AccessState> AskedLevels(AccessRequest request) =>
+            ContentTypes.Offered.ToDictionary(t => t, t => request.ContentTypes.Contains(t) ? _backends.DefaultAccess(t) : AccessState.Off);
 
         // The levels the chooser carries, with the one its menu just changed.
         private static Dictionary<ContentType, AccessState> ChosenLevels(DiscordInteraction interaction)

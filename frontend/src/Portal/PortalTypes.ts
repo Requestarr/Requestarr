@@ -169,6 +169,12 @@ export interface PortalInstance {
   name: string;
   contentType: ContentType;
   enabled: boolean;
+
+  // The instance its type uses for a member without one of their own.
+  isDefault: boolean;
+
+  // What a new member gets for the type when this is the instance they use.
+  defaultAccess: AccessState;
 }
 
 export interface PortalAccessRequest {

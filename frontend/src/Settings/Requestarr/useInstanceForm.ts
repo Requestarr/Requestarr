@@ -14,6 +14,7 @@ const NEW_INSTANCE = {
   seriesType: 'standard',
   // Requests use the first instance of a type anyway; ticking Default on a second one moves them there.
   isDefault: false,
+  defaultAccess: 'needsApproval' as const,
   enabled: true,
   pollingOnly: false,
   animeEnabled: true,

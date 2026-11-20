@@ -1015,7 +1015,7 @@ namespace Requestarr.Core.Discord
         public const string InvalidLimit = "The limit must be a number from 0 to 1000, and the days from 1 to 365.";
 
         public static string MemberNotAdded(string name, ulong discordId) =>
-            $"**{name}** (<@{discordId}>) isn't a Requestarr user. **{AddMemberLabel}** creates their role, private channel and panel; Movies and TV start as needs approval, Music off.";
+            $"**{name}** (<@{discordId}>) isn't a Requestarr user. **{AddMemberLabel}** creates their role, private channel and panel; each type starts at its instance's default access for new members, set in the web app's Connections.";
 
         public static string ConfirmRemove(string name) =>
             $"Remove **{name}**? Their channel is archived and their role deleted; their request history is kept.";

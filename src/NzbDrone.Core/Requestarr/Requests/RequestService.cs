@@ -1576,7 +1576,7 @@ namespace Requestarr.Core.Requests
         private UserMediaAccess AccessFor(RequestarrUser user, ContentType type)
         {
             return _access.GetForUser(user.Id).FirstOrDefault(a => a.ContentType == type) ??
-                   new UserMediaAccess { UserId = user.Id, ContentType = type, State = UserManagementService.DefaultAccess[type] };
+                   new UserMediaAccess { UserId = user.Id, ContentType = type, State = _backends.DefaultAccess(type) };
         }
     }
 

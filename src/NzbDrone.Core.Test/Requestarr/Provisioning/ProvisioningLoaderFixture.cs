@@ -97,6 +97,7 @@ mediaServers:
         [TestCase("backends:\n  sonarr:\n    - name: A\n      url: sonarr:8989\n      apiKey: k", "*url must be an absolute http or https URL*")]
         [TestCase("backends:\n  radarr:\n    - name: A\n      url: http://a\n      apiKey: k\n      seriesType: anime", "*seriesType only applies to sonarr*")]
         [TestCase("backends:\n  sonarr:\n    - name: Same\n      url: http://a\n      apiKey: k\n  radarr:\n    - name: same\n      url: http://b\n      apiKey: k", "*'Same' is used more than once*")]
+        [TestCase("backends:\n  radarr:\n    - name: A\n      url: http://a\n      apiKey: k\n      defaultAccess: always", "*defaultAccess must be one of: off, approval, auto*")]
         [TestCase("version: 2", "*version 2 is not supported*")]
         [TestCase("unknownSection: true", "*not valid*")]
         [TestCase("auditLog:\n  keepFor: 3 months", "*auditLog.keepFor*90 days, 6 months, 1 year, 2 years, forever*")]

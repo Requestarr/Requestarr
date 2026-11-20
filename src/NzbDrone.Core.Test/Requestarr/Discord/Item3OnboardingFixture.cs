@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Test.Common;
+using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Interactions;
@@ -60,6 +61,41 @@ namespace Requestarr.Core.Test.Discord
             access[ContentType.Music].Should().Be(AccessState.Off);
             access[ContentType.Comic].Should().Be(AccessState.Off);
             access[ContentType.Book].Should().Be(AccessState.Off);
+        }
+
+        [Test]
+        public async Task add_should_give_each_type_the_default_access_of_its_default_instance_and_off_without_one()
+        {
+            var backends = Mocker.Resolve<IBackendRepository>();
+            var radarr = backends.FindByName("Radarr");
+            radarr.Settings.DefaultAccess = AccessState.AutoApprove;
+            backends.Update(radarr);
+            var sonarr = backends.FindByName("Sonarr");
+            sonarr.Enable = false;
+            backends.Update(sonarr);
+
+            await AddUser(Alice);
+
+            var access = Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(UserFor(Alice).Id).ToDictionary(a => a.ContentType, a => a.State);
+            access[ContentType.Movie].Should().Be(AccessState.AutoApprove, "Radarr is the default instance for movies");
+            access[ContentType.Tv].Should().Be(AccessState.Off, "no instance for TV is turned on");
+        }
+
+        [Test]
+        public async Task adding_someone_back_gives_the_default_access_of_the_instance_they_had()
+        {
+            var backends = Mocker.Resolve<IBackendRepository>();
+            var radarr4K = backends.FindByName("Radarr 4K");
+            radarr4K.Settings.DefaultAccess = AccessState.AutoApprove;
+            backends.Update(radarr4K);
+            await AddUser(Alice);
+            Users.SetAccess(Alice, ContentType.Movie, AccessState.Off, Requestarr.Core.Audit.Actor.Web("owner"), "Radarr 4K");
+            await Users.RemoveAsync(Alice, Requestarr.Core.Audit.Actor.Web("owner"));
+
+            await AddUser(Alice);
+
+            Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(UserFor(Alice).Id).Single(a => a.ContentType == ContentType.Movie).State
+                .Should().Be(AccessState.AutoApprove, "their requests still go to Radarr 4K");
         }
 
         [Test]

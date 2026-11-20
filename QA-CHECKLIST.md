@@ -132,6 +132,14 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - A card opens with Test, Cancel and Save; provisioned settings are read-only.
     - Requests keeps the audit log 1 year; Changes lists who changed what.
   - Checked automatically: the web app settings pages check.
+- **Default access for new members**
+  - Steps:
+    1. In the web app, open Settings, then Connections.
+    2. Press a Sonarr card.
+  - Expect:
+    - Default access for new members, set to Needs approval.
+    - Its help says what someone you onboard gets from this media manager.
+  - Checked automatically: the web app settings pages check.
 - **Followers**
   - Steps:
     1. In the web app, open Requests, in each view.

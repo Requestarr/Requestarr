@@ -1,3 +1,5 @@
+import { AccessState } from 'Portal/PortalTypes';
+
 export type SettingValue = string | number | boolean;
 
 // Values by setting name; a secret's value says only whether one is saved.
@@ -44,6 +46,9 @@ export interface InstanceSettings {
   rootFolder?: string;
   seriesType?: string;
   isDefault: boolean;
+
+  // What a new member gets for the type when this is the instance they use.
+  defaultAccess: AccessState;
   enabled: boolean;
   pollingOnly: boolean;
   animeEnabled: boolean;

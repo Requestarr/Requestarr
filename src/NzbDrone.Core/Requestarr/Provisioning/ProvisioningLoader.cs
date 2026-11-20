@@ -7,6 +7,7 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
+using Requestarr.Core.Discord.Handlers;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -298,6 +299,11 @@ namespace Requestarr.Core.Provisioning
             foreach (var type in all.Where(i => i.Instance.Default).GroupBy(i => i.Type).Where(g => g.Count() > 1))
             {
                 yield return $"backends.{type.Key}: only one instance can be the default";
+            }
+
+            foreach (var (type, instance) in all.Where(i => i.Instance.DefaultAccess.IsNotNullOrWhiteSpace() && HandlerSupport.ParseLevel(i.Instance.DefaultAccess.Trim()) == null))
+            {
+                yield return $"backends.{type} '{instance.Name}': defaultAccess must be one of: off, approval, auto";
             }
 
             foreach (var duplicate in all.Where(i => i.Instance.Name.IsNotNullOrWhiteSpace())

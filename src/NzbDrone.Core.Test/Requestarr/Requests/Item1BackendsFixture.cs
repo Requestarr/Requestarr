@@ -39,6 +39,20 @@ namespace Requestarr.Core.Test.Requests
         }
 
         [Test]
+        public void provisioning_sets_the_default_access_for_new_members_and_approval_when_left_out()
+        {
+            Backends.SyncFromProvisioning(new BackendsProvisioning
+            {
+                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr", Url = "http://r", ApiKey = "k", DefaultAccess = "auto" } },
+                Sonarr = new List<BackendInstanceProvisioning> { new() { Name = "Sonarr", Url = "http://s", ApiKey = "k" } }
+            });
+
+            Backends.DefaultAccess(ContentType.Movie).Should().Be(AccessState.AutoApprove);
+            Backends.DefaultAccess(ContentType.Tv).Should().Be(AccessState.NeedsApproval);
+            Backends.DefaultAccess(ContentType.Music).Should().Be(AccessState.Off, "no instance for music");
+        }
+
+        [Test]
         public void default_instance_is_the_marked_one_else_the_first()
         {
             Backends.Default(ContentType.Movie).Name.Should().Be("Radarr");

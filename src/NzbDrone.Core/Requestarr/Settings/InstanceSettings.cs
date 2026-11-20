@@ -5,16 +5,20 @@ using System.Threading.Tasks;
 using Requestarr.Core.Anime;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Discord;
 using Requestarr.Core.Provisioning;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Settings
 {
     // A Sonarr or Radarr as the settings pages edit it. ApiKey left empty on a change keeps the saved one; the anime
     // terms are comma-separated, empty for Requestarr's defaults. BrowserUrl: optional, where an admin's browser reaches
-    // it, for links to its pages.
+    // it, for links to its pages. DefaultAccess: what a new member gets for its type when this is the instance they use
+    // (Needs approval when left out, as before the setting existed).
     public record InstanceInput(string Implementation, string Name, string Url, string ApiKey, string QualityProfile, string RootFolder, string SeriesType,
                                 bool IsDefault, bool Enabled, bool PollingOnly, bool AnimeEnabled, string AnimePriority,
-                                string DubRequired, string DubIgnored, string SubRequired, string SubIgnored, string BrowserUrl = null);
+                                string DubRequired, string DubIgnored, string SubRequired, string SubIgnored, string BrowserUrl = null,
+                                AccessState DefaultAccess = AccessState.NeedsApproval);
 
     // The API key is never shown back, only whether one is saved. Problem: why the last check failed, or null.
     public record InstanceView(int Id, InstanceInput Settings, bool ApiKeySet, bool Connected, string Problem);
@@ -143,6 +147,11 @@ namespace Requestarr.Core.Settings
                 return "The address in your browser starts with http:// or https://, for example http://nas.local:8989.";
             }
 
+            if (!Enum.IsDefined(input.DefaultAccess))
+            {
+                return "Choose Off, Needs approval or Approved automatically for new members.";
+            }
+
             return existing == null && string.IsNullOrWhiteSpace(input.ApiKey) ? $"Paste the API key from {input.Implementation}'s Settings, General." : null;
         }
 
@@ -201,6 +210,7 @@ namespace Requestarr.Core.Settings
                 ("default", OnOff(settings.IsDefault)),
                 ("turned on", OnOff(instance.Enable)),
                 ("polling only", OnOff(settings.PollingOnly)),
+                ("default access for new members", DiscordText.Label(settings.DefaultAccess)),
                 ("anime sub or dub", OnOff(settings.AnimeEnabled)),
                 ("anime priority", settings.AnimePriority),
                 ("dub terms", $"{Terms(settings.DubRequired)} / {Terms(settings.DubIgnored)}"),
@@ -222,6 +232,7 @@ namespace Requestarr.Core.Settings
                 SeriesType = sonarr ? Blank(input.SeriesType) : null,
                 IsDefault = input.IsDefault,
                 PollingOnly = input.PollingOnly,
+                DefaultAccess = input.DefaultAccess,
                 AnimeEnabled = !sonarr || input.AnimeEnabled,
                 AnimePriority = AnimeDefaults.PriorityKey(AnimeDefaults.ParsePriority(input.AnimePriority)),
                 DubRequired = TermList(input.DubRequired),
@@ -252,7 +263,8 @@ namespace Requestarr.Core.Settings
                 Terms(settings.DubIgnored),
                 Terms(settings.SubRequired),
                 Terms(settings.SubIgnored),
-                settings.BrowserUrl);
+                settings.BrowserUrl,
+                settings.DefaultAccess);
 
             return new InstanceView(instance.Id, input, !string.IsNullOrEmpty(settings.ApiKey), check?.Ok == true, check?.Error);
         }

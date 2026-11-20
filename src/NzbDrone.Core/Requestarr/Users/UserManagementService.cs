@@ -49,15 +49,6 @@ namespace Requestarr.Core.Users
     {
         public const string ImportedAction = "user.imported";
 
-        public static readonly IReadOnlyDictionary<ContentType, AccessState> DefaultAccess = new Dictionary<ContentType, AccessState>
-        {
-            { ContentType.Movie, AccessState.NeedsApproval },
-            { ContentType.Tv, AccessState.NeedsApproval },
-            { ContentType.Music, AccessState.Off },
-            { ContentType.Comic, AccessState.Off },
-            { ContentType.Book, AccessState.Off }
-        };
-
         private readonly IRequestarrUserRepository _users;
         private readonly IUserIdentityRepository _identities;
         private readonly IUserMediaAccessRepository _access;
@@ -710,7 +701,7 @@ namespace Requestarr.Core.Users
 
                 row.State = ContentTypes.IsOffered(type) && requested != null && requested.TryGetValue(type, out var state)
                     ? state
-                    : DefaultAccess[type];
+                    : _backends.ForUser(row, type)?.Settings.DefaultAccess ?? AccessState.Off;
 
                 _access.Upsert(row);
                 rows.Add(row);
@@ -722,7 +713,7 @@ namespace Requestarr.Core.Users
         private UserMediaAccess GetOrCreateAccess(int userId, ContentType type)
         {
             return _access.GetForUser(userId).FirstOrDefault(a => a.ContentType == type) ??
-                   new UserMediaAccess { UserId = userId, ContentType = type, State = DefaultAccess[type] };
+                   new UserMediaAccess { UserId = userId, ContentType = type, State = _backends.DefaultAccess(type) };
         }
 
         // A member's existing channel, back in use: its live name, in a Requestarr Users group, open to them again.

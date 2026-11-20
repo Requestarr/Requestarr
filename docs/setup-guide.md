@@ -218,6 +218,7 @@ backends:
 | `default` | no | One per type. Without it, the first listed instance is the default. |
 | `enabled` | no | `false` keeps the instance but stops using it. |
 | `pollingOnly` | no | `true`: no webhook on this instance; downloads are found by the backup poll only (section 4.8). |
+| `defaultAccess` | no | What a new member gets for the type when this is their instance: `off`, `approval` or `auto` (section 5.5). Defaults to `approval`. On a server set up in the web app, it's **Default access for new members** on the instance. |
 
 On every start, Requestarr checks each instance:
 
@@ -552,10 +553,7 @@ Requestarr then:
 
    The panel updates itself when you change their access or link their account. Existing channels get the new panel in place on the next start.
 
-By default, a new user gets:
-
-- **Movies and TV:** needs approval.
-- **Music:** off.
+By default, a new user gets, for each type, the **Default access for new members** of the media manager their requests go to: its default instance's (4.4), or the one you choose for them. Each Sonarr and Radarr has it in its edit window under **Settings → Connections**: off, needs approval or auto-approve (Approved automatically). Instances you had before the setting existed give **needs approval**, as before, and so does an instance in a provisioning file without `defaultAccess` (4.2). A type with no instance turned on is off, and so is music until Lidarr arrives.
 
 The card then shows their access, ready to change (5.6).
 
@@ -674,7 +672,7 @@ Every action in this section, whether an admin or Requestarr did it, is recorded
 **Request access** opens a short private form: what they'd like (only the types with a Sonarr or Radarr that has connected) and, after **Continue**, an optional note. Sending it:
 
 - posts a card in `#requestarr-admin` with who asked, what they'd like and their note, and adds it to `/admin requests` (the panel's count goes up);
-- **Approve…** on the card lets you choose their real access, one menu per type (starting from what they asked for), then **Add with this access** adds them exactly as **Add to Requestarr** does (5.5): role, private channel, panel. Nobody is added just by asking;
+- **Approve…** on the card lets you choose their real access, one menu per type (what they asked for starts at its media manager's default access for new members, the rest off), then **Add with this access** adds them exactly as **Add to Requestarr** does (5.5): role, private channel, panel. Nobody is added just by asking;
 - **Deny** asks for an optional reason.
 
 They get the outcome as a private message from the bot: on approval, where their new channel is; on a denial, your reason and when they can ask again. (If their Discord settings refuse private messages from the server, they see it the next time they press the button.)
