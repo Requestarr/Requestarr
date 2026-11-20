@@ -14,7 +14,7 @@ run: the checkout must be at the commit (the tests are built from it). It builds
      checks (headless Edge or Chrome, light and dark theme), stops it and runs every live check on the dev server (the
      test Sonarr and Radarr emptied before each, so no check finds another's titles), resets the dev stack and runs the
      read-back of the running stack. Results, read-backs and screenshots go in DIR (default _qa-checks/<short commit>).
-record: after the automation has looked at every screenshot against its item's "You should see" (one that doesn't match
+record: after the automation has looked at every screenshot against its item's Expect (one that doesn't match
      is --fail), records the results on the dev stack's checklist (the automation's server; it must run that commit) and
      marks the run reviewed. QA never takes them.
 verify: whether the run for SHA is ready for the promotion (release.sh promote-qa): a full run that passed the suite,
@@ -365,7 +365,7 @@ def report(results, out, total):
         print("%s  %-32s the %s check (%s)" % ("PASS" if r["passed"] else "FAIL", r["name"], r["check"], shots))
     passed = sum(1 for r in results if r["passed"])
     print("\n%d of %d of the automated items passed in %.0f minutes. Results: %s" % (passed, len(results), total / 60, os.path.join(out, "results.json")))
-    print("Look at every screenshot against its item's \"You should see\", then record them on dev (QA never takes them):")
+    print("Look at every screenshot against its item's Expect, then record them on dev (QA never takes them):")
     print('  python3 docker/qa_checks.py record [--fail "Item name=what is wrong"]')
 
 

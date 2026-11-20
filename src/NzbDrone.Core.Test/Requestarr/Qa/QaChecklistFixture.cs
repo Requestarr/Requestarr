@@ -137,7 +137,7 @@ namespace Requestarr.Core.Test.Qa
             var item = QaChecklist.Parse(Text)[2].Items.Single() with { Checker = new QaChecker(false, null, "needs human eyes", "how it looks") };
 
             QaText.Item(item, null, null).Should().Be(
-                "**Sign-in logo** · 0.4.13\n**Steps**\n1. Sign out.\n**Expect**\n- The logo.\n- The light arrow.\n-# 👤 For you to check, needs human eyes: how it looks\n⏳ Not tested yet");
+                "**Sign-in logo** · 0.4.13\n**Steps**\n1. Sign out.\n\n**Expect**\n- The logo.\n- The light arrow.\n\n-# 👤 For you to check, needs human eyes: how it looks\n⏳ Not tested yet");
         }
 
         [Test]

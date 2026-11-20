@@ -323,6 +323,6 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - Only the items that need you, each saying why.
     - Steps as a numbered list and Expect as bullets, on their own lines.
-    - The summary counting only those, with your earlier passes kept.
+    - The summary counting only those items.
     - Nothing from the automated checks.
   - Checked by the owner, needs human eyes: how the checklist cards read in the Discord app.

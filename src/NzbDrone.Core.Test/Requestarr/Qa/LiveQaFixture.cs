@@ -203,7 +203,7 @@ namespace Requestarr.Core.Test.Qa
                     Log($"[checklist]   | {line}");
                 }
 
-                lines.Should().Contain("\n**Steps**\n1. ").And.Contain("\n**Expect**\n- ");
+                lines.Should().Contain("\n**Steps**\n1. ").And.Contain("\n\n**Expect**\n- ").And.Contain("\n\n-# ");
                 Save(stateDir, "1-posted", checklist, Mocker.Resolve<IBugReportRepository>());
 
                 FakeInteraction AsOwner(FakeInteraction i) => i.By(guild.OwnerId, "owner", "the owner").InGuild(guild.Id).InChannel(checklistChannel);
@@ -355,6 +355,13 @@ namespace Requestarr.Core.Test.Qa
             }
             finally
             {
+                // Its checklist channel goes first, with its cards (version 0.0.0, the made-up item, the failing ones) and its
+                // group, so nothing below that fails can leave it on the dev server.
+                await guildSetup.RemoveQaChecklistAsync();
+                var checklistLeft = await gateway.FindTextChannelAsync(QaText.ChecklistChannelName);
+                var groupLeft = await gateway.FindCategoryAsync(ChannelLayout.QaCategoryName);
+                Log($"[cleanup] the check's own checklist channel and group removed: {checklistLeft == null && groupLeft == null}");
+
                 if (membersRole != null)
                 {
                     await gateway.RemoveRoleFromMemberAsync(member.Id, membersRole.Value);
@@ -376,13 +383,8 @@ namespace Requestarr.Core.Test.Qa
                     }
                 }
 
-                // Its checklist channel goes with its cards (version 0.0.0, the made-up item, the failing ones), and its group.
                 var (removed, left) = await leftovers.RemoveAsync();
                 Log($"[cleanup] removed the {removed} message(s) the check posted in the bug reports channel; left behind: {left}");
-                await guildSetup.RemoveQaChecklistAsync();
-                var checklistLeft = await gateway.FindTextChannelAsync(QaText.ChecklistChannelName);
-                var groupLeft = await gateway.FindCategoryAsync(ChannelLayout.QaCategoryName);
-                Log($"[cleanup] the check's own checklist channel and group removed: {checklistLeft == null && groupLeft == null}");
                 await host.StopAsync();
                 if (Directory.Exists(appData))
                 {

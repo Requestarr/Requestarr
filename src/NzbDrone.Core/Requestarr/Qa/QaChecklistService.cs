@@ -135,8 +135,9 @@ namespace Requestarr.Core.Qa
 
         public async Task EnsureAsync()
         {
-            // Only QA's guild setup makes a checklist channel (or a live check on dev, which removes it again).
-            if (!ulong.TryParse(_guildSetup.GetConfig()?.QaChecklistChannelId, out var channel))
+            // Only QA's guild setup makes a checklist channel (and a live check on dev, which removes it again); beta and
+            // production never post one, even with a channel ID copied from QA.
+            if (_environment.VersionPosts == VersionPostMode.Standing || !ulong.TryParse(_guildSetup.GetConfig()?.QaChecklistChannelId, out var channel))
             {
                 return;
             }
