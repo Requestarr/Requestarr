@@ -67,7 +67,8 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"{Pager}?.innerText.includes('Total records: {movies}')");
             check.Saw($"the Movies filter ({theme}): {await browser.EvalAsync<string>($"{Pager}.innerText.replace(/\\s+/g, ' ')")}; {await RowCountAsync(browser)} rows drawn");
             const string Footer = "document.querySelector('[class*=\"IndexFooter-footer\"]')";
-            var legend = await browser.EvalAsync<int>($"{Footer}.querySelectorAll('[class*=\"IndexFooter-legendItem\"]').length");
+            // The legend is the footer's first block, one entry per colour.
+            var legend = await browser.EvalAsync<int>($"{Footer}.firstElementChild.children.length");
             var totals = await browser.EvalAsync<string>($"{Footer}.querySelector('[class*=\"IndexFooter-statistics\"]').innerText.replace(/\\s+/g, ' ')");
             check.Saw($"the footer ({theme}): {legend} colours in the legend; totals: {totals}");
             legend.Should().Be(6, "one colour for each kind of status label");
