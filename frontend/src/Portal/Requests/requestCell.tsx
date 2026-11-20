@@ -62,7 +62,7 @@ type DateColumn = (typeof DATES)[number];
 function requestCell(
   name: string,
   request: PortalRequest,
-  cell: ElementType,
+  Cell: ElementType,
   className?: string
 ): ReactNode {
   if ((DATES as readonly string[]).includes(name)) {
@@ -71,12 +71,10 @@ function requestCell(
         key={name}
         className={className}
         date={request[name as DateColumn] ?? ''}
-        component={cell}
+        component={Cell}
       />
     );
   }
-
-  const Cell = cell;
 
   return (
     <Cell key={name} className={className}>

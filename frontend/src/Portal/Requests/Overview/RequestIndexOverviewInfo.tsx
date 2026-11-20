@@ -16,7 +16,7 @@ import styles from './RequestIndexOverviewInfo.css';
 
 const infoRowHeight = parseInt(dimensions.requestIndexOverviewInfoRowHeight);
 
-// The space each row takes: its height and its margins.
+// Each row's margins above and below (RequestIndexOverviewInfo.css .infoRow), added to its height.
 const ROW_MARGINS = 4;
 
 interface InfoRow {
@@ -37,12 +37,12 @@ function requestedRow(request: PortalRequest, ui: UiSettings): InfoRow {
       ui.timeFormat
     )}`,
     iconName: icons.ADD,
-    label: `${relativeDate(
+    label: relativeDate(
       request.requested,
       ui.shortDateFormat,
       ui.showRelativeDates,
       { timeFormat: ui.timeFormat, timeForToday: true }
-    )}`,
+    ),
   };
 }
 

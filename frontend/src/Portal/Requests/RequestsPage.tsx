@@ -124,6 +124,11 @@ function useJumpBar(state: RequestsState) {
   };
 }
 
+// Whether there are requests to show: loaded without an error, and at least one left after the filter.
+function hasRequestsToShow(state: RequestsState) {
+  return !state.error && state.isPopulated && !!state.items.length;
+}
+
 interface RequestsBodyProps {
   state: RequestsState;
   runnerOutcome: ReturnType<typeof useRequestActionRunner>['outcome'];
@@ -136,7 +141,6 @@ interface RequestsBodyProps {
 // What the page body shows: loading, an error, the view chosen with its footer, or that there's nothing to show.
 function RequestsBody(props: RequestsBodyProps) {
   const { state } = props;
-  const isLoaded = !state.error && state.isPopulated && !!state.items.length;
 
   return (
     <>
@@ -148,7 +152,7 @@ function RequestsBody(props: RequestsBodyProps) {
 
       <ActionOutcomeAlert outcome={props.runnerOutcome} />
 
-      {isLoaded && (
+      {hasRequestsToShow(state) && (
         <div className={styles.contentBodyContainer}>
           <RequestIndexView
             view={state.view}
@@ -203,7 +207,6 @@ function RequestsIndex({ initialScrollTop }: RequestsIndexProps) {
     () => setIsOptionsModalOpen(false),
     []
   );
-  const isLoaded = !state.error && state.isPopulated && !!state.items.length;
 
   useEffect(() => {
     onRefreshPress();
@@ -242,7 +245,7 @@ function RequestsIndex({ initialScrollTop }: RequestsIndexProps) {
           />
         </PageContentBody>
 
-        {isLoaded && !!jumpBar.items.order.length && (
+        {hasRequestsToShow(state) && !!jumpBar.items.order.length && (
           <PageJumpBar
             items={jumpBar.items}
             onItemPress={jumpBar.onJumpBarItemPress}

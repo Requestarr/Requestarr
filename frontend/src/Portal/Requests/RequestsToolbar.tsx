@@ -43,8 +43,8 @@ interface RequestsToolbarProps {
 
 // The Requests page's toolbar, as Sonarr main's SeriesIndex and Prowlarr's IndexerIndex lay theirs out: Refresh and
 // select mode on the left; Options (Table Options for the table, the view's own for posters and overview), View, Sort
-// and Filter on the right. In select mode, what can be done to the
-// picks comes first (the owner's choice over Servarr's bar along the bottom).
+// and Filter on the right. In select mode, what can be done to the picks comes first (the owner's choice over
+// Servarr's bar along the bottom).
 function RequestsToolbar(props: RequestsToolbarProps) {
   const { view, isSelectMode, isEmpty } = props;
 

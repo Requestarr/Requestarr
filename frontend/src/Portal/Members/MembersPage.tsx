@@ -194,9 +194,9 @@ function useOnboard(picked: PortalMember[], onDone: () => void) {
 }
 
 // Every member Requestarr knows: their access to each type with its limit, and how many requests they have, filtered,
-// sorted in one scroll that draws only what's on screen, as Prowlarr's Indexer/Index/IndexerIndex lists the
-// indexers. Select mode picks one or several; what can be done to them is in the toolbar, left of Onboard. Onboard sets up the picks it can onboard in one window; with none picked it lists the
-// server's people to onboard.
+// sorted in one scroll that draws only what's on screen, as Prowlarr's Indexer/Index/IndexerIndex lists the indexers.
+// Select mode picks one or several; what can be done to them is in the toolbar, left of Onboard. Onboard sets up the
+// picks it can onboard in one window; with none picked it lists the server's people to onboard.
 function MembersIndex({ initialScrollTop }: { initialScrollTop?: number }) {
   const state = useMembers();
   const scrollerRef = useRef<HTMLDivElement>(null);
