@@ -7,6 +7,7 @@ import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import { PortalEvent } from '../PortalTypes';
+import { visibleCells } from './PortalList';
 import styles from '../Portal.css';
 
 const columns: Column[] = [
@@ -23,14 +24,49 @@ interface TimelineTableProps {
   trimmedAfter?: string | null;
 }
 
-// What happened, oldest first, from Requestarr's audit log.
-function TimelineTable({ events, trimmedAfter }: TimelineTableProps) {
-  const trimmed = trimmedAfter ? (
+// That the audit log no longer keeps this list's oldest events, and for how long it keeps them now.
+export function TrimmedNote({
+  trimmedAfter,
+}: {
+  trimmedAfter?: string | null;
+}) {
+  if (!trimmedAfter) {
+    return null;
+  }
+
+  return (
     <div className={styles.empty}>
       {trimmedAfter === 'forever'
         ? translate('PortalHistoryTrimmedEarlier')
         : translate('PortalHistoryTrimmed', { period: trimmedAfter })}
     </div>
+  );
+}
+
+// One event in a list read a page at a time, in the columns Table Options shows.
+export function EventRow({
+  event,
+  columns,
+}: {
+  event: PortalEvent;
+  columns: Column[];
+}) {
+  return (
+    <TableRow>
+      {visibleCells(columns, {
+        at: <RelativeDateCell date={event.at} />,
+        what: <TableRowCell>{event.what}</TableRowCell>,
+        who: <TableRowCell>{event.who}</TableRowCell>,
+        detail: <TableRowCell>{event.detail ?? ''}</TableRowCell>,
+      })}
+    </TableRow>
+  );
+}
+
+// What happened, oldest first, from Requestarr's audit log.
+function TimelineTable({ events, trimmedAfter }: TimelineTableProps) {
+  const trimmed = trimmedAfter ? (
+    <TrimmedNote trimmedAfter={trimmedAfter} />
   ) : null;
 
   if (!events.length) {

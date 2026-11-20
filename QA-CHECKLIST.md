@@ -252,9 +252,10 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
 - **Member page sections**
   - Steps:
     1. Open the page of a member with many requests.
+    2. Make the window narrow, then phone-sized.
   - Expect:
     - Each heading says how many, such as Their requests (101).
-    - Each section has its own pager.
+    - Each section has Sonarr's pager across its full width, never squeezed.
     - No Requester column in their own requests.
   - Checked automatically: the web app paging check.
 - **Onboard list**

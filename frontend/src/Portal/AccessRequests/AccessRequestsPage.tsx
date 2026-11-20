@@ -1,13 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import Table from 'Components/Table/Table';
-import TableBody from 'Components/Table/TableBody';
+import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
-import columnsOf from '../Components/columnsOf';
-import PagedSection from '../Components/Paging/PagedSection';
+import PortalList, { visibleCells } from '../Components/PortalList';
 import PortalPage from '../Components/PortalPage';
 import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
 import { contentTypeText } from '../portalText';
@@ -23,28 +21,16 @@ import usePortalAction, { PortalAction } from '../usePortalAction';
 import ApproveAccessModal from './ApproveAccessModal';
 import styles from '../Portal.css';
 
-const waitingColumns = columnsOf([
-  'PortalWho',
-  'PortalAskedFor',
-  'PortalNote',
-  'PortalRequested',
-  'PortalActions',
-]);
-
-const pausedColumns = columnsOf([
-  'PortalWho',
-  'PortalPausedSince',
-  'PortalActions',
-]);
-
 interface WaitingRowProps {
   asked: PortalAccessRequest;
+  columns: Column[];
   action: PortalAction;
   onApprove: (asked: PortalAccessRequest) => void;
   onDeny: (asked: PortalAccessRequest) => void;
 }
 
-function WaitingRow({ asked, action, onApprove, onDeny }: WaitingRowProps) {
+function WaitingRow(props: WaitingRowProps) {
+  const { asked, columns, action, onApprove, onDeny } = props;
   const onPress = useCallback(
     (name: string) => (name === 'approve' ? onApprove(asked) : onDeny(asked)),
     [asked, onApprove, onDeny]
@@ -52,29 +38,41 @@ function WaitingRow({ asked, action, onApprove, onDeny }: WaitingRowProps) {
 
   return (
     <TableRow>
-      <TableRowCell>{asked.name}</TableRowCell>
-      <TableRowCell>
-        {asked.contentTypes.map(contentTypeText).join(', ')}
-      </TableRowCell>
-      <TableRowCell>{asked.note ?? ''}</TableRowCell>
-      <RelativeDateCell date={asked.requested} />
-      <TableRowCell className={styles.actions}>
-        <ActionButton
-          action="approve"
-          isBusy={action.isBusy}
-          onPress={onPress}
-        />
-        <ActionButton action="deny" isBusy={action.isBusy} onPress={onPress} />
-      </TableRowCell>
+      {visibleCells(columns, {
+        who: <TableRowCell>{asked.name}</TableRowCell>,
+        askedFor: (
+          <TableRowCell>
+            {asked.contentTypes.map(contentTypeText).join(', ')}
+          </TableRowCell>
+        ),
+        note: <TableRowCell>{asked.note ?? ''}</TableRowCell>,
+        requested: <RelativeDateCell date={asked.requested} />,
+        actions: (
+          <TableRowCell className={styles.actions}>
+            <ActionButton
+              action="approve"
+              isBusy={action.isBusy}
+              onPress={onPress}
+            />
+            <ActionButton
+              action="deny"
+              isBusy={action.isBusy}
+              onPress={onPress}
+            />
+          </TableRowCell>
+        ),
+      })}
     </TableRow>
   );
 }
 
 function PausedRow({
   paused,
+  columns,
   action,
 }: {
   paused: PortalPaused;
+  columns: Column[];
   action: PortalAction;
 }) {
   const onPress = useCallback(
@@ -84,76 +82,20 @@ function PausedRow({
 
   return (
     <TableRow>
-      <TableRowCell>{paused.name}</TableRowCell>
-      <RelativeDateCell date={paused.since} />
-      <TableRowCell>
-        <ActionButton
-          action="unblock"
-          isBusy={action.isBusy}
-          onPress={onPress}
-        />
-      </TableRowCell>
+      {visibleCells(columns, {
+        who: <TableRowCell>{paused.name}</TableRowCell>,
+        since: <RelativeDateCell date={paused.since} />,
+        actions: (
+          <TableRowCell>
+            <ActionButton
+              action="unblock"
+              isBusy={action.isBusy}
+              onPress={onPress}
+            />
+          </TableRowCell>
+        ),
+      })}
     </TableRow>
-  );
-}
-
-interface WaitingTableProps {
-  waiting: PortalAccessRequest[];
-  action: PortalAction;
-  onApprove: (asked: PortalAccessRequest) => void;
-  onDeny: (asked: PortalAccessRequest) => void;
-}
-
-function WaitingTable({
-  waiting,
-  action,
-  onApprove,
-  onDeny,
-}: WaitingTableProps) {
-  if (!waiting.length) {
-    return (
-      <div className={styles.empty}>{translate('PortalNobodyWaiting')}</div>
-    );
-  }
-
-  return (
-    <Table columns={waitingColumns}>
-      <TableBody>
-        {waiting.map((asked) => (
-          <WaitingRow
-            key={asked.id}
-            asked={asked}
-            action={action}
-            onApprove={onApprove}
-            onDeny={onDeny}
-          />
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
-
-function PausedTable({
-  paused,
-  action,
-}: {
-  paused: PortalPaused[];
-  action: PortalAction;
-}) {
-  if (!paused.length) {
-    return (
-      <div className={styles.empty}>{translate('PortalNobodyPaused')}</div>
-    );
-  }
-
-  return (
-    <Table columns={pausedColumns}>
-      <TableBody>
-        {paused.map((person) => (
-          <PausedRow key={person.discordId} paused={person} action={action} />
-        ))}
-      </TableBody>
-    </Table>
   );
 }
 
@@ -183,10 +125,11 @@ function AccessRequestsView({ types }: { types: ContentType[] }) {
     },
     [action, denying]
   );
-  const waitingPage = useCallback(
-    (waiting: PortalAccessRequest[]) => (
-      <WaitingTable
-        waiting={waiting}
+  const waitingRow = useCallback(
+    (asked: PortalAccessRequest, columns: Column[]) => (
+      <WaitingRow
+        asked={asked}
+        columns={columns}
         action={action}
         onApprove={setApproving}
         onDeny={setDenying}
@@ -194,28 +137,30 @@ function AccessRequestsView({ types }: { types: ContentType[] }) {
     ),
     [action]
   );
-  const pausedPage = useCallback(
-    (paused: PortalPaused[]) => <PausedTable paused={paused} action={action} />,
+  const pausedRow = useCallback(
+    (paused: PortalPaused, columns: Column[]) => (
+      <PausedRow paused={paused} columns={columns} action={action} />
+    ),
     [action]
   );
 
   return (
     <>
       <ActionOutcomeAlert outcome={action.outcome} />
-      <PagedSection
-        key={`waiting-${round}`}
+      <PortalList
+        name="accessWaiting"
         title={translate('PortalWaitingToJoin')}
-        path="access-requests/waiting"
-      >
-        {waitingPage}
-      </PagedSection>
-      <PagedSection
-        key={`paused-${round}`}
+        emptyText={translate('PortalNobodyWaiting')}
+        round={round}
+        renderRow={waitingRow}
+      />
+      <PortalList
+        name="accessPaused"
         title={translate('PortalPaused')}
-        path="access-requests/paused"
-      >
-        {pausedPage}
-      </PagedSection>
+        emptyText={translate('PortalNobodyPaused')}
+        round={round}
+        renderRow={pausedRow}
+      />
       <ApproveAccessModal
         asked={approving}
         types={types}

@@ -1,31 +1,22 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import Link from 'Components/Link/Link';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
-import Table from 'Components/Table/Table';
-import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import Person from '../Components/Person';
-import PortalPage from '../Components/PortalPage';
+import PortalList, { visibleCells } from '../Components/PortalList';
 import RemovalActions from '../Components/RemovalActions';
 import { queueKindText } from '../portalText';
 import { PortalQueueItem } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
-import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';
 import TitleRemovals from './TitleRemovals';
 import styles from '../Portal.css';
-
-const columns: Column[] = [
-  { name: 'since', label: () => translate('PortalWaitingSince') },
-  { name: 'kind', label: () => translate('PortalWaitingFor') },
-  { name: 'title', label: () => translate('PortalTitle') },
-  { name: 'who', label: () => translate('PortalWho') },
-  { name: 'actions', label: () => translate('PortalActions') },
-].map((column) => ({ ...column, isVisible: true }));
 
 // Pages for the items that have no request: the person asking to join, the instance that's down.
 const PAGES: Record<string, string> = {
@@ -105,61 +96,40 @@ function ItemActions({ item, action }: ItemActionsProps) {
   );
 }
 
-function QueueView({
-  items,
-  onDone,
-}: {
-  items: PortalQueueItem[];
-  onDone: () => void;
-}) {
-  const action = usePortalAction(onDone);
-
-  if (!items.length) {
-    return (
-      <>
-        <div className={styles.empty}>{translate('PortalQueueEmpty')}</div>
-        <TitleRemovals />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <ActionOutcomeAlert outcome={action.outcome} />
-      <Table columns={columns}>
-        <TableBody>
-          {items.map((item) => (
-            <TableRow key={item.key}>
-              <RelativeDateCell date={item.since} />
-              <TableRowCell>{queueKindText(item.kind)}</TableRowCell>
-              <TitleCell item={item} />
-              <WhoCell item={item} />
-              <ItemActions item={item} action={action} />
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <TitleRemovals />
-    </>
-  );
-}
-
-// What's waiting on an admin: the same items, in the same order, as the admin channel's queue, each opening the page
-// that acts on it.
+// What's waiting on an admin, a page at a time: the same items, in the same order, as the admin channel's queue, each
+// opening the page that acts on it; after an action the page shown is read again.
 function QueuePage() {
-  const result = usePortal<PortalQueueItem[]>('queue');
-  const onActionDone = result.reload;
-  const renderQueue = useCallback(
-    (items: PortalQueueItem[]) => (
-      <QueueView items={items} onDone={onActionDone} />
+  const [round, setRound] = useState(0);
+  const onDone = useCallback(() => setRound((current) => current + 1), []);
+  const action = usePortalAction(onDone);
+  const itemRow = useCallback(
+    (item: PortalQueueItem, columns: Column[]) => (
+      <TableRow>
+        {visibleCells(columns, {
+          since: <RelativeDateCell date={item.since} />,
+          kind: <TableRowCell>{queueKindText(item.kind)}</TableRowCell>,
+          title: <TitleCell item={item} />,
+          who: <WhoCell item={item} />,
+          actions: <ItemActions item={item} action={action} />,
+        })}
+      </TableRow>
     ),
-    [onActionDone]
+    [action]
   );
 
   return (
-    <PortalPage title={translate('PortalQueue')} result={result}>
-      {renderQueue}
-    </PortalPage>
+    <PageContent title={translate('PortalQueue')}>
+      <PageContentBody>
+        <ActionOutcomeAlert outcome={action.outcome} />
+        <PortalList
+          name="queue"
+          emptyText={translate('PortalQueueEmpty')}
+          round={round}
+          renderRow={itemRow}
+        />
+        <TitleRemovals />
+      </PageContentBody>
+    </PageContent>
   );
 }
 

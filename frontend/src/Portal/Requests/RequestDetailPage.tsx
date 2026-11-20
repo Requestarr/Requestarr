@@ -4,13 +4,14 @@ import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
 import Link from 'Components/Link/Link';
+import Column from 'Components/Table/Column';
 import translate from 'Utilities/String/translate';
 import FollowerStack from '../Components/FollowerStack';
 import MemberLink from '../Components/MemberLink';
-import PagedSection, { PagedSort } from '../Components/Paging/PagedSection';
+import PortalList from '../Components/PortalList';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
-import TimelineTable from '../Components/TimelineTable';
+import { EventRow, TrimmedNote } from '../Components/TimelineTable';
 import useDateText from '../Components/useDateText';
 import {
   contentTypeText,
@@ -25,7 +26,7 @@ import {
   PortalRequestDetail,
 } from '../PortalTypes';
 import usePortal from '../usePortal';
-import FollowersTable from './FollowersTable';
+import FollowerRow from './FollowerRow';
 import RequestActions from './RequestActions';
 import { OpenInLink, releaseText } from './RequestMedia';
 import RequestPoster from './RequestPoster';
@@ -117,8 +118,12 @@ interface RequestDetailProps {
   onDone: () => void;
 }
 
-function followersPage(records: PortalFollower[], sort: PagedSort) {
-  return <FollowersTable followers={records} sort={sort} />;
+function followerRow(follower: PortalFollower, columns: Column[]) {
+  return <FollowerRow follower={follower} columns={columns} />;
+}
+
+function eventRow(event: PortalEvent, columns: Column[]) {
+  return <EventRow event={event} columns={columns} />;
 }
 
 // The Followers section's address, which a list view's follower stack opens.
@@ -137,14 +142,8 @@ function useScrollToFollowers() {
 
 function RequestDetail({ detail, round, onDone }: RequestDetailProps) {
   const { request, latestRemoval, historyTrimmedAfter } = detail;
-  const path = `requests/${request.id}`;
+  const query = { id: request.id };
   useScrollToFollowers();
-  const timelinePage = useCallback(
-    (records: PortalEvent[]) => (
-      <TimelineTable events={records} trimmedAfter={historyTrimmedAfter} />
-    ),
-    [historyTrimmedAfter]
-  );
 
   return (
     <>
@@ -159,28 +158,30 @@ function RequestDetail({ detail, round, onDone }: RequestDetailProps) {
 
       {request.followers.length > 0 && (
         <div id={FOLLOWERS_ID}>
-          <PagedSection
-            key={round}
+          <PortalList
+            name="requestFollowers"
+            query={query}
             title={translate('PortalFollowers')}
-            path={`${path}/followers`}
-            initialSort="followed"
-          >
-            {followersPage}
-          </PagedSection>
+            emptyText={translate('PortalNobody')}
+            round={round}
+            renderRow={followerRow}
+          />
         </div>
       )}
 
-      <PagedSection
-        key={round}
+      <TrimmedNote trimmedAfter={historyTrimmedAfter} />
+      <PortalList
+        name="requestTimeline"
+        query={query}
         title={translate('PortalTimeline')}
-        path={`${path}/timeline`}
-      >
-        {timelinePage}
-      </PagedSection>
+        emptyText={translate('PortalNoHistory')}
+        round={round}
+        renderRow={eventRow}
+      />
 
       {latestRemoval && (
         <FieldSet legend={translate('PortalLatestRemoval')}>
-          <RemovalsTable removals={[latestRemoval]} />
+          <RemovalsTable removal={latestRemoval} />
         </FieldSet>
       )}
     </>
