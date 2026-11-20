@@ -353,7 +353,6 @@ namespace Requestarr.Core.Portal
 
         private Dictionary<int, string> Names() => _users.All().ToDictionary(u => u.Id, u => u.DisplayName);
 
-        // Each member's Discord picture, by member.
         // Each member's Discord account, for their picture and @handle.
         private Dictionary<int, UserIdentity> DiscordAccounts() =>
             _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider).GroupBy(i => i.UserId).ToDictionary(g => g.Key, g => g.First());

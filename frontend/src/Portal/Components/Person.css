@@ -12,10 +12,11 @@
   gap: 14px;
 }
 
+/* A name and @handle never wrap: the column widens to fit them. */
 .lines {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  white-space: nowrap;
 }
 
 .medium .lines {
