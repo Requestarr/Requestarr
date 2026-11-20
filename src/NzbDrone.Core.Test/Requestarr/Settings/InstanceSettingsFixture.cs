@@ -1,14 +1,17 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Datastore.Converters;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Settings;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Settings
 {
@@ -115,6 +118,37 @@ namespace Requestarr.Core.Test.Settings
 
             result.Problem.Should().NotBeNullOrEmpty();
             _instances.Should().HaveCount(1);
+        }
+
+        [Test]
+        public async Task should_keep_show_and_record_the_default_access_for_new_members()
+        {
+            await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { DefaultAccess = AccessState.AutoApprove }, Admin);
+
+            _instances[0].Settings.DefaultAccess.Should().Be(AccessState.AutoApprove);
+            Subject.All().Single(i => i.Id == 1).Settings.DefaultAccess.Should().Be(AccessState.AutoApprove);
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", It.Is<string>(d => d.Contains("default access for new members from needs approval to auto-approve"))), Times.Once());
+        }
+
+        [Test]
+        public async Task should_refuse_a_default_access_that_isnt_one_of_the_three()
+        {
+            var result = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { DefaultAccess = (AccessState)7 }, Admin);
+
+            result.Problem.Should().Contain("for new members");
+            _instances[0].Settings.DefaultAccess.Should().Be(AccessState.NeedsApproval);
+        }
+
+        // As stored before the setting existed, and as sent by anything that leaves it out: what new members got then.
+        [Test]
+        public void should_read_an_instance_saved_before_the_setting_as_needs_approval()
+        {
+            var stored = new EmbeddedDocumentConverter<BackendSettings>().Parse("{\"url\": \"http://sonarr:8989\", \"isDefault\": true}");
+
+            var sent = JsonSerializer.Deserialize<InstanceInput>("{\"implementation\": \"Sonarr\", \"name\": \"Sonarr\", \"url\": \"http://sonarr:8989\"}", new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+            stored.DefaultAccess.Should().Be(AccessState.NeedsApproval);
+            sent.DefaultAccess.Should().Be(AccessState.NeedsApproval);
         }
 
         [Test]

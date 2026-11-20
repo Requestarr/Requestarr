@@ -113,6 +113,8 @@
   "BackendApiKeyHelpText": "From its Settings, General.",
   "BackendBrowserUrl": "Address in your browser",
   "BackendBrowserUrlHelpText": "Optional. Where your browser opens it, for example http://nas.local:8989, when the address above only works from Requestarr (a container name such as http://sonarr:8989). Requests link to their page there.",
+  "BackendDefaultAccess": "Default access for new members",
+  "BackendDefaultAccessHelpText": "What someone you onboard gets for this type when this media manager is theirs. You can still change it for each person.",
   "BackendDubIgnored": "Dub: release must not contain",
   "BackendDubIgnoredHelpText": "Comma-separated; empty for Requestarr's defaults.",
   "BackendDubRequired": "Dub: release must contain",

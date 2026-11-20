@@ -36,7 +36,7 @@ namespace Requestarr.Core.Test.Portal
         [Test]
         public void outages_now_are_the_instances_alerted_as_down_and_history_is_every_outage()
         {
-            Mocker.GetMock<IBackendRepository>().Setup(b => b.All()).Returns(new List<BackendInstance>
+            Mocker.GetMock<IBackendService>().Setup(b => b.All()).Returns(new List<BackendInstance>
             {
                 new() { Id = 1, Name = "Radarr", Enable = true, DownSince = Start, DownAlertMessageId = "8", DownAnnounceOffered = true, DownAnnounceMessageId = "9" },
                 new() { Id = 2, Name = "Sonarr", Enable = true },
@@ -49,6 +49,19 @@ namespace Requestarr.Core.Test.Portal
 
             outages.Now.Should().ContainSingle().Which.Should().Be(new PortalOutageNow(1, "Radarr", Start, true, true, "owner (web app)"));
             outages.History.Should().ContainSingle().Which.Instance.Should().Be("Radarr");
+        }
+
+        [Test]
+        public void instances_say_which_one_their_type_uses_by_default_and_what_new_members_get_there()
+        {
+            var radarr = new BackendInstance { Id = 1, Name = "Radarr", Implementation = BackendImplementations.Radarr, Enable = true, Settings = new BackendSettings { DefaultAccess = AccessState.AutoApprove } };
+            var radarr4K = new BackendInstance { Id = 2, Name = "Radarr 4K", Implementation = BackendImplementations.Radarr, Enable = true, Settings = new BackendSettings() };
+            Mocker.GetMock<IBackendService>().Setup(b => b.All()).Returns(new List<BackendInstance> { radarr, radarr4K });
+            Mocker.GetMock<IBackendService>().Setup(b => b.Default(ContentType.Movie)).Returns(radarr);
+
+            Subject.Instances().Should().Equal(
+                new PortalInstance(1, "Radarr", ContentType.Movie, true, true, AccessState.AutoApprove),
+                new PortalInstance(2, "Radarr 4K", ContentType.Movie, true, false, AccessState.NeedsApproval));
         }
 
         [Test]

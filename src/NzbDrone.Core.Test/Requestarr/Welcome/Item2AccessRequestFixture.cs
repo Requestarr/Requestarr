@@ -5,6 +5,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Access;
 using Requestarr.Core.Admin;
+using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.MediaServers;
 using Requestarr.Core.Test.Discord.Harness;
@@ -125,6 +126,20 @@ namespace Requestarr.Core.Test.Welcome
             chooser.Ephemeral.Should().BeTrue();
             new[] { chooser.SelectMenu }.Concat(chooser.MoreMenus).Select(m => m.Options.Single(o => o.Default).Value).Should().Equal("off", "approval", "off");
             chooser.Buttons.Single().CustomId.Should().Be($"{AccessRoutes.Confirm}:{LastRequest.Id}:010");
+        }
+
+        [Test]
+        public async Task the_chooser_gives_what_they_asked_for_the_default_access_of_its_instance()
+        {
+            var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
+            sonarr.Settings.DefaultAccess = AccessState.AutoApprove;
+            Mocker.Resolve<IBackendRepository>().Update(sonarr);
+            await AskForAccess(Carol, null, "movie", "tv");
+
+            var chooser = (await Harness.SendAsync(AsAdmin(FakeInteraction.Button($"{AccessRoutes.Approve}:{LastRequest.Id}")))).LastReply;
+
+            new[] { chooser.SelectMenu }.Concat(chooser.MoreMenus).Select(m => m.Options.Single(o => o.Default).Value).Should().Equal("approval", "auto", "off");
+            chooser.Buttons.Single().CustomId.Should().Be($"{AccessRoutes.Confirm}:{LastRequest.Id}:120");
         }
 
         [Test]

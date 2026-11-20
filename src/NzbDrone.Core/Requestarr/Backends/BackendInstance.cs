@@ -59,6 +59,10 @@ namespace Requestarr.Core.Backends
         public bool IsDefault { get; set; }
         public bool PollingOnly { get; set; }
 
+        // What a new member gets for this instance's type until an admin changes it. An instance saved before this
+        // setting existed reads as Needs approval, what every new member got then.
+        public AccessState DefaultAccess { get; set; } = AccessState.NeedsApproval;
+
         // Sonarr only: anime sub/dub (see AnimeDefaults). On unless the instance opts out.
         public bool AnimeEnabled { get; set; } = true;
         public string AnimePriority { get; set; } = "dub";

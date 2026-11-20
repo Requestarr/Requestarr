@@ -3,6 +3,7 @@ import Alert from 'Components/Alert';
 import FieldSet from 'Components/FieldSet';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import { inputTypes, kinds } from 'Helpers/Props';
+import accessLevelChoices from 'Portal/accessLevelChoices';
 import translate from 'Utilities/String/translate';
 import InstanceAnimeFields from './InstanceAnimeFields';
 import InstanceField from './InstanceField';
@@ -91,6 +92,12 @@ function InstanceFields({
         )}
 
         <InstanceField name="isDefault" type={inputTypes.CHECK} {...field} />
+        <InstanceField
+          name="defaultAccess"
+          type={inputTypes.SELECT}
+          values={accessLevelChoices()}
+          {...field}
+        />
         <InstanceField name="enabled" type={inputTypes.CHECK} {...field} />
         <InstanceField name="pollingOnly" type={inputTypes.CHECK} {...field} />
       </FieldSet>

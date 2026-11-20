@@ -12,6 +12,9 @@ interface ActionModalProps {
   isOpen: boolean;
   title: string;
   confirmLabel: string;
+
+  // While what the choices start from is still loading.
+  isConfirmDisabled?: boolean;
   children: ReactNode;
   onConfirm: () => void;
   onClose: () => void;
@@ -22,6 +25,7 @@ function ActionModal({
   isOpen,
   title,
   confirmLabel,
+  isConfirmDisabled = false,
   children,
   onConfirm,
   onClose,
@@ -33,7 +37,11 @@ function ActionModal({
         <ModalBody>{children}</ModalBody>
         <ModalFooter>
           <Button onPress={onClose}>{translate('Cancel')}</Button>
-          <Button kind={kinds.PRIMARY} onPress={onConfirm}>
+          <Button
+            kind={kinds.PRIMARY}
+            isDisabled={isConfirmDisabled}
+            onPress={onConfirm}
+          >
             {confirmLabel}
           </Button>
         </ModalFooter>

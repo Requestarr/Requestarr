@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Backends;
 using Requestarr.Core.Portal;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
@@ -79,6 +80,24 @@ namespace Requestarr.Core.Test.Portal
 
             alice.State.Should().Be(OnboardState.Added);
             alice.Message.Should().Contain("Not set for Movie").And.Contain("That instance no longer exists");
+        }
+
+        [Test]
+        public async Task a_type_the_web_app_leaves_out_gets_the_default_access_of_its_instance()
+        {
+            var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
+            sonarr.Settings.DefaultAccess = AccessState.AutoApprove;
+            Mocker.Resolve<IBackendRepository>().Update(sonarr);
+            var onboarding = Mocker.Resolve<PortalOnboarding>();
+            onboarding.Pace = TimeSpan.Zero;
+            var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.Off, null, null, null) };
+
+            var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, Admin);
+            await onboarding.WhenDoneAsync(started.Id);
+
+            var user = Mocker.Resolve<IRequestarrUserRepository>().All().Single();
+            var states = Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(user.Id).ToDictionary(a => a.ContentType, a => a.State);
+            (states[ContentType.Movie], states[ContentType.Tv]).Should().Be((AccessState.Off, AccessState.AutoApprove));
         }
 
         [Test]

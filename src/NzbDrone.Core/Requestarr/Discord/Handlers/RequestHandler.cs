@@ -492,7 +492,7 @@ namespace Requestarr.Core.Discord.Handlers
 
         private AccessState AccessState(RequestarrUser user, ContentType type)
         {
-            return _access.GetForUser(user.Id).FirstOrDefault(a => a.ContentType == type)?.State ?? UserManagementService.DefaultAccess[type];
+            return _access.GetForUser(user.Id).FirstOrDefault(a => a.ContentType == type)?.State ?? _backends.DefaultAccess(type);
         }
 
         public static ContentType? ParseRequestType(string value) => value?.Trim().ToLowerInvariant() switch

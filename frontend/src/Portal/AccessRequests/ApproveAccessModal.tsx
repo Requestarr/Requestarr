@@ -6,8 +6,15 @@ import { inputTypes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import accessLevelChoices from '../accessLevelChoices';
 import ActionModal from '../Components/ActionModal';
+import defaultAccess from '../defaultAccess';
 import { contentTypeText } from '../portalText';
-import { AccessState, ContentType, PortalAccessRequest } from '../PortalTypes';
+import {
+  AccessState,
+  ContentType,
+  PortalAccessRequest,
+  PortalInstance,
+} from '../PortalTypes';
+import usePortal from '../usePortal';
 
 interface ApproveAccessModalProps {
   asked?: PortalAccessRequest;
@@ -18,13 +25,15 @@ interface ApproveAccessModalProps {
   onClose: () => void;
 }
 
-// Approve: the real access for each type, as Discord's chooser asks; what they asked for starts as needing approval.
+// Approve: the real access for each type, as Discord's chooser asks; what they asked for starts at its media manager's
+// default access for new members.
 function ApproveAccessModal({
   asked,
   types,
   onApprove,
   onClose,
 }: ApproveAccessModalProps) {
+  const { data: instances } = usePortal<PortalInstance[]>('instances');
   const [chosen, setChosen] = useState<
     Partial<Record<ContentType, AccessState>>
   >({});
@@ -32,8 +41,10 @@ function ApproveAccessModal({
   const levelOf = useCallback(
     (type: ContentType): AccessState =>
       chosen[type] ??
-      (asked?.contentTypes.includes(type) ? 'needsApproval' : 'off'),
-    [asked, chosen]
+      (asked?.contentTypes.includes(type)
+        ? defaultAccess(type, instances ?? [])
+        : 'off'),
+    [asked, chosen, instances]
   );
 
   const onChange = useCallback(
@@ -58,6 +69,7 @@ function ApproveAccessModal({
       isOpen={!!asked}
       title={translate('PortalApproveAccessTitle', { name: asked?.name ?? '' })}
       confirmLabel={translate('PortalActionApprove')}
+      isConfirmDisabled={!instances}
       onConfirm={onConfirm}
       onClose={onModalClose}
     >

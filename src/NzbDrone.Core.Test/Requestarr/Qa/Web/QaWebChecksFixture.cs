@@ -427,8 +427,8 @@ namespace Requestarr.Core.Test.Qa.Web
         // Requestarr's own settings pages load in both themes. QA and dev take their settings from the provisioning file,
         // so each page says so and its fields can't be changed. Connections is built like Sonarr's Indexers page: a card
         // for each connection under Discord, Media managers, Metadata and Bug reports, the "+" card opening the grouped Add
-        // modal, a card opening its edit modal, and Options below; the old Discord and Sonarr and Radarr addresses land on
-        // their sections.
+        // modal, a card opening its edit modal (with its default access for new members), and Options below; the old
+        // Discord and Sonarr and Radarr addresses land on their sections.
         [Test]
         public Task settings_pages() => CheckAsync(nameof(settings_pages), async (browser, check) =>
         {
@@ -513,6 +513,16 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"edit modal ({theme}): {modal}");
             modal.Should().Contain("Test").And.Contain("Cancel").And.Contain("Save");
             await check.ShotAsync(browser, $"settings-connections-edit-{theme}");
+
+            // The test stacks' provisioning file sets no default access, so their instances give new members what they got
+            // before. The select's own text lists every choice, so the chosen one is read from its selected option.
+            var defaultAccess = await browser.EvalAsync<string>(
+                "(() => { const g = [...document.querySelectorAll('[class*=\"ModalBody\"] [class*=\"FormGroup-group\"]')].find(e => e.innerText.startsWith('Default access for new members')); " +
+                "g?.scrollIntoView(); const chosen = g?.querySelector('select')?.selectedOptions[0]?.text ?? 'nothing chosen'; " +
+                "return g ? `${chosen}: ${g.querySelector('[class*=\"FormInputHelpText\"]')?.innerText ?? ''}` : ''; })()");
+            check.Saw($"edit modal ({theme}): default access for new members {defaultAccess}");
+            defaultAccess.Should().StartWith("Needs approval:").And.Contain("media manager");
+            await check.ShotAsync(browser, $"settings-connections-default-access-{theme}");
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.includes('Cancel')).click()");
         }
 

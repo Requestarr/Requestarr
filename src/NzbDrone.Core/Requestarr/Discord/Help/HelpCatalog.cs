@@ -173,7 +173,7 @@ namespace Requestarr.Core.Discord.Help
                 Key = "onboarding",
                 Title = "Members: adding and managing",
                 Summary = "Add people, set access, suspend, remove",
-                Intro = _ => $"**{DiscordText.PanelMembers}** on the admin panel opens Discord's member picker; `/admin user` opens one member's card directly. The card shows only what applies now: **{DiscordText.AddMemberLabel}** for someone new (their role, private channel and panel; Movies and TV start as needs approval, Music off), " +
+                Intro = _ => $"**{DiscordText.PanelMembers}** on the admin panel opens Discord's member picker; `/admin user` opens one member's card directly. The card shows only what applies now: **{DiscordText.AddMemberLabel}** for someone new (their role, private channel and panel; each type starts at its instance's default access for new members, set in the web app's Connections), " +
                              $"then one menu per content type showing its level (off, needs approval, auto-approve), a **{DiscordText.MorePlaceholder}** menu, and buttons to link Plex, **{DiscordText.SuspendLabel}** or **{DiscordText.UnsuspendLabel}** and **{DiscordText.RemoveLabel}** (it asks first). " +
                              "Users only see a content type once one of its Sonarr, Radarr or Lidarr instances has connected; you can grant it before that, and the card tells you. " +
                              $"**{DiscordText.PanelUsers}** lists everyone and opens the same card. Every change shows on the card at once.",

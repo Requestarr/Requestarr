@@ -28,8 +28,9 @@ namespace Requestarr.Core.Portal
     // One version's changes, as its update card's Read changes has them; Version is its label (0.7.0004-dev.4f2a9c1).
     public record PortalVersion(string Version, DateTime? Date, IReadOnlyList<string> Users, IReadOnlyList<string> Admins);
 
-    // A Sonarr or Radarr a member's requests can go to.
-    public record PortalInstance(int Id, string Name, ContentType ContentType, bool Enabled);
+    // A Sonarr or Radarr a member's requests can go to. IsDefault: the one its type uses for a member without one of
+    // their own. DefaultAccess: what a new member gets for the type when this is the instance they use.
+    public record PortalInstance(int Id, string Name, ContentType ContentType, bool Enabled, bool IsDefault, AccessState DefaultAccess);
 
     public interface IPortalRecords
     {
@@ -48,13 +49,13 @@ namespace Requestarr.Core.Portal
     {
         private readonly IAccessRequestRepository _accessRequests;
         private readonly IWelcomeGuardRepository _guards;
-        private readonly IBackendRepository _backends;
+        private readonly IBackendService _backends;
         private readonly IOutageRepository _outages;
         private readonly IAnnouncementService _announcements;
 
         public PortalRecords(IAccessRequestRepository accessRequests,
                              IWelcomeGuardRepository guards,
-                             IBackendRepository backends,
+                             IBackendService backends,
                              IOutageRepository outages,
                              IAnnouncementService announcements)
         {
@@ -94,13 +95,20 @@ namespace Requestarr.Core.Portal
             _backends.All()
                 .Where(b => b.Implementation is BackendImplementations.Sonarr or BackendImplementations.Radarr)
                 .OrderBy(b => b.Name)
-                .Select(b => new PortalInstance(b.Id, b.Name, Discord.DiscordText.TypeOf(b), b.Enable))
+                .Select(Instance)
                 .ToList();
 
         public IReadOnlyList<ContentType> Types() => ContentTypes.Offered;
 
         public IReadOnlyList<PortalVersion> Changes() =>
             _announcements.VersionNotes().Select(n => new PortalVersion(n.Shown, n.Version.Date, n.Version.Users, n.Version.Admins)).ToList();
+
+        private PortalInstance Instance(BackendInstance backend)
+        {
+            var type = Discord.DiscordText.TypeOf(backend);
+
+            return new PortalInstance(backend.Id, backend.Name, type, backend.Enable, _backends.Default(type)?.Id == backend.Id, backend.Settings.DefaultAccess);
+        }
 
         // A paused person isn't a member: their name is the one they last asked to join with.
         private string NameOf(string discordId)

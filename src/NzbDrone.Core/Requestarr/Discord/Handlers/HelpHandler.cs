@@ -102,7 +102,7 @@ namespace Requestarr.Core.Discord.Handlers
             if (user != null && user.Status == UserStatus.Active && user.PrivateChannelId != null)
             {
                 var access = _access.GetForUser(user.Id);
-                var types = ContentTypes.Offered.Where(t => _backends.EverConnected(t) && (access.FirstOrDefault(a => a.ContentType == t)?.State ?? UserManagementService.DefaultAccess[t]) != AccessState.Off).ToList();
+                var types = ContentTypes.Offered.Where(t => _backends.EverConnected(t) && (access.FirstOrDefault(a => a.ContentType == t)?.State ?? _backends.DefaultAccess(t)) != AccessState.Off).ToList();
 
                 return new HelpViewer(types, _accounts.GetForUser(user.Id).Any(), PlexServer: _mediaServers.IsConnected(MediaServers.MediaServerProvider.Plex));
             }

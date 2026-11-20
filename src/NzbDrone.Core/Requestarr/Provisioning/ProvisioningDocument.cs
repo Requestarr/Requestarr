@@ -189,6 +189,10 @@ namespace Requestarr.Core.Provisioning
         // The instance used for users without an explicit assignment; the first listed when none is marked.
         public bool Default { get; set; }
         public bool PollingOnly { get; set; }
+
+        // What a new member gets for the type when this is their instance: off | approval | auto, as the member card
+        // words it. Optional; approval when left out.
+        public string DefaultAccess { get; set; }
         public string QualityProfile { get; set; }
         public string RootFolder { get; set; }
 

@@ -32,6 +32,10 @@ namespace Requestarr.Core.Backends
         BackendInstance FindByName(string name);
         BackendInstance Default(ContentType type);
         BackendInstance ForUser(UserMediaAccess access, ContentType type);
+
+        // What a member gets for a type until an admin sets it: the default access of the type's default instance, or
+        // off when the type has no instance turned on.
+        AccessState DefaultAccess(ContentType type);
         void SyncFromProvisioning(BackendsProvisioning backends);
         Task<BackendCheckResult> CheckAsync(BackendInstance instance);
 
@@ -104,6 +108,8 @@ namespace Requestarr.Core.Backends
             return Default(type);
         }
 
+        public AccessState DefaultAccess(ContentType type) => Default(type)?.Settings.DefaultAccess ?? AccessState.Off;
+
         public IBackendApi ApiFor(BackendInstance instance) => instance.Implementation switch
         {
             BackendImplementations.Radarr => _radarr,
@@ -138,6 +144,7 @@ namespace Requestarr.Core.Backends
                     SeriesType = entry.SeriesType,
                     IsDefault = entry.Default,
                     PollingOnly = entry.PollingOnly,
+                    DefaultAccess = Discord.Handlers.HandlerSupport.ParseLevel(entry.DefaultAccess?.Trim()) ?? AccessState.NeedsApproval,
                     AnimeEnabled = entry.Anime?.Enabled ?? true,
                     AnimePriority = Anime.AnimeDefaults.PriorityKey(Anime.AnimeDefaults.ParsePriority(entry.Anime?.Priority)),
                     DubRequired = entry.Anime?.Dub?.Required,

@@ -282,8 +282,11 @@ namespace Requestarr.Core.Discord.Handlers
                 return ServiceResult.Fail(DiscordText.TypeNotOffered);
             }
 
-            // The service checks the instance (enabled, right type) and refuses it by name.
-            return _users.SetAccess(member, type.Value, AccessFor(member, type.Value)?.State ?? UserManagementService.DefaultAccess[type.Value], actor, instance?.Name ?? wanted);
+            // The service checks the instance (enabled, right type) and refuses it by name. Someone without this type's
+            // access yet starts from the chosen instance's default.
+            var state = AccessFor(member, type.Value)?.State ?? instance?.Settings.DefaultAccess ?? _backends.DefaultAccess(type.Value);
+
+            return _users.SetAccess(member, type.Value, state, actor, instance?.Name ?? wanted);
         }
 
         private ServiceResult SetLimit(DiscordInteraction interaction, ulong member, Actor actor)
@@ -452,11 +455,11 @@ namespace Requestarr.Core.Discord.Handlers
 
         // Discord allows five rows: one access menu per type (3), a "More…" menu (limits, instance,
         // their requests), and one row of buttons.
-        private static List<InteractionSelectMenu> CardMenus(ulong member, List<UserMediaAccess> access, List<BackendInstance> instances)
+        private List<InteractionSelectMenu> CardMenus(ulong member, List<UserMediaAccess> access, List<BackendInstance> instances)
         {
             var menus = ContentTypes.Offered.Select(type =>
             {
-                var current = access.FirstOrDefault(a => a.ContentType == type)?.State ?? UserManagementService.DefaultAccess[type];
+                var current = access.FirstOrDefault(a => a.ContentType == type)?.State ?? _backends.DefaultAccess(type);
 
                 return new InteractionSelectMenu
                 {
