@@ -51,6 +51,11 @@ namespace Requestarr.Core.Test.Qa.Web
             document.body.innerHTML = strip('light', '#f1f3f4') + strip('dark', '#35363a');
         })()";
 
+        // The Connections settings page: its section headings, its connection cards, and an open modal's words.
+        private const string Legends = "[...document.querySelectorAll('legend')].map(l => l.innerText.trim())";
+        private const string Cards = "[...document.querySelectorAll('[class*=\"ConnectionCard-connection\"]:not([class*=\"ConnectionCard-addConnection\"])')]";
+        private const string ModalText = "document.querySelector('[class*=\"ModalContent\"]').innerText.replace(/\\s+/g, ' ')";
+
         private static readonly string[] Themes = { "light", "dark" };
 
         private static string Url => Environment.GetEnvironmentVariable("QA_CHECKS_URL")?.TrimEnd('/');
@@ -369,7 +374,10 @@ namespace Requestarr.Core.Test.Qa.Web
         }
 
         // Requestarr's own settings pages load in both themes. QA and dev take their settings from the provisioning file,
-        // so each page says so and its fields can't be changed; the instances page lists the stack's Sonarr and Radarr.
+        // so each page says so and its fields can't be changed. Connections is built like Sonarr's Indexers page: a card
+        // for each connection under Discord, Media managers, Metadata and Bug reports, the "+" card opening the grouped Add
+        // modal, a card opening its edit modal, and Options below; the old Discord and Sonarr and Radarr addresses land on
+        // their sections.
         [Test]
         public Task settings_pages() => CheckAsync(nameof(settings_pages), async (browser, check) =>
         {
@@ -380,17 +388,16 @@ namespace Requestarr.Core.Test.Qa.Web
             {
                 await browser.SetThemeAsync(theme);
 
-                foreach (var page in new[] { "discord", "instances", "requests", "connections", "changes" })
+                foreach (var page in new[] { "connections", "requests", "changes" })
                 {
                     await browser.GoAsync($"{Url}/settings/{page}");
                     await browser.WaitForAsync(Loaded);
                     var notice = await browser.EvalAsync<bool>("document.body.innerText.includes('takes these settings from its provisioning file')");
                     var editable = await browser.EvalAsync<int>("[...document.querySelectorAll('main input, [class*=\"PageContentBody\"] input')].filter(i => !i.disabled && !i.readOnly).length");
-                    var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
-                    check.Saw($"{page} ({theme}): provisioning note {(notice ? "shown" : "not shown")}, {editable} field(s) that can be changed, {rows} row(s)");
+                    check.Saw($"{page} ({theme}): provisioning note {(notice ? "shown" : "not shown")}, {editable} field(s) that can be changed");
                     await check.ShotAsync(browser, $"settings-{page}-{theme}");
 
-                    (await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"Alert-danger\"]')")).Should().BeFalse($"the {page} settings page loads");
+                    (await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"PageContentBody\"] [class*=\"Alert-danger\"]')")).Should().BeFalse($"the {page} settings page loads");
 
                     if (page != "changes")
                     {
@@ -398,25 +405,80 @@ namespace Requestarr.Core.Test.Qa.Web
                         editable.Should().Be(0, "a change would be undone on the next start");
                     }
 
-                    if (page == "instances")
+                    if (page == "connections")
                     {
-                        rows.Should().BeGreaterThan(0, "the stack's Sonarr and Radarr are listed");
+                        await ConnectionsAsync(browser, check, theme);
                     }
 
                     if (page == "requests")
                     {
-                        var keepFor = await browser.EvalAsync<bool>("document.body.innerText.includes('Keep the audit log for') && document.body.innerText.includes('1 year')");
-                        var locked = await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"EnhancedSelectInput-isDisabled\"]')");
-                        check.Saw($"requests ({theme}): Keep the audit log for {(keepFor ? "shown, 1 year" : "not shown")}, {(locked ? "locked" : "can be changed")}");
-                        keepFor.Should().BeTrue("the provisioning file keeps the audit log for 1 year");
-                        locked.Should().BeTrue("a change would be undone on the next start");
-                        (await browser.EvalAsync<bool>("(() => { const l = [...document.querySelectorAll('legend')].find(e => e.innerText.includes('Audit log')); l?.scrollIntoView(); return !!l; })()"))
-                            .Should().BeTrue("the Audit log section is on the Requests page");
-                        await check.ShotAsync(browser, $"settings-requests-audit-log-{theme}");
+                        await AuditLogKeptAsync(browser, check, theme);
                     }
                 }
             }
+
+            await OldAddressesAsync(browser, check);
         });
+
+        // The sections in order, a card each for the bot, The Movie Database and GitHub and one per Sonarr or Radarr, the
+        // Add modal's Media managers tiles, and a card's edit modal.
+        private static async Task ConnectionsAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            await browser.WaitForAsync($"{Cards}.length >= 5");
+            var legends = await browser.EvalAsync<string[]>(Legends);
+            var cards = await browser.EvalAsync<string[]>($"{Cards}.map(c => c.innerText.replace(/\\s+/g, ' ').trim())");
+            var adds = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"ConnectionCard-addConnection\"]').length");
+            var toolbar = await browser.EvalAsync<string>("document.querySelector('[class*=\"PageToolbar-toolbar\"]').innerText.replace(/\\s+/g, ' ')");
+            check.Saw($"connections ({theme}): sections {string.Join(", ", legends)}; cards {string.Join(" | ", cards)}; {adds} \"+\" card; toolbar: {toolbar}");
+
+            legends.Should().ContainInOrder("Discord", "Media managers", "Metadata", "Bug reports", "Options");
+            cards.Should().HaveCountGreaterThanOrEqualTo(5, "the bot, both test instances, The Movie Database and GitHub");
+            cards.Count(c => c.Contains("Connected")).Should().BeGreaterThanOrEqualTo(2, "the bot and the test instances are connected");
+            adds.Should().Be(1, "only Media managers adds, through its \"+\" card");
+            toolbar.Should().Contain("Show Advanced").And.Contain("No Changes").And.Contain("Test All Connections").And.NotContain("Add Sonarr");
+
+            await browser.RunAsync("document.querySelector('[class*=\"ConnectionCard-addConnection\"]').click()");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"AddConnectionModal-choice\"]')");
+            var choices = await browser.EvalAsync<string>(ModalText);
+            check.Saw($"add modal ({theme}): {choices}");
+            choices.Should().Contain("Media managers").And.Contain("Sonarr").And.Contain("Radarr");
+            await check.ShotAsync(browser, $"settings-connections-add-{theme}");
+            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.includes('Close')).click()");
+            await browser.WaitForAsync("!document.querySelector('[class*=\"ModalContent\"]')");
+
+            await browser.RunAsync($"{Cards}.find(c => c.innerText.includes('Sonarr')).click()");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"ModalFooter\"]')");
+            var modal = await browser.EvalAsync<string>(ModalText);
+            check.Saw($"edit modal ({theme}): {modal}");
+            modal.Should().Contain("Test").And.Contain("Cancel").And.Contain("Save");
+            await check.ShotAsync(browser, $"settings-connections-edit-{theme}");
+            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.includes('Cancel')).click()");
+        }
+
+        private static async Task AuditLogKeptAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            var keepFor = await browser.EvalAsync<bool>("document.body.innerText.includes('Keep the audit log for') && document.body.innerText.includes('1 year')");
+            var locked = await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"EnhancedSelectInput-isDisabled\"]')");
+            check.Saw($"requests ({theme}): Keep the audit log for {(keepFor ? "shown, 1 year" : "not shown")}, {(locked ? "locked" : "can be changed")}");
+            keepFor.Should().BeTrue("the provisioning file keeps the audit log for 1 year");
+            locked.Should().BeTrue("a change would be undone on the next start");
+            (await browser.EvalAsync<bool>("(() => { const l = [...document.querySelectorAll('legend')].find(e => e.innerText.includes('Audit log')); l?.scrollIntoView(); return !!l; })()"))
+                .Should().BeTrue("the Audit log section is on the Requests page");
+            await check.ShotAsync(browser, $"settings-requests-audit-log-{theme}");
+        }
+
+        // Links in the docs, the setup guide and Discord messages still name the pages Connections replaced.
+        private static async Task OldAddressesAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            foreach (var (old, section) in new[] { ("discord", "discord"), ("instances", "media-managers") })
+            {
+                await browser.GoAsync($"{Url}/settings/{old}");
+                await browser.WaitForAsync($"!!document.getElementById('{section}')");
+                var landed = await browser.EvalAsync<string>("location.pathname + location.hash");
+                check.Saw($"/settings/{old} landed on {landed}");
+                landed.Should().EndWith($"/settings/connections#{section}");
+            }
+        }
 
         // A list's first title or name opens its own page, which shows what it is and its history.
         private static string FirstLetters(string text, int count)

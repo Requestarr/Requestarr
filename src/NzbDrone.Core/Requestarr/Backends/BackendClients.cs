@@ -254,7 +254,7 @@ namespace Requestarr.Core.Backends
 
             if (webhooks.Any(n => n != ours && (string)n["name"] == name))
             {
-                throw new WebhookNameTakenException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, choose Beta under Settings, then Discord: This server is.");
+                throw new WebhookNameTakenException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, choose Beta under Settings, then Connections, Discord: This server is.");
             }
 
             var body = ours ?? (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification/schema"))?.FirstOrDefault(n => (string)n["implementation"] == "Webhook")

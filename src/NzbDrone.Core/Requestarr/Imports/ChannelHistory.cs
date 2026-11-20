@@ -39,7 +39,7 @@ namespace Requestarr.Core.Imports
     public static class ImportText
     {
         public const string NoChannels = "Name at least one channel.";
-        public const string NotConnected = "The bot isn't connected to Discord right now. Check Settings, then Discord, and try again.";
+        public const string NotConnected = "The bot isn't connected to Discord right now. Check Settings, then Connections, Discord, and try again.";
         public const string NoMessageContent = "Discord won't show the bot other bots' messages: turn on **Message Content Intent** in the Discord Developer Portal (your application, then Bot, then Privileged Gateway Intents), save, and try again.";
 
         public const string NotText = "That channel isn't a text channel (a category, forum, voice or thread channel): Requestrr answered in text channels.";

@@ -57,8 +57,16 @@ const links = [
     to: '/settings',
     children: [
       {
-        title: () => translate('Tags'),
-        to: '/settings/tags'
+        title: () => translate('SettingsConnections'),
+        to: '/settings/connections'
+      },
+      {
+        title: () => translate('SettingsRequests'),
+        to: '/settings/requests'
+      },
+      {
+        title: () => translate('SettingsChanges'),
+        to: '/settings/changes'
       },
       {
         title: () => translate('General'),
@@ -69,24 +77,8 @@ const links = [
         to: '/settings/ui'
       },
       {
-        title: () => translate('SettingsDiscord'),
-        to: '/settings/discord'
-      },
-      {
-        title: () => translate('SettingsInstances'),
-        to: '/settings/instances'
-      },
-      {
-        title: () => translate('SettingsRequests'),
-        to: '/settings/requests'
-      },
-      {
-        title: () => translate('SettingsConnections'),
-        to: '/settings/connections'
-      },
-      {
-        title: () => translate('SettingsChanges'),
-        to: '/settings/changes'
+        title: () => translate('Tags'),
+        to: '/settings/tags'
       },
       {
         title: () => translate('ImportFromRequestrr'),

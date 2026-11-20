@@ -8,6 +8,7 @@ import styles from './PageToolbarButton.css';
 
 function PageToolbarButton(props) {
   const {
+    className,
     label,
     iconName,
     spinningName,
@@ -20,6 +21,7 @@ function PageToolbarButton(props) {
     <Link
       className={classNames(
         styles.toolbarButton,
+        className,
         isDisabled && styles.isDisabled
       )}
       isDisabled={isDisabled || isSpinning}
@@ -42,6 +44,8 @@ function PageToolbarButton(props) {
 }
 
 PageToolbarButton.propTypes = {
+  // Requestarr: extra style for one button, such as a label wider than the usual button.
+  className: PropTypes.string,
   label: PropTypes.string.isRequired,
   iconName: PropTypes.object.isRequired,
   spinningName: PropTypes.object,

@@ -154,7 +154,7 @@ What's there:
 - **Requests, Members and Queue:** every request, every member, and what waits on an admin, with everything an admin does in Discord's admin channels: approve, deny, cancel, add seasons, start, force or drop a removal, add a member, change their access and limits, suspend, unsuspend, remove, link Plex. Discord's messages change as if it had been done there.
 - **Access requests, Outages and Audit log:** people asking to join or paused, what can't be reached now and past outages, and everything Requestarr recorded, by member, title, action and day. The audit log keeps an entry for 1 year by default (Settings, Requests, **Keep the audit log for**: 90 days, 6 months, 1 year, 2 years or forever; `auditLog.keepFor` in `provisioning.yml`). Older entries are removed once a day, and that is recorded too; requests, members, removals and renames (which the header search uses to find a name someone had before) stay. Histories, timelines and Settings, then Changes, show what the log still keeps, and a page whose older history was removed says so.
 - **The search in the header** (press `/`): a request by title, a member by name or Discord username.
-- **Settings:** General, UI and Tags; Discord, Sonarr and Radarr, Requests and Connections (Requestarr's own settings); Changes (every change to them); and Setup (the first-run setup).
+- **Settings:** Connections (everything Requestarr connects to: the Discord bot, Sonarr and Radarr, The Movie Database and bug reports, as cards) and Requests (Requestarr's own settings); Changes (every change to them); General, UI and Tags; and Setup (the first-run setup).
 - **System:** Status, Tasks, Backup, Updates, What's new (each version's changes), Events, and Log Files.
 
 ### 3.6 Updating
@@ -870,14 +870,16 @@ Open `http://<your server's address>:19797`. A new install opens its first-run s
 2. **This server and the Discord bot.** **This server is:** choose **Beta**, before adding Sonarr and Radarr: left on Production, Requestarr would name its connection there like production's, and it refuses to take over a connection another Requestarr owns. It gives the web app the BETA strip and beta's icons (from the next page you open), keeps every "what's new" post for good, and names Requestarr's connection in Sonarr and Radarr for beta. Then paste the beta bot's token, its application ID and the Requestarr Beta server's ID, and **Save**. **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if it isn't there yet.
 3. **Production's Sonarr.** Press **Add Sonarr**: a name (`Sonarr`), its address as the Synology reaches it (`http://<your server's address>:8989`, the server's own address, never a container name), its API key. Press **Test**, choose its quality profile and the root folder your TV is in, tick **Default**, and **Save**.
 
-The setup then says Requestarr is ready. Finish under **Settings**:
+The setup then says Requestarr is ready. Finish under **Settings → Connections**, which holds everything Requestarr connects to as cards, the way Sonarr's Indexers page does: **Discord**, **Media managers** (Sonarr and Radarr), **Metadata** (The Movie Database) and **Bug reports** (GitHub), with **Options** below. Press a card to change it; the **+** card adds a Sonarr or Radarr.
 
-- **Settings → Sonarr and Radarr → Add Radarr:** production's Radarr the same way (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
-- **Settings → Connections:** **Requestarr's address for Sonarr and Radarr** `http://<your server's address>:19797` (Sonarr and Radarr call it there), **Check downloads every** `5` minutes; the **GitHub key** for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr); and optionally **The Movie Database key** ([4.6](#46-cast-from-the-movie-database-optional)). **Save Changes**.
+- **Media managers, the + card, Radarr:** production's Radarr the same way (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
+- **Options:** **Requestarr's address for Sonarr and Radarr** `http://<your server's address>:19797` (Sonarr and Radarr call it there) and **Check downloads every** `5` minutes, then **Save Changes** in the toolbar.
+- **Bug reports, the GitHub card:** the **GitHub key** (a fine-grained token with only Issues: read and write on Requestarr/Requestarr), **Save**.
+- **Metadata, The Movie Database card** (optional): its key ([4.6](#46-cast-from-the-movie-database-optional)), **Save**.
 
-Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again. **This server is** stays under **Settings → Discord**.
+Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again. **This server is** stays on the **Discord** card under **Settings → Connections**.
 
-**Check:** the web app shows the BETA strip; **Settings → Sonarr and Radarr** shows both Connected; **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
+**Check:** the web app shows the BETA strip; **Settings → Connections** shows both Sonarr and Radarr cards Connected (**Test All Connections** tests them again and shows the result on their cards); **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
 
 ### B.4 Delete files, and why it starts off
 

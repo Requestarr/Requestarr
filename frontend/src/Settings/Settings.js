@@ -8,14 +8,12 @@ import styles from './Settings.css';
 
 // Each settings page with its one-line summary: the link's words are the title key, the summary its own key.
 const PAGES = [
-  { to: '/settings/tags', title: 'Tags', summary: 'TagsSettingsSummary' },
+  { to: '/settings/connections', title: 'SettingsConnections', summary: 'SettingsConnectionsSummary' },
+  { to: '/settings/requests', title: 'SettingsRequests', summary: 'SettingsRequestsSummary' },
+  { to: '/settings/changes', title: 'SettingsChanges', summary: 'SettingsChangesSummary' },
   { to: '/settings/general', title: 'General', summary: 'GeneralSettingsSummary' },
   { to: '/settings/ui', title: 'UI', summary: 'UISettingsSummary' },
-  { to: '/settings/discord', title: 'SettingsDiscord', summary: 'SettingsDiscordSummary' },
-  { to: '/settings/instances', title: 'SettingsInstances', summary: 'SettingsInstancesSummary' },
-  { to: '/settings/requests', title: 'SettingsRequests', summary: 'SettingsRequestsSummary' },
-  { to: '/settings/connections', title: 'SettingsConnections', summary: 'SettingsConnectionsSummary' },
-  { to: '/settings/changes', title: 'SettingsChanges', summary: 'SettingsChangesSummary' },
+  { to: '/settings/tags', title: 'Tags', summary: 'TagsSettingsSummary' },
   { to: '/settings/import', title: 'ImportFromRequestrr', summary: 'ImportFromRequestrrSummary' },
   { to: '/setup', title: 'Setup', summary: 'SetupSummary' }
 ];

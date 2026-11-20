@@ -79,7 +79,7 @@ namespace Requestarr.Core.Announcements
 
         public string IconSet => IconSetFor(Name);
 
-        // The roles an admin chooses between in the first-run setup (Settings, then Discord: This server is).
+        // The roles an admin chooses between in the first-run setup (Settings, then Connections, Discord: This server is).
         public const string Production = "production";
         public const string Beta = "beta";
         public static readonly IReadOnlyList<string> Roles = new[] { Production, Beta };

@@ -38,7 +38,7 @@ interface InstanceStepProps {
 }
 
 // The first Sonarr or Radarr: pick which, fill in its address and API key, Test, choose what requests use, Save.
-// More can be added later under Settings, Sonarr and Radarr.
+// More can be added later under Settings, Connections.
 function InstanceStep({ setup, onSaved }: InstanceStepProps) {
   const [implementation, setImplementation] = useState<string>();
 

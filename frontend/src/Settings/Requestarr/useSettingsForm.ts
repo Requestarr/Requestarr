@@ -25,7 +25,8 @@ function changesToSend(
 
 // Requestarr's settings and the changes made on the page; saving sends only those changes.
 function useSettingsForm(onSaved?: () => void) {
-  const { data, error, setData } = useRequestarrApi<AppSettings>('settings');
+  const { data, error, reload, setData } =
+    useRequestarrApi<AppSettings>('settings');
   const [pending, setPending] = useState<Record<string, SettingValue>>({});
   const { isBusy: isSaving, problem: saveError, run } = useApiAction();
 
@@ -60,6 +61,7 @@ function useSettingsForm(onSaved?: () => void) {
     saveError,
     onChange,
     onSave,
+    reload,
   };
 }
 

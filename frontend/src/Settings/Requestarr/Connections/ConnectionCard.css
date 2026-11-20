@@ -1,0 +1,40 @@
+/* The card grid of Sonarr's and Radarr's Indexers and Download Clients settings. */
+.connection {
+  composes: card from '~Components/Card.css';
+
+  width: 290px;
+}
+
+.name {
+  @add-mixin truncate;
+
+  font-weight: 300;
+  font-size: 24px;
+}
+
+.type {
+  margin-bottom: 15px;
+  color: var(--helpTextColor);
+}
+
+.labels {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.addConnection {
+  composes: connection;
+
+  background-color: var(--cardAlternateBackgroundColor);
+  color: var(--gray);
+  text-align: center;
+}
+
+.center {
+  display: inline-block;
+  padding: 5px 20px 0;
+  border: 1px solid var(--borderColor);
+  border-radius: 4px;
+  background-color: var(--cardCenterBackgroundColor);
+}
