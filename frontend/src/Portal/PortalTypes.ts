@@ -219,10 +219,40 @@ export interface PortalSearchResults {
   members: PortalMember[];
 }
 
+// Someone in the Discord server who isn't onboarded yet, for Add member.
 export interface PortalServerMember {
   discordId: string;
   name: string;
   username: string;
+  avatar: string | null;
+  joined: string | null;
+  roles: string[];
+  importedRequests: number;
+}
+
+// What everyone picked gets, per content type; limit, days and instance null keep the server's.
+export interface OnboardAccess {
+  contentType: ContentType;
+  state: AccessState;
+  limit: number | null;
+  days: number | null;
+  instanceId: number | null;
+}
+
+export type OnboardState = 'waiting' | 'adding' | 'added' | 'failed';
+
+export interface OnboardResult {
+  discordId: string;
+  name: string;
+  state: OnboardState;
+  message: string | null;
+}
+
+// An onboarding run: each person's part, and whether it's gone through everyone.
+export interface OnboardJob {
+  id: string;
+  people: OnboardResult[];
+  isDone: boolean;
 }
 
 export interface PortalLibraryTitle {

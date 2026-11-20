@@ -29,9 +29,15 @@ function withRows(
 }
 
 // Picking rows, as an email or file list does: a box on every row, a box for the page shown, every row matching the
-// filters at once, and Clear. Picks the filters now hide aren't acted on.
-function useSelection<T extends Row>(matching: T[], page: T[]) {
-  const [selected, setSelected] = useState(NONE);
+// filters at once, and Clear. Picks the filters now hide aren't acted on. initial: rows picked to begin with.
+function useSelection<T extends Row>(
+  matching: T[],
+  page: T[],
+  initial: RowId[] = []
+) {
+  const [selected, setSelected] = useState<ReadonlySet<RowId>>(
+    () => new Set(initial)
+  );
 
   const picked = useMemo(
     () => matching.filter((row) => selected.has(row.id)),
