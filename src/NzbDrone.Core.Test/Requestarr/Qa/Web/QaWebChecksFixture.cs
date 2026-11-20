@@ -169,8 +169,63 @@ namespace Requestarr.Core.Test.Qa.Web
                 await FollowersSectionAsync(browser, check, theme);
             }
 
+            await PosterOptionsAsync(browser, check);
+            await JumpAndReturnAsync(browser, check);
             await OpenInSonarrAsync(browser, check);
         });
+
+        private static async Task ChooseViewAsync(HeadlessBrowser browser, string view, string shows)
+        {
+            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
+            await browser.RunAsync($"[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === '{view}' && e.closest('[class*=\"MenuContent\"]')).click()");
+            await browser.WaitForAsync($"!!document.querySelector('{shows}')");
+        }
+
+        // Posters' Options, as Sonarr's: a smaller poster size draws smaller posters, and Close keeps the choice.
+        private static async Task PosterOptionsAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            const string Poster = "document.querySelector('[class*=\"RequestIndexPoster-content\"]').getBoundingClientRect().width";
+            const string Size = "document.querySelector('[class*=\"ModalBody\"] select[name=size]')";
+            await browser.GoAsync($"{Url}/requests");
+            await ChooseViewAsync(browser, "Posters", "[class*=\"RequestIndexPoster-content\"]");
+            var before = await browser.EvalAsync<double>(Poster);
+            await PressToolbarAsync(browser, "Options");
+            await browser.WaitForAsync($"!!{Size}");
+            await browser.RunAsync($"const e = {Size}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(e, 'small'); e.dispatchEvent(new Event('change', {{ bubbles: true }}))");
+            await browser.WaitForAsync($"{Poster} < {before.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            var after = await browser.EvalAsync<double>(Poster);
+            var options = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"ModalBody\"] label')].map(l => l.innerText.trim()).filter(Boolean).join(', ')");
+            check.Saw($"Posters' Options: {options}; Poster Size Small draws posters {after:0}px wide, down from {before:0}px");
+            await check.ShotAsync(browser, "poster-options");
+            await browser.RunAsync($"const e = {Size}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(e, 'large'); e.dispatchEvent(new Event('change', {{ bubbles: true }}))");
+            await AnswerAsync(browser, "Close", true);
+            after.Should().BeLessThan(before);
+        }
+
+        // Sorted by title, the letter bar beside the list jumps to a letter; opening a request and coming back returns to
+        // where the list was scrolled, as Sonarr's series list does.
+        private static async Task JumpAndReturnAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            const string Letters = "[...document.querySelectorAll('[class*=\"PageJumpBarItem-jumpBarItem\"]')]";
+            const string FirstShown = "(b => [...document.querySelectorAll('[class*=\"RequestIndexPoster-title\"]')].find(t => t.getBoundingClientRect().top >= b.getBoundingClientRect().top))(document.querySelector('[class*=\"RequestsPage-contentBody\"]'))";
+            await PressToolbarAsync(browser, "Sort");
+            await browser.RunAsync("[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].find(e => e.innerText.trim() === 'Title').click()");
+            await browser.WaitForAsync($"{Letters}.length > 1");
+            var letter = await browser.EvalAsync<string>($"{Letters}.at(-1).innerText.trim()");
+            await browser.RunAsync($"{Letters}.at(-1).click()");
+            await browser.WaitForAsync($"{IndexBody}.scrollTop > 0 && !!{FirstShown}");
+            var first = await browser.EvalAsync<string>($"{FirstShown}.innerText");
+            check.Saw($"sorted by title, the jump bar's {letter} scrolls to {first}");
+            await check.ShotAsync(browser, "jump-bar");
+            first.ToUpperInvariant().Should().StartWith(letter);
+
+            var scrolled = await browser.EvalAsync<double>($"{IndexBody}.scrollTop");
+            await browser.RunAsync($"{FirstShown}.closest('[class*=\"RequestIndexPoster-content\"]').querySelector('a[href*=\"/requests/\"]').click()");
+            await browser.WaitForAsync("/\\/requests\\/\\d+/.test(location.pathname)");
+            await browser.RunAsync("history.back()");
+            await browser.WaitForAsync($"!!{IndexBody} && Math.abs({IndexBody}.scrollTop - {scrolled.ToString(System.Globalization.CultureInfo.InvariantCulture)}) < 50");
+            check.Saw($"opening a request and going back returns the list to {await browser.EvalAsync<double>($"{IndexBody}.scrollTop"):0}px down (it was {scrolled:0})");
+        }
 
         private static async Task PeopleOnOneLineAsync(HeadlessBrowser browser, WebCheck check, string where)
         {
@@ -222,7 +277,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 return;
             }
 
-            var title = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestIndexOverview-content\"]')].find(r => [...r.querySelectorAll('a')].some(a => a.innerText === 'Open in Sonarr')).querySelector('a').innerText");
+            var title = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestIndexOverview-content\"]')].find(r => [...r.querySelectorAll('a')].some(a => a.innerText === 'Open in Sonarr')).querySelector('[class*=\"RequestIndexOverview-title\"]').innerText");
             await browser.GoAsync(link);
             var series = title.Contains(" (", StringComparison.Ordinal) ? title[..title.LastIndexOf(" (", StringComparison.Ordinal)] : title;
             await browser.WaitForAsync($"document.title.includes({JsonSerializer.Serialize(series)}) || document.body.innerText.includes({JsonSerializer.Serialize(series)})", TimeSpan.FromSeconds(30));
@@ -238,7 +293,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await SignInAsync(browser);
             await browser.GoAsync(Url + "/requests");
             await browser.WaitForAsync("document.querySelector('[class*=\"RequestIndex\"], [class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')");
-            var title = await browser.EvalAsync<string>("document.querySelector('[class*=\"PageContentBody\"] a[href*=\"/requests/\"]:not(:has(img))')?.textContent ?? ''");
+            var title = await PortalAsync<string>(browser, "requests", "r => r[0]?.title ?? ''");
             await browser.GoAsync(Url + "/members");
             await browser.WaitForAsync("document.querySelector('[class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')");
             var member = await browser.EvalAsync<string>("document.querySelector('[class*=\"IndexTable-row\"] a[href*=\"/members/\"]')?.textContent ?? ''");
@@ -400,23 +455,27 @@ namespace Requestarr.Core.Test.Qa.Web
         });
 
         // Every Members row has a picture and an @handle, and someone imported is first seen (Added) with their first
-        // request; the list's end is photographed too, so every row is on a screenshot.
+        // request. The list draws only the rows on screen, so the check scrolls through it, reading each row as it's
+        // drawn, and photographs its end.
         private static async Task MemberRowsAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             const string Rows = "[...document.querySelectorAll('[class*=\"IndexTable-row\"]')]";
-            const string Column = "(name => [...document.querySelector('[class*=\"VirtualTableHeader-header\"]').children].findIndex(t => t.innerText.trim().startsWith(name)))";
-            var rows = await browser.EvalAsync<int>($"{Rows}.length");
-            var pictures = await browser.EvalAsync<int>($"{Rows}.filter(r => r.children[0].querySelector('img')).length");
-            var handles = await browser.EvalAsync<int>($"{Rows}.filter(r => r.children[0].innerText.includes('@')).length");
-            var notFirstSeen = await browser.EvalAsync<string>(
-                $"(() => {{ const first = {Column}('First request'), added = {Column}('Added'); " +
-                $"return {Rows}.filter(r => r.children[1].innerText.startsWith('Imported, ') && r.children[first].innerText !== r.children[added].innerText)" +
-                ".map(r => r.children[0].querySelector('a').innerText).join(', '); })()");
-            check.Saw($"members ({theme}): {rows} rows, {pictures} with a picture, {handles} with an @handle; imported rows whose Added isn't their first request: {(notFirstSeen.Length == 0 ? "none" : notFirstSeen)}");
+            var seen = await browser.EvalAsync<JsonElement>(
+                $"(async () => {{ const body = {IndexBody}; const header = [...document.querySelector('[class*=\"VirtualTableHeader-header\"]').children]; " +
+                "const column = name => header.findIndex(t => t.innerText.trim().startsWith(name)); const first = column('First request'), added = column('Added'); " +
+                "const rows = new Map(); for (let top = 0; ; top += body.clientHeight / 2) { body.scrollTo(0, top); await new Promise(r => setTimeout(r, 150)); " +
+                $"for (const r of {Rows}) {{ const c = r.children; rows.set(c[0].querySelector('a').innerText, {{ picture: !!c[0].querySelector('img'), handle: c[0].innerText.includes('@'), " +
+                "notFirstSeen: first >= 0 && c[1].innerText.startsWith('Imported, ') && c[first].innerText !== c[added].innerText }); } if (top >= body.scrollHeight) break; } " +
+                "const all = [...rows.entries()]; return { rows: all.length, pictures: all.filter(([, r]) => r.picture).length, handles: all.filter(([, r]) => r.handle).length, " +
+                "notFirstSeen: all.filter(([, r]) => r.notFirstSeen).map(([n]) => n).join(', ') }; })()");
+            var rows = seen.GetProperty("rows").GetInt32();
+            var pictures = seen.GetProperty("pictures").GetInt32();
+            var handles = seen.GetProperty("handles").GetInt32();
+            var notFirstSeen = seen.GetProperty("notFirstSeen").GetString();
+            check.Saw($"members ({theme}): {rows} rows read through the whole list, {pictures} with a picture, {handles} with an @handle; imported rows whose Added isn't their first request: {(notFirstSeen.Length == 0 ? "none" : notFirstSeen)}");
 
-            await browser.RunAsync($"{Rows}.pop().scrollIntoView()");
             await check.ShotAsync(browser, $"imported-members-end-{theme}");
-            await browser.RunAsync($"{Rows}[0].scrollIntoView()");
+            await browser.RunAsync($"{IndexBody}.scrollTo(0, 0)");
 
             rows.Should().BePositive();
             pictures.Should().Be(rows, "everyone has a picture, Discord's default when they have none");

@@ -165,8 +165,9 @@ namespace Requestarr.Core.Test.Qa.Web
             foreach (var (action, status) in new[] { ("Suspend", "suspended"), ("Unsuspend", "active") })
             {
                 await browser.GoAsync($"{Url}/members");
-                await browser.WaitForAsync($"!!{TestMemberRow}");
+                await browser.WaitForAsync("!!document.querySelector('[class*=\"IndexTable-row\"]')");
                 await PressToolbarAsync(browser, "Select Members");
+                await ScrollToRowAsync(browser, TestMemberRow);
                 await browser.WaitForAsync($"!!{TestMemberRow}.querySelector('input[type=checkbox]')");
                 await browser.RunAsync($"{TestMemberRow}.querySelector('label').click()");
                 await PressToolbarAsync(browser, action);

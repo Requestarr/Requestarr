@@ -33,6 +33,16 @@ namespace Requestarr.Core.Test.Qa.Web
         private static Task<int> RowCountAsync(HeadlessBrowser browser, string within = "document") =>
             browser.EvalAsync<int>($"{within}.querySelectorAll('tbody tr').length");
 
+        // Scrolls a list's page body (Requests or Members) until the row is drawn, as the list draws only the rows on
+        // screen, then brings it to the middle.
+        private static async Task ScrollToRowAsync(HeadlessBrowser browser, string row)
+        {
+            var found = await browser.EvalAsync<bool>(
+                $"(async () => {{ const body = {IndexBody}; for (let top = 0; top <= body.scrollHeight; top += body.clientHeight / 2) {{ body.scrollTo(0, top); " +
+                $"await new Promise(r => setTimeout(r, 150)); if ({row}) {{ {row}.scrollIntoView({{ block: 'center' }}); await new Promise(r => setTimeout(r, 150)); return true; }} }} return false; }})()");
+            found.Should().BeTrue("the row is in the list");
+        }
+
         // Scrolls the Requests list to its end and waits for its last rows to be drawn.
         private static async Task ScrollToEndAsync(HeadlessBrowser browser, int total)
         {

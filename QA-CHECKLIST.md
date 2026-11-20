@@ -99,6 +99,15 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Table has a small poster on each row.
     - The series' page in Sonarr opens in a new tab.
   - Checked automatically: the web app request views check.
+- **Jump bar and coming back**
+  - Steps:
+    1. In Requests, sort by Title.
+    2. Press a letter in the bar on the right.
+    3. Open a request, then go back.
+  - Expect:
+    - The list jumps to the titles starting with that letter.
+    - Going back returns to the same place in the list.
+  - Checked automatically: the web app request views check.
 - **Requests and members pages**
   - Steps:
     1. In the web app, open Requests, then a request.

@@ -95,12 +95,13 @@ namespace Requestarr.Core.Test.Qa.Web
             await PressToolbarAsync(browser, "Select Requests");
             await browser.WaitForAsync("!!document.querySelector('[class*=\"IndexTable-row\"] input[type=checkbox]')");
 
+            // The list draws only the rows on screen, so each row is scrolled to before it's ticked.
             foreach (var id in ids)
             {
+                await ScrollToRowAsync(browser, Row(id));
                 await browser.RunAsync($"{Row(id)}.querySelector('label').click()");
+                await browser.WaitForAsync($"{Row(id)}?.querySelector('input[type=checkbox]').checked");
             }
-
-            await browser.WaitForAsync($"document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]:checked').length === {ids.Length}");
         }
 
         // The toolbar's actions on the picks: every one shown, and the live ones (not greyed out).
