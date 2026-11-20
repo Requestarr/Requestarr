@@ -82,21 +82,27 @@ fetch() {
     git fetch -q --tags origin 2>/dev/null || true
 }
 
-# The build number tagged on exactly this commit (v0.7.0005 gives 0.7.0005), or nothing.
+# The build numbers among the tag names read in (v0.7.0005 gives 0.7.0005), lowest first. No match is not a failure:
+# under pipefail a grep that finds nothing would otherwise end the script.
+build_numbers_in() {
+    { grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' || true; } | sed 's/^v//' | sort -V
+}
+
+# The build number tagged on exactly this commit, or nothing.
 number_of() {
-    git tag --points-at "$1" | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' || true; } | sed 's/^v//' | sort -V | tail -1
+    git tag --points-at "$1" | build_numbers_in | tail -1
 }
 
 # The oldest numbered goal build that the commit has and staging doesn't: where the staging heading's "with" starts.
 first_new_build() {
-    git tag --merged "$1" --no-merged origin/staging | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' || true; } | sed 's/^v//' | sort -V | head -1
+    git tag --merged "$1" --no-merged origin/staging | build_numbers_in | head -1
 }
 
 # dev's newest numbered commit.
 newest_numbered() {
-    local tag
-    tag=$(git tag --merged origin/dev | grep -E '^v[0-9]+\.[0-9]+\.[0-9]{4,}$' | sort -V | tail -1)
-    [ -n "$tag" ] && git rev-parse "$tag^{commit}"
+    local number
+    number=$(git tag --merged origin/dev | build_numbers_in | tail -1)
+    [ -n "$number" ] && git rev-parse "v$number^{commit}"
 }
 
 # Every numbered version in CHANGELOG.md at a commit, newest first.

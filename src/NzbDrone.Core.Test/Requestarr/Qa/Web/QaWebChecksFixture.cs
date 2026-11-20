@@ -16,7 +16,7 @@ namespace Requestarr.Core.Test.Qa.Web
     // for the automation to look at against the item's Expect. The dev stack shows the dev logo where QA shows
     // QA's; the checks put QA's own logo files in the page where QA shows them (the logo is the only part that differs
     // between environments). Needs QA_CHECKS_URL, QA_CHECKS_USERNAME, QA_CHECKS_PASSWORD, QA_CHECKS_DIR and
-    // QA_CHECKS_COMMIT (the run sets them).
+    // QA_CHECKS_VERSION (the run sets them).
     [TestFixture]
     [ManualTest]
     public partial class QaWebChecksFixture

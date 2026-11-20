@@ -260,7 +260,7 @@ def run_web(out, env, commit):
     stack(["up"], login, ref=commit)
     web_dir = os.path.join(out, "web")
     web_env = dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir,
-                   QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password, QA_CHECKS_COMMIT=commit[:7],
+                   QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password,
                    QA_CHECKS_VERSION=running_build("dev"))
     os.makedirs(web_dir, exist_ok=True)
     dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(web_dir, "web.log"))
