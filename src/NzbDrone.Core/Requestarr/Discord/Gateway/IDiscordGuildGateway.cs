@@ -6,7 +6,8 @@ using Requestarr.Core.Discord.Interactions;
 
 namespace Requestarr.Core.Discord.Gateway
 {
-    public record GuildMember(ulong Id, string Username, string DisplayName, string AvatarUrl, bool IsBot, IReadOnlyList<ulong> RoleIds);
+    // JoinedAt: when they joined this server; null for someone not in it.
+    public record GuildMember(ulong Id, string Username, string DisplayName, string AvatarUrl, bool IsBot, IReadOnlyList<ulong> RoleIds, DateTimeOffset? JoinedAt = null);
 
     [Flags]
     public enum ChannelPermissions
@@ -57,8 +58,11 @@ namespace Requestarr.Core.Discord.Gateway
         // Any Discord user by ID (their username, global name and picture), in this server or not; null when there's none.
         Task<GuildMember> GetUserAsync(ulong userId);
 
-        // Server members whose username or server name starts with the query, as Discord searches them.
-        Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit);
+        // Everyone in the server, bots too.
+        Task<IReadOnlyList<GuildMember>> GetMembersAsync();
+
+        // The server's roles by ID, without @everyone.
+        Task<IReadOnlyDictionary<ulong, string>> GetRoleNamesAsync();
         Task<int> GetRoleCountAsync();
 
         Task<bool> ChannelExistsAsync(ulong channelId);

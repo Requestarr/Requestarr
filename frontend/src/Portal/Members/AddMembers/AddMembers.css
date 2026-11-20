@@ -1,0 +1,39 @@
+.filter {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  max-width: 100%;
+  width: 320px;
+  border: 1px solid var(--inputBorderColor);
+  border-radius: 4px;
+  background-color: var(--inputBackgroundColor);
+  color: var(--textColor);
+}
+
+/* A type's access, instance and limit side by side. */
+.typeFields {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.names {
+  overflow-y: auto;
+  margin: 0 0 15px;
+  max-height: 200px;
+}
+
+.summary {
+  font-weight: bold;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  margin-top: 15px;
+  gap: 15px;
+}
+
+.failed {
+  color: var(--dangerColor);
+}

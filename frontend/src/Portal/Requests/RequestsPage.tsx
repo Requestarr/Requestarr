@@ -8,7 +8,6 @@ import RequestsTable, {
   RequestsSort,
   sortValues,
 } from '../Components/RequestsTable';
-import PageCheckbox from '../Components/Selection/PageCheckbox';
 import SelectionBar from '../Components/Selection/SelectionBar';
 import useSelection from '../Components/Selection/useSelection';
 import { contentTypeText, statusText } from '../portalText';
@@ -182,22 +181,18 @@ function RequestsList(props: RequestsListProps) {
           />
         ))}
       </div>
-      <div className={styles.count}>
-        {translate('PortalShowingRequests', {
-          shown: shown.length,
-          total: requests.length,
-        })}
-      </div>
       <ActionOutcomeAlert outcome={bulk.outcome} />
       <SelectionBar
         selection={selection}
         actions={bulk.actions}
         isBusy={bulk.isBusy}
+        summary={translate('PortalShowingRequests', {
+          shown: shown.length,
+          total: requests.length,
+        })}
+        withPageBox={view !== 'table' && shown.length > 0}
         onAction={bulk.onAction}
       />
-      {view !== 'table' && shown.length > 0 && (
-        <PageCheckbox selection={selection} />
-      )}
       <Shown requests={shown} view={view} sort={sort} />
       {bulk.modal}
     </RequestRowsContext.Provider>

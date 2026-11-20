@@ -6,7 +6,6 @@ using NUnit.Framework;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
-using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Portal;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
@@ -104,23 +103,6 @@ namespace Requestarr.Core.Test.Portal
         {
             (await Subject.SuspendAsync(2, Admin)).Success.Should().BeFalse();
             Mocker.GetMock<IUserManagementService>().Verify(u => u.SuspendAsync(It.IsAny<ulong>(), It.IsAny<Actor>(), It.IsAny<string>()), Times.Never());
-        }
-
-        [Test]
-        public async Task add_member_finds_people_in_the_server_who_arent_members_or_bots()
-        {
-            Mocker.GetMock<IDiscordGuildGateway>().SetupGet(g => g.IsConnected).Returns(true);
-            Mocker.GetMock<IRequestarrUserRepository>().Setup(r => r.All()).Returns(new List<RequestarrUser> { new() { Id = 1, Status = UserStatus.Active } });
-            Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.SearchMembersAsync("al", It.IsAny<int>())).ReturnsAsync(new List<GuildMember>
-            {
-                new(111, "alice", "Alice", null, false, new List<ulong>()),
-                new(222, "alfred", "Alfred", null, false, new List<ulong>()),
-                new(333, "albot", "Al Bot", null, true, new List<ulong>())
-            });
-
-            var found = await Subject.SearchServerAsync("al");
-
-            found.Should().ContainSingle().Which.Should().Be(new PortalServerMember("222", "Alfred", "alfred"));
         }
     }
 }

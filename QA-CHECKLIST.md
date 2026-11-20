@@ -209,8 +209,8 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. Press Clear selection.
   - Expect:
     - No Select button: every row has its box.
-    - A bar at the top: 3 selected, with what all three allow.
-    - Actions they don't all allow are greyed, saying why on hover.
+    - The row at the top says 3 selected; nothing below it moves.
+    - Only the actions all three allow are shown.
     - Every row picked, then the bar gone after Clear.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
@@ -221,6 +221,32 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - It's listed under In your library, not requested, with its poster.
     - Start removal opens its dialog for that title.
   - Checked automatically: the web app request actions check.
+- **Add member list**
+  - Steps:
+    1. In Members, press Add member.
+    2. Type part of a name in the box at the top.
+    3. Tick someone, then press Set up.
+  - Expect:
+    - Everyone in the server who isn't a member, with joined date and roles.
+    - The list narrows as you type.
+    - A summary of what they'll get, then Confirm.
+  - Checked automatically: the web app add member check.
+- **Onboarding from the list**
+  - Steps:
+    1. In Add member, tick someone, press Set up, then Confirm.
+  - Expect:
+    - Each person's progress, then who was added and who failed and why.
+    - Their role, channel and panel in Discord.
+  - Checked automatically: the web app add member check.
+- **Picking members**
+  - Steps:
+    1. In Members, tick a member.
+    2. Press Suspend in the bar, then Unsuspend.
+  - Expect:
+    - Every row has its box and its actions beside its status.
+    - The bar offers Suspend, Unsuspend and Change access.
+    - Each asks first, naming who, and the status changes.
+  - Checked automatically: the web app add member check.
 - **Acting from the web app**
   - Steps:
     1. As an admin in the web app, deny a pending request with a reason.

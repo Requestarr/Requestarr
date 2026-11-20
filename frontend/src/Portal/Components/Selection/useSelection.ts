@@ -1,15 +1,18 @@
 import { useCallback, useMemo, useState } from 'react';
 
-const NONE: ReadonlySet<number> = new Set();
+// A row's ID: a number, or text for a Discord ID (too long for a number).
+export type RowId = number | string;
+
+const NONE: ReadonlySet<RowId> = new Set();
 
 interface Row {
-  id: number;
+  id: RowId;
 }
 
 // The picks with some rows ticked or unticked.
 function withRows(
-  current: ReadonlySet<number>,
-  ids: number[],
+  current: ReadonlySet<RowId>,
+  ids: RowId[],
   isSelected: boolean
 ) {
   const next = new Set(current);
@@ -26,9 +29,15 @@ function withRows(
 }
 
 // Picking rows, as an email or file list does: a box on every row, a box for the page shown, every row matching the
-// filters at once, and Clear. Picks the filters now hide aren't acted on.
-function useSelection<T extends Row>(matching: T[], page: T[]) {
-  const [selected, setSelected] = useState(NONE);
+// filters at once, and Clear. Picks the filters now hide aren't acted on. initial: rows picked to begin with.
+function useSelection<T extends Row>(
+  matching: T[],
+  page: T[],
+  initial: RowId[] = []
+) {
+  const [selected, setSelected] = useState<ReadonlySet<RowId>>(
+    () => new Set(initial)
+  );
 
   const picked = useMemo(
     () => matching.filter((row) => selected.has(row.id)),
@@ -37,7 +46,7 @@ function useSelection<T extends Row>(matching: T[], page: T[]) {
   const pickedOnPage = page.filter((row) => selected.has(row.id)).length;
 
   const onSelect = useCallback(
-    (id: number, isSelected: boolean) =>
+    (id: RowId, isSelected: boolean) =>
       setSelected((current) => withRows(current, [id], isSelected)),
     []
   );

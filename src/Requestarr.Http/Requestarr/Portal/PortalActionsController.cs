@@ -17,7 +17,8 @@ namespace Requestarr.Http.Portal
     // Seasons empty: the whole title.
     public record RemovalBody(List<int> Seasons, bool Force);
 
-    public record AddMemberBody(string DiscordId);
+    // Add member: the people picked and what each of them gets.
+    public record OnboardBody(List<OnboardPerson> People, List<OnboardAccess> Access);
 
     // InstanceId: the member's own instance for the type; null leaves it.
     public record AccessBody(ContentType ContentType, AccessState State, int? InstanceId);
@@ -38,11 +39,13 @@ namespace Requestarr.Http.Portal
     {
         private readonly IPortalActions _actions;
         private readonly IPortalMemberActions _members;
+        private readonly IPortalOnboarding _onboarding;
 
-        public PortalActionsController(IPortalActions actions, IPortalMemberActions members)
+        public PortalActionsController(IPortalActions actions, IPortalMemberActions members, IPortalOnboarding onboarding)
         {
             _actions = actions;
             _members = members;
+            _onboarding = onboarding;
         }
 
         [HttpPost("/api/v1/portal/requests/{id:int}/approve")]
@@ -102,10 +105,31 @@ namespace Requestarr.Http.Portal
 
         [HttpGet("/api/v1/portal/server-members")]
         [Produces("application/json")]
-        public async Task<IActionResult> ServerMembers([FromQuery] string term) => Json(await _members.SearchServerAsync(term));
+        public async Task<IActionResult> ServerMembers() =>
+            await _members.ServerMembersAsync() is { } people ? Json(people) : Conflict(new { message = "The Discord bot isn't connected, so the server's people can't be listed." });
 
-        [HttpPost("/api/v1/portal/members")]
-        public Task<IActionResult> AddMember([FromBody] AddMemberBody body) => Act(admin => _members.AddAsync(body?.DiscordId, admin));
+        // Starts onboarding everyone picked; the answer is the run, read again at its own address until it's done.
+        [HttpPost("/api/v1/portal/members/onboard")]
+        public async Task<IActionResult> Onboard([FromBody] OnboardBody body)
+        {
+            if (body == null)
+            {
+                return await Missing();
+            }
+
+            if (body.People == null || body.People.Count == 0)
+            {
+                return BadRequest(new { message = "Pick someone from the server." });
+            }
+
+            var access = (body.Access ?? new List<OnboardAccess>()).GroupBy(a => a.ContentType).Select(g => g.Last()).ToList();
+
+            return Json(_onboarding.Start(body.People, access, await WebAdmin.ActorAsync(HttpContext)));
+        }
+
+        [HttpGet("/api/v1/portal/members/onboard/{id}")]
+        [Produces("application/json")]
+        public IActionResult Onboarding(string id) => _onboarding.Find(id) is { } run ? Json(run) : NotFound();
 
         [HttpPut("/api/v1/portal/members/{id:int}/access")]
         public Task<IActionResult> SetAccess(int id, [FromBody] AccessBody body) =>

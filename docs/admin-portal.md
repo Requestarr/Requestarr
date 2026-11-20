@@ -22,7 +22,7 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | Instance down (**Check now**; the alert's **Announce to users**) | A Sonarr or Radarr that can't be reached | Outages, Can't be reached now: Check now, Announce to users | 5c |
 | Removal waiting on the admin (**Force removal**, **Drop removal**) | A requester's No, a vote kept by Keep it, a failed deletion, a removal waiting on its requester | The request's page: Force removal, Drop removal; a title nobody requested: on its Queue item | 5c |
 | The admin panel's **Members** (member picker) and `/admin user` | One member's card | The member's page | 5a |
-| Member card: **Add member** | Onboard someone new | Members: Add member (searches the Discord server) | 5c |
+| Member card: **Add member** | Onboard someone new | Members: Add member, a list of everyone in the Discord server who isn't onboarded (bots left out), to pick one or many and onboard together | 5c |
 | Member card: access per content type (off, needs approval, auto-approve) | What they can request | The member's page: Access, Save access | 5c |
 | Member card: **More** menu (limits, instance) | Requests per rolling window, which instance their requests go to | The member's page: Instance, Limit, Save access and Save limit | 5c |
 | Member card: **Suspend**, **Unsuspend**, **Remove** | Their status | The member's page: Suspend or Unsuspend, Remove member | 5c |
@@ -58,11 +58,19 @@ Every entry is covered. Discord stays the place members act; the portal never re
 
 Finding a request or a member quickly: the search in the header (press `/`) finds requests by title and members by name, Discord username, Discord ID or a name they had before, and titles in a Sonarr or Radarr library that nobody requested here, each with **Start removal** and **Force removal**. It never looks up or requests a new title.
 
+## Adding members
+
+**Add member** on the Members page lists everyone in the Discord server who isn't onboarded yet, without bots: their picture, name and @handle, when they joined the server, their roles there, and "Imported: 101 requests" for anyone with imported history (listed first). The box at the top narrows the list as you type; any column sorts it. Pick one or many (a box on every row, one in the header for everyone shown), then **Set up**: access per content type (off, needs approval, auto-approve), an instance and a limit, once for everyone, starting from the server's defaults, with a summary ("Onboard 6 people: Movies needs approval, TV needs approval") and **Confirm**.
+
+Each person then gets the member card's onboarding, as `/admin user` gives it: their role, their private channel with their panel, and the welcome. People are onboarded one after another, a couple of seconds apart, to stay within Discord's limits on creating channels and roles, and the page shows each one as it goes. One failure doesn't stop the rest: the end says who was added and who failed and why, with **Retry** for those who failed. Someone imported who's in the server has **Onboard** on their row and their page, which opens Add member with them picked.
+
+The Members list has the same picking as Requests: a box on every row, the bar with **Suspend**, **Unsuspend** and **Change access** for everyone picked (only those everyone picked can have), and each row's own actions beside its status: Onboard, Change access, Suspend or Unsuspend, and Remove, through the same services as the member card.
+
 ## Acting on requests where they're listed
 
 As in Sonarr and Radarr, every row in the Requests page's Overview, Posters and Table views has its actions beside its title and status: the most likely one as its own button (**Approve** while it waits, **Start removal** once it's there, **Delete record** for history), and a menu with exactly what the request's own page offers for its state (the same rules, so they never disagree), plus **Open in Sonarr** or **Radarr**.
 
-Picking works as in an email list: every row has a box, always. As soon as one is ticked, a bar sticks to the top of the list with the count, **Approve**, **Deny**, **Start removal** and **Delete record** (an action not every picked request offers is greyed, and says which ones on hover) and **Clear selection**. The header's box picks every row shown (everything the filters let through). Each action confirms with the list of titles; one refused doesn't stop the rest, and the outcome names each one refused and why.
+Picking works as in an email list: every row has a box, always. A row at the top of the list, stuck there while it scrolls, says how many are shown; as soon as one is ticked, the same row (so nothing below it moves) shows the count, the actions every picked request allows now (**Approve**, **Deny**, **Start removal**, **Delete record**: one not every pick allows isn't shown) and **Clear selection**. The header's box (in Overview and Posters, the box at the start of that row) picks every row shown. Each action confirms with the list of titles; one refused doesn't stop the rest, and the outcome names each one refused and why.
 
 **Delete record** is for history only (Not in library, usually imported): it removes the request and its follows from Requestarr's records. Nothing in Sonarr, Radarr or Discord changes, and the audit log keeps that it was deleted. Where deleting files is turned off (Settings, Requests), every removal's confirmation says that nothing is deleted until an admin does it by hand.
 

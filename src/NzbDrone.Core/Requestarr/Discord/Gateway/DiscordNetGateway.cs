@@ -48,11 +48,19 @@ namespace Requestarr.Core.Discord.Gateway
             return user == null ? null : new GuildMember(user.Id, user.Username, user.GlobalName ?? user.Username, user.GetDisplayAvatarUrl(), user.IsBot, Array.Empty<ulong>());
         }
 
-        public async Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit)
+        public async Task<IReadOnlyList<GuildMember>> GetMembersAsync()
         {
-            var found = await ((IGuild)RequireGuild()).SearchUsersAsync(query, limit, CacheMode.AllowDownload);
+            var all = await ((IGuild)RequireGuild()).GetUsersAsync(CacheMode.AllowDownload);
 
-            return found.Select(ToMember).ToList();
+            return all.Select(ToMember).ToList();
+        }
+
+        public Task<IReadOnlyDictionary<ulong, string>> GetRoleNamesAsync()
+        {
+            var guild = RequireGuild();
+            var roles = guild.Roles.Where(r => r.Id != guild.EveryoneRole.Id).ToDictionary(r => r.Id, r => r.Name);
+
+            return Task.FromResult<IReadOnlyDictionary<ulong, string>>(roles);
         }
 
         public Task<int> GetRoleCountAsync() => Task.FromResult(RequireGuild().Roles.Count);
@@ -346,7 +354,7 @@ namespace Requestarr.Core.Discord.Gateway
 
         // The gateway's own events carry the member too (a rename, a press).
         internal static GuildMember ToMember(IGuildUser member) =>
-            new(member.Id, member.Username, member.DisplayName ?? member.GlobalName ?? member.Username, member.GetDisplayAvatarUrl(), member.IsBot, member.RoleIds.ToList());
+            new(member.Id, member.Username, member.DisplayName ?? member.GlobalName ?? member.Username, member.GetDisplayAvatarUrl(), member.IsBot, member.RoleIds.ToList(), member.JoinedAt);
 
         private static ChannelMessage Read(IMessage m) => new(
             m.Id,

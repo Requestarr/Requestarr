@@ -4,6 +4,7 @@ import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
 import AccessRequestsPage from 'Portal/AccessRequests/AccessRequestsPage';
 import AuditLogPage from 'Portal/Audit/AuditLogPage';
+import AddMembersPage from 'Portal/Members/AddMembers/AddMembersPage';
 import MemberDetailPage from 'Portal/Members/MemberDetailPage';
 import MembersPage from 'Portal/Members/MembersPage';
 import OutagesPage from 'Portal/Outages/OutagesPage';
@@ -75,6 +76,8 @@ function AppRoutes() {
       <Route path="/requests/:id" component={RequestDetailPage} />
 
       <Route exact={true} path="/members" component={MembersPage} />
+
+      <Route exact={true} path="/members/add" component={AddMembersPage} />
 
       <Route path="/members/:id" component={MemberDetailPage} />
 

@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import Link from 'Components/Link/Link';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -7,11 +8,16 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import { icons } from 'Helpers/Props';
+import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
+import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import Person from '../Components/Person';
 import PortalFilter, { ALL, optionsOf } from '../Components/PortalFilter';
 import PortalPage from '../Components/PortalPage';
 import PortalToolbar from '../Components/PortalToolbar';
+import RowCheckbox from '../Components/Selection/RowCheckbox';
+import SelectionBar from '../Components/Selection/SelectionBar';
+import useSelection, { Selection } from '../Components/Selection/useSelection';
 import {
   accessText,
   byTypeText,
@@ -19,9 +25,12 @@ import {
   memberStatusText,
 } from '../portalText';
 import { ContentType, PortalMember } from '../PortalTypes';
+import { actionLabel } from '../Requests/ActionButton';
 import usePortal from '../usePortal';
 import useSortedRows, { SortValues } from '../useSortedRows';
-import AddMemberModal from './AddMemberModal';
+import { BULK_MEMBER_ACTIONS, memberActions } from './memberActionRules';
+import MemberRowActions from './MemberRowActions';
+import useMemberActions from './useMemberActions';
 import styles from '../Portal.css';
 
 const ACCESS_PREFIX = 'access-';
@@ -52,6 +61,7 @@ function columnsFor(types: ContentType[]): Column[] {
   return [
     column('name', translate('PortalMember')),
     column('status', translate('PortalStatus')),
+    { name: 'actions', label: '', isVisible: true, isSortable: false },
     ...types.map((type) =>
       column(`${ACCESS_PREFIX}${type}`, contentTypeText(type))
     ),
@@ -87,15 +97,26 @@ function sortValuesFor(types: ContentType[]): SortValues<PortalMember> {
   return values;
 }
 
+interface MemberRowProps {
+  member: PortalMember;
+  types: ContentType[];
+  selection: Selection;
+  isBusy: boolean;
+  onAction: (members: PortalMember[], action: string) => void;
+}
+
 function MemberRow({
   member,
   types,
-}: {
-  member: PortalMember;
-  types: ContentType[];
-}) {
+  selection,
+  isBusy,
+  onAction,
+}: MemberRowProps) {
   return (
     <TableRow>
+      <TableRowCell>
+        <RowCheckbox id={member.id} selection={selection} />
+      </TableRowCell>
       <TableRowCell>
         <Link to={`/members/${member.id}`}>
           <Person
@@ -106,6 +127,9 @@ function MemberRow({
         </Link>
       </TableRowCell>
       <TableRowCell>{memberStatusText(member.status)}</TableRowCell>
+      <TableRowCell>
+        <MemberRowActions member={member} isBusy={isBusy} onAction={onAction} />
+      </TableRowCell>
       {types.map((type) => (
         <TableRowCell key={type}>{accessFor(member, type)}</TableRowCell>
       ))}
@@ -121,10 +145,16 @@ function MemberRow({
   );
 }
 
-function MembersList({ members }: { members: PortalMember[] }) {
+interface MembersListProps {
+  members: PortalMember[];
+
+  // After an action: the list as it is now.
+  onDone: () => void;
+}
+
+// The Status filter's choices, what it's set to, and the members it lets through.
+function useStatusFilter(members: PortalMember[]) {
   const [status, setStatus] = useState(ALL);
-  const types = useMemo(() => typesOf(members), [members]);
-  const values = useMemo(() => sortValuesFor(types), [types]);
   const statuses = useMemo(
     () =>
       optionsOf(members, (m) => ({
@@ -137,16 +167,53 @@ function MembersList({ members }: { members: PortalMember[] }) {
     () => members.filter((m) => status === ALL || m.status === status),
     [members, status]
   );
+  const onFilterChange = useCallback(
+    (_name: string, value: string) => setStatus(value),
+    []
+  );
+
+  return { status, statuses, shown, onFilterChange };
+}
+
+// The members picked and what the bar does to them (suspend, unsuspend, change access), each action clearing the picks
+// once it's done.
+function useMemberBulk(sorted: PortalMember[], onDone: () => void) {
+  const selection = useSelection(sorted, sorted);
+  const { picked, onClear } = selection;
+  const onActionDone = useCallback(() => {
+    onClear();
+    onDone();
+  }, [onClear, onDone]);
+  const { run, ask, isBusy, outcome, dialogs } = useMemberActions(onActionDone);
+  const barActions = useMemo(
+    () =>
+      BULK_MEMBER_ACTIONS.map((name) => ({
+        name,
+        label: actionLabel(name),
+        isDanger: false,
+        isOffered: picked.every((m) => memberActions(m).includes(name)),
+      })),
+    [picked]
+  );
+  const onBulk = useCallback(
+    (name: string) => ask(picked, name),
+    [ask, picked]
+  );
+
+  return { selection, run, isBusy, outcome, dialogs, barActions, onBulk };
+}
+
+function MembersList({ members, onDone }: MembersListProps) {
+  const types = useMemo(() => typesOf(members), [members]);
+  const values = useMemo(() => sortValuesFor(types), [types]);
+  const { status, statuses, shown, onFilterChange } = useStatusFilter(members);
   const { sorted, sortKey, sortDirection, onSortPress } = useSortedRows(
     shown,
     values,
     'name'
   );
-
-  const onFilterChange = useCallback(
-    (_name: string, value: string) => setStatus(value),
-    []
-  );
+  const { selection, run, isBusy, outcome, dialogs, barActions, onBulk } =
+    useMemberBulk(sorted, onDone);
 
   return (
     <>
@@ -159,38 +226,64 @@ function MembersList({ members }: { members: PortalMember[] }) {
           onChange={onFilterChange}
         />
       </div>
+      <ActionOutcomeAlert outcome={outcome} />
+      <SelectionBar
+        selection={selection}
+        actions={barActions}
+        isBusy={isBusy}
+        summary={translate('PortalShowingMembers', {
+          shown: sorted.length,
+          total: members.length,
+        })}
+        onAction={onBulk}
+      />
       <Table
+        selectAll={true}
+        allSelected={selection.allOnPage}
+        allUnselected={selection.noneOnPage}
         columns={columnsFor(types)}
         sortKey={sortKey}
         sortDirection={sortDirection}
+        onSelectAllChange={selection.onPageChange}
         onSortPress={onSortPress}
       >
         <TableBody>
           {sorted.map((member) => (
-            <MemberRow key={member.id} member={member} types={types} />
+            <MemberRow
+              key={member.id}
+              member={member}
+              types={types}
+              selection={selection}
+              isBusy={isBusy}
+              onAction={run}
+            />
           ))}
         </TableBody>
       </Table>
+      {dialogs}
     </>
   );
 }
 
-function renderMembers(members: PortalMember[]) {
-  return members.length ? (
-    <MembersList members={members} />
-  ) : (
-    <div className={styles.empty}>{translate('PortalNoMembers')}</div>
-  );
-}
-
-// Every member Requestarr knows: their access to each type with its limit, and how many requests they have; Add member
-// onboards someone from the Discord server.
+// Every member Requestarr knows: their access to each type with its limit, and how many requests they have. Each row
+// has its actions and a box to pick it, for acting on several at once; Add member lists the server's people to onboard.
 function MembersPage() {
+  const history = useHistory();
   const result = usePortal<PortalMember[]>('members');
   const onActionDone = result.reload;
-  const [isAdding, setIsAdding] = useState(false);
-  const onAddPress = useCallback(() => setIsAdding(true), []);
-  const onAddClose = useCallback(() => setIsAdding(false), []);
+  const onAddPress = useCallback(
+    () => history.push(getPathWithUrlBase('/members/add')),
+    [history]
+  );
+  const renderMembers = useCallback(
+    (members: PortalMember[]) =>
+      members.length ? (
+        <MembersList members={members} onDone={onActionDone} />
+      ) : (
+        <div className={styles.empty}>{translate('PortalNoMembers')}</div>
+      ),
+    [onActionDone]
+  );
   const toolbar = (
     <PortalToolbar
       label={translate('PortalActionAddMember')}
@@ -200,20 +293,13 @@ function MembersPage() {
   );
 
   return (
-    <>
-      <PortalPage
-        title={translate('PortalMembers')}
-        result={result}
-        toolbar={toolbar}
-      >
-        {renderMembers}
-      </PortalPage>
-      <AddMemberModal
-        isOpen={isAdding}
-        onClose={onAddClose}
-        onDone={onActionDone}
-      />
-    </>
+    <PortalPage
+      title={translate('PortalMembers')}
+      result={result}
+      toolbar={toolbar}
+    >
+      {renderMembers}
+    </PortalPage>
   );
 }
 

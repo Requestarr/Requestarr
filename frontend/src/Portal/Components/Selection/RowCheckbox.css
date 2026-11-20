@@ -1,0 +1,12 @@
+/* CheckInput's own container grows to fill a form row; a list row's box keeps its size, and drops the form's top
+   margin so the row stays one line high. */
+.box {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.box div {
+  margin-top: 0;
+}

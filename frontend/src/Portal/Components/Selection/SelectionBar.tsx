@@ -1,17 +1,19 @@
 import React, { useCallback } from 'react';
 import Button from 'Components/Link/Button';
 import Link from 'Components/Link/Link';
-import { kinds, sizes } from 'Helpers/Props';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import PageCheckbox from './PageCheckbox';
 import { Selection } from './useSelection';
 import styles from './SelectionBar.css';
 
-// One of the bar's actions: disabled, with why on hover, when not every pick offers it.
+// One of the bar's actions: shown only when every pick offers it now. Destructive ones (a removal, deleting a record)
+// are red; the rest look like the app's other buttons.
 export interface BarAction {
   name: string;
   label: string;
   isDanger: boolean;
-  whyNot: string | null;
+  isOffered: boolean;
 }
 
 interface BarButtonProps {
@@ -27,16 +29,13 @@ function BarButton({ action, isBusy, onPress }: BarButtonProps) {
   );
 
   return (
-    <span title={action.whyNot ?? undefined}>
-      <Button
-        kind={action.isDanger ? kinds.DANGER : kinds.PRIMARY}
-        size={sizes.SMALL}
-        isDisabled={isBusy || action.whyNot !== null}
-        onPress={onButtonPress}
-      >
-        {action.label}
-      </Button>
-    </span>
+    <Button
+      kind={action.isDanger ? kinds.DANGER : kinds.DEFAULT}
+      isDisabled={isBusy}
+      onPress={onButtonPress}
+    >
+      {action.label}
+    </Button>
   );
 }
 
@@ -67,40 +66,47 @@ interface SelectionBarProps {
   selection: Selection;
   actions: BarAction[];
   isBusy: boolean;
+  // What the row says while nothing is picked ("Showing 464 of 464 requests").
+  summary: string;
+  // A box for the page, above a list without a table header to hold one (Overview, Posters).
+  withPageBox?: boolean;
   onAction: (name: string) => void;
 }
 
-// Shown as soon as anything is picked, stuck to the top of the list while it scrolls: how many, what every one of
-// them allows now, picking all that match, and Clear selection.
-function SelectionBar({
-  selection,
-  actions,
-  isBusy,
-  onAction,
-}: SelectionBarProps) {
-  if (!selection.picked.length) {
-    return null;
-  }
+// The row at the top of a list, stuck there while it scrolls, the same height whatever is picked so nothing below it
+// moves: how many there are, or once something is picked, how many, what every one of them allows now, picking all
+// that match, and Clear selection.
+function SelectionBar(props: SelectionBarProps) {
+  const { selection, actions, isBusy, summary, withPageBox, onAction } = props;
+  const count = selection.picked.length;
 
   return (
     <div className={styles.bar}>
-      <span className={styles.count}>
-        {translate('PortalSelectedCount', { count: selection.picked.length })}
-      </span>
-      <span className={styles.actions}>
-        {actions.map((action) => (
-          <BarButton
-            key={action.name}
-            action={action}
-            isBusy={isBusy}
-            onPress={onAction}
-          />
-        ))}
-      </span>
-      <AllMatching selection={selection} />
-      <Link className={styles.clear} onPress={selection.onClear}>
-        {translate('PortalClearSelection')}
-      </Link>
+      {withPageBox && <PageCheckbox selection={selection} />}
+      {count === 0 && <span className={styles.summary}>{summary}</span>}
+      {count > 0 && (
+        <>
+          <span className={styles.count}>
+            {translate('PortalSelectedCount', { count })}
+          </span>
+          <span className={styles.actions}>
+            {actions
+              .filter((action) => action.isOffered)
+              .map((action) => (
+                <BarButton
+                  key={action.name}
+                  action={action}
+                  isBusy={isBusy}
+                  onPress={onAction}
+                />
+              ))}
+          </span>
+          <AllMatching selection={selection} />
+          <Link className={styles.clear} onPress={selection.onClear}>
+            {translate('PortalClearSelection')}
+          </Link>
+        </>
+      )}
     </div>
   );
 }

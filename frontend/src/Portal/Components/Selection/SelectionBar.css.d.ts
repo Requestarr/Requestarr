@@ -5,6 +5,7 @@ interface CssExports {
   'bar': string;
   'clear': string;
   'count': string;
+  'summary': string;
 }
 export const cssExports: CssExports;
 export default cssExports;

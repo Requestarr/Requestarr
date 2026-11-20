@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import FieldSet from 'Components/FieldSet';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
 import { kinds } from 'Helpers/Props';
+import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import TextPromptModal from '../Components/TextPromptModal';
@@ -94,11 +96,14 @@ function StatusActions({ member, action }: StatusActionsProps) {
   );
 }
 
-// Someone known only from an import: onboarding them is the normal add, and their imported requests stay theirs.
+// Someone known only from an import: onboarding them is Add member's setup, with them picked; their imported requests
+// stay theirs.
 function OnboardAction({ member, action }: StatusActionsProps) {
+  const history = useHistory();
   const onPress = useCallback(
-    () => action.act('members', { discordId: member.discordId }),
-    [action, member]
+    () =>
+      history.push(getPathWithUrlBase(`/members/add?pick=${member.discordId}`)),
+    [history, member]
   );
 
   return (
