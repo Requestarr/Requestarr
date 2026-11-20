@@ -22,7 +22,7 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | Instance down (**Check now**; the alert's **Announce to users**) | A Sonarr or Radarr that can't be reached | Outages, Can't be reached now: Check now, Announce to users | 5c |
 | Removal waiting on the admin (**Force removal**, **Drop removal**) | A requester's No, a vote kept by Keep it, a failed deletion, a removal waiting on its requester | The request's page: Force removal, Drop removal; a title nobody requested: on its Queue item | 5c |
 | The admin panel's **Members** (member picker) and `/admin user` | One member's card | The member's page | 5a |
-| Member card: **Add member** | Onboard someone new | Members: Add member, a list of everyone in the Discord server who isn't onboarded (bots left out), to pick one or many and onboard together | 5c |
+| Member card: **Add member** | Onboard someone new | Members: Onboard, a list of everyone in the Discord server who isn't onboarded (bots left out), to pick one or many and onboard together | 5c |
 | Member card: access per content type (off, needs approval, auto-approve) | What they can request | The member's page: Access, Save access | 5c |
 | Member card: **More** menu (limits, instance) | Requests per rolling window, which instance their requests go to | The member's page: Instance, Limit, Save access and Save limit | 5c |
 | Member card: **Suspend**, **Unsuspend**, **Remove** | Their status | The member's page: Suspend or Unsuspend, Remove member | 5c |
@@ -68,7 +68,7 @@ A member's own requests have no Requester column (every row would name them). Re
 
 ## Adding members
 
-**Add member** on the Members page lists everyone in the Discord server who isn't onboarded yet, without bots: their picture, name and @handle, when they joined the server, their roles there, and "Imported: 101 requests" for anyone with imported history (listed first). The box at the top narrows the list as you type; any column sorts it. Pick one or many (a box on every row, one in the header for everyone shown), then **Set up**: access per content type (off, needs approval, auto-approve), an instance and a limit, once for everyone, starting from the server's defaults, with a summary ("Onboard 6 people: Movies needs approval, TV needs approval") and **Confirm**.
+**Onboard** on the Members page lists everyone in the Discord server who isn't onboarded yet, without bots: their picture, name and @handle, when they joined the server, their roles there, and "Imported: 101 requests" for anyone with imported history (listed first). The box at the top narrows the list as you type; any column sorts it. Pick one or many (a box on every row, one in the header for everyone shown), then **Set up**: access per content type (off, needs approval, auto-approve), an instance and a limit, once for everyone, starting from the server's defaults, with a summary ("Onboard 6 people: Movies needs approval, TV needs approval") and **Confirm**.
 
 Each person then gets the member card's onboarding, as `/admin user` gives it: their role, their private channel with their panel, and the welcome. People are onboarded one after another, a couple of seconds apart, to stay within Discord's limits on creating channels and roles, and the page shows each one as it goes. One failure doesn't stop the rest: the end says who was added and who failed and why, with **Retry** for those who failed. Someone imported who's in the server has **Onboard** on their row and their page, which opens Add member with them picked.
 

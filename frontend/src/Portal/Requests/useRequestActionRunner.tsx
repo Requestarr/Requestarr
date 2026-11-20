@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import usePortalAction from '../usePortalAction';
@@ -34,9 +34,27 @@ interface Asking {
 
 // Runs any of a request's actions by name, as its page and its row in a list offer them (the request's own list, from
 // the same rules), asking first where Discord asks. One runner serves a whole list: its dialogs and the outcome are
-// for the request acted on last; onDone follows every action.
-function useRequestActionRunner(onDone: () => void) {
-  const action = usePortalAction(onDone);
+// for the request acted on last; onDone follows every action. onRequestGone: where to go when a forced removal of a
+// request Sonarr and Radarr don't have just dropped it (its own page has nothing left to show).
+function useRequestActionRunner(
+  onDone: () => void,
+  onRequestGone?: () => void
+) {
+  const isDropping = useRef(false);
+  const afterAction = useCallback(
+    (isDone: boolean) => {
+      const isGone = isDropping.current && isDone;
+      isDropping.current = false;
+
+      if (isGone && onRequestGone) {
+        onRequestGone();
+      } else {
+        onDone();
+      }
+    },
+    [onDone, onRequestGone]
+  );
+  const action = usePortalAction(afterAction);
   const { act } = action;
   const [asking, setAsking] = useState<Asking>();
   const path = `requests/${asking?.request.id}`;
@@ -56,11 +74,12 @@ function useRequestActionRunner(onDone: () => void) {
 
   const onClose = useCallback(() => setAsking(undefined), []);
   const answer = useCallback(
-    (to: string, body?: unknown) => {
+    (to: string, body?: unknown, isForce = false) => {
+      isDropping.current = isForce && asking?.request.status === 'notInLibrary';
       setAsking(undefined);
       act(to, body);
     },
-    [act]
+    [act, asking]
   );
   const onReason = useCallback(
     (which: 'deny' | 'cancel', reason: string) =>
@@ -74,11 +93,11 @@ function useRequestActionRunner(onDone: () => void) {
   );
   const onRemove = useCallback(
     (seasons: number[], force: boolean) =>
-      answer(`${path}/removal`, { seasons, force }),
+      answer(`${path}/removal`, { seasons, force }, force),
     [answer, path]
   );
   const onForce = useCallback(
-    () => answer(`removals/${asking?.request.removalId}/force`),
+    () => answer(`removals/${asking?.request.removalId}/force`, {}, true),
     [answer, asking]
   );
 

@@ -1,49 +1,19 @@
 import React, { useCallback, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { callApi } from 'Settings/Requestarr/requestarrApi';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../../Components/ActionOutcomeAlert';
 import PortalPage from '../../Components/PortalPage';
 import {
   OnboardAccess,
-  OnboardJob,
   OnboardResult,
   PortalServerMember,
 } from '../../PortalTypes';
 import usePortal from '../../usePortal';
-import { ActionOutcome } from '../../usePortalAction';
 import OnboardProgress from './OnboardProgress';
 import PickPeople from './PickPeople';
 import SetUpPeople from './SetUpPeople';
+import useStartRun from './useStartRun';
 import styles from '../../Portal.css';
-
-type Who = Pick<PortalServerMember, 'discordId' | 'name'>;
-
-// Starting a run for these people with this access; its answer's ID, or why it couldn't start.
-function useStartRun() {
-  const [runId, setRunId] = useState<string>();
-  const [refused, setRefused] = useState<ActionOutcome>();
-  // Pressing twice never starts two runs for the same people.
-  const [isStarting, setIsStarting] = useState(false);
-  const start = useCallback((people: Who[], access: OnboardAccess[]) => {
-    setIsStarting(true);
-    callApi<OnboardJob>('/portal/members/onboard', 'POST', {
-      people: people.map(({ discordId, name }) => ({ discordId, name })),
-      access,
-    }).then(
-      (run) => {
-        setIsStarting(false);
-        setRunId(run.id);
-      },
-      (failure: Error) => {
-        setIsStarting(false);
-        setRefused({ isDone: false, message: failure.message });
-      }
-    );
-  }, []);
-
-  return { runId, refused, isStarting, start };
-}
 
 interface StepsProps {
   people: PortalServerMember[];
@@ -119,7 +89,7 @@ function AddMembersPage() {
   );
 
   return (
-    <PortalPage title={translate('PortalActionAddMember')} result={result}>
+    <PortalPage title={translate('PortalActionOnboard')} result={result}>
       {renderSteps}
     </PortalPage>
   );

@@ -16,9 +16,8 @@ export function memberActions(member: PortalMember): string[] {
   }
 }
 
-// What the toolbar offers in select mode, for one member or several.
+// What the toolbar offers in select mode, for one member or several (Onboard is a button of its own).
 export const GROUP_MEMBER_ACTIONS = [
-  'onboard',
   'suspend',
   'unsuspend',
   'changeAccess',

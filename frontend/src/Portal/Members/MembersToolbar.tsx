@@ -37,8 +37,8 @@ interface MembersToolbarProps {
   onFilterSelect: (filterKey: string | number) => void;
 }
 
-// The Members page's toolbar, as Prowlarr's IndexerIndex lays its out: Add and select mode on the left; Options, Sort
-// and Filter on the right. In select mode, what can be done to the picks comes first, left of Add member (the owner's
+// The Members page's toolbar, as Prowlarr's IndexerIndex lays its out: Onboard and select mode on the left; Options, Sort
+// and Filter on the right. In select mode, what can be done to the picks comes first, left of Onboard (the owner's
 // choice over Servarr's bar along the bottom).
 function MembersToolbar(props: MembersToolbarProps) {
   const { isSelectMode, isEmpty } = props;
@@ -53,7 +53,7 @@ function MembersToolbar(props: MembersToolbarProps) {
         })}
 
         <PageToolbarButton
-          label={translate('PortalActionAddMember')}
+          label={translate('PortalActionOnboard')}
           iconName={icons.ADD}
           onPress={props.onAddPress}
         />

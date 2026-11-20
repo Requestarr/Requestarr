@@ -18,10 +18,10 @@ namespace Requestarr.Core.Test.Qa.Web
         // The test member's row in the list shown, by their Discord username.
         private static string TestMemberRow => $"[...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('@{TestMember}'))";
 
-        // Add member and the Members list, at the owner's width, in both themes. Add member lists the server's people
+        // Onboard and the Members list, at the owner's width, in both themes. Onboard lists the server's people
         // with a box each and one in the header, narrows as you type, and picking someone shows the bar's Set up, whose
         // step sums up what they'll get. The Members list has no buttons on its rows; Select Members shows a box on each
-        // and the actions on what's picked in the toolbar, left of Add member. With a test member named, they're
+        // and the actions on what's picked in the toolbar, left of Onboard. With a test member named, they're
         // onboarded, suspended and unsuspended.
         [Test]
         public Task add_members() => CheckAsync(nameof(add_members), AddMembersAsync, OwnersWidth);
@@ -64,14 +64,14 @@ namespace Requestarr.Core.Test.Qa.Web
 
             if (rows == 0)
             {
-                check.Saw($"Add member ({theme}): everyone in the server is a member already");
+                check.Saw($"Onboard ({theme}): everyone in the server is a member already");
                 return;
             }
 
             var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
             var header = await browser.EvalAsync<bool>("!!document.querySelector('thead input[type=checkbox]')");
             var first = await browser.EvalAsync<string>("document.querySelector('tbody tr td:nth-child(2)').innerText.trim().split('\\n')[0]");
-            check.Saw($"Add member ({theme}): {rows} people, {boxes} boxes, a box in the header: {header}; first: {first}");
+            check.Saw($"Onboard ({theme}): {rows} people, {boxes} boxes, a box in the header: {header}; first: {first}");
             boxes.Should().Be(rows);
             header.Should().BeTrue();
             await check.ShotAsync(browser, $"add-member-{theme}");
@@ -109,13 +109,36 @@ namespace Requestarr.Core.Test.Qa.Web
                 var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
                 await PressToolbarAsync(browser, "Select All");
                 await browser.WaitForAsync("document.querySelectorAll('tbody input[type=checkbox]:not(:checked)').length === 0");
-                var actions = await browser.EvalAsync<string[]>("(b => b.slice(0, b.findIndex(x => x.innerText.trim() === 'Add member')))([...document.querySelectorAll('[class*=\"PageToolbar\"] button')]).map(b => b.innerText.trim())");
-                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows, all ticked; left of Add member: {string.Join(", ", actions)}");
+                var actions = await browser.EvalAsync<string[]>("(b => b.slice(0, b.findIndex(x => x.innerText.trim() === 'Onboard')))([...document.querySelectorAll('[class*=\"PageToolbar\"] button')]).map(b => b.innerText.trim())");
+                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows, all ticked; left of Onboard: {string.Join(", ", actions)}");
                 boxes.Should().Be(rows);
-                actions.Should().Equal("Onboard", "Suspend", "Unsuspend", "Change access", "Remove member");
+                actions.Should().Equal("Suspend", "Unsuspend", "Change access", "Remove member");
                 await check.ShotAsync(browser, $"members-picked-{theme}");
+                await OnboardWindowAsync(browser, check, theme);
                 await PressToolbarAsync(browser, "Stop Selecting");
             }
+        }
+
+        // With everyone picked, Onboard opens one window over the list for the picks it can onboard: what they get, then
+        // Confirm. Cancelled here, so nobody is onboarded.
+        private static async Task OnboardWindowAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            var onboardable = await PortalAsync<int>(browser, "members", "m => m.filter(x => x.status === 'imported').length");
+
+            if (onboardable == 0)
+            {
+                check.Saw($"Onboard with picks ({theme}): nobody here can be onboarded");
+                return;
+            }
+
+            await PressToolbarAsync(browser, "Onboard");
+            await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].some(b => b.innerText.trim() === 'Confirm')");
+            var names = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"ModalBody\"] li').length");
+            check.Saw($"Onboard with everyone picked ({theme}): one window naming {names} people, the {onboardable} who can be onboarded, with Confirm; still on {await browser.EvalAsync<string>("location.pathname")}");
+            names.Should().Be(onboardable, "only the picks it can onboard");
+            await check.ShotAsync(browser, $"onboard-window-{theme}");
+            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].find(b => b.innerText.trim() === 'Cancel').click()");
+            await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
         }
 
         private static async Task OnboardTestMemberAsync(HeadlessBrowser browser, WebCheck check)

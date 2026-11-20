@@ -9,11 +9,19 @@ interface RemovalActionsProps {
 
   // Agreed while deleting files is off: the admin deletes it by hand and says so, instead of forcing it.
   byHand?: boolean;
+
+  // Sonarr and Radarr don't have the title: Force's question says nothing is deleted.
+  isRecordOnly?: boolean;
 }
 
 // Force removal (after asking) and Drop removal, as an open removal's card in Discord has them; I deleted it instead
 // of Force for one waiting to be deleted by hand.
-function RemovalActions({ removalId, action, byHand }: RemovalActionsProps) {
+function RemovalActions({
+  removalId,
+  action,
+  byHand,
+  isRecordOnly,
+}: RemovalActionsProps) {
   const [isForcing, setIsForcing] = useState(false);
 
   const onPress = useCallback(
@@ -47,7 +55,11 @@ function RemovalActions({ removalId, action, byHand }: RemovalActionsProps) {
         )
       )}
       {isForcing && (
-        <ForceRemovalConfirm onConfirm={onForce} onCancel={onCancel} />
+        <ForceRemovalConfirm
+          isRecordOnly={isRecordOnly}
+          onConfirm={onForce}
+          onCancel={onCancel}
+        />
       )}
     </>
   );

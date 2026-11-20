@@ -86,9 +86,13 @@ function BulkActionContent(props: BulkActionContentProps) {
           requests.some((r) => r.status === 'notInLibrary') && (
             <Alert kind={kinds.INFO}>{translate('PortalRecordOnlyNote')}</Alert>
           )}
-        {action === 'remove' && deletesFiles === false && (
-          <Alert kind={kinds.INFO}>{translate('PortalDeletingOffNote')}</Alert>
-        )}
+        {action === 'remove' &&
+          deletesFiles === false &&
+          requests.some((r) => r.status !== 'notInLibrary') && (
+            <Alert kind={kinds.INFO}>
+              {translate('PortalDeletingOffNote')}
+            </Alert>
+          )}
         {action === 'remove' && (
           <FormGroup>
             <FormLabel>{translate('PortalRemovalForce')}</FormLabel>

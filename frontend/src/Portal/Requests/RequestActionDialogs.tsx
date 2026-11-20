@@ -53,16 +53,22 @@ function promptFor(title: string, dialog?: RequestDialog) {
 interface ConfirmDialogsProps {
   dialog?: RequestDialog;
   title: string;
+  isRecordOnly: boolean;
   onForce: () => void;
   onClose: () => void;
 }
 
 // The action that only asks "are you sure?": Force removal.
 function ConfirmDialogs(props: ConfirmDialogsProps) {
-  const { dialog, title, onForce, onClose } = props;
+  const { dialog, title, isRecordOnly, onForce, onClose } = props;
 
   return dialog === 'force' ? (
-    <ForceRemovalConfirm title={title} onConfirm={onForce} onCancel={onClose} />
+    <ForceRemovalConfirm
+      title={title}
+      isRecordOnly={isRecordOnly}
+      onConfirm={onForce}
+      onCancel={onClose}
+    />
   ) : null;
 }
 
@@ -135,6 +141,7 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
       <ConfirmDialogs
         dialog={dialog}
         title={props.title}
+        isRecordOnly={props.isRecordOnly}
         onForce={props.onForce}
         onClose={onClose}
       />

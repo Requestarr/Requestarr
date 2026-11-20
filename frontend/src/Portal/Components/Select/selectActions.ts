@@ -46,24 +46,27 @@ export function usePicked<T extends { id: number }>(items: T[]) {
   }, [items, selectedState]);
 }
 
-// The group's actions, always shown and greyed out unless every pick allows them; with one pick, also everything else
-// that item's own page offers.
+// The group's actions, always shown; with one pick, also everything else that item's own page offers. An action is
+// greyed out only when no pick allows it, and pressing it acts on the picks that do (the owner: "it should do it for
+// the ones that it can").
 export function toolbarActions<T>(
   group: string[],
   picked: T[],
   actionsOf: (item: T) => string[],
-  onAction: (name: string) => void
+  onAction: (name: string, able: T[]) => void
 ): ToolbarAction[] {
   const own = picked.length === 1 ? actionsOf(picked[0]) : [];
   const names = [...group, ...own.filter((name) => !group.includes(name))];
 
-  return names.map((name) => ({
-    name,
-    label: actionLabel(name),
-    iconName: ICONS[name] ?? icons.ACTIONS,
-    isDisabled:
-      picked.length === 0 ||
-      !picked.every((item) => actionsOf(item).includes(name)),
-    onPress: () => onAction(name),
-  }));
+  return names.map((name) => {
+    const able = picked.filter((item) => actionsOf(item).includes(name));
+
+    return {
+      name,
+      label: actionLabel(name),
+      iconName: ICONS[name] ?? icons.ACTIONS,
+      isDisabled: able.length === 0,
+      onPress: () => onAction(name, able),
+    };
+  });
 }

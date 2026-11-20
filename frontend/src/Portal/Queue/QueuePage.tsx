@@ -98,6 +98,7 @@ function ItemActions({ item, action }: ItemActionsProps) {
             removalId={id}
             action={action}
             byHand={item.kind === 'deleteByHand'}
+            isRecordOnly={item.recordOnly}
           />
         )}
     </TableRowCell>

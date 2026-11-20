@@ -23,6 +23,8 @@ import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import useClientSidePage from '../Components/Paging/useClientSidePage';
 import { toolbarActions, usePicked } from '../Components/Select/selectActions';
 import { PortalMember } from '../PortalTypes';
+import OnboardModal from './AddMembers/OnboardModal';
+import { Who } from './AddMembers/useStartRun';
 import { GROUP_MEMBER_ACTIONS, memberActions } from './memberActionRules';
 import MembersFooter from './MembersFooter';
 import MembersTable from './MembersTable';
@@ -109,8 +111,13 @@ function MembersBody(props: MembersBodyProps) {
 
 type MemberAction = (members: PortalMember[], action: string) => void;
 
-// The toolbar's actions on the members picked. One pick acts as their own page does (run); several ask first,
-// naming everyone (ask); Onboard opens Add member with them all picked.
+// Onboarding has its own toolbar button (Onboard), so it isn't one of the actions on the picks.
+function actionsInToolbar(member: PortalMember) {
+  return memberActions(member).filter((name) => name !== 'onboard');
+}
+
+// The toolbar's actions on the members picked, each for the picks that allow it: one acts as their own page does
+// (run); several ask first, naming everyone (ask).
 function useMemberSelectActions(
   members: PortalMember[],
   run: MemberAction,
@@ -118,22 +125,23 @@ function useMemberSelectActions(
 ) {
   const picked = usePicked(members);
   const onAction = useCallback(
-    (name: string) =>
-      name === 'onboard' || picked.length === 1
-        ? run(picked, name)
-        : ask(picked, name),
-    [picked, run, ask]
+    (name: string, able: PortalMember[]) =>
+      able.length === 1 ? run(able, name) : ask(able, name),
+    [run, ask]
   );
-
-  return useMemo(
-    () => toolbarActions(GROUP_MEMBER_ACTIONS, picked, memberActions, onAction),
+  const actions = useMemo(
+    () =>
+      toolbarActions(GROUP_MEMBER_ACTIONS, picked, actionsInToolbar, onAction),
     [picked, onAction]
   );
+
+  return { picked, actions };
 }
 
 // Every member Requestarr knows: their access to each type with its limit, and how many requests they have, filtered,
 // sorted and paged as Prowlarr's indexer list is. Select mode picks one or several; what can be done to them is in
-// the toolbar, left of Add member, which lists the server's people to onboard.
+// the toolbar, left of Onboard. Onboard sets up the picks it can onboard in one window; with none picked it lists the
+// server's people to onboard.
 function MembersIndex() {
   const state = useMembers();
   const handlers = useIndexDispatch();
@@ -149,11 +157,25 @@ function MembersIndex() {
     onRefresh,
     onBarDone
   );
-  const selectActions = useMemberSelectActions(state.items, run, ask);
-  const onAddPress = useCallback(
-    () => history.push(getPathWithUrlBase('/members/add')),
-    [history]
-  );
+  const select = useMemberSelectActions(state.items, run, ask);
+  const [onboarding, setOnboarding] = useState<Who[]>([]);
+  const onAddPress = useCallback(() => {
+    const onboardable = select.picked.flatMap((member) =>
+      member.discordId && memberActions(member).includes('onboard')
+        ? [{ discordId: member.discordId, name: member.name }]
+        : []
+    );
+
+    if (onboardable.length) {
+      setOnboarding(onboardable);
+    } else {
+      history.push(getPathWithUrlBase('/members/add'));
+    }
+  }, [select.picked, history]);
+  const onOnboardClose = useCallback(() => {
+    setOnboarding([]);
+    onBarDone();
+  }, [onBarDone]);
   const onSelectModePress = useCallback(
     () => setIsSelectMode((current) => !current),
     []
@@ -168,7 +190,7 @@ function MembersIndex() {
       <MembersToolbar
         {...state}
         {...handlers}
-        selectActions={selectActions}
+        selectActions={select.actions}
         isBusy={isBusy}
         isSelectMode={isSelectMode}
         isEmpty={!state.totalItems}
@@ -195,6 +217,7 @@ function MembersIndex() {
       </PageContentBody>
 
       {dialogs}
+      <OnboardModal people={onboarding} onClose={onOnboardClose} />
     </PageContent>
   );
 }

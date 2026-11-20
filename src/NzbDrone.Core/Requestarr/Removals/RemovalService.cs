@@ -697,7 +697,8 @@ namespace Requestarr.Core.Removals
 
         // Sonarr and Radarr don't have it, so nothing is deleted anywhere, whether or not deleting files is on (there's
         // nothing to delete by hand either). The removal closes as a passed one and everyone asked is told; then the request
-        // leaves Requestarr's lists (its record is deleted; the audit log keeps it), and the removal no longer points at it.
+        // leaves Requestarr's lists (its record is deleted; the audit log keeps it). An import never links a request while
+        // its removal is open, so it is still Not in library here and DeleteRecord drops it.
         private async Task<ServiceResult> DropRecord(RemovalProposal proposal, Actor admin, string adminName, int? adminUserId)
         {
             CloseAsRemoved(proposal, admin, adminName, adminUserId);
@@ -707,11 +708,24 @@ namespace Requestarr.Core.Removals
             await PostResults(proposal);
             await Changed(proposal);
 
-            _requestService.DeleteRecord(proposal.RequestId.Value, admin ?? Actor.System);
+            var requestId = proposal.RequestId.Value;
+            _requestService.DeleteRecord(requestId, admin ?? Actor.System);
             proposal.RequestId = null;
             Save(proposal);
+            ForgetRequest(requestId);
 
             return ServiceResult.Ok(DiscordText.RemovalRecordDropped(proposal));
+        }
+
+        // Earlier removals of a dropped request (kept or called off) stop pointing at it too, so the audit log and the
+        // web app show their title without a link to a page that's gone.
+        private void ForgetRequest(int requestId)
+        {
+            foreach (var earlier in _proposals.ForRequest(requestId))
+            {
+                earlier.RequestId = null;
+                Save(earlier);
+            }
         }
 
         // Passed: by vote (no admin), or forced by the admin, who is named on it.

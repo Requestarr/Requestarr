@@ -95,6 +95,48 @@ namespace Requestarr.Core.Test.Removals
             DiscordText.RemovalConfirmForce(Proposal(), false).Should().Contain("nothing is deleted there").And.NotContain("delete it by hand");
         }
 
+        [TestCase(RemovalStatus.Voting)]
+        [TestCase(RemovalStatus.Declined)]
+        [TestCase(RemovalStatus.Flagged)]
+        public async Task force_on_an_open_vote_drops_the_record_even_with_deleting_files_off(RemovalStatus open)
+        {
+            Mocker.Resolve<IConfigService>().RemovalDeleteFiles = false;
+            var request = History();
+            await Start(request);
+            await Answer(Alice, yes: open != RemovalStatus.Declined);
+
+            if (open == RemovalStatus.Flagged)
+            {
+                await Keep(Bob);
+                await Tick(TimeSpan.FromDays(7));
+            }
+
+            Proposal().Status.Should().Be(open);
+
+            var forced = await Removals.ForceAsync(1, WebAdmin, "owner (web app)", null);
+
+            forced.Message.Should().Be(DiscordText.RemovalRecordDropped(Proposal()));
+            Proposal().Status.Should().Be(RemovalStatus.Forced, "not Delete it yourself: there are no files");
+            RequestStore.Find(request.Id).Should().BeNull();
+            NothingSentToSonarrOrRadarr();
+        }
+
+        [Test]
+        public async Task dropping_the_record_unlinks_its_earlier_removals_too()
+        {
+            var request = History();
+            await Start(request);
+            await Answer(Alice, yes: false);
+            await Removals.DropAsync(1, WebAdmin, "owner (web app)", null);
+
+            await Start(request, force: true);
+
+            RequestStore.Find(request.Id).Should().BeNull();
+            Proposals.All().Select(p => (p.Status, p.RequestId)).Should().Equal(
+                (RemovalStatus.Cancelled, (int?)null),
+                (RemovalStatus.Forced, (int?)null));
+        }
+
         [Test]
         public async Task a_record_is_removed_whole_and_one_removal_at_a_time()
         {

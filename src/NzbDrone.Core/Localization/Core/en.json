@@ -677,7 +677,6 @@
   "PortalAccessNeedsApproval": "Needs approval",
   "PortalAccessOff": "Off",
   "PortalAccessRequests": "Access requests",
-  "PortalActionAddMember": "Add member",
   "PortalActionAddSeasons": "Add seasons",
   "PortalActionAnnounce": "Announce to users",
   "PortalActionApprove": "Approve",
@@ -1242,5 +1241,6 @@
   "Posters": "Posters",
   "Overview": "Overview",
   "PortalRecordOnlyNote": "Sonarr and Radarr don't have it: if the removal passes, the request leaves Requestarr's lists and nothing is deleted.",
-  "PortalRecordOnlyForce": "Remove it from Requestarr's lists now? Nobody is asked, and nothing is deleted in Sonarr or Radarr."
+  "PortalRecordOnlyForce": "Remove it from Requestarr's lists now? Nobody is asked, and nothing is deleted in Sonarr or Radarr.",
+  "PortalRequestRemovedFromLists": "{title} was removed from Requestarr's lists."
 }

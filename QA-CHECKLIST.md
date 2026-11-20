@@ -209,7 +209,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. Press Stop Selecting.
   - Expect:
     - A box on each row, as in Sonarr; nothing below the list.
-    - Only the actions all three allow are live in the toolbar.
+    - An action is live when any of the three allows it.
     - Select All picks every request, on every page.
     - The boxes and actions go away after Stop Selecting.
   - Checked automatically: the web app request actions check.
@@ -240,9 +240,9 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Each section has its own pager.
     - No Requester column in their own requests.
   - Checked automatically: the web app paging check.
-- **Add member list**
+- **Onboard list**
   - Steps:
-    1. In Members, press Add member.
+    1. In Members, press Onboard.
     2. Type part of a name in the box at the top.
     3. Tick someone, then press Set up.
   - Expect:
@@ -252,7 +252,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app add member check.
 - **Onboarding from the list**
   - Steps:
-    1. In Add member, tick someone, press Set up, then Confirm.
+    1. In Onboard, tick someone, press Set up, then Confirm.
   - Expect:
     - Each person's progress, then who was added and who failed and why.
     - Their role, channel and panel in Discord.
@@ -262,9 +262,17 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     1. In Members, press Select Members, then tick a member.
     2. Press Suspend in the toolbar, then Unsuspend.
   - Expect:
-    - Left of Add member: Onboard, Suspend, Unsuspend, Change access, Remove member.
-    - Those the member doesn't allow are greyed out.
+    - Left of Onboard: Suspend, Unsuspend, Change access, Remove member.
+    - Those no pick allows are greyed out.
     - The status changes each time.
+  - Checked automatically: the web app add member check.
+- **Onboarding from Members**
+  - Steps:
+    1. In Members, press Select Members, then tick people imported but not onboarded.
+    2. Press Onboard, then Cancel.
+  - Expect:
+    - One window over the list, naming only those who can be onboarded.
+    - What they get, then Confirm; no other pages.
   - Checked automatically: the web app add member check.
 - **Acting from the web app**
   - Steps:

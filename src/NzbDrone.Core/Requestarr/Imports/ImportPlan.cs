@@ -73,11 +73,12 @@ namespace Requestarr.Core.Imports
     public record LibraryEntry(int InstanceId, string Instance, ContentType Type, LibraryTitle Title);
 
     // What an import starts from besides the messages: what's already imported, the libraries, the requests and
-    // followers Requestarr has, who it knows by Discord ID, and members' names by their ID.
+    // followers Requestarr has, the requests with a removal open, who it knows by Discord ID, and members' names by their ID.
     public record ImportContext(
         IReadOnlySet<ulong> Imported,
         IReadOnlyList<LibraryEntry> Library,
         IReadOnlyList<Request> Requests,
+        IReadOnlySet<int> BeingRemoved,
         ILookup<int, int> Followers,
         IReadOnlyDictionary<ulong, int> Known,
         IReadOnlyDictionary<int, string> Names);
@@ -254,9 +255,11 @@ namespace Requestarr.Core.Imports
             private void Record(SourceMessage message) => _recorded.Add(new RecordedMessage(message.Message.Id, message.Message.ChannelId));
 
             // Earlier imports' requests that weren't in the library, now matched by ID. One whose title someone has
-            // requested since stays history: that newer request is the live one.
+            // requested since stays history: that newer request is the live one. One with a removal open stays history
+            // too, because that vote was started on a request Sonarr and Radarr don't have and drops only its record; an
+            // import after the removal closes links it, if it's still there.
             private List<PlannedLink> Links() =>
-                _context.Requests.Where(r => r.Status == RequestStatus.NotInLibrary)
+                _context.Requests.Where(r => r.Status == RequestStatus.NotInLibrary && !_context.BeingRemoved.Contains(r.Id))
                     .Select(r => (Request: r, Entry: Find(r.ContentType, r.TmdbId, r.TvdbId)))
                     .Where(m => m.Entry != null && !RequestedSince(m.Entry))
                     .Select(m => LinkTo(m.Request, m.Entry))

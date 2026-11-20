@@ -15,24 +15,29 @@ const FAILURE_SECONDS = 10;
 
 const GROUP = Object.keys(BULK_PATHS);
 
-// One pick: the action runs as on the request's own page (runOne). Several: it asks first with the list of titles,
-// then is done to each in turn; what happened shows in the sidebar's messages, as Servarr reports a finished
-// command, and the picks clear.
+// The picks that allow the action get it. One: it runs as on the request's own page (runOne). Several: it asks first
+// with the list of their titles, then is done to each in turn; what happened shows in the sidebar's messages, as
+// Servarr reports a finished command, and the picks clear.
 function useRequestBulk(
   requests: PortalRequest[],
   runOne: (request: PortalRequest, action: string) => void,
   onDone: () => void
 ) {
   const [, selectDispatch] = useSelect();
-  const [asking, setAsking] = useState<string>();
+  const [asking, setAsking] = useState<{
+    name: string;
+    requests: PortalRequest[];
+  }>();
   const [isBusy, setIsBusy] = useState(false);
   const dispatch = useDispatch();
   const picked = usePicked(requests);
 
   const onAction = useCallback(
-    (name: string) =>
-      picked.length === 1 ? runOne(picked[0], name) : setAsking(name),
-    [picked, runOne]
+    (name: string, able: PortalRequest[]) =>
+      able.length === 1
+        ? runOne(able[0], name)
+        : setAsking({ name, requests: able }),
+    [runOne]
   );
   const actions = useMemo(
     () => toolbarActions(GROUP, picked, (r) => r.actions, onAction),
@@ -42,9 +47,13 @@ function useRequestBulk(
   const onClose = useCallback(() => setAsking(undefined), []);
   const onConfirm = useCallback(
     (body: object) => {
+      if (!asking) {
+        return;
+      }
+
       setAsking(undefined);
       setIsBusy(true);
-      runBulk(asking ?? '', picked, body).then((result) => {
+      runBulk(asking.name, asking.requests, body).then((result) => {
         setIsBusy(false);
         dispatch(
           showMessage({
@@ -59,13 +68,13 @@ function useRequestBulk(
         onDone();
       });
     },
-    [asking, picked, selectDispatch, dispatch, onDone]
+    [asking, selectDispatch, dispatch, onDone]
   );
 
   const modal = (
     <BulkActionModal
-      action={asking}
-      requests={picked}
+      action={asking?.name}
+      requests={asking?.requests ?? []}
       onConfirm={onConfirm}
       onClose={onClose}
     />

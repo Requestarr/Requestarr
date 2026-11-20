@@ -53,6 +53,7 @@ function TitleRemovals() {
                   removalId={removal.id}
                   action={action}
                   byHand={removal.status === 'deleteByHand'}
+                  isRecordOnly={removal.recordOnly}
                 />
               </TableRowCell>
             </TableRow>

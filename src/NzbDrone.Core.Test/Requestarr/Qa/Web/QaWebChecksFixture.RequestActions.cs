@@ -36,7 +36,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Requests' actions and picking, at the owner's window width, in both themes. Rows have no buttons of their own.
         // Select Requests shows Sonarr's select mode with the actions on what's picked in the toolbar, left of Refresh.
-        // Three rows picked leave live only what all three allow, Select All picks every request and Unselect All empties
+        // Three rows picked leave live what any of them allows, Select All picks every request and Unselect All empties
         // it. One request picked adds everything its page offers. Marked rows are approved and removed (a vote starts) and read back,
         // while real rows only get the confirmations, cancelled. A library title nobody requested gets Start removal from the
         // header search.
@@ -165,11 +165,11 @@ namespace Requestarr.Core.Test.Qa.Web
 
             // Only what every one of the three offers is live.
             var ids = await browser.EvalAsync<int[]>($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).map(r => Number(r.querySelector('a[href*=\"/requests/\"]').getAttribute('href').split('/').pop()))");
-            var expected = await PortalAsync<string[]>(browser, "requests", $"r => (picked => Object.entries({GroupLabels}).filter(([a]) => picked.every(q => q.actions.includes(a))).map(([, label]) => label))(r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)))");
+            var expected = await PortalAsync<string[]>(browser, "requests", $"r => (picked => Object.entries({GroupLabels}).filter(([a]) => picked.some(q => q.actions.includes(a))).map(([, label]) => label))(r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)))");
             var (shown, allowed) = await ToolbarActionsAsync(browser);
-            check.Saw($"{Picks} picked ({theme}): toolbar {string.Join(", ", shown)}; live: {string.Join(", ", allowed)}; all three offer: {string.Join(", ", expected)}");
+            check.Saw($"{Picks} picked ({theme}): toolbar {string.Join(", ", shown)}; live: {string.Join(", ", allowed)}; any of the three offers: {string.Join(", ", expected)}");
             shown.Should().Equal("Approve", "Deny", "Start removal");
-            allowed.Should().Equal(expected, "only what every pick offers is live");
+            allowed.Should().Equal(expected, "an action is live when any pick offers it");
             (await browser.EvalAsync<bool>($"!{Bar}")).Should().BeTrue("there's no bar along the bottom");
             await check.ShotAsync(browser, $"picked-{theme}");
 
@@ -221,16 +221,38 @@ namespace Requestarr.Core.Test.Qa.Web
             await ShotBothAsync(browser, check, "approved");
         }
 
-        // Three history rows (not in the library) picked: the toolbar's Start removal asks first with their titles, then
-        // starts a removal vote for each, as for any title (there's no separate Delete record).
+        // History rows (not in the library), the marked ones when a run seeded them, otherwise any.
+        private static async Task<(int[] Ids, bool IsMarked)> HistoryRowsAsync(HeadlessBrowser browser, string name)
+        {
+            var history = "r.filter(q => q.status === 'notInLibrary' && q.actions.includes('remove'))";
+            var marked = await PortalAsync<int[]>(browser, "requests", $"r => {history}.filter(q => q.title === '{Marked}{name}').map(q => q.id)");
+
+            return marked.Length > 0 ? (marked, true) : (await PortalAsync<int[]>(browser, "requests", $"r => {history}.map(q => q.id)"), false);
+        }
+
+        // The removals the check started, dropped again, so no vote it opened stays open on the dev server.
+        private static async Task DropRemovalsAsync(HeadlessBrowser browser, WebCheck check, int[] ids)
+        {
+            var removals = await PortalAsync<int[]>(browser, "requests", $"r => r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id) && q.removalId !== null).map(q => q.removalId)");
+
+            foreach (var removal in removals)
+            {
+                await browser.EvalAsync<int>($"fetch(window.Requestarr.urlBase + '/api/v1/portal/removals/{removal}/drop', {{ method: 'POST', headers: {{ 'X-Api-Key': window.Requestarr.apiKey, 'Content-Type': 'application/json' }}, body: '{{}}' }}).then(r => r.status)");
+            }
+
+            check.Saw($"the {removals.Length} removals the check started, dropped again");
+        }
+
+        // Three history rows picked: the toolbar's Start removal asks first with their titles and says nothing is deleted.
+        // Marked rows then get their removal votes (read back, then dropped); real rows only get the question, cancelled.
         private static async Task RemoveHistoryAsync(HeadlessBrowser browser, WebCheck check)
         {
-            var (found, isMarked) = await RowsOfferingAsync(browser, "history", "remove");
+            var (found, isMarked) = await HistoryRowsAsync(browser, "history");
             var ids = found.Take(Picks).ToArray();
 
-            if (!isMarked || ids.Length < Picks)
+            if (ids.Length < Picks)
             {
-                check.Saw($"Start removal on history rows: fewer than {Picks} marked history rows, so nothing removed");
+                check.Saw($"Start removal on history rows: fewer than {Picks} history rows");
                 return;
             }
 
@@ -238,25 +260,34 @@ namespace Requestarr.Core.Test.Qa.Web
             await PressToolbarAsync(browser, "Start removal");
             await browser.WaitForAsync($"document.querySelectorAll('[class*=\"BulkActionModal-titles\"] li').length === {Picks}");
             var listed = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"BulkActionModal-titles\"] li')].map(l => l.innerText).join(', ')");
-            check.Saw($"{Picks} history rows picked; the toolbar's Start removal asks first, listing: {listed}");
+            var note = await browser.EvalAsync<string>("document.querySelector('[class*=\"ModalBody\"] [class*=\"Alert-\"]')?.innerText.trim() ?? ''");
+            check.Saw($"{Picks} history rows picked; Start removal asks first, listing: {listed}; note: \"{note}\"");
+            note.Should().Contain("nothing is deleted", "Sonarr and Radarr don't have these titles");
             await ShotBothAsync(browser, check, "bulk-confirm");
-            await AnswerAsync(browser, "Start removal", true);
+            await AnswerAsync(browser, "Start removal", isMarked);
+
+            if (!isMarked)
+            {
+                return;
+            }
 
             var said = await MessageAsync(browser, "Start removal:");
             var open = await PortalAsync<int>(browser, "requests", $"r => r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id) && q.removalId !== null).length");
             check.Saw($"the toolbar's Start removal: \"{said}\"; {open} of the {Picks} have a removal vote");
             open.Should().Be(Picks, "each history row follows the removal flow");
             await ShotBothAsync(browser, check, "bulk-done");
+            await DropRemovalsAsync(browser, check, ids);
         }
 
-        // One history row picked: Start removal opens the removal dialog for its title, as on its page.
+        // One history row picked: Start removal opens the removal dialog for its title with no seasons to pick. A marked
+        // row gets its vote (read back, then dropped); a real row only gets the dialog, closed.
         private static async Task RemoveOneHistoryAsync(HeadlessBrowser browser, WebCheck check)
         {
-            var (ids, isMarked) = await RowsOfferingAsync(browser, "delete one", "remove");
+            var (ids, isMarked) = await HistoryRowsAsync(browser, "delete one");
 
-            if (!isMarked)
+            if (ids.Length == 0)
             {
-                check.Saw("Start removal on one history row: no marked history row");
+                check.Saw("Start removal on one history row: no history row");
                 return;
             }
 
@@ -267,13 +298,23 @@ namespace Requestarr.Core.Test.Qa.Web
             await PressToolbarAsync(browser, "Start removal");
             await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].some(b => b.innerText.trim() === 'Start removal')");
             var asked = await browser.EvalAsync<string>("document.querySelector('[class*=\"ModalBody\"]').innerText.replace(/\\s+/g, ' ').trim()");
-            check.Saw($"its Start removal dialog: \"{asked}\"");
+            var seasons = await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"ModalBody\"] input[name=seasons]')");
+            check.Saw($"its Start removal dialog: \"{asked}\"; a seasons field: {seasons}");
+            seasons.Should().BeFalse("the whole request goes; there are no seasons to pick");
             await ShotBothAsync(browser, check, "remove-one");
+
+            if (!isMarked)
+            {
+                await browser.RunAsync("document.querySelector('[class*=\"ModalContent-closeButton\"]').click()");
+                return;
+            }
+
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].find(b => b.innerText.trim() === 'Start removal').click()");
             await browser.WaitForAsync($"!!{Outcome}");
             var open = await PortalAsync<bool>(browser, "requests", $"r => r.some(q => q.id === {ids[0]} && q.removalId !== null)");
             check.Saw($"then: \"{await OutcomeAsync(browser)}\"; a removal vote is open: {open}");
             open.Should().BeTrue("the history row follows the removal flow");
+            await DropRemovalsAsync(browser, check, new[] { ids[0] });
         }
 
         private static async Task RemovalFromSearchAsync(HeadlessBrowser browser, WebCheck check)
