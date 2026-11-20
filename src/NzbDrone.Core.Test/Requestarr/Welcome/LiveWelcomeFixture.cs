@@ -80,7 +80,7 @@ namespace Requestarr.Core.Test.Welcome
             });
             Mocker.Resolve<IBackendService>().CheckAllAsync().GetAwaiter().GetResult();
             Mocker.SetConstant<ITmdbSettingsStore>(new TmdbSettingsStore());
-            Mocker.SetConstant<ITmdbClient>(new TmdbClient(new TmdbSettingsStore(), LogManager.GetLogger("LiveTmdb")));
+            Mocker.SetConstant<ITmdbClient>(new TmdbClient(new TmdbSettingsStore(), Moq.Mock.Of<NzbDrone.Core.Messaging.Events.IEventAggregator>(), LogManager.GetLogger("LiveTmdb")));
             Mocker.SetConstant<IMetadataService>(Mocker.Resolve<MetadataService>());
             Mocker.SetConstant<IAvailabilitySettingsStore>(new AvailabilitySettingsStore());
             Mocker.SetConstant<IMediaServerConnections>(new MediaServerConnections());

@@ -4,10 +4,14 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Moq;
 using NLog;
 using NLog.Config;
 using NLog.Targets;
 using NUnit.Framework;
+using NzbDrone.Core.HealthCheck;
+using NzbDrone.Core.Localization;
+using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Metadata;
@@ -141,7 +145,7 @@ namespace Requestarr.Core.Test.Polish
         [Test]
         public void an_empty_key_disables_cast()
         {
-            var store = new TmdbSettingsStore { Variable = _ => null };
+            var store = new TmdbSettingsStore { Variable = _ => null, BuiltIn = () => null };
 
             store.Set("  ");
             store.Enabled.Should().BeFalse();
@@ -150,13 +154,62 @@ namespace Requestarr.Core.Test.Polish
         }
 
         [Test]
-        public void beta_and_production_take_the_key_from_the_servers_environment()
+        public void the_key_is_the_provisioning_files_then_the_environments_then_the_built_in_one_then_none()
         {
-            var store = new TmdbSettingsStore { Variable = name => name == TmdbSettingsStore.KeyVariable ? $" {Key} " : null };
+            string variable = null;
+            string builtIn = null;
+            var store = new TmdbSettingsStore { Variable = _ => variable, BuiltIn = () => builtIn };
 
-            store.ApiKey.Should().Be(Key, "no provisioning file: the container's environment has it");
+            (store.ApiKey, store.Source, store.Enabled).Should().Be((null, TmdbKeySource.None, false), "a fork's build, with nothing set");
+
+            builtIn = " built-in \n";
+            store.BuiltIn = () => builtIn;
+            (store.ApiKey, store.Source).Should().Be(("built-in", TmdbKeySource.BuiltIn), "the image's own key, with no extra field");
+
+            variable = " their-own ";
+            (store.ApiKey, store.Source).Should().Be(("their-own", TmdbKeySource.Environment), "an admin's own key wins over the built-in one");
+
             store.Set("from-the-file");
-            store.ApiKey.Should().Be("from-the-file", "dev's and QA's provisioning file wins");
+            (store.ApiKey, store.Source).Should().Be(("from-the-file", TmdbKeySource.ProvisioningFile), "dev's and QA's provisioning file wins");
+        }
+
+        [Test]
+        public async Task a_refused_built_in_key_raises_the_health_warning_until_it_works_again()
+        {
+            var store = new TmdbSettingsStore { Variable = _ => null, BuiltIn = () => "built-in" };
+            var events = new Mock<IEventAggregator>();
+            var client = new TmdbClient(store, events.Object, LogManager.CreateNullLogger());
+            var check = new TmdbKeyCheck(store, Mock.Of<ILocalizationService>());
+            var status = HttpStatusCode.Unauthorized;
+            client.Transport = (_, _) => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent("{}") });
+
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+
+            check.Check().Message.Should().Be(TmdbKeyCheck.Message("HTTP 401")).And.Contain(TmdbSettingsStore.KeyVariable);
+            events.Verify(e => e.PublishEvent(It.IsAny<TmdbKeyChangedEvent>()), Times.Once(), "checked again only when it changes");
+
+            status = HttpStatusCode.ServiceUnavailable;
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+            check.Check().Message.Should().Be(TmdbKeyCheck.Message("HTTP 401"), "The Movie Database being down says nothing about the key");
+
+            status = HttpStatusCode.NotFound;
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+
+            check.Check().Type.Should().Be(HealthCheckResult.Ok, "a title it doesn't know says the key works");
+            events.Verify(e => e.PublishEvent(It.IsAny<TmdbKeyChangedEvent>()), Times.Exactly(2));
+        }
+
+        [Test]
+        public async Task an_admins_own_key_failing_raises_no_warning_about_the_built_in_one()
+        {
+            var store = new TmdbSettingsStore { Variable = _ => "their-own", BuiltIn = () => "built-in" };
+            var client = new TmdbClient(store, Mock.Of<IEventAggregator>(), LogManager.CreateNullLogger());
+            client.Transport = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+
+            await client.GetAsync(ContentType.Movie, 603, CancellationToken.None);
+
+            store.BuiltInProblem.Should().BeNull();
         }
 
         private TmdbClient Client(out MemoryTarget memory)
@@ -169,7 +222,7 @@ namespace Requestarr.Core.Test.Polish
             var store = new TmdbSettingsStore();
             store.Set(Key);
 
-            return new TmdbClient(store, factory.GetLogger("tmdb-test"));
+            return new TmdbClient(store, Mock.Of<IEventAggregator>(), factory.GetLogger("tmdb-test"));
         }
     }
 }

@@ -57,6 +57,8 @@ Follow the [setup guide](docs/setup-guide.md) to create your Discord bot and ins
 
 Requestarr is inspired by [Requestrr](https://github.com/thomst08/requestrr) and is a ground-up rebuild on the Servarr foundation, adding per-user channels, access control, and governed removals. It is an independent project and is not affiliated with or endorsed by the Servarr team or the Requestrr maintainers.
 
+Cast and episode counts come from [The Movie Database](https://www.themoviedb.org). This product uses the TMDB API but is not endorsed or certified by TMDB.
+
 ## License
 
 Licensed under the GNU General Public License v3.0. Requestarr includes code derived from Servarr projects, which are also licensed under GPL-3.0.

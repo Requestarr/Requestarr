@@ -11,6 +11,16 @@ import translate from 'Utilities/String/translate';
 import StartTime from './StartTime';
 import styles from './About.css';
 
+// The Movie Database's terms ask every app using its API to say so.
+function TmdbCredit() {
+  return (
+    <DescriptionListItem
+      title={translate('TheMovieDatabase')}
+      data={translate('TheMovieDatabaseCredit')}
+    />
+  );
+}
+
 function About() {
   const dispatch = useDispatch();
   const { item } = useSelector((state: AppState) => state.system.status);
@@ -101,6 +111,8 @@ function About() {
         />
 
         <DescriptionListItem title={translate('Copyright')} data={copyright} />
+
+        <TmdbCredit />
       </DescriptionList>
     </FieldSet>
   );

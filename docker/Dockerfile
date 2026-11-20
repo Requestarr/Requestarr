@@ -3,7 +3,8 @@
 # Build from the repository root:  docker build -f docker/Dockerfile -t requestarr:dev .
 # The web UI and backend are built on the build machine's own platform and the backend is published for the target
 # (linux-x64 or linux-arm64), so a multi-platform build (.github/workflows/image.yml) only emulates the last stage.
-# Nothing secret goes in: the build context is the committed files only (secrets.env is never committed).
+# Nothing secret goes in: the build context is the committed files only (secrets.env is never committed). The one
+# deliberate exception is Requestarr's own key for The Movie Database, below, which the owner chose to ship.
 
 FROM --platform=$BUILDPLATFORM node:20-bookworm-slim AS frontend
 WORKDIR /src
@@ -25,6 +26,16 @@ RUN case "$TARGETARCH" in arm64) RID=linux-arm64 ;; *) RID=linux-x64 ;; esac \
  && for project in src/NzbDrone.Console/Requestarr.Console.csproj src/NzbDrone.Mono/Requestarr.Mono.csproj; do \
       dotnet publish "$project" -c Release -f net10.0 -r "$RID" --self-contained false -p:Platform=Posix -p:SolutionDir=/src/src/ -p:RequestarrVersion="$BUILD_NUMBER" -o /app/bin || exit 1; \
     done
+# Requestarr's own key for The Movie Database (cast on results and cards), from the build secret tmdb_key: the Image
+# workflow passes the repository secret TMDB_API_KEY. A build without it (a fork's, the local stacks') has no built-in
+# key. A secret mount, never a build argument, so the key isn't in the image's history or the build log. An admin's
+# own key in REQUESTARR_TMDB_API_KEY wins over it (TmdbSettingsStore).
+# KEY_STAMP changes every workflow run, so this step always runs again: a secret's contents aren't part of the build
+# cache's key, and a cached layer would keep an old key after it's rotated.
+ARG KEY_STAMP=
+RUN --mount=type=secret,id=tmdb_key \
+    : "${KEY_STAMP}" && \
+    if [ -s /run/secrets/tmdb_key ]; then tr -d '\r\n' < /run/secrets/tmdb_key > /app/bin/the-movie-database-key.txt; fi
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 RUN apt-get update \
