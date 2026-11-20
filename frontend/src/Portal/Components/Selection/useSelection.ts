@@ -1,15 +1,18 @@
 import { useCallback, useMemo, useState } from 'react';
 
-const NONE: ReadonlySet<number> = new Set();
+// A row's ID: a number, or text for a Discord ID (too long for a number).
+export type RowId = number | string;
+
+const NONE: ReadonlySet<RowId> = new Set();
 
 interface Row {
-  id: number;
+  id: RowId;
 }
 
 // The picks with some rows ticked or unticked.
 function withRows(
-  current: ReadonlySet<number>,
-  ids: number[],
+  current: ReadonlySet<RowId>,
+  ids: RowId[],
   isSelected: boolean
 ) {
   const next = new Set(current);
@@ -37,7 +40,7 @@ function useSelection<T extends Row>(matching: T[], page: T[]) {
   const pickedOnPage = page.filter((row) => selected.has(row.id)).length;
 
   const onSelect = useCallback(
-    (id: number, isSelected: boolean) =>
+    (id: RowId, isSelected: boolean) =>
       setSelected((current) => withRows(current, [id], isSelected)),
     []
   );
