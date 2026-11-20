@@ -9,7 +9,6 @@ export const BULK_PATHS: Record<string, string> = {
   approve: 'approve',
   deny: 'deny',
   remove: 'removal',
-  deleteRecord: 'delete-record',
 };
 
 // The action on each request picked, as if pressed on each row.

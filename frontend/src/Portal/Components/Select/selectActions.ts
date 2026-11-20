@@ -27,7 +27,6 @@ const ICONS: Record<string, IconDefinition> = {
   forceRemoval: icons.DANGER,
   dropRemoval: icons.RESTORE,
   deletedByHand: icons.CHECK_SQUARE,
-  deleteRecord: icons.DELETE,
   onboard: icons.ADD,
   suspend: icons.PAUSED,
   unsuspend: icons.RESTORE,

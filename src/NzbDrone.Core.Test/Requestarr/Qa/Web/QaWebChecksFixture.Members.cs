@@ -83,7 +83,7 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"typing \"{words}\" ({theme}): {narrowed} of {rows} left, each one matching");
             await TypeAsync(browser, AddMembersFilter, string.Empty);
 
-            await browser.RunAsync("document.querySelector('tbody tr input[type=checkbox]').click()");
+            await browser.RunAsync("document.querySelector('tbody tr label').click()");
             await browser.WaitForAsync($"{Bar}?.innerText.includes('1 people selected')");
             check.Saw($"one picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"");
             await browser.RunAsync($"{BarButtons}.find(b => b.innerText.startsWith('Set up')).click()");
@@ -124,7 +124,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await TypeAsync(browser, AddMembersFilter, TestMember);
             await browser.WaitForAsync($"!!{TestMemberRow}");
             check.Saw($"the test member is listed: {await browser.EvalAsync<string>("document.querySelector('tbody').innerText.replace(/\\s+/g, ' ')")}");
-            await browser.RunAsync($"{TestMemberRow}.querySelector('input[type=checkbox]').click()");
+            await browser.RunAsync($"{TestMemberRow}.querySelector('label').click()");
             await browser.RunAsync($"{BarButtons}.find(b => b.innerText.startsWith('Set up')).click()");
             await browser.WaitForAsync("[...document.querySelectorAll('button')].some(b => b.innerText.trim() === 'Confirm')");
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Confirm').click()");
@@ -145,7 +145,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.WaitForAsync($"!!{TestMemberRow}");
                 await PressToolbarAsync(browser, "Select Members");
                 await browser.WaitForAsync($"!!{TestMemberRow}.querySelector('input[type=checkbox]')");
-                await browser.RunAsync($"{TestMemberRow}.querySelector('input[type=checkbox]').click()");
+                await browser.RunAsync($"{TestMemberRow}.querySelector('label').click()");
                 await PressToolbarAsync(browser, action);
                 var said = await OutcomeAsync(browser);
                 var now = await PortalAsync<string>(browser, "members", $"m => m.find(x => x.discordName === {JsonSerializer.Serialize(TestMember)})?.status ?? ''");

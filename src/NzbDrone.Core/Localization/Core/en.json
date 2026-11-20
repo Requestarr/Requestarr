@@ -685,7 +685,6 @@
   "PortalActionCancel": "Cancel request",
   "PortalActionChangeAccess": "Change access",
   "PortalActionCheck": "Check now",
-  "PortalActionDeleteRecord": "Delete record",
   "PortalActionDeletedByHand": "I deleted it",
   "PortalActionDeny": "Deny",
   "PortalActionDropRemoval": "Drop removal",
@@ -732,8 +731,6 @@
   "PortalConfirm": "Confirm",
   "PortalDecided": "Decided",
   "PortalDefaultInstance": "The default instance",
-  "PortalDeleteRecordMessage": "Delete the record of {title}? It leaves Requestarr's lists and pages. Nothing in Sonarr, Radarr or Discord changes, and the audit log keeps that you deleted it.",
-  "PortalDeleteRecordsNote": "Each record leaves Requestarr's lists and pages. Nothing in Sonarr, Radarr or Discord changes, and the audit log keeps that you deleted them.",
   "PortalDeletingOffNote": "Deleting is turned off on this server: once a removal is agreed, nothing is deleted. It waits in the Queue for you to delete it by hand.",
   "PortalDetail": "Detail",
   "PortalDigitalRelease": "Digital {date}",
@@ -1243,5 +1240,7 @@
   "PortalCountPeopleSelected": "{count} people selected",
   "Table": "Table",
   "Posters": "Posters",
-  "Overview": "Overview"
+  "Overview": "Overview",
+  "PortalRecordOnlyNote": "Sonarr and Radarr don't have it: if the removal passes, the request leaves Requestarr's lists and nothing is deleted.",
+  "PortalRecordOnlyForce": "Remove it from Requestarr's lists now? Nobody is asked, and nothing is deleted in Sonarr or Radarr."
 }

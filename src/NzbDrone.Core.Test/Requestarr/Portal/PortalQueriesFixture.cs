@@ -234,8 +234,8 @@ namespace Requestarr.Core.Test.Portal
                 rows[id].Actions.Should().Equal(Subject.Request(id).Actions, "a row offers what its page offers");
             }
 
-            rows[pending.Id].Actions.Should().Contain("approve").And.Contain("deny").And.NotContain("deleteRecord");
-            rows[history.Id].Actions.Should().Contain("deleteRecord");
+            rows[pending.Id].Actions.Should().Contain("approve").And.Contain("deny").And.NotContain("remove");
+            rows[history.Id].Actions.Should().Equal(new[] { "remove" }, "history goes through the removal flow too, not a delete of its own");
             rows[dune.Id].Actions.Should().Contain("forceRemoval").And.Contain("dropRemoval");
             rows[dune.Id].RemovalId.Should().Be(removal.Id);
             rows[pending.Id].RemovalId.Should().BeNull();

@@ -10,8 +10,8 @@ namespace Requestarr.Core.Test.Qa.Web
     {
         private const string Pager = "document.querySelector('[class*=\"TablePager-pager\"]')";
 
-        // A fresh browser's page size, until Options changes it.
-        private const int PageSize = 25;
+        // A fresh browser's page size on Requests, until Options changes it.
+        private const int PageSize = 100;
 
         // The pager's Next: Servarr's pager draws first, previous, the page number, next and last, in that order.
         private const string NextPage = "document.querySelector('[class*=\"TablePager-controlsContainer\"]').firstElementChild.children[3]";

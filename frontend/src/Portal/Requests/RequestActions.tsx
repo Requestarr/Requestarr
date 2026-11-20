@@ -1,7 +1,5 @@
 import React, { useCallback } from 'react';
-import { useHistory } from 'react-router-dom';
 import FieldSet from 'Components/FieldSet';
-import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import { PortalRequestDetail } from '../PortalTypes';
@@ -15,17 +13,9 @@ interface RequestActionsProps {
 }
 
 // What an admin can do to the request now, as its feed card in Discord offers, through the same rules; its row in the
-// Requests lists offers the same. A deleted record has no page left, so Delete record goes back to Requests.
+// Requests list's toolbar offers the same when it's picked.
 function RequestActions({ detail, onDone }: RequestActionsProps) {
-  const history = useHistory();
-  const onRecordDeleted = useCallback(
-    () => history.push(getPathWithUrlBase('/requests')),
-    [history]
-  );
-  const { run, isBusy, outcome, dialogs } = useRequestActionRunner(
-    onDone,
-    onRecordDeleted
-  );
+  const { run, isBusy, outcome, dialogs } = useRequestActionRunner(onDone);
   const { request } = detail;
   const onPress = useCallback(
     (name: string) => run(request, name),

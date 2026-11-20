@@ -132,11 +132,6 @@ namespace Requestarr.Core.Discord
         public const string InLibraryShort = "In library";
         public const string Dot = " · ";
 
-        public static string OnlyHistoryDeleted(string label) =>
-            $"{label} is a live request, so its record stays. Only history (Not in library) can be deleted.";
-
-        public static string RecordDeleted(string label) => $"Deleted the record of {label}. Nothing in Sonarr, Radarr or Discord changed.";
-
         // Steps of a request block, shown after its header.
         public const string StepDetails = "details";
         public const string StepSeasons = "choose seasons";
@@ -806,6 +801,11 @@ namespace Requestarr.Core.Discord
         public const string RemovalKeepNoted = "Noted: you want to keep it. One keep is enough; you can take it back while the vote is open.";
         public const string RemovalKeepTakenBack = "Your keep is taken back.";
         public const string RemovalNothingFound = "Nothing in Sonarr or Radarr matches that.";
+        public const string RemovalRecordIsWhole = "Sonarr and Radarr don't have it, so the whole request is removed: leave the seasons out.";
+        public const string RemovalNotHistory = "That request's title is in Sonarr or Radarr, so its removal starts there.";
+
+        // Where a passed removal takes it out of: a request Sonarr and Radarr don't have only leaves Requestarr's lists.
+        private static string RemovedFrom(Removals.RemovalProposal proposal) => proposal.RecordOnly ? "Requestarr's lists" : "the library";
 
         public static string RemovalScope(Removals.RemovalProposal proposal) =>
             proposal.WholeTitle ? $"**{proposal.Label}**" : $"**{proposal.Label}**, {SeasonRanges(proposal.Seasons)}";
@@ -817,7 +817,7 @@ namespace Requestarr.Core.Discord
 
         // The "still watching?" prompt, in each voter's own channel.
         public static string RemovalPrompt(Removals.RemovalProposal proposal, DateTime closes, bool flagged) =>
-            $"🗳️ **Still watching?** · {RemovalScope(proposal)} may be removed from the library. " +
+            $"🗳️ **Still watching?** · {RemovalScope(proposal)} may be removed from {RemovedFrom(proposal)}. " +
             (flagged
                 ? $"You asked to keep it, so it stays unless the admin decides otherwise. You can take that back until {Closing(closes)}."
                 : $"Press **{RemovalKeepLabel}** if you still watch it: one keep is enough. Voting closes {Closing(closes)}; nothing changes until then.");
@@ -845,8 +845,8 @@ namespace Requestarr.Core.Discord
         // The outcome, reposted for everyone who was asked, without buttons. Flaggers are never named.
         public static string RemovalOutcome(Removals.RemovalProposal proposal) => proposal.Status switch
         {
-            Removals.RemovalStatus.Deleted => $"🗑️ **Removed** · {RemovalScope(proposal)} was removed from the library: nobody asked to keep it.{AgainNote(proposal)}",
-            Removals.RemovalStatus.Forced => $"🗑️ **Removed by the admin** · {RemovalScope(proposal)} was removed from the library.{AgainNote(proposal)}",
+            Removals.RemovalStatus.Deleted => $"🗑️ **Removed** · {RemovalScope(proposal)} was removed from {RemovedFrom(proposal)}: nobody asked to keep it.{AgainNote(proposal)}",
+            Removals.RemovalStatus.Forced => $"🗑️ **Removed by the admin** · {RemovalScope(proposal)} was removed from {RemovedFrom(proposal)}.{AgainNote(proposal)}",
             Removals.RemovalStatus.DeleteByHand => $"🗑️ **Removal agreed** · {RemovalScope(proposal)} will be removed from the library. Deleting is turned off on this server, so an admin deletes it by hand.",
             Removals.RemovalStatus.Flagged or Removals.RemovalStatus.Kept => $"✅ **Kept** · {RemovalScope(proposal)} stays: someone still watches it.",
             _ => $"✅ **Kept** · The removal of {RemovalScope(proposal)} was called off."
@@ -905,6 +905,9 @@ namespace Requestarr.Core.Discord
                 ? $"Removed {RemovalScope(proposal)} from {instance} with its files. It wasn't added to the exclusion list, so it can be requested again."
                 : $"Removed {RemovalScope(proposal)} from {instance}: those seasons' files are deleted and the seasons unmonitored. The show stays.";
 
+        public static string RemovalRecordDropped(Removals.RemovalProposal proposal) =>
+            $"Removed {RemovalScope(proposal)} from Requestarr's lists. Sonarr and Radarr don't have it, so nothing was deleted there.";
+
         public static string RemovalFailed(Removals.RemovalProposal proposal, string instance) =>
             $"{instance ?? "Sonarr or Radarr"} refused to remove {RemovalScope(proposal)}: {proposal.Detail}. It's waiting in `/admin requests` (Force tries again).";
 
@@ -961,6 +964,12 @@ namespace Requestarr.Core.Discord
             deletesFiles
                 ? $"Delete {RemovalScope(label, seasons)} **now**? Its files are deleted; this can't be undone. Nobody is asked."
                 : $"Remove {RemovalScope(label, seasons)} **now**? Nobody is asked. Deleting is turned off on this server, so nothing is deleted: it waits in `/admin requests` for you to delete it by hand.";
+
+        // Force on an open removal: one Sonarr and Radarr don't have only leaves Requestarr's lists, whatever deleting is set to.
+        public static string RemovalConfirmForce(Removals.RemovalProposal proposal, bool deletesFiles) =>
+            proposal.RecordOnly
+                ? $"Remove {RemovalScope(proposal)} from Requestarr's lists **now**? Nobody is asked. Sonarr and Radarr don't have it, so nothing is deleted there."
+                : RemovalConfirmForce(proposal.Label, proposal.Seasons, deletesFiles);
 
         public static string RemovalAlreadyByHand(Removals.RemovalProposal proposal) =>
             $"Removing {RemovalScope(proposal)} is already agreed and waits for you to delete it by hand (deleting is turned off on this server). Delete it, then press **{DeletedByHandLabel}**.";

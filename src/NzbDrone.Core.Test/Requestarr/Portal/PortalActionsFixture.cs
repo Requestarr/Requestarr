@@ -54,6 +54,17 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public async Task a_removal_of_a_history_request_runs_on_its_record_without_looking_in_the_library()
+        {
+            Mocker.GetMock<IRequestService>().Setup(r => r.Find(7)).Returns(new Request { Id = 7, Title = "Heat", Status = RequestStatus.NotInLibrary });
+
+            await Subject.StartRemovalAsync(7, null, false, Admin);
+
+            Mocker.GetMock<IRemovalService>().Verify(r => r.StartRecordByAdminAsync(Admin, "owner (web app)", null, 7, It.Is<IReadOnlyCollection<int>>(s => s.Count == 0), false), Times.Once());
+            Mocker.GetMock<IRemovalService>().Verify(r => r.TargetForRequestAsync(It.IsAny<int>()), Times.Never());
+        }
+
+        [Test]
         public async Task a_removal_of_a_title_not_in_the_library_says_why()
         {
             Mocker.GetMock<IRemovalService>().Setup(r => r.TargetForRequestAsync(7)).ReturnsAsync(LookupOutcome<RemovalTarget>.Fail("Not in the library."));

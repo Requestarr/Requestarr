@@ -194,13 +194,13 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the live deleting turned off check.
 - **Acting on one request**
   - Steps:
-    1. In Requests, press Select Requests, then tick one history row.
-    2. Press Delete record in the toolbar.
+    1. In Requests, press Select Requests, then tick one Not in library row.
+    2. Press Start removal in the toolbar, then start it.
   - Expect:
     - No buttons on rows or posters.
-    - Left of Refresh: Approve, Deny, Start removal, Delete record, plus what its page offers.
+    - Left of Refresh: Approve, Deny, Start removal, plus what its page offers.
     - Those it doesn't allow are greyed out.
-    - Delete record asks first, naming the title.
+    - A removal vote starts, as for a title in the library.
   - Checked automatically: the web app request actions check.
 - **Picking requests**
   - Steps:
@@ -227,7 +227,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     2. Choose Movies in Filter.
     3. Press Select Requests, then Select All.
   - Expect:
-    - 25 a page with Sonarr's pager; the page size under Options.
+    - 100 a page with Sonarr's pager; the page size under Options.
     - The pager's total and the footer's totals count only movies.
     - The footer's colours match the status labels.
     - Every movie picked, across the pages.

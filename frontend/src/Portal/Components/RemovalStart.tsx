@@ -13,11 +13,19 @@ interface RemovalStartProps {
 
   // Opened from Force removal: Force starts ticked.
   isForce?: boolean;
+
+  // Sonarr and Radarr don't have it (Not in library): the vote is the same, and if it passes the request leaves
+  // Requestarr's lists with nothing deleted anywhere.
+  isRecordOnly?: boolean;
 }
 
 // What a removal covers, then Start removal. Seasons that don't read as numbers start nothing, and Force asks once
 // more before deleting, as Discord's "Confirm delete" does. With deleting turned off, it says nothing is deleted.
-function RemovalStart({ onStart, isForce = false }: RemovalStartProps) {
+function RemovalStart({
+  onStart,
+  isForce = false,
+  isRecordOnly = false,
+}: RemovalStartProps) {
   const deletesFiles = useDeletesFiles();
   const [choice, setChoice] = useState<RemovalChoice>({
     seasons: '',
@@ -41,10 +49,17 @@ function RemovalStart({ onStart, isForce = false }: RemovalStartProps) {
 
   return (
     <>
-      {deletesFiles === false && (
+      {isRecordOnly && (
+        <Alert kind={kinds.INFO}>{translate('PortalRecordOnlyNote')}</Alert>
+      )}
+      {!isRecordOnly && deletesFiles === false && (
         <Alert kind={kinds.INFO}>{translate('PortalDeletingOffNote')}</Alert>
       )}
-      <RemovalScope choice={choice} onChange={setChoice} />
+      <RemovalScope
+        choice={choice}
+        withSeasons={!isRecordOnly}
+        onChange={setChoice}
+      />
       <Button kind={kinds.DANGER} isDisabled={!seasons} onPress={onStartPress}>
         {translate('PortalActionRemove')}
       </Button>
@@ -52,7 +67,11 @@ function RemovalStart({ onStart, isForce = false }: RemovalStartProps) {
         isOpen={isConfirming}
         kind={kinds.DANGER}
         title={translate('PortalRemovalForce')}
-        message={forceRemovalMessage(deletesFiles)}
+        message={
+          isRecordOnly
+            ? translate('PortalRecordOnlyForce')
+            : forceRemovalMessage(deletesFiles)
+        }
         confirmLabel={translate('PortalRemovalForce')}
         onConfirm={onForce}
         onCancel={onCancel}

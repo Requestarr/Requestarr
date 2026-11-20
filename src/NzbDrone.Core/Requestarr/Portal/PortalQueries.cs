@@ -289,8 +289,7 @@ namespace Requestarr.Core.Portal
             Add(actions, request is { ContentType: ContentType.Tv, IsActive: true }, "addSeasons");
             Add(actions, removal?.IsOpen == true && removal.Status != RemovalStatus.DeleteByHand, "forceRemoval", "dropRemoval");
             Add(actions, removal?.Status == RemovalStatus.DeleteByHand, "deletedByHand", "dropRemoval");
-            Add(actions, removal?.IsOpen != true && RequestCards.Downloaded(request), "remove");
-            Add(actions, request.Status == RequestStatus.NotInLibrary, "deleteRecord");
+            Add(actions, removal?.IsOpen != true && (RequestCards.Downloaded(request) || RemovalService.IsRecordOnly(request)), "remove");
 
             return actions;
         }
