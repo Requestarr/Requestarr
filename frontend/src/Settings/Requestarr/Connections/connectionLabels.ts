@@ -73,25 +73,3 @@ export function instanceLabels(
     ...provisioned(settings),
   ];
 }
-
-function keyStatus(
-  settings: AppSettings | undefined,
-  key: string,
-  turnedOn: boolean
-): CardLabel[] {
-  if (!turnedOn) {
-    return [grey('InstanceTurnedOff')];
-  }
-
-  return settings && !settings.values[key] ? [grey('ConnectionNotSetUp')] : [];
-}
-
-// The Movie Database and GitHub: set up once their key is saved (a secret's value says only whether it is), and
-// bug reports also turned off by their own switch.
-export function keyLabels(
-  settings: AppSettings | undefined,
-  key: string,
-  turnedOn = true
-): CardLabel[] {
-  return [...keyStatus(settings, key, turnedOn), ...provisioned(settings)];
-}

@@ -44,6 +44,11 @@ namespace Requestarr.Http.Settings
         [Produces("application/json")]
         public IActionResult Setup() => Json(_setup.Status());
 
+        // The first-run setup's Sonarr or Radarr step, left for later: they're added on the Connections page instead.
+        [HttpPost("/api/v1/requestarr/setup/skip-instance")]
+        [Produces("application/json")]
+        public IActionResult SkipInstance() => Json(_setup.SkipInstance());
+
         [HttpGet("/api/v1/requestarr/instances")]
         [Produces("application/json")]
         public IActionResult Instances() => Json(_instances.All());

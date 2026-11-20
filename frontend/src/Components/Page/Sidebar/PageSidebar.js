@@ -77,10 +77,6 @@ const links = [
         to: '/settings/ui'
       },
       {
-        title: () => translate('Tags'),
-        to: '/settings/tags'
-      },
-      {
         title: () => translate('ImportFromRequestrr'),
         to: '/settings/import'
       }

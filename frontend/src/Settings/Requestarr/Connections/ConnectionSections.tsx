@@ -7,7 +7,10 @@ import {
   Instance,
   SettingsSection,
 } from '../RequestarrSettingsTypes';
-import AddConnectionModal from './AddConnectionModal';
+import AddConnectionModal, {
+  MEDIA_MANAGERS,
+  MEDIA_SERVERS,
+} from './AddConnectionModal';
 import ConnectionCard, { AddConnectionCard, CardLabel } from './ConnectionCard';
 import { instanceLabels } from './connectionLabels';
 import SettingsConnectionModal from './SettingsConnectionModal';
@@ -26,8 +29,8 @@ interface SettingsCardSectionProps {
   onSaved: () => void;
 }
 
-// A section with the one connection Requestarr keeps in its settings (the Discord bot, The Movie Database, GitHub):
-// a heading over its card, which opens its edit modal.
+// A section with the one connection Requestarr keeps in its settings (the Discord bot): a heading over its card, which
+// opens its edit modal.
 export function SettingsCardSection({
   id,
   legend,
@@ -157,6 +160,7 @@ export function MediaManagersSection({
 
       <AddConnectionModal
         isOpen={isAdding}
+        groups={MEDIA_MANAGERS}
         onSelect={onSelect}
         onClose={onAddClose}
       />
@@ -166,6 +170,30 @@ export function MediaManagersSection({
         isReadOnly={settings?.provisioned ?? true}
         onSaved={onEditSaved}
         onClose={onEditClose}
+      />
+    </div>
+  );
+}
+
+// Plex and Jellyfin: no media server can be added yet, so the "+" card's Add modal says so.
+export function MediaServersSection() {
+  const [isAdding, setIsAdding] = useState(false);
+  const onAdd = useCallback(() => setIsAdding(true), []);
+  const onAddClose = useCallback(() => setIsAdding(false), []);
+
+  return (
+    <div id="media-servers">
+      <FieldSet legend={translate('ConnectionsMediaServers')}>
+        <div className={styles.cards}>
+          <AddConnectionCard onPress={onAdd} />
+        </div>
+      </FieldSet>
+
+      <AddConnectionModal
+        isOpen={isAdding}
+        groups={MEDIA_SERVERS}
+        onSelect={onAddClose}
+        onClose={onAddClose}
       />
     </div>
   );

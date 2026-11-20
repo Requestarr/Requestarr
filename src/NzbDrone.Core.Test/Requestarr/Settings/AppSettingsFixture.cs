@@ -11,7 +11,6 @@ using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
-using Requestarr.Core.Metadata;
 using Requestarr.Core.Portal;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Settings;
@@ -29,7 +28,6 @@ namespace Requestarr.Core.Test.Settings
             Mocker.GetMock<IConfigService>().SetupAllProperties();
             Mocker.GetMock<IConfigService>().Object.RemovalVoteDays = 7;
             Mocker.SetConstant<IDiscordSettingsStore>(new DiscordSettingsStore());
-            Mocker.SetConstant<ITmdbSettingsStore>(new TmdbSettingsStore());
             Mocker.SetConstant<IAvailabilitySettingsStore>(new AvailabilitySettingsStore());
             Mocker.SetConstant<IStoredSettings>(Mocker.Resolve<StoredSettings>());
             Mocker.SetConstant<IAuditSettings>(Mocker.Resolve<AuditSettings>());
@@ -90,10 +88,10 @@ namespace Requestarr.Core.Test.Settings
 
         [TestCase("removalVoteDays", "0")]
         [TestCase("removalVoteDays", "10001")]
-        [TestCase("bugReportsFileIssues", "false")]
+        [TestCase("tmdbApiKey", "key")]
         [TestCase("discordGuildId", "my server")]
         [TestCase("availabilityWebhookUrl", "requestarr:9797")]
-        [TestCase("bugReportsRepository", "Requestarr")]
+        [TestCase("bugReportsGithubToken", "token")]
         [TestCase("nonsense", "1")]
         [TestCase("auditLogKeepFor", "3 weeks")]
         [TestCase("serverRole", "staging")]
@@ -120,9 +118,9 @@ namespace Requestarr.Core.Test.Settings
         [Test]
         public async Task should_not_reconnect_the_bot_for_other_settings()
         {
-            await Save("tmdbApiKey", "key");
+            await Save("removalVoteDays", "5");
 
-            Mocker.Resolve<ITmdbSettingsStore>().ApiKey.Should().Be("key");
+            Mocker.GetMock<IConfigService>().Object.RemovalVoteDays.Should().Be(5);
             Mocker.GetMock<IDiscordClientHost>().Verify(h => h.RestartAsync(), Times.Never());
         }
 
@@ -157,14 +155,6 @@ namespace Requestarr.Core.Test.Settings
 
             result.Saved.Should().BeFalse();
             result.Problem.Should().Contain("stack says which server it is");
-        }
-
-        [Test]
-        public async Task should_let_production_stop_filing_bug_reports()
-        {
-            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.IconSet).Returns(ReleaseEnvironment.Production);
-
-            (await Save("bugReportsFileIssues", "false")).Saved.Should().BeTrue();
         }
 
         [Test]

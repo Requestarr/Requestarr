@@ -27,6 +27,7 @@ export interface SetupStatus {
   adminAccount: boolean;
   discord: boolean;
   instance: boolean;
+  instanceSkipped: boolean;
   botState: BotState;
   botProblem?: string;
   inviteUrl?: string;

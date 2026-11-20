@@ -141,12 +141,22 @@ namespace Requestarr.Core.Test.Polish
         [Test]
         public void an_empty_key_disables_cast()
         {
-            var store = new TmdbSettingsStore();
+            var store = new TmdbSettingsStore { Variable = _ => null };
 
             store.Set("  ");
             store.Enabled.Should().BeFalse();
             store.Set($" {Key} ");
             store.ApiKey.Should().Be(Key);
+        }
+
+        [Test]
+        public void beta_and_production_take_the_key_from_the_servers_environment()
+        {
+            var store = new TmdbSettingsStore { Variable = name => name == TmdbSettingsStore.KeyVariable ? $" {Key} " : null };
+
+            store.ApiKey.Should().Be(Key, "no provisioning file: the container's environment has it");
+            store.Set("from-the-file");
+            store.ApiKey.Should().Be("from-the-file", "dev's and QA's provisioning file wins");
         }
 
         private TmdbClient Client(out MemoryTarget memory)

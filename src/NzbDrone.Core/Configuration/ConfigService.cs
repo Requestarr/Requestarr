@@ -184,28 +184,10 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("BotProfileBannerSet", value ?? string.Empty); }
         }
 
-        public bool BugReportsFileIssues
+        public bool SetupInstanceSkipped
         {
-            get { return GetValueBoolean("BugReportsFileIssues", false); }
-            set { SetValue("BugReportsFileIssues", value); }
-        }
-
-        public string BugReportsRepository
-        {
-            get { return GetValue("BugReportsRepository"); }
-            set { SetValue("BugReportsRepository", value ?? string.Empty); }
-        }
-
-        public int BugReportsPerDay
-        {
-            get { return GetValueInt("BugReportsPerDay", Requestarr.Core.Qa.BugReportSettings.DefaultReportsPerDay); }
-            set { SetValue("BugReportsPerDay", value); }
-        }
-
-        public int BugReportsMinutesBetween
-        {
-            get { return GetValueInt("BugReportsMinutesBetween", Requestarr.Core.Qa.BugReportSettings.DefaultMinutesBetween); }
-            set { SetValue("BugReportsMinutesBetween", value); }
+            get { return GetValueBoolean("SetupInstanceSkipped", false); }
+            set { SetValue("SetupInstanceSkipped", value); }
         }
 
         public string AuditLogKeepFor
@@ -224,12 +206,6 @@ namespace NzbDrone.Core.Configuration
         {
             get { return GetValue("AuditLogTrimmedBefore"); }
             set { SetValue("AuditLogTrimmedBefore", value ?? string.Empty); }
-        }
-
-        public string BugReportsGithubToken
-        {
-            get { return GetValue("BugReportsGithubToken"); }
-            set { SetValue("BugReportsGithubToken", value ?? string.Empty); }
         }
 
         public string DiscordBotToken
@@ -260,12 +236,6 @@ namespace NzbDrone.Core.Configuration
         {
             get { return GetValue("DiscordAdminRoleName"); }
             set { SetValue("DiscordAdminRoleName", value ?? string.Empty); }
-        }
-
-        public string TmdbApiKey
-        {
-            get { return GetValue("TmdbApiKey"); }
-            set { SetValue("TmdbApiKey", value ?? string.Empty); }
         }
 
         public string AvailabilityWebhookUrl

@@ -122,14 +122,14 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
 - **Requestarr's settings pages**
   - Steps:
     1. In the web app, open Settings, then Connections.
-    2. Press the + card, then a Sonarr card.
+    2. Press each + card, then a Sonarr card.
     3. Open Requests and Changes.
     4. Do it again in the dark theme.
   - Expect:
-    - Cards under Discord, Media managers, Metadata and Bug reports, with Options below.
-    - The + card lists Sonarr and Radarr; a card opens with Test, Cancel and Save.
-    - Provisioned settings are read-only with a note; Requests keeps the audit log 1 year.
-    - Changes lists who changed what, when.
+    - Cards under Discord, Media managers and Media servers, with Options below.
+    - Media managers' + lists Sonarr and Radarr; Media servers' + says not built yet.
+    - A card opens with Test, Cancel and Save; provisioned settings are read-only.
+    - Requests keeps the audit log 1 year; Changes lists who changed what.
   - Checked automatically: the web app settings pages check.
 - **Followers**
   - Steps:

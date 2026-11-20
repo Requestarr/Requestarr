@@ -11,9 +11,7 @@ using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
-using Requestarr.Core.Metadata;
 using Requestarr.Core.Provisioning;
-using Requestarr.Core.Qa;
 
 namespace Requestarr.Core.Settings
 {
@@ -67,7 +65,6 @@ namespace Requestarr.Core.Settings
         private const string ServerRoleKey = "serverRole";
 
         private static readonly Regex DiscordId = new(@"^\d{15,21}$");
-        private static readonly Regex Repository = new(@"^[\w.-]+/[\w.-]+$");
 
         private static readonly HashSet<string> DiscordConnection = new() { "discordBotToken", "discordApplicationId", "discordGuildId", "discordAdminRoleId", "discordAdminRoleName" };
 
@@ -76,9 +73,7 @@ namespace Requestarr.Core.Settings
         private readonly IStoredSettings _stored;
         private readonly IDiscordSettingsStore _discord;
         private readonly IDiscordClientHost _discordHost;
-        private readonly ITmdbSettingsStore _tmdb;
         private readonly IAvailabilitySettingsStore _availability;
-        private readonly IBugReportSettings _bugReports;
         private readonly IAuditSettings _auditLog;
         private readonly IBackendService _backends;
         private readonly IReleaseEnvironment _environment;
@@ -89,9 +84,7 @@ namespace Requestarr.Core.Settings
                                   IStoredSettings stored,
                                   IDiscordSettingsStore discord,
                                   IDiscordClientHost discordHost,
-                                  ITmdbSettingsStore tmdb,
                                   IAvailabilitySettingsStore availability,
-                                  IBugReportSettings bugReports,
                                   IAuditSettings auditLog,
                                   IBackendService backends,
                                   IReleaseEnvironment environment,
@@ -102,9 +95,7 @@ namespace Requestarr.Core.Settings
             _stored = stored;
             _discord = discord;
             _discordHost = discordHost;
-            _tmdb = tmdb;
             _availability = availability;
-            _bugReports = bugReports;
             _auditLog = auditLog;
             _backends = backends;
             _environment = environment;
@@ -263,13 +254,7 @@ namespace Requestarr.Core.Settings
         private IEnumerable<SettingDefinition> ConnectionDefinitions() => new[]
         {
             new SettingDefinition(WebhookAddress, "Address Sonarr and Radarr reach Requestarr at", SettingKind.Text, () => _availability.WebhookUrl, v => _config.AvailabilityWebhookUrl = v, Check: UrlProblem),
-            Number("availabilityPollMinutes", "Minutes between download checks", () => _availability.PollMinutes, v => _config.AvailabilityPollMinutes = v, AvailabilitySettingsStore.MinPollMinutes),
-            new SettingDefinition("tmdbApiKey", "The Movie Database key", SettingKind.Secret, () => _tmdb.ApiKey, v => _config.TmdbApiKey = v),
-            new SettingDefinition("bugReportsFileIssues", "File bug reports on GitHub", SettingKind.Switch, () => _bugReports.FileIssues ? "true" : "false", v => _config.BugReportsFileIssues = v == "true", Check: FileIssuesProblem),
-            new SettingDefinition("bugReportsRepository", "GitHub repository for bug reports", SettingKind.Text, () => _config.BugReportsRepository, v => _config.BugReportsRepository = v, Check: RepositoryProblem),
-            new SettingDefinition("bugReportsGithubToken", "GitHub key for bug reports", SettingKind.Secret, () => _bugReports.Token, v => _config.BugReportsGithubToken = v),
-            Number("bugReportsPerDay", "Bug reports a person can send a day", () => _config.BugReportsPerDay, v => _config.BugReportsPerDay = v, 1),
-            Number("bugReportsMinutesBetween", "Minutes between two bug reports", () => _config.BugReportsMinutesBetween, v => _config.BugReportsMinutesBetween = v, 0)
+            Number("availabilityPollMinutes", "Minutes between download checks", () => _availability.PollMinutes, v => _config.AvailabilityPollMinutes = v, AvailabilitySettingsStore.MinPollMinutes)
         };
 
         private static SettingDefinition Number(string key, string label, Func<int> read, Action<int> write, int min) =>
@@ -289,10 +274,6 @@ namespace Requestarr.Core.Settings
         private static string UrlProblem(string value) =>
             value.Length == 0 || IsWebAddress(value) ? null : "The address starts with http:// or https://, for example http://requestarr:9797.";
 
-        // The dev, QA and beta servers file every report, so the gate before staging sees them (BugReportSettings).
-        private string FileIssuesProblem(string value) =>
-            value == "false" && _environment.IconSet != ReleaseEnvironment.Production ? "Test servers (dev, QA and beta) always file bug reports on GitHub." : null;
-
         private string ServerRoleProblem(string value)
         {
             if (!ReleaseEnvironment.Roles.Contains(value))
@@ -302,8 +283,5 @@ namespace Requestarr.Core.Settings
 
             return _environment.SetByStack ? "This server's stack says which server it is (dev or QA), so the role can't be changed here." : null;
         }
-
-        private static string RepositoryProblem(string value) =>
-            value.Length == 0 || Repository.IsMatch(value) ? null : "The repository is written owner/name, for example Requestarr/Requestarr.";
     }
 }

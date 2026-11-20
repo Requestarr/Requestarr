@@ -11,8 +11,9 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Metadata
 {
-    // Optional The Movie Database key, from the provisioning file only. Kept in memory, never
-    // written to the database or config.xml, and never logged.
+    // Optional The Movie Database key: from the provisioning file on dev and QA, otherwise from the server's environment
+    // (REQUESTARR_TMDB_API_KEY, set once on beta's and production's container). Never in the web app, the database or
+    // config.xml, and never logged.
     public interface ITmdbSettingsStore
     {
         string ApiKey { get; }
@@ -22,13 +23,19 @@ namespace Requestarr.Core.Metadata
 
     public class TmdbSettingsStore : ITmdbSettingsStore
     {
-        public string ApiKey { get; private set; }
+        public const string KeyVariable = "REQUESTARR_TMDB_API_KEY";
+
+        private string _key;
+
+        public Func<string, string> Variable { get; set; } = Environment.GetEnvironmentVariable;
+
+        public string ApiKey => _key ?? (string.IsNullOrWhiteSpace(Variable(KeyVariable)) ? null : Variable(KeyVariable).Trim());
 
         public bool Enabled => !string.IsNullOrWhiteSpace(ApiKey);
 
         public void Set(string apiKey)
         {
-            ApiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
+            _key = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
         }
     }
 

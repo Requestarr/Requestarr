@@ -420,21 +420,22 @@ namespace Requestarr.Core.Test.Qa.Web
             await OldAddressesAsync(browser, check);
         });
 
-        // The sections in order, a card each for the bot, The Movie Database and GitHub and one per Sonarr or Radarr, the
-        // Add modal's Media managers tiles, and a card's edit modal.
+        // The sections in order, a card for the bot and one per Sonarr or Radarr (The Movie Database and GitHub keys come
+        // from the server's environment, so they have none), each "+" card's Add modal, and a card's edit modal.
         private static async Task ConnectionsAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
-            await browser.WaitForAsync($"{Cards}.length >= 5");
+            await browser.WaitForAsync($"{Cards}.length >= 3");
             var legends = await browser.EvalAsync<string[]>(Legends);
             var cards = await browser.EvalAsync<string[]>($"{Cards}.map(c => c.innerText.replace(/\\s+/g, ' ').trim())");
             var adds = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"ConnectionCard-addConnection\"]').length");
             var toolbar = await browser.EvalAsync<string>("document.querySelector('[class*=\"PageToolbar-toolbar\"]').innerText.replace(/\\s+/g, ' ')");
             check.Saw($"connections ({theme}): sections {string.Join(", ", legends)}; cards {string.Join(" | ", cards)}; {adds} \"+\" card; toolbar: {toolbar}");
 
-            legends.Should().ContainInOrder("Discord", "Media managers", "Metadata", "Bug reports", "Options");
-            cards.Should().HaveCountGreaterThanOrEqualTo(5, "the bot, both test instances, The Movie Database and GitHub");
+            legends.Should().ContainInOrder("Discord", "Media managers", "Media servers", "Options");
+            cards.Should().HaveCountGreaterThanOrEqualTo(3, "the bot and both test instances");
+            string.Join(" ", cards).Should().NotContain("GitHub").And.NotContain("The Movie Database");
             cards.Count(c => c.Contains("Connected")).Should().BeGreaterThanOrEqualTo(2, "the bot and the test instances are connected");
-            adds.Should().Be(1, "only Media managers adds, through its \"+\" card");
+            adds.Should().Be(2, "Media managers and Media servers each add through a \"+\" card");
             toolbar.Should().Contain("Show Advanced").And.Contain("No Changes").And.Contain("Test All Connections").And.NotContain("Add Sonarr");
 
             await browser.RunAsync("document.querySelector('[class*=\"ConnectionCard-addConnection\"]').click()");
@@ -443,6 +444,15 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"add modal ({theme}): {choices}");
             choices.Should().Contain("Media managers").And.Contain("Sonarr").And.Contain("Radarr");
             await check.ShotAsync(browser, $"settings-connections-add-{theme}");
+            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.includes('Close')).click()");
+            await browser.WaitForAsync("!document.querySelector('[class*=\"ModalContent\"]')");
+
+            await browser.RunAsync("document.querySelectorAll('[class*=\"ConnectionCard-addConnection\"]')[1].click()");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"ModalContent\"]')");
+            var servers = await browser.EvalAsync<string>(ModalText);
+            check.Saw($"media servers add modal ({theme}): {servers}");
+            servers.Should().Contain("Media servers").And.Contain("aren't built yet");
+            await check.ShotAsync(browser, $"settings-connections-media-servers-{theme}");
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.includes('Close')).click()");
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalContent\"]')");
 

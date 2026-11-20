@@ -47,6 +47,19 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
+        public void skipping_the_sonarr_or_radarr_step_leaves_an_install_ready_with_none()
+        {
+            Given(AuthenticationType.Forms, true);
+            Mocker.GetMock<IConfigService>().SetupProperty(c => c.SetupInstanceSkipped);
+
+            Subject.Status().Needed.Should().BeTrue("a sign-in and a bot aren't enough until the step is done or skipped");
+
+            var status = Subject.SkipInstance();
+
+            (status.Needed, status.Instance, status.InstanceSkipped).Should().Be((false, false, true));
+        }
+
+        [Test]
         public void an_install_with_a_sign_in_a_bot_and_an_instance_is_ready_with_both_invite_links()
         {
             Given(AuthenticationType.Forms, true, Instance(enabled: true));

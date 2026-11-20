@@ -154,7 +154,7 @@ What's there:
 - **Requests, Members and Queue:** every request, every member, and what waits on an admin, with everything an admin does in Discord's admin channels: approve, deny, cancel, add seasons, start, force or drop a removal, add a member, change their access and limits, suspend, unsuspend, remove, link Plex. Discord's messages change as if it had been done there.
 - **Access requests, Outages and Audit log:** people asking to join or paused, what can't be reached now and past outages, and everything Requestarr recorded, by member, title, action and day. The audit log keeps an entry for 1 year by default (Settings, Requests, **Keep the audit log for**: 90 days, 6 months, 1 year, 2 years or forever; `auditLog.keepFor` in `provisioning.yml`). Older entries are removed once a day, and that is recorded too; requests, members, removals and renames (which the header search uses to find a name someone had before) stay. Histories, timelines and Settings, then Changes, show what the log still keeps, and a page whose older history was removed says so.
 - **The search in the header** (press `/`): a request by title, a member by name or Discord username.
-- **Settings:** Connections (everything Requestarr connects to: the Discord bot, Sonarr and Radarr, The Movie Database and bug reports, as cards) and Requests (Requestarr's own settings); Changes (every change to them); General, UI and Tags; and Setup (the first-run setup).
+- **Settings:** Connections (what Requestarr connects to, as cards: the Discord bot, Sonarr and Radarr, and later Plex and Jellyfin) and Requests (Requestarr's own settings); Changes (every change to them); General and UI; and Setup (the first-run setup).
 - **System:** Status, Tasks, Backup, Updates, What's new (each version's changes), Events, and Log Files.
 
 ### 3.6 Updating
@@ -309,6 +309,8 @@ Sonarr and Radarr don't return cast. With a free The Movie Database key, Request
    ```
 
 5. Restart Requestarr.
+
+Without a provisioning file (beta and production), set the key on the container instead: the environment variable `REQUESTARR_TMDB_API_KEY` (Container Manager: the container's **Environment**). It's never set in the web app. Restart Requestarr after adding it.
 
 The key is kept in memory only. It is never written to the database or logs. Cast lookups are cached for 12 hours and give up after a few seconds, so a slow or unavailable The Movie Database never holds up a request.
 
@@ -730,9 +732,9 @@ botProfile:
 
 `#requestarr-bug-reports`, in the Requestarr Users group, lets members and admins tell the people who build Requestarr about a problem. Nobody types in it: **Report a problem** opens a menu of Requestarr's parts, then a short form (what happened, what they expected). Requestarr adds your server's environment, its version, the time and the reporter's Discord name, nothing else from your server, and posts the report as a card in the channel, so you see every report.
 
-**Filing on GitHub is off by default.** Turned on, each report also becomes an issue on Requestarr's public GitHub repository, which anyone can read; the form says so before anything is sent. It needs an access key of your own that can only read and write issues on that repository (GitHub: Settings, Developer settings, Fine-grained tokens, Issues "Read and write", nothing else). Leave it off unless you want your members' reports to be public. Requestarr's own test servers (dev, QA and beta) always file, whatever the setting.
+**Filing on GitHub is off on production.** Only a provisioning file turns it on there (`fileIssues: true` below); there's no setting for it in the web app. Turned on, each report also becomes an issue on Requestarr's public GitHub repository, which anyone can read; the form says so before anything is sent. It needs an access key of your own that can only read and write issues on that repository (GitHub: Settings, Developer settings, Fine-grained tokens, Issues "Read and write", nothing else). Leave it off unless you want your members' reports to be public. Requestarr's own test servers (dev, QA and beta) always file.
 
-The access key can also come from the `REQUESTARR_GITHUB_ISSUES_TOKEN` environment variable, when the provisioning file names none.
+Without a provisioning file (beta), the access key comes from the container's `REQUESTARR_GITHUB_ISSUES_TOKEN` environment variable; it's never set in the web app. The repository and the limits are built in. A provisioning file can still set them, and the key, as below; they last only while the file names them.
 
 **Each card says where its report is.** The link to its GitHub issue, or exactly why it isn't there: filing is turned off, the server has no access key, or what GitHub said (the key was refused, it can't create issues there, the repository wasn't found) or that GitHub couldn't be reached. A report that couldn't be filed is filed the next time the bot connects, for example after you add the key and restart, without anyone sending it again, and its card then shows the link.
 
@@ -820,7 +822,7 @@ Working on Requestarr itself, or testing a build by hand? Two local stacks, each
 
 For the project owner: an always-on Requestarr for early access testers, on its own Discord server (Requestarr Beta). It uses **your production Sonarr and Radarr**: one library, so testers request from the titles you already have, and nothing downloads twice. It runs the published `beta` image, which only ever holds builds you passed in QA ([release flow](development.md#release-flow)).
 
-It's one container, installed the way you'd install Sonarr or Radarr from a registry: the image from GitHub's registry, then a name, a port, a folder and your time zone. No compose file, no other files, no shell. Everything else is set in its web app.
+It's one container, installed the way you'd install Sonarr or Radarr from a registry: the image from GitHub's registry, then a name, a port, a folder, your time zone and the GitHub key for bug reports. No compose file, no other files, no shell. Everything else is set in its web app.
 
 **Production's files are safe by default.** Requestarr deletes nothing in Sonarr or Radarr until you turn on **Delete files** (B.4). Until then a removal that's agreed only waits in the admin queue for you to delete it by hand.
 
@@ -834,6 +836,7 @@ Do the steps in order; each ends with what to check before going on.
 - Your production Sonarr and Radarr, and their API keys (each one's **Settings → General → API Key**).
 - The Requestarr Beta Discord server, and a Discord application with a bot for it, set up as in [section 2](#2-create-your-discord-bot) (Server Members Intent on, invited with the same permissions). You need its bot token, application ID and the server's ID.
 - **GitHub's registry in Container Manager.** The image is `ghcr.io/requestarr/requestarr`, on GitHub's registry only. In **Container Manager → Registry → Settings**, `ghcr.io` should be listed; if it isn't, **Add**: name `GitHub`, address `https://ghcr.io`. Once the package is public on GitHub it needs no login. While it's private, give that entry your GitHub user and, as the password, a token that can only read packages (GitHub → Settings → Developer settings → Personal access tokens → classic, **read:packages**).
+- **A GitHub key for bug reports:** a fine-grained token with only Issues: read and write on Requestarr/Requestarr (GitHub: Settings, Developer settings, Fine-grained tokens). Beta files every report on GitHub with it; it goes on the container (B.2), never in the web app.
 - **A folder for Requestarr's data.** In **File Station**, in the `docker` shared folder, create `requestarr-beta`. Its settings, database and backups live there, where you can see and back them up. Requestarr runs as its own user inside the container, not as you, so let it write there: right-click the folder, **Properties → Permission → Create**, user or group **Everyone**, tick **Read** and **Write**, apply to this folder, sub-folders and files, **Done**, **Save**.
 
 ### B.1 Download the image
@@ -856,7 +859,7 @@ In **Image**, select `ghcr.io/requestarr/requestarr:beta` and press **Run**. Eac
 2. **Advanced settings:**
    - **Port settings:** the container's port `9797` (TCP) gets the local port **`19797`** (beta's: the standard 9797 with a 1 in front, so production keeps 9797). Remove any other ports listed.
    - **Volume settings:** **Add Folder**, choose `docker/requestarr-beta`, and mount it at **`/config`**, read and write.
-   - **Environment:** add the variable **`TZ`** with your time zone, for example `Europe/London` ([the list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)). Nothing else is needed.
+   - **Environment:** add the variable **`TZ`** with your time zone, for example `Europe/London` ([the list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)). Also add **`REQUESTARR_GITHUB_ISSUES_TOKEN`** with the GitHub key for bug reports (a fine-grained token with only Issues: read and write on Requestarr/Requestarr), so beta's reports reach GitHub. Optionally add **`REQUESTARR_TMDB_API_KEY`** with a The Movie Database key for cast ([4.6](#46-cast-from-the-movie-database-optional)). These two are never set in the web app.
    - Leave the network as **bridge**. **Next.**
 3. **Summary:** tick **Run this container after the wizard is finished**, then **Done**.
 
@@ -868,14 +871,12 @@ Open `http://<your server's address>:19797`. A new install opens its first-run s
 
 1. **Your sign-in.** Choose **Forms (login page)**, keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts), and choose a username and password. Save, then sign in.
 2. **This server and the Discord bot.** **This server is:** choose **Beta**, before adding Sonarr and Radarr: left on Production, Requestarr would name its connection there like production's, and it refuses to take over a connection another Requestarr owns. It gives the web app the BETA strip and beta's icons (from the next page you open), keeps every "what's new" post for good, and names Requestarr's connection in Sonarr and Radarr for beta. Then paste the beta bot's token, its application ID and the Requestarr Beta server's ID, and **Save**. **Bot status** says Connected, and **Add the bot to your Discord server** opens Discord's invite page if it isn't there yet.
-3. **Production's Sonarr.** Press **Add Sonarr**: a name (`Sonarr`), its address as the Synology reaches it (`http://<your server's address>:8989`, the server's own address, never a container name), its API key. Press **Test**, choose its quality profile and the root folder your TV is in, tick **Default**, and **Save**.
+3. **Production's Sonarr.** You can **Skip for now** and add Sonarr and Radarr later on the Connections page. Otherwise press **Add Sonarr**: a name (`Sonarr`), its address as the Synology reaches it (`http://<your server's address>:8989`, the server's own address, never a container name), its API key. Press **Test**, choose its quality profile and the root folder your TV is in, tick **Default**, and **Save**.
 
-The setup then says Requestarr is ready. Finish under **Settings → Connections**, which holds everything Requestarr connects to as cards, the way Sonarr's Indexers page does: **Discord**, **Media managers** (Sonarr and Radarr), **Metadata** (The Movie Database) and **Bug reports** (GitHub), with **Options** below. Press a card to change it; the **+** card adds a Sonarr or Radarr.
+The setup then says Requestarr is ready. Finish under **Settings → Connections**, which holds what Requestarr connects to as cards, the way Sonarr's Indexers page does: **Discord**, **Media managers** (Sonarr and Radarr) and **Media servers** (Plex and Jellyfin, not built yet), with **Options** below. Press a card to change it; the **+** card in Media managers adds a Sonarr or Radarr.
 
-- **Media managers, the + card, Radarr:** production's Radarr the same way (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
+- **Media managers, the + card, Radarr:** production's Radarr the same way (and Sonarr, if you skipped it in the setup) (`http://<your server's address>:7878`, its key, **Test**, its quality profile, the root folder your movies are in, **Default**, **Save**).
 - **Options:** **Requestarr's address for Sonarr and Radarr** `http://<your server's address>:19797` (Sonarr and Radarr call it there) and **Check downloads every** `5` minutes, then **Save Changes** in the toolbar.
-- **Bug reports, the GitHub card:** the **GitHub key** (a fine-grained token with only Issues: read and write on Requestarr/Requestarr), **Save**.
-- **Metadata, The Movie Database card** (optional): its key ([4.6](#46-cast-from-the-movie-database-optional)), **Save**.
 
 Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again. **This server is** stays on the **Discord** card under **Settings → Connections**.
 
@@ -908,14 +909,16 @@ These need the beta server, so they aren't on the QA checklist. Check them once 
 - **The folder's permission is enough:** the container's log ends with "Application started", with no access denied under `/config` (B.2).
 - **The web app** on port 19797 shows the BETA strip (B.3).
 - **The connection in production:** production's Sonarr and Radarr list **Requestarr Beta (availability)** under **Settings → Connect**, and its **Test** passes (B.3).
+- **The GitHub key reaches beta:** a report sent with **Report a problem** gets a card with its GitHub link (the key set on the container in B.2).
 - **Updates:** when the next build reaches beta, **Image** shows **Update available** on it (B.6), or downloading it again works.
+- **Skipping Sonarr or Radarr** (on a fresh install, if you try it): **Skip for now** in the setup's third step finishes the setup, and **Settings → Connections** shows only the **+** card under Media managers.
 
 ### B.6 Updating
 
 Updates happen only when you ask, never on a schedule. When a new build reaches beta:
 
 1. **Container Manager → Image.** Container Manager checks its images now and then, and `ghcr.io/requestarr/requestarr:beta` shows **Update available**.
-2. Select it and press **Update**. Container Manager downloads the new build and recreates `requestarr-beta` from it with the same settings: name, port, folder and time zone. Everything in the folder carries over.
+2. Select it and press **Update**. Container Manager downloads the new build and recreates `requestarr-beta` from it with the same settings: name, port, folder, time zone and keys. Everything in the folder carries over.
 
 **If Update doesn't appear** (Container Manager doesn't always check other registries than Docker Hub): download the tag again (**Registry**, `requestarr/requestarr`, **Download**, tag `beta`, which replaces the old image), then in **Container**, stop `requestarr-beta`, **Action → Delete** it (its folder keeps all its data), and **Run** the image again as in B.2.
 
@@ -929,7 +932,7 @@ Each build sent to the beta has its own number, counting every build: 0.7.0005 i
 
 ### B.7 Going to a specific build
 
-To run one particular build, for example to skip a bad one: **Registry**, `requestarr/requestarr`, **Download**, and choose that build's number as the tag (for example `0.7.0004`). Then in **Container**, stop `requestarr-beta`, **Action → Delete** it, and **Run** `ghcr.io/requestarr/requestarr:0.7.0004` as in B.2, with the same name, port, folder and time zone. It stays on that build until you run the `beta` image again the same way.
+To run one particular build, for example to skip a bad one: **Registry**, `requestarr/requestarr`, **Download**, and choose that build's number as the tag (for example `0.7.0004`). Then in **Container**, stop `requestarr-beta`, **Action → Delete** it, and **Run** `ghcr.io/requestarr/requestarr:0.7.0004` as in B.2, with the same name, port, folder, time zone and keys. It stays on that build until you run the `beta` image again the same way.
 
 **Check:** **System → Status** shows that build's number.
 

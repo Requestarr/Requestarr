@@ -83,28 +83,3 @@ export const CONNECTION_OPTIONS: SettingsSection = {
     ['availabilityPollMinutes', 'number'],
   ],
 };
-
-export const TMDB_SECTIONS: SettingsSection[] = [
-  {
-    legend: 'SettingsTmdb',
-    fields: [['tmdbApiKey', 'password']],
-  },
-];
-
-export const BUG_REPORT_SECTIONS: SettingsSection[] = [
-  {
-    legend: 'SettingsBugReports',
-    fields: [
-      ['bugReportsFileIssues', 'check'],
-      ['bugReportsRepository', 'text'],
-      ['bugReportsGithubToken', 'password'],
-      ['bugReportsPerDay', 'number'],
-      ['bugReportsMinutesBetween', 'number'],
-    ],
-    advanced: [
-      'bugReportsRepository',
-      'bugReportsPerDay',
-      'bugReportsMinutesBetween',
-    ],
-  },
-];

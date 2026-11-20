@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import Alert from 'Components/Alert';
 import Card from 'Components/Card';
 import FieldSet from 'Components/FieldSet';
 import Button from 'Components/Link/Button';
@@ -7,18 +8,35 @@ import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import styles from './AddConnectionModal.css';
 
-// What can be added, grouped by what it does, like Add Indexer. Lidarr and the rest join Media managers as their
-// content types arrive, and Media servers becomes a group with Plex and Jellyfin.
-const GROUPS = [
+// What a section's "+" card can add, grouped by what it does, like Add Indexer. NotYet: what the group says while
+// nothing in it is built.
+export interface ChoiceGroup {
+  legend: string;
+  choices: { implementation: string; description: string }[];
+  notYet?: string;
+}
+
+// Lidarr and the rest join Media managers as their content types arrive.
+export const MEDIA_MANAGERS: ChoiceGroup[] = [
   {
     legend: 'ConnectionsMediaManagers',
     choices: [
       { implementation: 'Sonarr', description: 'ConnectionSonarrDescription' },
       { implementation: 'Radarr', description: 'ConnectionRadarrDescription' },
     ],
+  },
+];
+
+// Plex and Jellyfin arrive with media server links (Phase 3).
+export const MEDIA_SERVERS: ChoiceGroup[] = [
+  {
+    legend: 'ConnectionsMediaServers',
+    choices: [],
+    notYet: 'ConnectionsMediaServersNotYet',
   },
 ];
 
@@ -44,6 +62,7 @@ function Choice({ implementation, description, onSelect }: ChoiceProps) {
 
 interface AddConnectionModalProps {
   isOpen: boolean;
+  groups: ChoiceGroup[];
   onSelect: (implementation: string) => void;
   onClose: () => void;
 }
@@ -51,6 +70,7 @@ interface AddConnectionModalProps {
 // The "+" card's choices, each a tile with its name and what it's for; picking one opens its edit modal, empty.
 function AddConnectionModal({
   isOpen,
+  groups,
   onSelect,
   onClose,
 }: AddConnectionModalProps) {
@@ -60,8 +80,12 @@ function AddConnectionModal({
         <ModalHeader>{translate('AddConnection')}</ModalHeader>
 
         <ModalBody>
-          {GROUPS.map(({ legend, choices }) => (
+          {groups.map(({ legend, choices, notYet }) => (
             <FieldSet key={legend} legend={translate(legend)}>
+              {notYet && !choices.length && (
+                <Alert kind={kinds.INFO}>{translate(notYet)}</Alert>
+              )}
+
               <div className={styles.choices}>
                 {choices.map((choice) => (
                   <Choice
