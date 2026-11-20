@@ -5,7 +5,7 @@ namespace NzbDrone.Core.Datastore.Migration
 {
     // Requestarr: the automated checks are recorded as "automation", not the name of the tool that ran them. Audit rows,
     // checklist results and the bug reports they filed carry over under the new name, so no pass or history is lost.
-    // Checklist results are keyed by each item's wording; the one item reworded with this is folded (QaChecklistFold).
+    // Checklist results are keyed by each item's wording; the one item reworded with this was folded (that fold has since gone, with the items it named).
     [Migration(16)]
     public class automation_names : NzbDroneMigrationBase
     {

@@ -21,12 +21,12 @@ namespace Requestarr.Core.Test.Qa
     [TestFixture]
     public class QaAutomatedResultsFixture : CoreTest<QaAutomatedResults>
     {
-        private static readonly QaChecklistEntry AutomatedItem = new(new Version(0, 7, 5), "build-number.1a2b3c4d", "Build number", "Open Status. You should see the number.", null)
+        private static readonly QaChecklistEntry AutomatedItem = new(new Version(0, 7, 5), "build-number.1a2b3c4d", "Build number", "Steps:\n1. Open Status.\nExpect:\n- The number.")
         {
             Checker = new QaChecker(true, "web app status page", null, null)
         };
 
-        private static readonly QaChecklistEntry Owners = new(new Version(0, 7, 5), "bot-picture.5e6f7a8b", "Bot picture", "Open the profile. You should see the picture.", null)
+        private static readonly QaChecklistEntry Owners = new(new Version(0, 7, 5), "bot-picture.5e6f7a8b", "Bot picture", "Steps:\n1. Open the profile.\nExpect:\n- The picture.")
         {
             Checker = new QaChecker(false, null, "needs human eyes", "only in the Discord app")
         };

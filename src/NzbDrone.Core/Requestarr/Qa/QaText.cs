@@ -127,8 +127,12 @@ namespace Requestarr.Core.Qa
                 _ => "⏳ Not tested yet"
             };
 
-            return $"**{entry.Name}** · {Changelog.Display(entry.Version)}\n{entry.Text}\n{CheckedBy(entry.Checker)}\n{state}{Evidence(record)}";
+            return $"**{entry.Name}** · {Changelog.Display(entry.Version)}\n{StepsAndExpect(entry)}\n{CheckedBy(entry.Checker)}\n{state}{Evidence(record)}";
         }
+
+        // The steps as a numbered list and what to expect as bullets, one per line, as QA-CHECKLIST.md has them.
+        private static string StepsAndExpect(QaChecklistEntry entry) =>
+            string.Join("\n", new[] { "**Steps**" }.Concat(entry.Steps.Select((step, n) => $"{n + 1}. {step}")).Append("**Expect**").Concat(entry.Expect.Select(e => $"- {e}")));
 
         private static string CheckedBy(QaChecker checker) => checker switch
         {

@@ -1,67 +1,328 @@
 # QA checklist
 
-What admins on the QA server test, in Discord, before a build goes to staging. Requestarr posts these items in the QA checklist channel for the build QA runs and every version staging doesn't have yet; admins press Passes or Failing on each. When every item has passed and no bug report from QA is still open, the build can go to staging.
+What the owner tests on the QA server, in Discord, before a build goes to staging. Requestarr posts the items that need a person in the QA server's checklist channel for the build QA runs and every version staging doesn't have yet; the owner presses Passes or Failing on each. When every item has passed and no bug report from QA is still open, the build can go to staging. The dev server has no checklist channel.
 
-Every pull request adds its items under Unreleased, the way it adds its changelog lines: each one says what to do and what you should see, in plain words. The line under each item says who checks it: the automated checks, naming the check that verifies it (run on every promotion to QA, with its evidence on the item's card), or the owner, with the reason a person has to (it needs human eyes, the behavior wanted isn't settled, or the automated checks couldn't verify it). Unreleased is what to test since the last build the beta testers got: a change to something an Unreleased item already tests rewrites that item instead of adding another. The promotion to staging gives them the build's number. The items for 0.4.3 to 0.6.0, which never reached the testers, are folded into it. See docs/development.md#qa-checklist.
+Every pull request adds its items under Unreleased, the way it adds its changelog lines. Each item is a bold name, numbered Steps (at most 5, one short action each), Expect bullets (at most 4, one thing to see each) and a line saying who checks it: the automated checks, naming the check that verifies it (run before every promotion to QA), or the owner, with the reason a person has to (it needs human eyes, the behavior wanted isn't settled, or the automated checks couldn't verify it). No sentence over 20 words and no item over 80; a longer item is two items. Unreleased is what to test since the last build the beta testers got: a change to something an Unreleased item already tests rewrites that item instead of adding another. The promotion to staging gives them the build's number. See docs/development.md#qa-checklist.
 
 ## Unreleased
-- **Update cards:** In the admin channel and in the announcements channel, look at the update cards. You should see one card in each, titled Requestarr, the build number with qa and a short code, then since the last beta, with the main change underneath and how many more, and no cards for the versions 0.4.0 to 0.6.0.
+- **Update cards**
+  - Steps:
+    1. Open the admin channel, then the announcements channel.
+    2. Look at the update card in each.
+  - Expect:
+    - One card in each, titled Requestarr.
+    - The build number with qa and a short code, then since the last beta.
+    - The main change underneath, and how many more.
+    - No cards for the versions 0.4.0 to 0.6.0.
   - Checked automatically: the live update cards check.
-- **Read changes:** Press Read changes on the update card. You should see the full list of what changed since the last beta, only to you.
+- **Read changes**
+  - Steps:
+    1. Press Read changes on the update card.
+  - Expect:
+    - The full list of what changed since the last beta.
+    - Only you see it.
   - Checked automatically: the live Read changes check.
-- **Build number in the web app:** Open System, then Status. You should see the same number, qa and short code as the version, the same number on the logo, and under About the copyright of Requestarr's contributors with the Servarr team's notice.
+- **Build number in the web app**
+  - Steps:
+    1. Open System, then Status.
+    2. Look at the version, the logo and About.
+  - Expect:
+    - The version's number, with qa and a short code.
+    - The same number on the logo.
+    - Under About, the copyright of Requestarr's contributors and the Servarr team's notice.
   - Checked automatically: the web app status page check.
-- **Web app logo:** Look at the web app's header in the light theme, then in the dark theme, and at the icon in the browser tab. You should see a full-height R beside the yellow QA bar, straight on the header with no box around it, the arrow in a soft charcoal, and the logo and the tab icon on charcoal gray in the dark theme, never on black.
+- **Web app logo**
+  - Steps:
+    1. Look at the web app's header in the light theme.
+    2. Switch to the dark theme and look again.
+    3. Look at the icon in the browser tab.
+  - Expect:
+    - A full-height R beside the yellow QA bar, with no box around it.
+    - The arrow in a soft charcoal.
+    - In the dark theme, the logo and the tab icon on charcoal gray, never on black.
   - Checked automatically: the web app header check.
-- **Signing in and out:** Open the web app and sign in with the QA login, then open the account menu at the top right and press Logout, then open the web app's address again. You should see the login page with the QA logo every time you're signed out, never a browser error, and signing in again bring you back to where you were going.
+- **Signing in and out**
+  - Steps:
+    1. Open the web app and sign in with the QA login.
+    2. Open the account menu at the top right, then press Logout.
+    3. Open the web app's address again.
+    4. Sign in again.
+  - Expect:
+    - The login page with the QA logo every time you're signed out.
+    - Never a browser error.
+    - Signing in brings you back to where you were going.
   - Checked automatically: the web app sign-in and sign-out check.
-- **General settings:** Sign in, open Settings, then General, change a setting the provisioning file doesn't set, such as Backup Retention, and press Save. You should see it save with no error, the fields the file sets, such as Allowed Hosts, Authentication and Username, read-only and greyed out in the light and the dark theme with "Set by your provisioning file", and the port with a note about Docker.
+- **General settings**
+  - Steps:
+    1. Sign in, then open Settings, then General.
+    2. Change a setting the provisioning file doesn't set, such as Backup Retention.
+    3. Press Save.
+    4. Look again in the dark theme.
+  - Expect:
+    - It saves with no error.
+    - Fields the file sets, such as Allowed Hosts, Authentication and Username, are greyed out.
+    - They say "Set by your provisioning file", in both themes.
+    - The port has a note about Docker.
   - Checked automatically: the web app general settings check.
-- **Sign-in logo:** Sign out of the web app and look at the sign-in page in the light theme, then in the dark theme. You should see the logo with a light arrow, easy to read on the gray box, in both.
+- **Sign-in logo**
+  - Steps:
+    1. Sign out of the web app.
+    2. Look at the sign-in page in the light theme, then the dark theme.
+  - Expect:
+    - The logo with a light arrow, easy to read on the gray box, in both.
   - Checked automatically: the web app sign-in page check.
-- **Loading screen:** Reload the web app and watch it while it starts. You should see the QA logo, the same one as the header's, with no purple square.
+- **Loading screen**
+  - Steps:
+    1. Reload the web app and watch it while it starts.
+  - Expect:
+    - The QA logo, the same as the header's.
+    - No purple square.
   - Checked automatically: the web app loading screen check.
-- **Bot picture and banner:** In the Requestarr QA server, click the bot's name to open its profile. You should see the plain Requestarr picture and the yellow QA banner.
-  - Checked by the owner, needs human eyes: the bot's profile only shows in the Discord app, and how the picture and banner look there is a judgement.
-- **Requests views:** In the web app, open Requests and use View to switch between Overview, Posters and Table, in the light theme and then the dark one, then press Open in Sonarr on a request. You should see posters with each title's details in Overview, a grid of posters in Posters, a small poster on each row in Table, the same filters and sorting in all three, and the series' page in Sonarr opening in a new tab.
+- **Bot picture and banner**
+  - Steps:
+    1. In the Requestarr QA server, click the bot's name to open its profile.
+  - Expect:
+    - The plain Requestarr picture.
+    - The yellow QA banner.
+  - Checked by the owner, needs human eyes: the bot's profile only shows in the Discord app, and how it looks is a judgement.
+- **Requests views**
+  - Steps:
+    1. In the web app, open Requests.
+    2. Use View to switch between Overview, Posters and Table.
+    3. Do it again in the dark theme.
+    4. Press Open in Sonarr on a request.
+  - Expect:
+    - Overview has posters with each title's details; Posters is a grid of posters.
+    - Table has a small poster on each row.
+    - The same filters and sorting in all three.
+    - The series' page in Sonarr opens in a new tab.
   - Checked automatically: the web app request views check.
-- **The admin portal's pages:** In the web app, open Requests, Members, Queue, Access requests, Outages and Audit log from the menu on the left, and System, then What's new, in the light and then the dark theme, and open a request and a member from the lists. You should see every request with its requester, followers, status and instance, with filters; a request's page with its timeline in plain words and its actions; each member's access and limits with their counts, and a member's page with their requests, the titles they follow, removals, history and actions; the same waiting items as the admin channel's queue; who is waiting to join or paused; what can't be reached and past outages; the audit log with its filters; and each version's changes.
+- **Requests and members pages**
+  - Steps:
+    1. In the web app, open Requests, then a request.
+    2. Open Members, then a member.
+    3. Do it again in the dark theme.
+  - Expect:
+    - Every request with its requester, followers, status and instance, with filters.
+    - A request's page with its timeline in plain words and its actions.
+    - Each member's access and limits, with their counts.
+    - A member's page with their requests, follows, removals, history and actions.
   - Checked automatically: the web app portal pages check.
-- **Requestarr's settings pages:** In the web app, open Settings, then Discord, Sonarr and Radarr, Requests, Connections and Changes, in the light and then the dark theme. You should see every setting the provisioning file sets, read-only with a note that this server takes them from its provisioning file, Requests keeping the audit log for 1 year, the bot's status, both test instances listed, and Changes listing who changed a setting, when, and from what to what.
+- **Queue, outages and audit log**
+  - Steps:
+    1. In the web app, open Queue, Access requests, Outages and Audit log.
+    2. Open System, then What's new.
+    3. Do it again in the dark theme.
+  - Expect:
+    - The Queue has the same waiting items as the admin channel's queue.
+    - Access requests shows who is waiting to join or paused.
+    - Outages shows what can't be reached, and past outages.
+    - The audit log with its filters, and each version's changes in What's new.
+  - Checked automatically: the web app portal pages check.
+- **Requestarr's settings pages**
+  - Steps:
+    1. In the web app, open Settings, then Discord, Sonarr and Radarr.
+    2. Open Requests, Connections and Changes.
+    3. Do it again in the dark theme.
+  - Expect:
+    - Every setting the provisioning file sets is read-only, with a note saying so.
+    - Requests keeps the audit log for 1 year.
+    - Connections shows the bot's status and both test instances.
+    - Changes lists who changed a setting, when, and from what to what.
   - Checked automatically: the web app settings pages check.
-- **Followers:** On a request's page in the web app, look at Followers. You should see every member who asked for the title after its requester.
+- **Followers**
+  - Steps:
+    1. In the web app, open a request's page.
+    2. Look at Followers.
+  - Expect:
+    - Every member who asked for the title after its requester.
   - Checked automatically: the web app portal pages check.
-- **Importing from Requestrr:** In the web app, open Settings, then Import from Requestrr; if Requestrr's channels are in a different server, add the bot there with Invite the bot to read another server. Paste the IDs of one or two channels where Requestrr took requests, press Preview, then Confirm and import, and open the Requests and Members pages. You should see each channel named with whether the bot can read it, and one list of every past request as it was in Discord, with its requester, followers, how it ended in Requestrr and whether your library has it, and a line counting searches that weren't requests; after confirming, every request with its original date, titles your library doesn't have as Not in library, and everyone who asked under Members, those in your server who aren't members yet as Imported, not onboarded and those only in the old server as Imported, not in this server, with no role or channel made for them and each one's page saying where their history came from; running it again finds nothing new. In the other server, the invite asked only to view channels and read their history, and the bot created and posted nothing there.
-  - Checked by the owner, couldn't verify: the automated checks read recorded copies of Requestrr's messages; reading a real server's history needs Requestrr's channels and the Message Content intent on a server the automated checks never touch.
-- **Installing the beta in Container Manager:** On the Synology, follow the setup guide's Running the beta from What you need to the first-run setup: download the beta image from GitHub's registry, run it with only a name, port 19797, the requestarr-beta folder and your time zone, and choose Beta under This server is. You should see the image found and downloaded (or the guide's fallback work), the container running with Application started in its log, the web app on port 19797 with the BETA strip, and Requestarr Beta (availability) in production's Sonarr and Radarr connections.
-  - Checked by the owner, couldn't verify: Container Manager's screens, its search of GitHub's registry, its Update action and the folder's permissions only exist on the Synology; the automated checks ran the same image with the same four settings in Docker on the development machine.
-- **Titles Requestarr didn't add:** In your request channel, request a movie that's already in the test Radarr but wasn't requested through Requestarr. You should see that it's already in the library, ready for you, and no second copy in Radarr.
+- **Importing from Requestrr**
+  - Steps:
+    1. Open Settings, then Import from Requestrr.
+    2. If the old channels are in another server, use Invite the bot to read another server.
+    3. Paste the old channel IDs, then press Preview.
+    4. Press Confirm and import.
+    5. Open Requests.
+  - Expect:
+    - Each channel named, with whether the bot can read it.
+    - One list of past requests: requester, followers, how it ended, In library.
+    - A line counting searches that weren't requests.
+    - Requests show their original dates; missing titles say Not in library.
+  - Checked by the owner, couldn't verify: the automated checks never read a real server's history.
+- **Imported people**
+  - Steps:
+    1. After an import, open Members.
+    2. Open an imported person's page.
+    3. Run the import again.
+  - Expect:
+    - People in your server who aren't members say Imported, not onboarded.
+    - Old-server people say Imported, not in this server, with no role or channel made.
+    - Their page says where their history came from.
+    - Running it again finds nothing new.
+  - Checked by the owner, couldn't verify: the automated checks never read a real server's history.
+- **Reading another server**
+  - Steps:
+    1. Open the invite from Invite the bot to read another server.
+    2. After the import, look at that server's channels.
+  - Expect:
+    - The invite asks only to view channels and read their history.
+    - The bot created and posted nothing there.
+  - Checked by the owner, couldn't verify: the automated checks never touch a second real server.
+- **Installing the beta**
+  - Steps:
+    1. On the Synology, open the setup guide's Running the beta.
+    2. Download the beta image from GitHub's registry.
+    3. Run it with only a name, port 19797, the requestarr-beta folder and your time zone.
+    4. Choose Beta under This server is.
+  - Expect:
+    - The image found and downloaded, or the guide's fallback works.
+    - The container running, with Application started in its log.
+    - The web app on port 19797 with the BETA strip.
+    - Requestarr Beta (availability) in production's Sonarr and Radarr connections.
+  - Checked by the owner, couldn't verify: Container Manager only exists on the Synology; the automated checks ran the same image in Docker.
+- **Titles Requestarr didn't add**
+  - Steps:
+    1. In your request channel, request a movie already in the test Radarr, not requested through Requestarr.
+  - Expect:
+    - It says the movie is already in the library, ready for you.
+    - No second copy in Radarr.
   - Checked automatically: the live shared library check.
-- **Deleting turned off:** With deleting files turned off, start a removal of a title, let the vote pass with no keeps, then open the admin queue. You should see the removal card say deleting is turned off, the title still in Radarr with its file, everyone asked told it will be deleted by hand, a Delete it yourself item naming the title and the Radarr it's in, and after I deleted it, the removal closed.
+- **Deleting turned off**
+  - Steps:
+    1. With deleting files turned off, start a removal of a title.
+    2. Let the vote pass with no keeps.
+    3. Open the admin queue.
+    4. Delete the file in Radarr yourself.
+  - Expect:
+    - The removal card says deleting is turned off; everyone asked is told it's deleted by hand.
+    - The title still in Radarr with its file.
+    - A Delete it yourself item naming the title and the Radarr it's in.
+    - Once it's deleted, the removal closes.
   - Checked automatically: the live deleting turned off check.
-- **Acting from the web app:** As an admin in the web app, deny a pending request with a reason, approve another, suspend and then unsuspend a member, start and then drop a removal, and approve someone asking to join. You should see each done as it is from Discord: the member's request messages, their channel's notices and the admin channel's cards change the same way, naming you with (web app).
+- **Acting from the web app**
+  - Steps:
+    1. As an admin in the web app, deny a pending request with a reason.
+    2. Approve another request.
+    3. Suspend a member, then unsuspend them.
+    4. Start a removal, then drop it.
+    5. Approve someone asking to join.
+  - Expect:
+    - Each one done as it is from Discord.
+    - The member's request messages and their channel's notices change the same way.
+    - The admin channel's cards change too, naming you with (web app).
   - Checked automatically: the live portal actions check.
-- **Header search:** On any page of the web app, press / and type part of a request's title, then part of a member's name, in the light and the dark theme. You should see the search placed and styled like Sonarr's, the request and the member found under Requests and Members, and each opening its page.
+- **Header search**
+  - Steps:
+    1. On any page of the web app, press /.
+    2. Type part of a request's title, then part of a member's name.
+    3. Do it again in the dark theme.
+  - Expect:
+    - The search placed and styled like Sonarr's.
+    - The request under Requests, and the member under Members.
+    - Each one opens its page.
   - Checked automatically: the web app header search check.
-- **Renamed members:** Change a test member's server display name in Discord, then open their page in the web app. You should see their new name on their page and their request channel's description, a Renamed line in their History saying from what to what, and their Discord ID with a button to copy it; the header search finds them by their old name and by their Discord ID, and a new Discord username renames their request channel and role to match.
+- **Renamed members**
+  - Steps:
+    1. Change a test member's server display name in Discord.
+    2. Open their page in the web app.
+    3. Search for their old name, then their Discord ID.
+    4. Change their Discord username.
+  - Expect:
+    - Their new name on their page and their request channel's description.
+    - A Renamed line in History, and their Discord ID with a copy button.
+    - The header search finds them by their old name and their Discord ID.
+    - A new username renames their request channel and role to match.
   - Checked automatically: the live member renames check.
-- **Project links:** In the web app, open System, then Status, and look at More Info. You should see the home page and issue links open the Requestarr project in the Requestarr organization on GitHub.
+- **Project links**
+  - Steps:
+    1. In the web app, open System, then Status.
+    2. Look at More Info.
+  - Expect:
+    - The home page and issue links open the Requestarr project in the Requestarr organization on GitHub.
   - Checked automatically: the web app project links check.
-- **Access requests paused:** With a test account that isn't a member, press Request access in the welcome channel again and again, about fifteen times, until the welcome channel disappears for that account. You should see the blocked channel's message titled Access requests paused, saying an admin can lift the pause, and in the admin channel a notice with Unblock; pressing Unblock brings the welcome channel back for that account.
+- **Access requests paused**
+  - Steps:
+    1. With a test account that isn't a member, open the welcome channel.
+    2. Press Request access about fifteen times, until the channel disappears.
+    3. Press Unblock on the admin channel's notice.
+  - Expect:
+    - The blocked channel's message is titled Access requests paused.
+    - It says an admin can lift the pause.
+    - The admin channel has a notice with Unblock.
+    - Unblock brings the welcome channel back for that account.
   - Checked automatically: the live access requests check.
-- **The QA checklist:** Open the QA checklist channel in the Requestarr QA group. You should see a summary card at the top, then a card for each thing to test with Passes and Failing buttons, and a member who isn't an admin shouldn't see that group.
+- **The QA checklist**
+  - Steps:
+    1. Open the QA checklist channel in the Requestarr QA group.
+    2. Look at it as a member who isn't an admin.
+  - Expect:
+    - A summary card at the top, then a card for each thing to test.
+    - Each card has its steps as a numbered list and what to expect as bullets.
+    - Passes and Failing buttons on each card.
+    - A member who isn't an admin doesn't see the group.
   - Checked automatically: the live checklist channel check.
-- **Passing an item:** Press Passes on a card, then press it again. You should see the card say who passed it and when, the summary count go up by one, and no "Something went wrong" message.
+- **Passing an item**
+  - Steps:
+    1. Press Passes on a card.
+    2. Press it again.
+  - Expect:
+    - The card says who passed it and when.
+    - The summary count goes up by one.
+    - No "Something went wrong" message.
   - Checked automatically: the live passing check.
-- **Failing an item:** Press Failing on three cards one after another, and each time pick the part of Requestarr and describe what went wrong. You should see a form open every time, each card marked failing with a link to its own bug report, never "You've sent a report just now", and the summary say the checklist can't complete while one fails.
+- **Failing an item**
+  - Steps:
+    1. Press Failing on a card.
+    2. Pick the part of Requestarr and describe what went wrong.
+    3. Do the same on two more cards, one after another.
+  - Expect:
+    - A form opens every time, never "You've sent a report just now".
+    - Each card marked failing, with a link to its own bug report.
+    - The summary says the checklist can't complete while one fails.
   - Checked automatically: the live failing check.
-- **Passes carry over:** After the next promotion to QA, look at the QA checklist channel. You should see every item you passed before still passed, with your name and when, and the summary saying how many carried over and how many are new or changed.
+- **Passes carry over**
+  - Steps:
+    1. After the next promotion to QA, open the QA checklist channel.
+  - Expect:
+    - Every item you passed before still passed, with your name and when.
+    - An item whose words changed starts again.
+    - The summary says how many carried over and how many are new or changed.
   - Checked automatically: the live carry-over check.
-- **Report a problem:** In the bug reports channel in the Requestarr Users group, press Report a problem, pick a part, read the note that reports are public, and send a short test report. You should see your report's card, in the order the reports were sent with the Report a problem message below them and no reply pointing at a deleted message, linking to its issue in the Requestarr organization on GitHub once it's filed.
+- **Report a problem**
+  - Steps:
+    1. Open the bug reports channel in the Requestarr Users group.
+    2. Press Report a problem and pick a part.
+    3. Read the note that reports are public.
+    4. Send a short test report.
+  - Expect:
+    - Your report's card, with the reports in the order they were sent.
+    - The Report a problem message below them.
+    - No reply pointing at a deleted message.
+    - Once it's filed, a link to its issue in the Requestarr organization on GitHub.
   - Checked automatically: the live bug reports check.
-- **Report limit:** As a member who isn't an admin, send a report, then press Report a problem again straight away. You should see Requestarr ask you to wait, and no second card posted.
+- **Report limit**
+  - Steps:
+    1. As a member who isn't an admin, send a report.
+    2. Press Report a problem again straight away.
+  - Expect:
+    - Requestarr asks you to wait.
+    - No second card posted.
   - Checked automatically: the live report limit check.
-- **Why a report isn't on GitHub:** Look at the card of a report you sent. You should see either the link to its GitHub issue, or the exact reason it isn't there yet, such as the server having no GitHub access key.
+- **Why a report isn't on GitHub**
+  - Steps:
+    1. Look at the card of a report you sent.
+  - Expect:
+    - Either the link to its GitHub issue, or the exact reason it isn't there yet.
+    - For example, the server having no GitHub access key.
   - Checked automatically: the live bug reports check.
-- **Only your items on QA:** Open the QA checklist channel. You should see only the items that need you, each card saying why, the summary counting only those, your earlier passes kept, and nothing from the automated checks.
-  - Checked by the owner, needs human eyes: how the checklist reads in the Discord app.
+- **Only your items on QA**
+  - Steps:
+    1. Open the QA checklist channel on the QA server.
+    2. Read a few cards.
+  - Expect:
+    - Only the items that need you, each saying why.
+    - Steps as a numbered list and Expect as bullets, on their own lines.
+    - The summary counting only those, with your earlier passes kept.
+    - Nothing from the automated checks.
+  - Checked by the owner, needs human eyes: how the checklist cards read in the Discord app.
