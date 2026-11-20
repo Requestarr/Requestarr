@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { callApi } from 'Settings/Requestarr/requestarrApi';
 import translate from 'Utilities/String/translate';
 import { titleText } from '../portalText';
-import { PortalMedia, PortalSearchResults } from '../PortalTypes';
+import { PortalMedia, PortalPerson, PortalSearchResults } from '../PortalTypes';
 
 // Typing pauses this long before the portal is asked, so each key doesn't send a search.
 const TYPING_PAUSE_MS = 250;
@@ -10,10 +10,10 @@ const TYPING_PAUSE_MS = 250;
 export interface SearchItem {
   group: string;
   label: string;
-  detail: string | null;
   path: string;
   media?: PortalMedia | null;
   person?: { avatar: string | null; handle: string | null };
+  requester?: PortalPerson;
 }
 
 // The header search's results as one list, requests first then members, each with the page it opens.
@@ -25,15 +25,14 @@ export function searchItems(results?: PortalSearchResults): SearchItem[] {
   const requests = results.requests.map((request) => ({
     group: translate('PortalRequests'),
     label: titleText(request),
-    detail: request.requester.name,
     path: `/requests/${request.id}`,
     media: request.media,
+    requester: request.requester,
   }));
 
   const members = results.members.map((member) => ({
     group: translate('PortalMembers'),
     label: member.name,
-    detail: null,
     path: `/members/${member.id}`,
     person: { avatar: member.avatar, handle: member.discordName },
   }));

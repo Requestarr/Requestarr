@@ -1,7 +1,13 @@
+.small,
 .medium,
 .large {
   flex: 0 0 auto;
   border-radius: 50%;
+}
+
+.small {
+  width: 20px;
+  height: 20px;
 }
 
 .medium {

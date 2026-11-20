@@ -56,6 +56,12 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string Cards = "[...document.querySelectorAll('[class*=\"ConnectionCard-connection\"]:not([class*=\"ConnectionCard-addConnection\"])')]";
         private const string ModalText = "document.querySelector('[class*=\"ModalContent\"]').innerText.replace(/\\s+/g, ' ')";
 
+        // A list view names its people on one line: the small picture is 20px, so anything taller has wrapped.
+        private const int OneLine = 24;
+        private const int MaxFollowerPictures = 5;
+        private const string CompactPeople = "[...document.querySelectorAll('[class*=\"RequestViews-people\"], [class*=\"RequestViews-posterPeople\"], [class*=\"FollowerStack-stack\"], [class*=\"Person-small\"]')]";
+        private const string FollowerStack = "document.querySelector('a[class*=\"FollowerStack-stack\"]')";
+
         private static readonly string[] Themes = { "light", "dark" };
 
         private static string Url => Environment.GetEnvironmentVariable("QA_CHECKS_URL")?.TrimEnd('/');
@@ -126,7 +132,9 @@ namespace Requestarr.Core.Test.Qa.Web
         });
 
         // The Requests page's three views, as Sonarr's and Radarr's lists have them, in both themes: Overview (the
-        // default) with posters and what each title is, Posters, and Table with a poster column. Then an "Open in
+        // default) with posters and what each title is, Posters, and Table with a poster column, each naming its people
+        // on one line however many follow a title: the requester small, then at most five follower pictures and a count.
+        // A follower stack opens its request's page at the Followers section, which lists them all. Then an "Open in
         // Sonarr" link is followed to the title's page in that Sonarr. A server with no requests says so and passes.
         [Test]
         public Task request_views() => CheckAsync(nameof(request_views), async (browser, check) =>
@@ -156,15 +164,54 @@ namespace Requestarr.Core.Test.Qa.Web
                     var opens = await browser.EvalAsync<int>("[...document.querySelectorAll('a')].filter(a => a.innerText.startsWith('Open in ')).length");
                     check.Saw($"requests, {view} ({theme}): {posters} posters shown, {opens} Open in links");
                     await check.ShotAsync(browser, $"requests-{view.ToLowerInvariant()}-{theme}");
+                    await PeopleOnOneLineAsync(browser, check, $"{view} ({theme})");
                 }
+
+                await FollowersSectionAsync(browser, check, theme);
             }
 
             await OpenInSonarrAsync(browser, check);
         });
 
+        private static async Task PeopleOnOneLineAsync(HeadlessBrowser browser, WebCheck check, string where)
+        {
+            var tallest = await browser.EvalAsync<double>($"Math.max(0, ...{CompactPeople}.map(e => e.getBoundingClientRect().height))");
+            var pictures = await browser.EvalAsync<int>("Math.max(0, ...[...document.querySelectorAll('[class*=\"FollowerStack-pictures\"]')].map(p => p.children.length))");
+            var most = await browser.EvalAsync<int>("Math.max(0, ...[...document.querySelectorAll('[class*=\"FollowerStack-count\"], [class*=\"FollowerStack-badge\"]')].map(e => Number(e.innerText.match(/\\d+/)?.[0] ?? 0)))");
+            var overflowing = await browser.EvalAsync<int>("[...document.querySelectorAll('[class*=\"RequestViews-people\"], [class*=\"RequestViews-posterPeople\"]')].filter(e => e.scrollWidth > e.clientWidth + 1).length");
+            check.Saw($"requests, {where}: people lines at most {tallest}px tall, {overflowing} wider than their row, at most {pictures} follower pictures, the largest count +{most}");
+            tallest.Should().BeLessOrEqualTo(OneLine, "a title's people stay on one line however many follow it");
+            overflowing.Should().Be(0, "a long name ends in an ellipsis instead of running out of its row");
+            pictures.Should().BeLessOrEqualTo(MaxFollowerPictures);
+        }
+
+        private static async Task FollowersSectionAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            var link = await browser.EvalAsync<string>($"{FollowerStack}?.href ?? ''");
+
+            if (string.IsNullOrEmpty(link))
+            {
+                check.Saw($"followers ({theme}): no request has followers");
+                return;
+            }
+
+            // The stack's pictures and its "+37 following": how many follow the title.
+            var following = await browser.EvalAsync<int>($"(a => a.querySelectorAll('img').length + Number((a.innerText.match(/\\+(\\d+)/) ?? [0, 0])[1]))({FollowerStack})");
+            await browser.GoAsync(link);
+            await browser.WaitForAsync("!!document.querySelector('#followers tbody tr')");
+            var rows = await browser.EvalAsync<int>("document.querySelectorAll('#followers tbody tr').length");
+            var inView = await browser.EvalAsync<bool>("(r => r.top < innerHeight && r.bottom > 0)(document.getElementById('followers').getBoundingClientRect())");
+            check.Saw($"followers ({theme}): the stack says {following} following; {link} opens at Followers (in view: {inView}) listing {rows}");
+            rows.Should().Be(following, "the request's page lists every follower");
+            inView.Should().BeTrue("the page opens at its Followers section");
+            await check.ShotAsync(browser, $"request-followers-{theme}");
+        }
+
         // From the Overview view, the first "Open in Sonarr" link lands on that series' page in the Sonarr it names.
         private static async Task OpenInSonarrAsync(HeadlessBrowser browser, WebCheck check)
         {
+            await browser.GoAsync($"{Url}/requests");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-\"], table')");
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
             await browser.RunAsync("[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === 'Overview' && e.closest('[class*=\"MenuContent\"]')).click()");
             await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-overviewRow\"]')");

@@ -101,11 +101,11 @@ namespace Requestarr.Core.Portal
 
             var names = Names();
             var latest = _removals.LatestFor(id);
-            var row = new Rows(names, DiscordAccounts(), Backends(), _subscribers.ForRequest(id)).Of(request);
+            var rows = new Rows(names, DiscordAccounts(), Backends(), _subscribers.ForRequest(id));
             var removal = latest == null ? null : Removal(latest, names);
 
             return new PortalRequestDetail(
-                row,
+                rows.Of(request),
                 request.DecisionReason,
                 request.ProgressDetail,
                 request.AvailableSeasons ?? new List<int>(),
@@ -113,7 +113,8 @@ namespace Requestarr.Core.Portal
                 removal,
                 Timeline(request, names),
                 Actions(request, latest),
-                HistoryTrimmedAfter(request.Requested));
+                HistoryTrimmedAfter(request.Requested),
+                rows.FollowersOf(request));
         }
 
         public IReadOnlyList<PortalMember> Members()
@@ -380,7 +381,7 @@ namespace Requestarr.Core.Portal
 
             public PortalRequest Of(Request request)
             {
-                var followers = _followers[request.Id].OrderBy(s => s.Added).Select(s => Person(s.UserId)).ToList();
+                var followers = FollowersOf(request).Select(f => f.Person).ToList();
                 var instance = request.BackendId.HasValue ? _instances.GetValueOrDefault(request.BackendId.Value) : null;
 
                 return new PortalRequest(
@@ -400,6 +401,9 @@ namespace Requestarr.Core.Portal
                     request.Fulfilled,
                     Media(request, instance));
             }
+
+            public List<PortalFollower> FollowersOf(Request request) =>
+                _followers[request.Id].OrderBy(s => s.Added).Select(s => new PortalFollower(Person(s.UserId), s.Added)).ToList();
 
             private static PortalMedia Media(Request request, BackendInstance instance)
             {

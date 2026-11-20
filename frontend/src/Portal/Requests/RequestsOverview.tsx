@@ -1,7 +1,8 @@
 import React from 'react';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
-import MemberLink, { MemberLinks } from '../Components/MemberLink';
+import FollowerStack from '../Components/FollowerStack';
+import MemberLink from '../Components/MemberLink';
 import useDateText from '../Components/useDateText';
 import {
   contentTypeText,
@@ -14,23 +15,12 @@ import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
 
-// Who asked for it, then who follows it, on a line of their own.
+// Who asked for it, then who follows it, on one line however many follow it.
 function People({ request }: { request: PortalRequest }) {
-  const { followers } = request;
-
   return (
     <div className={styles.people}>
-      <MemberLink person={request.requester} />
-      {followers.length > 0 && (
-        <MemberLinks
-          people={followers}
-          before={
-            <span className={portalStyles.muted}>
-              {translate('PortalFollowedBy')}
-            </span>
-          }
-        />
-      )}
+      <MemberLink person={request.requester} size="small" />
+      <FollowerStack requestId={request.id} followers={request.followers} />
     </div>
   );
 }

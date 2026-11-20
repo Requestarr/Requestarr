@@ -1,11 +1,12 @@
-import React, { ReactNode, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { ReactNode, useCallback, useEffect } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
-import { MemberLinks } from '../Components/MemberLink';
+import FollowerStack from '../Components/FollowerStack';
+import MemberLink from '../Components/MemberLink';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
 import TimelineTable from '../Components/TimelineTable';
@@ -16,22 +17,20 @@ import {
   seasonsText,
   titleText,
 } from '../portalText';
-import {
-  PortalPerson,
-  PortalRequest,
-  PortalRequestDetail,
-} from '../PortalTypes';
+import { PortalRequest, PortalRequestDetail } from '../PortalTypes';
 import usePortal from '../usePortal';
+import FollowersTable from './FollowersTable';
 import RequestActions from './RequestActions';
 import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
 import styles from '../Portal.css';
 
-function People({ people }: { people: PortalPerson[] }) {
-  if (!people.length) {
+// The summary's followers as the list views show them; the Followers section below lists everyone.
+function Followers({ request }: { request: PortalRequest }) {
+  if (!request.followers.length) {
     return <span className={styles.muted}>{translate('PortalNobody')}</span>;
   }
 
-  return <MemberLinks people={people} />;
+  return <FollowerStack requestId={request.id} followers={request.followers} />;
 }
 
 // The title on The Movie Database or TheTVDB, and its page in Sonarr or Radarr when a browser can reach it.
@@ -75,8 +74,8 @@ function summaryRows(
     ['PortalStatus', requestStatusText(request)],
     ['PortalProgress', detail.progressDetail],
     ['PortalReason', detail.decisionReason],
-    ['PortalRequester', <People key="r" people={[request.requester]} />],
-    ['PortalFollowers', <People key="f" people={request.followers} />],
+    ['PortalRequester', <MemberLink key="r" person={request.requester} />],
+    ['PortalFollowers', <Followers key="f" request={request} />],
     ['PortalInstance', request.instance ?? translate('PortalNotSent')],
     ['PortalSeasonsAsked', seasonsText(request.seasons)],
     ['PortalSeasonsThere', seasonsText(detail.availableSeasons)],
@@ -109,8 +108,23 @@ interface RequestDetailProps {
   onDone: () => void;
 }
 
+// The Followers section's address, which a list view's follower stack opens.
+const FOLLOWERS_ID = 'followers';
+
+// Opened at #followers, the page scrolls to that section once it's there.
+function useScrollToFollowers() {
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (hash === `#${FOLLOWERS_ID}`) {
+      document.getElementById(FOLLOWERS_ID)?.scrollIntoView();
+    }
+  }, [hash]);
+}
+
 function RequestDetail({ detail, onDone }: RequestDetailProps) {
-  const { request, latestRemoval } = detail;
+  const { request, latestRemoval, followers } = detail;
+  useScrollToFollowers();
 
   return (
     <>
@@ -122,6 +136,14 @@ function RequestDetail({ detail, onDone }: RequestDetailProps) {
       </FieldSet>
 
       <RequestActions detail={detail} onDone={onDone} />
+
+      {followers.length > 0 && (
+        <div id={FOLLOWERS_ID}>
+          <FieldSet legend={translate('PortalFollowers')}>
+            <FollowersTable followers={followers} />
+          </FieldSet>
+        </div>
+      )}
 
       <FieldSet legend={translate('PortalTimeline')}>
         <TimelineTable

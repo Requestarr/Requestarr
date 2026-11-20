@@ -53,7 +53,12 @@ function WhoCell({ item }: { item: PortalQueueItem }) {
     <TableRowCell>
       {item.memberId ? (
         <Link to={`/members/${item.memberId}`}>
-          <Person name={who} handle={item.whoHandle} avatar={item.whoAvatar} />
+          <Person
+            name={who}
+            handle={item.whoHandle}
+            avatar={item.whoAvatar}
+            size="small"
+          />
         </Link>
       ) : (
         who

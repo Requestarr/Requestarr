@@ -1,7 +1,0 @@
-/* Several people side by side, wrapping onto more rows when they don't fit. */
-.list {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-}

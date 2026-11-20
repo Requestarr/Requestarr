@@ -3,6 +3,7 @@
 interface CssExports {
   'large': string;
   'medium': string;
+  'small': string;
 }
 export const cssExports: CssExports;
 export default cssExports;

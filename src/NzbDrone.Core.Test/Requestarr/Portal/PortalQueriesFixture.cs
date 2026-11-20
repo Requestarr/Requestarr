@@ -204,6 +204,22 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public void a_requests_page_lists_every_follower_with_when_they_followed_earliest_first()
+        {
+            var dune = Requested("Dune", _alice, RequestStatus.Approved, 1);
+            var carol = Db.Insert(new RequestarrUser { DisplayName = "Carol", Status = UserStatus.Active, Added = Start });
+            Db.Insert(new RequestSubscriber { RequestId = dune.Id, UserId = carol.Id, Added = Start.AddHours(8) });
+            Followed(dune, _bob);
+
+            var detail = Subject.Request(dune.Id);
+
+            detail.Followers.Should().Equal(
+                new PortalFollower(new PortalPerson(_bob.Id, "Bob", null, null), Start.AddHours(5)),
+                new PortalFollower(new PortalPerson(carol.Id, "Carol", null, null), Start.AddHours(8)));
+            detail.Request.Followers.Should().Equal(detail.Followers.Select(f => f.Person));
+        }
+
+        [Test]
         public void an_unknown_request_or_member_is_not_found()
         {
             Subject.Request(999).Should().BeNull();
