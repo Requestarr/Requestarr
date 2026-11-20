@@ -15,7 +15,7 @@ import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import useDeletesFiles from '../useDeletesFiles';
 import { actionLabel } from './ActionButton';
-import styles from './SelectFooter.css';
+import styles from './BulkActionModal.css';
 
 // What each request's call carries: a denial's reason; a removal of the whole title, forced or not.
 function bodyFor(action: string, reason: string, force: boolean) {

@@ -774,7 +774,8 @@ namespace Requestarr.Core.Test.Qa.Web
             links.Should().Contain(l => l.EndsWith("https://github.com/Requestarr/Requestarr")).And.Contain(l => l.EndsWith("https://github.com/Requestarr/Requestarr/issues"));
         });
 
-        private static async Task CheckAsync(string name, Func<HeadlessBrowser, WebCheck, Task> body)
+        // width: the browser window's, in pixels.
+        private static async Task CheckAsync(string name, Func<HeadlessBrowser, WebCheck, Task> body, int width = 1366)
         {
             if (string.IsNullOrWhiteSpace(Url))
             {
@@ -786,7 +787,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
             try
             {
-                await using var browser = await HeadlessBrowser.StartAsync();
+                await using var browser = await HeadlessBrowser.StartAsync(width);
                 await body(browser, check);
             }
             catch (Exception ex)

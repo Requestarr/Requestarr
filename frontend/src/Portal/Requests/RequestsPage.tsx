@@ -8,6 +8,9 @@ import RequestsTable, {
   RequestsSort,
   sortValues,
 } from '../Components/RequestsTable';
+import PageCheckbox from '../Components/Selection/PageCheckbox';
+import SelectionBar from '../Components/Selection/SelectionBar';
+import useSelection from '../Components/Selection/useSelection';
 import { contentTypeText, statusText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import usePortal from '../usePortal';
@@ -17,9 +20,8 @@ import RequestsOverview from './RequestsOverview';
 import RequestsPosters from './RequestsPosters';
 import RequestsToolbar from './RequestsToolbar';
 import { RequestView, savedView, saveView } from './requestView';
-import SelectFooter from './SelectFooter';
 import useRequestActionRunner from './useRequestActionRunner';
-import useSelection, { Selection } from './useSelection';
+import useRequestBulk from './useRequestBulk';
 import styles from '../Portal.css';
 
 const NO_REQUESTS: PortalRequest[] = [];
@@ -121,17 +123,8 @@ function Shown({ requests, view, sort }: ShownProps) {
   }
 }
 
-interface RequestsListProps extends ShownProps {
-  selection: Selection;
-  onAction: RequestRows['onAction'];
-
-  // After a bulk action: the list as it is now.
-  onDone: () => void;
-}
-
-function RequestsList(props: RequestsListProps) {
-  const { requests, view, sort, selection, onAction, onDone } = props;
-  const { isSelecting, selected, onSelect, onSelectOnly } = selection;
+// The filters' choices, what they're set to, and the requests they let through.
+function useRequestFilters(requests: PortalRequest[]) {
   const [filters, setFilters] = useState(NO_FILTERS);
   // "Requested in the last 30 days" counts from when it was picked.
   const [since, setSince] = useState<number | null>(null);
@@ -140,24 +133,6 @@ function RequestsList(props: RequestsListProps) {
     () => requests.filter((r) => matches(r, filters, since)),
     [requests, filters, since]
   );
-  const picked = useMemo(
-    () => shown.filter((request) => selected.has(request.id)),
-    [shown, selected]
-  );
-  const rows = useMemo(
-    () => ({ onAction, isSelecting, selected, onSelect }),
-    [onAction, isSelecting, selected, onSelect]
-  );
-  const onSelectAll = useCallback(
-    () => onSelectOnly(shown.map((request) => request.id)),
-    [shown, onSelectOnly]
-  );
-  const onClear = useCallback(() => onSelectOnly([]), [onSelectOnly]);
-  const onBulkDone = useCallback(() => {
-    onClear();
-    onDone();
-  }, [onClear, onDone]);
-
   const onFilterChange = useCallback((name: string, value: string) => {
     setFilters((current) => ({ ...current, [name]: value }));
 
@@ -165,6 +140,29 @@ function RequestsList(props: RequestsListProps) {
       setSince(value === ALL ? null : Date.now() - Number(value) * DAY_MS);
     }
   }, []);
+
+  return { filters, options, shown, onFilterChange };
+}
+
+interface RequestsListProps extends ShownProps {
+  onAction: RequestRows['onAction'];
+
+  // After a bulk action: the list as it is now.
+  onDone: () => void;
+}
+
+function RequestsList(props: RequestsListProps) {
+  const { requests, view, sort, onAction, onDone } = props;
+  const { filters, options, shown, onFilterChange } =
+    useRequestFilters(requests);
+  const selection = useSelection(shown, shown);
+  const { onClear } = selection;
+  const onBulkDone = useCallback(() => {
+    onClear();
+    onDone();
+  }, [onClear, onDone]);
+  const bulk = useRequestBulk(selection.picked, onBulkDone);
+  const rows = useMemo(() => ({ onAction, selection }), [onAction, selection]);
 
   return (
     <RequestRowsContext.Provider value={rows}>
@@ -186,27 +184,29 @@ function RequestsList(props: RequestsListProps) {
           total: requests.length,
         })}
       </div>
-      <Shown requests={shown} view={view} sort={sort} />
-      {isSelecting && (
-        <SelectFooter
-          picked={picked}
-          onSelectAll={onSelectAll}
-          onClear={onClear}
-          onDone={onBulkDone}
-        />
+      <ActionOutcomeAlert outcome={bulk.outcome} />
+      <SelectionBar
+        selection={selection}
+        actions={bulk.actions}
+        isBusy={bulk.isBusy}
+        onAction={bulk.onAction}
+      />
+      {view !== 'table' && shown.length > 0 && (
+        <PageCheckbox selection={selection} />
       )}
+      <Shown requests={shown} view={view} sort={sort} />
+      {bulk.modal}
     </RequestRowsContext.Provider>
   );
 }
 
 // Every request, in the Overview, Posters or Table view, filterable by member (requester or follower), type, status,
 // instance and how recent, and sorted the same in every view. Each row has its actions, as Sonarr's and Radarr's lists
-// do, and select mode acts on several at once.
+// do, and a box to pick it: anything picked shows what can be done to all of it.
 function RequestsPage() {
   const result = usePortal<PortalRequest[]>('requests');
   const onActionDone = result.reload;
   const { run, outcome, dialogs } = useRequestActionRunner(onActionDone);
-  const selection = useSelection();
   const [view, setView] = useState(savedView);
   const onViewChange = useCallback((chosen: RequestView) => {
     setView(chosen);
@@ -226,22 +226,15 @@ function RequestsPage() {
           requests={sort.sorted}
           view={view}
           sort={sort}
-          selection={selection}
           onAction={run}
           onDone={onActionDone}
         />
       </>
     ),
-    [sort, view, selection, run, outcome, onActionDone]
+    [sort, view, run, outcome, onActionDone]
   );
   const toolbar = (
-    <RequestsToolbar
-      view={view}
-      sort={sort}
-      isSelecting={selection.isSelecting}
-      onViewChange={onViewChange}
-      onSelectPress={selection.onToggle}
-    />
+    <RequestsToolbar view={view} sort={sort} onViewChange={onViewChange} />
   );
 
   return (

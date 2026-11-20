@@ -27,24 +27,20 @@ import MemberLink from './MemberLink';
 import styles from '../Portal.css';
 import viewStyles from '../Requests/RequestViews.css';
 
-const columns: Column[] = [
+const titleColumns: Column[] = [
   { name: 'title', label: () => translate('PortalTitle') },
   { name: 'type', label: () => translate('PortalType') },
   { name: 'status', label: () => translate('PortalStatus') },
+].map((column) => ({ ...column, isVisible: true, isSortable: true }));
+
+const columns: Column[] = [
   { name: 'requester', label: () => translate('PortalRequester') },
   { name: 'followers', label: () => translate('PortalFollowers') },
   { name: 'instance', label: () => translate('PortalInstance') },
   { name: 'requested', label: () => translate('PortalRequested') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: true }));
 
-// Select mode's checkboxes, and each row's actions menu, on the Requests page only.
-const selectColumn: Column = {
-  name: 'select',
-  label: '',
-  isVisible: true,
-  isSortable: false,
-};
-
+// Each row's actions, beside its title and status, on the Requests page only.
 const actionsColumn: Column = {
   name: 'actions',
   label: '',
@@ -80,7 +76,7 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
 
   return (
     <TableRow>
-      {rows?.isSelecting && (
+      {rows && (
         <TableRowCell>
           <RowSelect request={request} />
         </TableRowCell>
@@ -100,6 +96,11 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
       </TableRowCell>
       <TableRowCell>{contentTypeText(request.contentType)}</TableRowCell>
       <TableRowCell>{requestStatusText(request)}</TableRowCell>
+      {rows && (
+        <TableRowCell>
+          <RowActions request={request} />
+        </TableRowCell>
+      )}
       <TableRowCell>
         <MemberLink person={request.requester} size="small" />
       </TableRowCell>
@@ -108,11 +109,6 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
       </TableRowCell>
       <TableRowCell>{request.instance ?? ''}</TableRowCell>
       <RelativeDateCell date={request.requested} />
-      {rows && (
-        <TableRowCell>
-          <RowActions request={request} />
-        </TableRowCell>
-      )}
     </TableRow>
   );
 }
@@ -148,16 +144,23 @@ function RequestsTable({
     return <div className={styles.empty}>{translate('PortalNoRequests')}</div>;
   }
 
+  // On the Requests page, the header's box picks or clears the page shown.
+  const selection = rows?.selection;
+
   return (
     <Table
+      selectAll={!!selection}
+      allSelected={selection?.allOnPage ?? false}
+      allUnselected={selection?.noneOnPage ?? true}
       columns={[
-        ...(rows?.isSelecting ? [selectColumn] : []),
         ...(withPosters ? [posterColumn] : []),
-        ...columns,
+        ...titleColumns,
         ...(rows ? [actionsColumn] : []),
+        ...columns,
       ]}
       sortKey={sortKey}
       sortDirection={sortDirection}
+      onSelectAllChange={selection?.onPageChange}
       onSortPress={onSortPress}
     >
       <TableBody>

@@ -4,7 +4,6 @@ import MenuContent from 'Components/Menu/MenuContent';
 import SelectedMenuItem from 'Components/Menu/SelectedMenuItem';
 import ToolbarMenuButton from 'Components/Menu/ToolbarMenuButton';
 import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
-import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
 import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
 import { align, icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
@@ -31,32 +30,13 @@ const VIEW_LABELS: Record<RequestView, string> = {
 interface RequestsToolbarProps {
   view: RequestView;
   sort: RequestsSort;
-  isSelecting: boolean;
   onViewChange: (view: RequestView) => void;
-  onSelectPress: () => void;
 }
 
-// Select on the left (select mode, as Sonarr's Select Series); on the right, the view (Overview, Posters, Table) and
-// the sort, as Sonarr's and Radarr's lists have them.
-function RequestsToolbar({
-  view,
-  sort,
-  isSelecting,
-  onViewChange,
-  onSelectPress,
-}: RequestsToolbarProps) {
+// The view (Overview, Posters, Table) and the sort, as Sonarr's and Radarr's lists have them.
+function RequestsToolbar({ view, sort, onViewChange }: RequestsToolbarProps) {
   return (
     <PageToolbar>
-      <PageToolbarSection>
-        <PageToolbarButton
-          label={translate(
-            isSelecting ? 'PortalStopSelecting' : 'PortalSelect'
-          )}
-          iconName={isSelecting ? icons.SQUARE : icons.CHECK_SQUARE}
-          onPress={onSelectPress}
-        />
-      </PageToolbarSection>
-
       <PageToolbarSection alignContent={align.RIGHT} collapseButtons={false}>
         <Menu alignMenu={align.RIGHT}>
           <ToolbarMenuButton

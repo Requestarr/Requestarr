@@ -41,9 +41,12 @@ function OverviewRow({ request }: { request: PortalRequest }) {
         <div className={styles.overviewTitle}>
           <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
         </div>
-        <div>
-          {contentTypeText(request.contentType)} · {requestStatusText(request)}{' '}
-          · {dateText(request.requested)}
+        <div className={styles.overviewMeta}>
+          <span>
+            {contentTypeText(request.contentType)} ·{' '}
+            {requestStatusText(request)} · {dateText(request.requested)}
+          </span>
+          <RowActions request={request} />
         </div>
         <People request={request} />
         {media?.overview && (
@@ -52,7 +55,6 @@ function OverviewRow({ request }: { request: PortalRequest }) {
         {details && <div className={portalStyles.muted}>{details}</div>}
         <OpenInLink media={media} />
       </div>
-      <RowActions request={request} />
     </div>
   );
 }
