@@ -212,7 +212,7 @@ def stack(command, env=None, ref=None):
 
 
 def running_build(which):
-    """The build a stack's Requestarr runs (0.7.0005-qa.4f2a9c1), from its image's label: read, never changed."""
+    """The build a stack's Requestarr runs (0.7.0005-qa), from its image's label: read, never changed."""
     return subprocess.run(["docker", "ps", "--filter", "label=com.docker.compose.project=requestarr-" + which,
                            "--filter", "label=com.docker.compose.service=requestarr", "--format", '{{.Label "org.opencontainers.image.version"}}'],
                           capture_output=True, text=True, check=True).stdout.strip()
@@ -261,7 +261,7 @@ def run_web(out, env, commit):
     stack(["up"], login, ref=commit)
     web_dir = os.path.join(out, "web")
     web_env = dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir,
-                   QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password, QA_CHECKS_COMMIT=commit[:7],
+                   QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password,
                    QA_CHECKS_VERSION=running_build("dev"))
     os.makedirs(web_dir, exist_ok=True)
     dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(web_dir, "web.log"))
@@ -299,8 +299,8 @@ def suite_counts(output):
 
 def live_env_for(out, env, commit):
     """The live checks run as the dev build of this commit, labelled the way the dev stack labels it."""
-    label = "%s-dev.%s" % (subprocess.run([sys.executable, os.path.join(REPO, ".github", "build_numbers.py"), "next"],
-                                          capture_output=True, text=True, check=True, cwd=REPO).stdout.strip(), commit[:7])
+    label = subprocess.run([sys.executable, os.path.join(REPO, ".github", "build_numbers.py"), "label", "dev", commit],
+                           capture_output=True, text=True, check=True, cwd=REPO).stdout.strip()
     return dict(env, LIVE_QA_STATE_DIR=os.path.join(out, "live", "state"), REQUESTARR_RELEASE_VERSION=label)
 
 

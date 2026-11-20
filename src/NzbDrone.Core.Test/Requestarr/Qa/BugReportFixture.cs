@@ -44,6 +44,7 @@ namespace Requestarr.Core.Test.Qa
             Mocker.GetMock<IGuildSetupService>().Setup(g => g.GetConfig()).Returns(new DiscordGuildConfig { BugReportsChannelId = "500" });
             Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.SendMessageAsync(500, It.IsAny<InteractionReply>())).ReturnsAsync(900UL);
             Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.IconSet).Returns("qa");
+            Mocker.GetMock<IReleaseEnvironment>().Setup(e => e.Shown(It.IsAny<Version>())).Returns("0.7.0005-qa");
             Settings(file: false, token: null);
         }
 
@@ -70,7 +71,7 @@ namespace Requestarr.Core.Test.Qa
             var result = await Subject.SubmitAsync(42, "Alex", "web-app", "The logo is missing", null, null);
 
             result.Report.Should().BeEquivalentTo(new { Filing = BugReportFiling.Filed, IssueNumber = 77, IssueUrl = "https://github.com/Requestarr/Requestarr/issues/77" });
-            var labels = new[] { "bug report", "env: qa", $"version: {Changelog.Release(NzbDrone.Common.EnvironmentInfo.BuildInfo.Version)}", "component: web-app" };
+            var labels = new[] { "bug report", "env: qa", "version: 0.7.0005-qa", "component: web-app" };
             Mocker.GetMock<IGitHubIssues>().Verify(g => g.CreateAsync("Requestarr/Requestarr", "secret", "[QA] Web app: The logo is missing", It.IsAny<string>(), It.Is<IReadOnlyList<string>>(l => l.SequenceEqual(labels)), It.IsAny<CancellationToken>()));
             Mocker.GetMock<IDiscordGuildGateway>().Verify(g => g.EditMessageAsync(500, 900, It.Is<InteractionReply>(m => m.Cards[0].Text.Contains("issue #77"))), Times.Once());
         }

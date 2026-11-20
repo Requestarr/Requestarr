@@ -147,9 +147,9 @@ build_image() {
         echo "Versions staging has (QA's what's new leaves them out): ${REQUESTARR_STAGED_VERSIONS:-none}"
     fi
     sha=$(git -C "$REPO" rev-parse --verify -q "$ref^{commit}") || die "no branch or commit '$ref' (git fetch first?)"
-    # Dev and QA builds take no number: the next one, and their commit (docs/development.md#versions).
-    number=$( (cd "$REPO" && python -I .github/build_numbers.py next) 2>/dev/null) || number=0.0.0
-    version="$number-$STACK.${sha:0:7}"
+    # A numbered goal's build shows its number; one between goals the next and its commit (docs/development.md#versions).
+    version=$( (cd "$REPO" && python -I .github/build_numbers.py label "$STACK" "$sha") 2>/dev/null) || version="0.0.0-$STACK.${sha:0:7}"
+    number=${version%%-*}
     echo "Building requestarr:$STACK from $ref @ ${sha:0:7} (version $version)"
     # The stack's own provisioning file, as that commit has it (compose.yaml mounts it).
     mkdir -p "$DIR/.stacks"

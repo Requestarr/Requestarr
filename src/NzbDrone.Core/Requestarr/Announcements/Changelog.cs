@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace Requestarr.Core.Announcements
 {
@@ -28,6 +29,9 @@ namespace Requestarr.Core.Announcements
 
         // From 0.7 a version's last part is a running build number people see with four digits; before, x.y.z.
         private static readonly Version FirstBuildNumbered = new(0, 7);
+
+        // The day in a heading's brackets, whatever follows them.
+        private static readonly Regex HeadingDate = new(@"^\((?<day>\d{4}-\d{2}-\d{2})\)");
 
         public static string Embedded()
         {
@@ -91,12 +95,14 @@ namespace Requestarr.Core.Announcements
             return versions.OrderByDescending(v => v.Version).ToList();
         }
 
-        // "x.y.z (YYYY-MM-DD)": the version, null when it isn't one, and the day, null when it's missing.
+        // "x.y.z (YYYY-MM-DD)", a staging build's with the goals' builds it includes after it ("0.7.0011 (2026-12-01),
+        // with 0.7.0005 to 0.7.0011"): the version, null when it isn't one, and the day, null when it's missing.
         private static (Version Version, DateTime? Date) ParseHeading(string heading)
         {
             var parts = heading.Trim().Split(' ', 2);
             var version = Version.TryParse(parts[0], out var parsed) ? parsed : null;
-            DateTime? date = parts.Length > 1 && DateTime.TryParseExact(parts[1].Trim('(', ')'), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var day)
+            var dated = parts.Length > 1 ? HeadingDate.Match(parts[1]) : Match.Empty;
+            DateTime? date = dated.Success && DateTime.TryParseExact(dated.Groups["day"].Value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var day)
                 ? day
                 : null;
 
