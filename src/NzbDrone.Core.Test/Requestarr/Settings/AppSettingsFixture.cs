@@ -75,7 +75,7 @@ namespace Requestarr.Core.Test.Settings
             (await Save("removalDeleteFiles", "true")).Saved.Should().BeTrue();
 
             Mocker.GetMock<IConfigService>().Object.RemovalDeleteFiles.Should().BeTrue();
-            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "removalDeleteFiles", "Delete files in Sonarr and Radarr: from off to on"), Times.Once());
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "removalDeleteFiles", "Delete files in media managers: from off to on"), Times.Once());
         }
 
         [Test]

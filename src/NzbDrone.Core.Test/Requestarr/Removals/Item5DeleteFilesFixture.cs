@@ -11,7 +11,7 @@ using Requestarr.Core.Requests;
 
 namespace Requestarr.Core.Test.Removals
 {
-    // "Delete files in Sonarr and Radarr" off (the default, and beta's): a removal does everything but delete, then waits
+    // "Delete files in media managers" off (the default, and beta's): a removal does everything but delete, then waits
     // in the admin queue for an admin to delete it by hand.
     [TestFixture]
     public class Item5DeleteFilesFixture : RemovalScenario

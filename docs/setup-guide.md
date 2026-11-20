@@ -892,7 +892,7 @@ While it's off, a removal still runs as usual: the requester is asked, the vote 
 
 Turn it on once you trust removals on beta. The change is recorded on **Settings → Changes**.
 
-**Check:** **Settings → Requests** shows **Delete files in Sonarr and Radarr** off.
+**Check:** **Settings → Requests** shows **Delete files in media managers** off.
 
 ### B.5 Check Requestarr in Discord
 
