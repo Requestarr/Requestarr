@@ -19,7 +19,7 @@ namespace Requestarr.Core.Test.Qa.Web
     // QA_CHECKS_COMMIT (the run sets them).
     [TestFixture]
     [ManualTest]
-    public class QaWebChecksFixture
+    public partial class QaWebChecksFixture
     {
         private const string HeaderLogo = "img[class*='PageHeader-logo']";
         private const string ProvisionedNote = "Set by your provisioning file";

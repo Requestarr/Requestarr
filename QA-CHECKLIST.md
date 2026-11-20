@@ -192,6 +192,33 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - A Delete it yourself item naming the title and the Radarr it's in.
     - Once it's deleted, the removal closes.
   - Checked automatically: the live deleting turned off check.
+- **Row actions**
+  - Steps:
+    1. In the web app, open Requests, in each view.
+    2. Open a row's menu, then press Approve on a pending request.
+    3. Press a history row's trash button.
+  - Expect:
+    - Each row offers what its request's page offers, and Open in Sonarr.
+    - The request approved; the history record gone after asking.
+  - Checked automatically: the web app request actions check.
+- **Select mode**
+  - Steps:
+    1. In Requests, press Select.
+    2. Tick three history rows.
+    3. Press Delete record in the footer, then confirm.
+  - Expect:
+    - The footer says 3 selected and offers only what all three allow.
+    - The confirmation lists the three titles.
+    - All three records gone.
+  - Checked automatically: the web app request actions check.
+- **Removing a title from search**
+  - Steps:
+    1. In the header search, type a title in Radarr nobody requested.
+    2. Press Start removal on it, then Start removal.
+  - Expect:
+    - It's listed under In your library, not requested, with its poster.
+    - The removal starts, and shows in the Queue.
+  - Checked automatically: the web app request actions check.
 - **Acting from the web app**
   - Steps:
     1. As an admin in the web app, deny a pending request with a reason.
