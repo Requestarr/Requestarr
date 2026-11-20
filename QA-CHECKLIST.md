@@ -211,7 +211,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - No Select button: every row has its box.
     - The row at the top says 3 selected; nothing below it moves.
     - Only the actions all three allow are shown.
-    - Every row picked, then the bar gone after Clear.
+    - The page picked, then nothing picked after Clear.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
   - Steps:
@@ -221,6 +221,24 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - It's listed under In your library, not requested, with its poster.
     - Start removal opens its dialog for that title.
   - Checked automatically: the web app request actions check.
+- **Paging long lists**
+  - Steps:
+    1. In Requests, go to the next page.
+    2. Set Member to someone with many requests.
+    3. Tick the header's box, then Select all matching.
+  - Expect:
+    - 25 a page, with the pager and a per-page choice.
+    - The count and the pages cover only their requests.
+    - Every match across the pages picked.
+  - Checked automatically: the web app paging check.
+- **Member page sections**
+  - Steps:
+    1. Open the page of a member with many requests.
+  - Expect:
+    - Each heading says how many, such as Their requests (101).
+    - Each section has its own pager.
+    - No Requester column in their own requests.
+  - Checked automatically: the web app paging check.
 - **Add member list**
   - Steps:
     1. In Members, press Add member.

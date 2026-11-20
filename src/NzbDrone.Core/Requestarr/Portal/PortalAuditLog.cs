@@ -31,7 +31,7 @@ namespace Requestarr.Core.Portal
 
     public class PortalAuditLog : IPortalAuditLog
     {
-        // As many lines as one page shows; a narrower filter finds older ones.
+        // As many lines as the log answers without paging; a narrower filter finds older ones. Paged, it finds them all.
         public const int PageSize = 500;
 
         // Results per kind in the header search.
@@ -80,7 +80,6 @@ namespace Requestarr.Core.Portal
                 .Where(l => l.IsTitle ? Contains(l.Entry.About, filter.Title) : string.IsNullOrWhiteSpace(filter.Title))
                 .Where(l => Contains(l.Entry.What, filter.Action))
                 .Select(l => l.Entry)
-                .Take(PageSize)
                 .ToList();
         }
 

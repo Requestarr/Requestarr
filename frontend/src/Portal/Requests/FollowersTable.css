@@ -1,5 +1,0 @@
-/* About ten followers show at once; more scroll. */
-.list {
-  overflow-y: auto;
-  max-height: 520px;
-}

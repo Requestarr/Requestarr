@@ -68,9 +68,10 @@ export const sortValues: SortValues<PortalRequest> = {
 interface RequestRowProps {
   request: PortalRequest;
   withPoster: boolean;
+  withRequester: boolean;
 }
 
-function RequestRow({ request, withPoster }: RequestRowProps) {
+function RequestRow({ request, withPoster, withRequester }: RequestRowProps) {
   const seasons = seasonsText(request.seasons);
   const rows = useContext(RequestRowsContext);
 
@@ -101,9 +102,11 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
           <RowActions request={request} />
         </TableRowCell>
       )}
-      <TableRowCell>
-        <MemberLink person={request.requester} size="small" />
-      </TableRowCell>
+      {withRequester && (
+        <TableRowCell>
+          <MemberLink person={request.requester} size="small" />
+        </TableRowCell>
+      )}
       <TableRowCell>
         <FollowerStack requestId={request.id} followers={request.followers} />
       </TableRowCell>
@@ -113,7 +116,13 @@ function RequestRow({ request, withPoster }: RequestRowProps) {
   );
 }
 
-export type RequestsSort = ReturnType<typeof useSortedRows<PortalRequest>>;
+// How a table outside the page's own sorting is sorted: the rows in order and the column pressed.
+export interface RequestsSort {
+  sorted: PortalRequest[];
+  sortKey: string;
+  sortDirection: string;
+  onSortPress: (key: string) => void;
+}
 
 interface RequestsTableProps {
   requests: PortalRequest[];
@@ -121,6 +130,9 @@ interface RequestsTableProps {
 
   // The sorting of a page that also shows the requests other ways (already applied to requests).
   sort?: RequestsSort;
+
+  // False for a member's own requests: every row would name them.
+  withRequester?: boolean;
 }
 
 // Requests in a table, newest first until a column is pressed: each title opens its request, each name its member.
@@ -128,6 +140,7 @@ function RequestsTable({
   requests,
   withPosters = false,
   sort,
+  withRequester = true,
 }: RequestsTableProps) {
   const own = useSortedRows(
     requests,
@@ -156,7 +169,9 @@ function RequestsTable({
         ...(withPosters ? [posterColumn] : []),
         ...titleColumns,
         ...(rows ? [actionsColumn] : []),
-        ...otherColumns,
+        ...otherColumns.filter(
+          (column) => withRequester || column.name !== 'requester'
+        ),
       ]}
       sortKey={sortKey}
       sortDirection={sortDirection}
@@ -169,6 +184,7 @@ function RequestsTable({
             key={request.id}
             request={request}
             withPoster={withPosters}
+            withRequester={withRequester}
           />
         ))}
       </TableBody>

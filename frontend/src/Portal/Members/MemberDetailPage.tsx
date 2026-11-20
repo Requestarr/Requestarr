@@ -1,11 +1,12 @@
-import React, { ReactNode, useCallback } from 'react';
+import React, { ReactNode, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
 import ClipboardButton from 'Components/Link/ClipboardButton';
-import { kinds } from 'Helpers/Props';
+import { kinds, sortDirections } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
+import PagedSection, { PagedSort } from '../Components/Paging/PagedSection';
 import Person from '../Components/Person';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
@@ -13,7 +14,12 @@ import RequestsTable from '../Components/RequestsTable';
 import TimelineTable from '../Components/TimelineTable';
 import useDateText from '../Components/useDateText';
 import { accessText, contentTypeText, memberStatusText } from '../portalText';
-import { PortalMemberDetail } from '../PortalTypes';
+import {
+  PortalEvent,
+  PortalMemberDetail,
+  PortalRemoval,
+  PortalRequest,
+} from '../PortalTypes';
 import usePortal from '../usePortal';
 import MemberActions from './MemberActions';
 import styles from '../Portal.css';
@@ -70,12 +76,77 @@ function Summary({ detail }: { detail: PortalMemberDetail }) {
   );
 }
 
+// A page of requests in a member's section, sorted by the server.
+function requestsPage(withRequester: boolean) {
+  return function RequestsPage(records: PortalRequest[], sort: PagedSort) {
+    return (
+      <RequestsTable
+        requests={records}
+        sort={{ ...sort, sorted: records }}
+        withRequester={withRequester}
+      />
+    );
+  };
+}
+
+// Their own requests have no Requester column: every row would name them.
+const ownRequests = requestsPage(false);
+const followedRequests = requestsPage(true);
+
+function removalsPage(records: PortalRemoval[]) {
+  return <RemovalsTable removals={records} />;
+}
+
+// Their requests, what they follow, their removals and their history, each paged on its own with its total.
+function MemberSections({ detail }: { detail: PortalMemberDetail }) {
+  const path = `members/${detail.member.id}`;
+  const { historyTrimmedAfter } = detail;
+  const historyPage = useCallback(
+    (records: PortalEvent[]) => (
+      <TimelineTable events={records} trimmedAfter={historyTrimmedAfter} />
+    ),
+    [historyTrimmedAfter]
+  );
+
+  return (
+    <>
+      <PagedSection
+        title={translate('PortalTheirRequests')}
+        path={`${path}/requests`}
+        initialSort="requested"
+        initialDirection={sortDirections.DESCENDING}
+      >
+        {ownRequests}
+      </PagedSection>
+      <PagedSection
+        title={translate('PortalTheyFollow')}
+        path={`${path}/following`}
+        initialSort="requested"
+        initialDirection={sortDirections.DESCENDING}
+      >
+        {followedRequests}
+      </PagedSection>
+      <PagedSection
+        title={translate('PortalRemovals')}
+        path={`${path}/removals`}
+      >
+        {removalsPage}
+      </PagedSection>
+      <PagedSection title={translate('PortalHistory')} path={`${path}/history`}>
+        {historyPage}
+      </PagedSection>
+    </>
+  );
+}
+
 interface MemberDetailProps {
   detail: PortalMemberDetail;
+  // Counts actions done, so the sections read their pages again after each.
+  round: number;
   onDone: () => void;
 }
 
-function MemberDetail({ detail, onDone }: MemberDetailProps) {
+function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
   return (
     <>
       <FieldSet legend={detail.member.name}>
@@ -92,24 +163,7 @@ function MemberDetail({ detail, onDone }: MemberDetailProps) {
 
       <MemberActions detail={detail} onDone={onDone} />
 
-      <FieldSet legend={translate('PortalTheirRequests')}>
-        <RequestsTable requests={detail.requests} />
-      </FieldSet>
-
-      <FieldSet legend={translate('PortalTheyFollow')}>
-        <RequestsTable requests={detail.following} />
-      </FieldSet>
-
-      <FieldSet legend={translate('PortalRemovals')}>
-        <RemovalsTable removals={detail.removals} />
-      </FieldSet>
-
-      <FieldSet legend={translate('PortalHistory')}>
-        <TimelineTable
-          events={detail.history}
-          trimmedAfter={detail.historyTrimmedAfter}
-        />
-      </FieldSet>
+      <MemberSections key={round} detail={detail} />
     </>
   );
 }
@@ -118,13 +172,18 @@ function MemberDetail({ detail, onDone }: MemberDetailProps) {
 // got, and their history.
 function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const result = usePortal<PortalMemberDetail>(`members/${id}`);
-  const onActionDone = result.reload;
+  const result = usePortal<PortalMemberDetail>(`members/${id}?sections=false`);
+  const [round, setRound] = useState(0);
+  const { reload } = result;
+  const onActionDone = useCallback(() => {
+    reload();
+    setRound((current) => current + 1);
+  }, [reload]);
   const renderDetail = useCallback(
     (detail: PortalMemberDetail) => (
-      <MemberDetail detail={detail} onDone={onActionDone} />
+      <MemberDetail detail={detail} round={round} onDone={onActionDone} />
     ),
-    [onActionDone]
+    [round, onActionDone]
   );
 
   return (

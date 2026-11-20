@@ -66,6 +66,24 @@ namespace Requestarr.Core.Test.Requests
         }
 
         [Test]
+        public async Task a_request_imported_without_a_year_gets_the_year_its_title_first_came_out()
+        {
+            var smartHouse = Insert(ContentType.Movie, 35215, null, new RequestMedia
+            {
+                PhysicalRelease = new DateTime(2000, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+                DigitalRelease = new DateTime(1999, 6, 25, 0, 0, 0, DateTimeKind.Utc),
+                Checked = DateTime.UtcNow
+            });
+            var undated = Insert(ContentType.Movie, 1, null, new RequestMedia { Checked = DateTime.UtcNow });
+
+            await Subject.FillAsync();
+
+            var stored = Mocker.Resolve<IRequestRepository>().All().ToDictionary(r => r.Id);
+            stored[smartHouse.Id].Year.Should().Be(1999);
+            stored[undated.Id].Year.Should().BeNull("nothing says when it came out");
+        }
+
+        [Test]
         public async Task a_sonarr_or_radarr_that_cant_be_reached_is_asked_once_a_run_and_tried_again_next_time()
         {
             var movie = Insert(ContentType.Movie, 9495, null);

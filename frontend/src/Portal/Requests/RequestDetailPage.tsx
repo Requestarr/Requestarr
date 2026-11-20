@@ -1,4 +1,4 @@
-import React, { ReactNode, useCallback, useEffect } from 'react';
+import React, { ReactNode, useCallback, useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
@@ -7,6 +7,7 @@ import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
 import FollowerStack from '../Components/FollowerStack';
 import MemberLink from '../Components/MemberLink';
+import PagedSection, { PagedSort } from '../Components/Paging/PagedSection';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
 import TimelineTable from '../Components/TimelineTable';
@@ -17,7 +18,12 @@ import {
   seasonsText,
   titleText,
 } from '../portalText';
-import { PortalRequest, PortalRequestDetail } from '../PortalTypes';
+import {
+  PortalEvent,
+  PortalFollower,
+  PortalRequest,
+  PortalRequestDetail,
+} from '../PortalTypes';
 import usePortal from '../usePortal';
 import FollowersTable from './FollowersTable';
 import RequestActions from './RequestActions';
@@ -105,7 +111,13 @@ function Summary({ detail }: { detail: PortalRequestDetail }) {
 
 interface RequestDetailProps {
   detail: PortalRequestDetail;
+  // Counts actions done, so the sections read their pages again after each.
+  round: number;
   onDone: () => void;
+}
+
+function followersPage(records: PortalFollower[], sort: PagedSort) {
+  return <FollowersTable followers={records} sort={sort} />;
 }
 
 // The Followers section's address, which a list view's follower stack opens.
@@ -122,9 +134,16 @@ function useScrollToFollowers() {
   }, [hash]);
 }
 
-function RequestDetail({ detail, onDone }: RequestDetailProps) {
-  const { request, latestRemoval, followers } = detail;
+function RequestDetail({ detail, round, onDone }: RequestDetailProps) {
+  const { request, latestRemoval, historyTrimmedAfter } = detail;
+  const path = `requests/${request.id}`;
   useScrollToFollowers();
+  const timelinePage = useCallback(
+    (records: PortalEvent[]) => (
+      <TimelineTable events={records} trimmedAfter={historyTrimmedAfter} />
+    ),
+    [historyTrimmedAfter]
+  );
 
   return (
     <>
@@ -137,20 +156,26 @@ function RequestDetail({ detail, onDone }: RequestDetailProps) {
 
       <RequestActions detail={detail} onDone={onDone} />
 
-      {followers.length > 0 && (
+      {request.followers.length > 0 && (
         <div id={FOLLOWERS_ID}>
-          <FieldSet legend={translate('PortalFollowers')}>
-            <FollowersTable followers={followers} />
-          </FieldSet>
+          <PagedSection
+            key={round}
+            title={translate('PortalFollowers')}
+            path={`${path}/followers`}
+            initialSort="followed"
+          >
+            {followersPage}
+          </PagedSection>
         </div>
       )}
 
-      <FieldSet legend={translate('PortalTimeline')}>
-        <TimelineTable
-          events={detail.timeline}
-          trimmedAfter={detail.historyTrimmedAfter}
-        />
-      </FieldSet>
+      <PagedSection
+        key={round}
+        title={translate('PortalTimeline')}
+        path={`${path}/timeline`}
+      >
+        {timelinePage}
+      </PagedSection>
 
       {latestRemoval && (
         <FieldSet legend={translate('PortalLatestRemoval')}>
@@ -165,13 +190,20 @@ function RequestDetail({ detail, onDone }: RequestDetailProps) {
 // can do to it now.
 function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const result = usePortal<PortalRequestDetail>(`requests/${id}`);
-  const onActionDone = result.reload;
+  const result = usePortal<PortalRequestDetail>(
+    `requests/${id}?sections=false`
+  );
+  const [round, setRound] = useState(0);
+  const { reload } = result;
+  const onActionDone = useCallback(() => {
+    reload();
+    setRound((current) => current + 1);
+  }, [reload]);
   const renderDetail = useCallback(
     (detail: PortalRequestDetail) => (
-      <RequestDetail detail={detail} onDone={onActionDone} />
+      <RequestDetail detail={detail} round={round} onDone={onActionDone} />
     ),
-    [onActionDone]
+    [round, onActionDone]
   );
 
   return (

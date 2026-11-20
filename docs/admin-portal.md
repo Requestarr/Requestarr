@@ -58,6 +58,14 @@ Every entry is covered. Discord stays the place members act; the portal never re
 
 Finding a request or a member quickly: the search in the header (press `/`) finds requests by title and members by name, Discord username, Discord ID or a name they had before, and titles in a Sonarr or Radarr library that nobody requested here, each with **Start removal** and **Force removal**. It never looks up or requests a new title.
 
+## Long lists
+
+Lists that grow with use show a page at a time with Sonarr's pager (first, previous, page X of Y, next, last) and a choice of 25, 50, 100 or 250 a page, remembered in the browser: a member's requests, follows, removals and history (each section on its own, its heading saying how many: "Their requests (101)"), a request's timeline and followers, the audit log, past outages and the access requests waiting or paused. Those are read from Requestarr a page at a time, sorted there.
+
+The Requests views and the Members list page the same way, but read the whole list once, as Sonarr's own index does, so the filters, sorting, the count ("Showing 101 of 464 requests") and picking cover every page: the header's box picks the page, and **Select all N matching** picks every match across the pages.
+
+A member's own requests have no Requester column (every row would name them). Requests imported without a year (older Requestrr replies without a card) show the year their title first came out, from its release dates.
+
 ## Adding members
 
 **Add member** on the Members page lists everyone in the Discord server who isn't onboarded yet, without bots: their picture, name and @handle, when they joined the server, their roles there, and "Imported: 101 requests" for anyone with imported history (listed first). The box at the top narrows the list as you type; any column sorts it. Pick one or many (a box on every row, one in the header for everyone shown), then **Set up**: access per content type (off, needs approval, auto-approve), an instance and a limit, once for everyone, starting from the server's defaults, with a summary ("Onboard 6 people: Movies needs approval, TV needs approval") and **Confirm**.
@@ -70,7 +78,7 @@ The Members list has the same picking as Requests: a box on every row, the bar w
 
 As in Sonarr and Radarr, every row in the Requests page's Overview, Posters and Table views has its actions beside its title and status: the most likely one as its own button (**Approve** while it waits, **Start removal** once it's there, **Delete record** for history), and a menu with exactly what the request's own page offers for its state (the same rules, so they never disagree), plus **Open in Sonarr** or **Radarr**.
 
-Picking works as in an email list: every row has a box, always. A row at the top of the list, stuck there while it scrolls, says how many are shown; as soon as one is ticked, the same row (so nothing below it moves) shows the count, the actions every picked request allows now (**Approve**, **Deny**, **Start removal**, **Delete record**: one not every pick allows isn't shown) and **Clear selection**. The header's box (in Overview and Posters, the box at the start of that row) picks every row shown. Each action confirms with the list of titles; one refused doesn't stop the rest, and the outcome names each one refused and why.
+Picking works as in an email list: every row has a box, always. A row at the top of the list, stuck there while it scrolls, says how many are shown; as soon as one is ticked, the same row (so nothing below it moves) shows the count, the actions every picked request allows now (**Approve**, **Deny**, **Start removal**, **Delete record**: one not every pick allows isn't shown) and **Clear selection**. The header's box (in Overview and Posters, the box at the start of that row) picks the page shown, and **Select all N matching** then picks every match across the pages. Each action confirms with the list of titles; one refused doesn't stop the rest, and the outcome names each one refused and why.
 
 **Delete record** is for history only (Not in library, usually imported): it removes the request and its follows from Requestarr's records. Nothing in Sonarr, Radarr or Discord changes, and the audit log keeps that it was deleted. Where deleting files is turned off (Settings, Requests), every removal's confirmation says that nothing is deleted until an admin does it by hand.
 

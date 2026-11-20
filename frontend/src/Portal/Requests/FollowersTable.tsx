@@ -7,49 +7,42 @@ import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import MemberLink from '../Components/MemberLink';
+import { PagedSort } from '../Components/Paging/PagedSection';
 import { PortalFollower } from '../PortalTypes';
-import useSortedRows, { SortValues } from '../useSortedRows';
-import styles from './FollowersTable.css';
 
 const columns: Column[] = [
   { name: 'member', label: () => translate('PortalMember') },
   { name: 'followed', label: () => translate('PortalFollowed') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: true }));
 
-const sortValues: SortValues<PortalFollower> = {
-  member: (f) => f.person.name,
-  followed: (f) => f.followed,
-};
+interface FollowersTableProps {
+  followers: PortalFollower[];
+  sort: PagedSort;
+}
 
-// Everyone following a request, with their picture, name and @handle and when they followed, earliest first until a
-// column is pressed. A long list scrolls inside its own box, so the page below it stays in reach.
-function FollowersTable({ followers }: { followers: PortalFollower[] }) {
-  const { sorted, sortKey, sortDirection, onSortPress } = useSortedRows(
-    followers,
-    sortValues,
-    'followed'
-  );
+// A page of the people following a request, with their picture, name and @handle and when they followed, in the
+// order the server sorted them (earliest first until a column is pressed).
+function FollowersTable({ followers, sort }: FollowersTableProps) {
+  const { sortKey, sortDirection, onSortPress } = sort;
 
   return (
-    <div className={styles.list}>
-      <Table
-        columns={columns}
-        sortKey={sortKey}
-        sortDirection={sortDirection}
-        onSortPress={onSortPress}
-      >
-        <TableBody>
-          {sorted.map((follower) => (
-            <TableRow key={follower.person.id}>
-              <TableRowCell>
-                <MemberLink person={follower.person} />
-              </TableRowCell>
-              <RelativeDateCell date={follower.followed} />
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <Table
+      columns={columns}
+      sortKey={sortKey}
+      sortDirection={sortDirection}
+      onSortPress={onSortPress}
+    >
+      <TableBody>
+        {followers.map((follower) => (
+          <TableRow key={follower.person.id}>
+            <TableRowCell>
+              <MemberLink person={follower.person} />
+            </TableRowCell>
+            <RelativeDateCell date={follower.followed} />
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

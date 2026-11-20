@@ -181,11 +181,6 @@ export interface PortalPaused {
   since: string;
 }
 
-export interface PortalAccessRequests {
-  waiting: PortalAccessRequest[];
-  paused: PortalPaused[];
-}
-
 export interface PortalOutageNow {
   instanceId: number;
   instance: string;
@@ -195,7 +190,7 @@ export interface PortalOutageNow {
   announcedBy: string | null;
 }
 
-interface PortalOutage {
+export interface PortalOutage {
   instance: string;
   started: string;
   ended: string | null;

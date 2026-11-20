@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NzbDrone.Core.Datastore;
 using Requestarr.Core.Backends;
 
@@ -17,6 +18,9 @@ namespace Requestarr.Core.Requests
         public string Network { get; set; }
         public string TitleSlug { get; set; }
         public DateTime Checked { get; set; }
+
+        // The year it first came out (its earliest release or first air date); null when no date is known.
+        public int? FirstYear() => new[] { InCinemas, DigitalRelease, PhysicalRelease, FirstAired }.Where(d => d.HasValue).Min()?.Year;
 
         public static RequestMedia From(MediaLookupResult item, DateTime checkedAt) => new()
         {

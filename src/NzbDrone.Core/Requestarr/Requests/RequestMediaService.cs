@@ -99,6 +99,13 @@ namespace Requestarr.Core.Requests
                     filled += await FillWaitingAsync();
                 }
 
+                var years = FillYears();
+
+                if (years > 0)
+                {
+                    _logger.Info("Filled in the year for {0} requests from their release dates", years);
+                }
+
                 if (filled > 0)
                 {
                     _logger.Info("Looked up media for {0} requests", filled);
@@ -110,6 +117,22 @@ namespace Requestarr.Core.Requests
             {
                 _running.Release();
             }
+        }
+
+        // Requests without a year (older Requestrr replies imported without one) that know when their title came out: the
+        // year it first did, so they're shown as "Smart House (1999)".
+        private int FillYears()
+        {
+            var filled = 0;
+
+            foreach (var request in _requests.All().Where(r => r.Year == null && r.Media?.FirstYear() != null).ToList())
+            {
+                request.Year = request.Media.FirstYear();
+                _requests.SetFields(request, r => r.Year);
+                filled++;
+            }
+
+            return filled;
         }
 
         private async Task<int> FillWaitingAsync()
@@ -165,7 +188,8 @@ namespace Requestarr.Core.Requests
             {
                 request.Media = RequestMedia.From(item, DateTime.UtcNow);
                 request.PosterUrl ??= item?.PosterUrl;
-                _requests.SetFields(request, r => r.Media, r => r.PosterUrl);
+                request.Year ??= item?.Year;
+                _requests.SetFields(request, r => r.Media, r => r.PosterUrl, r => r.Year);
             }
             catch (Exception ex)
             {
