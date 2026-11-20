@@ -79,7 +79,7 @@ namespace Requestarr.Http.Portal
 
         [HttpGet("/api/v1/portal/library")]
         [Produces("application/json")]
-        public async Task<IActionResult> Library([FromQuery] string term) => Json(await _actions.SearchLibraryAsync(term));
+        public async Task<IActionResult> Library([FromQuery] string term) => Json(await _actions.SearchUnrequestedAsync(term));
 
         [HttpPost("/api/v1/portal/library/{instanceId:int}/{itemId:int}/removal")]
         public Task<IActionResult> StartLibraryRemoval(int instanceId, int itemId, [FromBody] RemovalBody body) =>

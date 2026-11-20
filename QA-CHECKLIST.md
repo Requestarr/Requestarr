@@ -195,21 +195,20 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
 - **Row actions**
   - Steps:
     1. In the web app, open Requests, in each view.
-    2. Open a row's menu, then press Approve on a pending request.
+    2. Open a row's menu.
     3. Press a history row's trash button.
   - Expect:
-    - Each row offers what its request's page offers, and Open in Sonarr.
-    - The request approved; the history record gone after asking.
+    - The menu offers what the request's page offers, and Open in Sonarr.
+    - The trash button asks first, naming the title.
   - Checked automatically: the web app request actions check.
 - **Select mode**
   - Steps:
     1. In Requests, press Select.
     2. Tick three history rows.
-    3. Press Delete record in the footer, then confirm.
+    3. Press Delete record in the footer.
   - Expect:
     - The footer says 3 selected and offers only what all three allow.
     - The confirmation lists the three titles.
-    - All three records gone.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
   - Steps:

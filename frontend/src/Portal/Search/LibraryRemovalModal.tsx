@@ -3,12 +3,11 @@ import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import RemovalStart from '../Components/RemovalStart';
 import { seasonsText } from '../portalText';
 import { PortalLibraryTitle } from '../PortalTypes';
-import { actionLabel } from '../Requests/ActionButton';
+import { actionHeading } from '../Requests/ActionButton';
 import usePortalAction from '../usePortalAction';
 import styles from '../Portal.css';
 
@@ -42,10 +41,7 @@ function LibraryRemovalContent({
   return (
     <ModalContent onModalClose={onClose}>
       <ModalHeader>
-        {translate('PortalRemovalOf', {
-          action: actionLabel(isForce ? 'forceRemoval' : 'remove'),
-          title: title.title,
-        })}
+        {actionHeading(isForce ? 'forceRemoval' : 'remove', title.label)}
       </ModalHeader>
       <ModalBody>
         <p className={styles.muted}>{about.filter(Boolean).join(' · ')}</p>

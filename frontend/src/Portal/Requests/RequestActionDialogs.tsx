@@ -10,6 +10,7 @@ import ForceRemovalConfirm from '../Components/ForceRemovalConfirm';
 import parseSeasons from '../Components/parseSeasons';
 import RemovalModal from '../Components/RemovalModal';
 import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
+import { actionHeading, actionLabel } from './ActionButton';
 
 export type RequestDialog =
   | 'deny'
@@ -43,14 +44,15 @@ const SEASON_FIELDS: [keyof typeof NO_SEASONS, string][] = [
   ['future', 'PortalAddSeasonsFuture'],
 ];
 
-function promptFor(dialog?: RequestDialog) {
+function promptFor(title: string, dialog?: RequestDialog) {
   if (dialog !== 'deny' && dialog !== 'cancel') {
     return undefined;
   }
 
-  return reasonPrompt(
-    translate(dialog === 'deny' ? 'PortalActionDeny' : 'PortalActionCancel')
-  );
+  return {
+    ...reasonPrompt(actionLabel(dialog)),
+    title: actionHeading(dialog, title),
+  };
 }
 
 interface ConfirmDialogsProps {
@@ -68,12 +70,16 @@ function ConfirmDialogs(props: ConfirmDialogsProps) {
   return (
     <>
       {dialog === 'force' && (
-        <ForceRemovalConfirm onConfirm={onForce} onCancel={onClose} />
+        <ForceRemovalConfirm
+          title={title}
+          onConfirm={onForce}
+          onCancel={onClose}
+        />
       )}
       <ConfirmModal
         isOpen={dialog === 'deleteRecord'}
         kind={kinds.DANGER}
-        title={translate('PortalActionDeleteRecord')}
+        title={actionHeading('deleteRecord', title)}
         message={translate('PortalDeleteRecordMessage', { title })}
         confirmLabel={translate('PortalActionDeleteRecord')}
         onConfirm={onDeleteRecord}
@@ -110,14 +116,14 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
   return (
     <>
       <TextPromptModal
-        prompt={promptFor(dialog)}
+        prompt={promptFor(props.title, dialog)}
         onConfirm={onReasonConfirm}
         onClose={onClose}
       />
 
       <ActionModal
         isOpen={dialog === 'seasons'}
-        title={translate('PortalActionAddSeasons')}
+        title={actionHeading('addSeasons', props.title)}
         confirmLabel={translate('PortalActionAddSeasons')}
         onConfirm={onSeasonsConfirm}
         onClose={onClose}
@@ -143,6 +149,7 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
 
       <RemovalModal
         isOpen={dialog === 'remove'}
+        title={props.title}
         onStart={onRemove}
         onClose={onClose}
       />

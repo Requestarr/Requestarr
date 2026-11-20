@@ -11,6 +11,14 @@ import styles from './SelectFooter.css';
 
 const BULK_ACTIONS = Object.keys(BULK_PATHS);
 
+// Select mode's actions act only when every request picked offers them now.
+function everyOffers(picked: PortalRequest[], action: string) {
+  return (
+    picked.length > 0 &&
+    picked.every((request) => request.actions.includes(action))
+  );
+}
+
 interface SelectFooterProps {
   picked: PortalRequest[];
   onSelectAll: () => void;
@@ -61,10 +69,7 @@ function SelectFooter({
               key={action}
               action={action}
               isBusy={isBusy}
-              isDisabled={
-                !picked.length ||
-                !picked.every((request) => request.actions.includes(action))
-              }
+              isDisabled={!everyOffers(picked, action)}
               onPress={setAsking}
             />
           ))}

@@ -10,9 +10,9 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
-    // A title in a Sonarr or Radarr library that a removal can start on, from the header search. Requested: it has a
-    // request here (the search shows that under Requests instead).
-    public record PortalLibraryTitle(int InstanceId, int ItemId, string Instance, string Title, string Requester, IReadOnlyList<int> Seasons, string Poster, bool Requested);
+    // A title in a Sonarr or Radarr library with no active request here, that a removal can start on, from the header
+    // search. Title: as Sonarr or Radarr has it, without the year (Label adds it), so the search finds it again.
+    public record PortalLibraryTitle(int InstanceId, int ItemId, string Instance, string Title, string Label, IReadOnlyList<int> Seasons, string Poster);
 
     public interface IPortalActions
     {
@@ -28,7 +28,7 @@ namespace Requestarr.Core.Portal
         // Seasons empty: the whole title. Force deletes now instead of asking the requester or holding a vote.
         Task<ServiceResult> StartRemovalAsync(int requestId, IReadOnlyCollection<int> seasons, bool force, Actor admin);
         Task<ServiceResult> StartLibraryRemovalAsync(int instanceId, int itemId, IReadOnlyCollection<int> seasons, bool force, Actor admin);
-        Task<IReadOnlyList<PortalLibraryTitle>> SearchLibraryAsync(string term);
+        Task<IReadOnlyList<PortalLibraryTitle>> SearchUnrequestedAsync(string term);
 
         // Whether a removal deletes in Sonarr or Radarr here; when it doesn't, the web app's confirmations say so.
         bool DeletesFiles { get; }
@@ -113,11 +113,11 @@ namespace Requestarr.Core.Portal
         public Task<ServiceResult> StartLibraryRemovalAsync(int instanceId, int itemId, IReadOnlyCollection<int> seasons, bool force, Actor admin) =>
             _removals.StartByAdminAsync(admin, NameOf(admin), admin.UserId, instanceId, itemId, seasons ?? new List<int>(), force);
 
-        public async Task<IReadOnlyList<PortalLibraryTitle>> SearchLibraryAsync(string term)
+        public async Task<IReadOnlyList<PortalLibraryTitle>> SearchUnrequestedAsync(string term)
         {
-            var found = await _removals.SearchLibraryAsync(term ?? string.Empty);
+            var found = await _removals.SearchLibraryAsync(term ?? string.Empty, unrequestedOnly: true);
 
-            return found.Select(t => new PortalLibraryTitle(t.Instance.Id, t.Title.Id, t.Instance.Name, t.Label, t.Requester?.DisplayName, t.Title.SeasonsWithFiles ?? new List<int>(), t.Title.PosterUrl, t.Request != null))
+            return found.Select(t => new PortalLibraryTitle(t.Instance.Id, t.Title.Id, t.Instance.Name, t.Title.Title, t.Label, t.Title.SeasonsWithFiles ?? new List<int>(), t.Title.PosterUrl))
                 .ToList();
         }
 

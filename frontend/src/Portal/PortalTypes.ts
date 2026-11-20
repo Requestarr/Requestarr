@@ -229,13 +229,11 @@ export interface PortalLibraryTitle {
   instanceId: number;
   itemId: number;
   instance: string;
+  // As Sonarr or Radarr has it (what the search matches); label adds the year.
   title: string;
-  requester: string | null;
+  label: string;
   seasons: number[];
   poster: string | null;
-
-  // It has a request here, so the search shows it under Requests instead.
-  requested: boolean;
 }
 
 export interface PortalVersion {

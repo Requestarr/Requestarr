@@ -97,8 +97,9 @@ namespace Requestarr.Core.Portal
             }
 
             var names = Names();
-            var latest = Latest(_proposals.ForRequest(id));
-            var rows = new Rows(names, DiscordAccounts(), Backends(), _subscribers.ForRequest(id), _proposals.ForRequest(id));
+            var removals = _proposals.ForRequest(id);
+            var latest = Latest(removals);
+            var rows = new Rows(names, DiscordAccounts(), Backends(), _subscribers.ForRequest(id), removals);
             var removal = latest == null ? null : Removal(latest, names);
 
             return new PortalRequestDetail(
@@ -376,11 +377,11 @@ namespace Requestarr.Core.Portal
 
             public Rows(Dictionary<int, string> names, Dictionary<int, UserIdentity> accounts, Dictionary<int, BackendInstance> instances, IEnumerable<RequestSubscriber> followers, IEnumerable<RemovalProposal> removals)
             {
-                _removals = removals.Where(p => p.RequestId.HasValue).ToLookup(p => p.RequestId.Value);
                 _names = names;
                 _accounts = accounts;
                 _instances = instances;
                 _followers = followers.ToLookup(s => s.RequestId);
+                _removals = removals.Where(p => p.RequestId.HasValue).ToLookup(p => p.RequestId.Value);
             }
 
             public PortalRequest Of(Request request)

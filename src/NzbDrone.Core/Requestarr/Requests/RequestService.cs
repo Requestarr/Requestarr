@@ -673,8 +673,6 @@ namespace Requestarr.Core.Requests
             request.DecidedByName = admin.UserId.HasValue ? null : adminName;
         }
 
-        // The admin can cancel while it waits for approval, or once sent while nothing is
-        // downloading or there yet (later, removal is the way: task 4).
         public ServiceResult DeleteRecord(int requestId, Actor admin)
         {
             var request = _requests.Find(requestId);
@@ -696,6 +694,8 @@ namespace Requestarr.Core.Requests
             return ServiceResult.Ok(DiscordText.RecordDeleted(request.Label));
         }
 
+        // The admin can cancel while it waits for approval, or once sent while nothing is
+        // downloading or there yet (later, removal is the way: task 4).
         public static bool AdminCanCancel(Request request) =>
             request.Status == RequestStatus.Pending ||
             Admin.TroubleSource.InTrouble(request) ||

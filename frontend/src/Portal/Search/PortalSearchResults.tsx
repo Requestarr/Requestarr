@@ -64,7 +64,7 @@ function LibraryResult({ title, isHighlighted, onRemove }: LibraryResultProps) {
         )}
       >
         <RequestPoster url={title.poster} className={styles.poster} />
-        <span className={styles.label}>{title.title}</span>
+        <span className={styles.label}>{title.label}</span>
         <span className={styles.detail}>{title.instance}</span>
       </div>
       <span className={styles.open}>

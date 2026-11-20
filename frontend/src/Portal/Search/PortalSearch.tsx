@@ -59,8 +59,7 @@ function PortalSearch() {
     input.current?.blur();
   }, []);
 
-  const removal = useLibraryRemoval(onOpen);
-  const { onRemove } = removal;
+  const { onRemove, modal: removalModal } = useLibraryRemoval(onOpen);
 
   // Closed when the box loses focus, a moment later so a click on a result still opens it.
   const onFocus = useCallback(() => setIsOpen(true), []);
@@ -77,16 +76,18 @@ function PortalSearch() {
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
+      const item = items[highlight];
+
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
         const step = event.key === 'ArrowDown' ? 1 : -1;
         setHighlight((current) =>
           Math.min(Math.max(current + step, 0), Math.max(items.length - 1, 0))
         );
-      } else if (event.key === 'Enter' && items[highlight]?.library) {
-        onRemove(items[highlight].library, false);
-      } else if (event.key === 'Enter' && items[highlight]?.path) {
-        history.push(getPathWithUrlBase(items[highlight].path));
+      } else if (event.key === 'Enter' && item?.library) {
+        onRemove(item.library, false);
+      } else if (event.key === 'Enter' && item?.path) {
+        history.push(getPathWithUrlBase(item.path));
         onOpen();
       } else if (event.key === 'Escape') {
         onOpen();
@@ -116,7 +117,7 @@ function PortalSearch() {
           onRemove={onRemove}
         />
       )}
-      {removal.modal}
+      {removalModal}
     </div>
   );
 }

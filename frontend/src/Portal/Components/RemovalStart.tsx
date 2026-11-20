@@ -41,7 +41,7 @@ function RemovalStart({ onStart, isForce = false }: RemovalStartProps) {
 
   return (
     <>
-      {!deletesFiles && (
+      {deletesFiles === false && (
         <Alert kind={kinds.INFO}>{translate('PortalDeletingOffNote')}</Alert>
       )}
       <RemovalScope choice={choice} onChange={setChoice} />

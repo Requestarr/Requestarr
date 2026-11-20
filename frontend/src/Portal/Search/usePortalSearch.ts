@@ -40,14 +40,12 @@ export function searchItems(
     requester: request.requester,
   }));
 
-  const titles = library
-    .filter((title) => !title.requested)
-    .map((title) => ({
-      group: translate('PortalInLibraryNotRequested'),
-      label: title.title,
-      path: null,
-      library: title,
-    }));
+  const titles = library.map((title) => ({
+    group: translate('PortalInLibraryNotRequested'),
+    label: title.label,
+    path: null,
+    library: title,
+  }));
 
   const members = results.members.map((member) => ({
     group: translate('PortalMembers'),

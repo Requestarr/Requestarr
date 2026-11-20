@@ -205,8 +205,7 @@ function RequestsList(props: RequestsListProps) {
 function RequestsPage() {
   const result = usePortal<PortalRequest[]>('requests');
   const onActionDone = result.reload;
-  const runner = useRequestActionRunner(onActionDone);
-  const { run, outcome } = runner;
+  const { run, outcome, dialogs } = useRequestActionRunner(onActionDone);
   const selection = useSelection();
   const [view, setView] = useState(savedView);
   const onViewChange = useCallback((chosen: RequestView) => {
@@ -254,7 +253,7 @@ function RequestsPage() {
       >
         {renderRequests}
       </PortalPage>
-      {runner.dialogs}
+      {dialogs}
     </>
   );
 }

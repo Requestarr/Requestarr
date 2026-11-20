@@ -110,11 +110,6 @@ namespace Requestarr.Core.Discord
         // Requesting
         public const string MusicNotYet = "Music requests aren't available yet.";
         public const string RequestNotFound = "That request doesn't exist.";
-
-        public static string OnlyHistoryDeleted(string label) =>
-            $"{label} is a live request, so its record stays. Only history (Not in library) can be deleted.";
-
-        public static string RecordDeleted(string label) => $"Deleted the record of {label}. Nothing in Sonarr, Radarr or Discord changed.";
         public const string NotYourRequest = "You can only cancel your own requests.";
         public const string NothingFound = "Nothing found. Try different words, or request by ID.";
         public const string TitleNotFound = "That title wasn't found.";
@@ -136,6 +131,11 @@ namespace Requestarr.Core.Discord
         public const string BackToResults = "Back to results";
         public const string InLibraryShort = "In library";
         public const string Dot = " · ";
+
+        public static string OnlyHistoryDeleted(string label) =>
+            $"{label} is a live request, so its record stays. Only history (Not in library) can be deleted.";
+
+        public static string RecordDeleted(string label) => $"Deleted the record of {label}. Nothing in Sonarr, Radarr or Discord changed.";
 
         // Steps of a request block, shown after its header.
         public const string StepDetails = "details";

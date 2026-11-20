@@ -19,11 +19,14 @@ import styles from './SelectFooter.css';
 
 // What each request's call carries: a denial's reason; a removal of the whole title, forced or not.
 function bodyFor(action: string, reason: string, force: boolean) {
-  if (action === 'deny') {
-    return { reason };
+  switch (action) {
+    case 'deny':
+      return { reason };
+    case 'remove':
+      return { seasons: [], force };
+    default:
+      return {};
   }
-
-  return action === 'remove' ? { seasons: [], force } : {};
 }
 
 interface BulkActionContentProps {
@@ -79,7 +82,7 @@ function BulkActionContent(props: BulkActionContentProps) {
             />
           </FormGroup>
         )}
-        {action === 'remove' && !deletesFiles && (
+        {action === 'remove' && deletesFiles === false && (
           <Alert kind={kinds.INFO}>{translate('PortalDeletingOffNote')}</Alert>
         )}
         {action === 'remove' && (

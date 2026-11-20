@@ -33,8 +33,8 @@ function runBulk(
   body: object
 ): Promise<ActionOutcome> {
   const failures = requests.reduce<Promise<string[]>>(
-    (sofar, request) =>
-      sofar.then((failed) =>
+    (soFar, request) =>
+      soFar.then((failed) =>
         runOne(request, action, body).then((failure) =>
           failure ? [...failed, failure] : failed
         )

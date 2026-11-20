@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import usePortalAction from '../usePortalAction';
@@ -35,9 +35,27 @@ interface Asking {
 
 // Runs any of a request's actions by name, as its page and its row in a list offer them (the request's own list, from
 // the same rules), asking first where Discord asks. One runner serves a whole list: its dialogs and the outcome are
-// for the request acted on last.
-function useRequestActionRunner(onDone: () => void) {
-  const action = usePortalAction(onDone);
+// for the request acted on last. onRecordDeleted: where to go once Delete record worked (the request's own page has
+// nothing left to show); otherwise onDone, as after every other action.
+function useRequestActionRunner(
+  onDone: () => void,
+  onRecordDeleted?: () => void
+) {
+  const isDeleting = useRef(false);
+  const afterAction = useCallback(
+    (isDone: boolean) => {
+      const deleted = isDeleting.current && isDone;
+      isDeleting.current = false;
+
+      if (deleted && onRecordDeleted) {
+        onRecordDeleted();
+      } else {
+        onDone();
+      }
+    },
+    [onDone, onRecordDeleted]
+  );
+  const action = usePortalAction(afterAction);
   const { act } = action;
   const [asking, setAsking] = useState<Asking>();
   const path = `requests/${asking?.request.id}`;
@@ -82,13 +100,14 @@ function useRequestActionRunner(onDone: () => void) {
     () => answer(`removals/${asking?.request.removalId}/force`),
     [answer, asking]
   );
-  const onDeleteRecord = useCallback(
-    () => answer(`${path}/delete-record`),
-    [answer, path]
-  );
+  const onDeleteRecord = useCallback(() => {
+    isDeleting.current = true;
+    answer(`${path}/delete-record`);
+  }, [answer, path]);
 
   const dialogs = (
     <RequestActionDialogs
+      key={asking?.request.id ?? 'none'}
       dialog={asking?.dialog}
       title={asking ? titleText(asking.request) : ''}
       onReason={onReason}

@@ -24,6 +24,13 @@ export function actionLabel(action: string) {
   return translate(`PortalAction${name}`);
 }
 
+// A dialog's heading: the action, and the title it acts on when given ("Deny: Dune (2021)").
+export function actionHeading(action: string, title?: string) {
+  return title
+    ? translate('PortalActionOn', { action: actionLabel(action), title })
+    : actionLabel(action);
+}
+
 interface ActionButtonProps {
   action: string;
   isBusy: boolean;
