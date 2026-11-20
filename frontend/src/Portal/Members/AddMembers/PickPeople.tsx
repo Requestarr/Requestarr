@@ -191,7 +191,9 @@ function PickList({
       <SelectFooter
         actions={actions}
         isBusy={false}
-        selectedText={translate('PortalPeopleToAdd', { count: shown.length })}
+        selectedText={translate('PortalCountPeopleSelected', {
+          count: selection.picked.length,
+        })}
         onAction={onSetUp}
       />
     </>

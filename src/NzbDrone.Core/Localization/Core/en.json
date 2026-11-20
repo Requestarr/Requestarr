@@ -820,7 +820,6 @@
   "PortalPaused": "Access requests paused",
   "PortalPausedSince": "Paused since",
   "PortalPending": "Waiting",
-  "PortalPeopleToAdd": "{count} people in the server who aren't members",
   "PortalPerPage": "Per page",
   "PortalPhysicalRelease": "Physical {date}",
   "PortalPlexUsername": "Plex username",
@@ -1239,5 +1238,8 @@
   "PortalCountRequestsSelected": "{count} request(s) selected",
   "PortalCountMembersSelected": "{count} member(s) selected",
   "PortalNoRequestsMatch": "No requests match the filter.",
-  "PortalNoMembersMatch": "No members match the filter."
+  "PortalNoMembersMatch": "No members match the filter.",
+  "PortalDownloading": "Downloading",
+  "PortalOtherStatuses": "Not in library, cancelled or removed",
+  "PortalCountPeopleSelected": "{count} people selected"
 }

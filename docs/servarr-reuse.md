@@ -187,3 +187,8 @@ Plus the `.css` and `.css.d.ts` files that go with each.
 7. **Detail pages:** SeriesDetails-style header (`Label`, `InfoLabel`, `Popover`, toolbar actions); `HistoryDetailsModal`.
 8. **Settings:** `settings.requestarr` on fetch/save handlers + `SettingsToolbarConnector`; then instances as providers (backend) with the provider handlers and Prowlarr's Applications UI.
 9. **Backend, in parallel:** SignalR broadcasts, bulk endpoints, providers, Commands (import, onboarding), so 1, 2, 5 and 8 stay fresh without polling.
+
+## Progress
+
+- **Done (steps 1 to 3 for Requests, Members and Add member):** the `requests`/`requestIndex` and `members`/`memberIndex` store sections with Servarr's client-side collection selector, sort, filter and table-option reducers, persisted; Prowlarr's select mode (`SelectProvider`, the select mode and Select All buttons, `TableSelectCell`, Sonarr's round poster tick, the select footer); `SortMenu`, `ViewMenu`, `FilterMenu` with the custom filter builder; `TableOptionsModalWrapper` with the page size; Sonarr's footer legend and totals; status as `Label`s; bulk results in the sidebar's messages (`showMessage`). Removed: `usePortal` on those pages, `useSelection`, `SelectionBar`, `RowCheckbox`, `PageCheckbox`, `PortalFilter`, `PortalToolbar`, `requestView`, `usePagedRows`.
+- **Next:** step 4 (Sonarr's poster, overview and table components with their options modals, virtualised), step 5 (server-side lists for the detail sections, audit log, outages and access requests, which still use `PortalPager`, `usePagedPortal` and `PagedSection`), then steps 6 to 9.

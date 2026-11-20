@@ -22,7 +22,11 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string Portal = "(path => fetch(window.Requestarr.urlBase + '/api/v1/portal/' + path, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()))";
         private const string Outcome = "document.querySelector('[class*=\"Alert-success\"], [class*=\"Alert-danger\"]')";
         private const string ModalButton = "[...document.querySelectorAll('[class*=\"ModalFooter\"] button')]";
-        private const string Bar = "document.querySelector('[class*=\"SelectionBar-bar\"]')";
+        private const string Bar = "document.querySelector('[class*=\"SelectFooter-footer\"]')";
+        private const string BarButtons = "[...document.querySelectorAll('[class*=\"SelectFooter-footer\"] button')]";
+
+        // Servarr's messages in the sidebar, where a select-mode action reports what it did.
+        private const string Message = "document.querySelector('[class*=\"Message-message\"]')";
 
         // The bar's actions for requests, by their name in the portal's answer, in the bar's order.
         private const string BulkLabels = "{ approve: 'Approve', deny: 'Deny', remove: 'Start removal', deleteRecord: 'Delete record' }";
@@ -30,9 +34,9 @@ namespace Requestarr.Core.Test.Qa.Web
         // Starting a removal from the search changes the dev server (a vote): only when the run asks, and cleans up.
         private static bool ActsOnLibrary => Environment.GetEnvironmentVariable("QA_CHECKS_ACT_ON_LIBRARY") == "1";
 
-        // Requests' actions and picking, at the owner's window width, in both themes. No Select toggle: every row has its
-        // box and its actions beside its title and status. Three rows picked show the bar with the count and what all
-        // three allow; the header's box picks every row shown; Clear empties it. A row's menu
+        // Requests' actions and picking, at the owner's window width, in both themes. Every row has its actions beside its
+        // title and status; Select Requests shows Sonarr's select mode: three rows picked show the bar along the bottom
+        // with the count and what all three allow; Select All picks every request; Unselect All empties it. A row's menu
         // lists what its page offers. Marked rows are approved and deleted and read back; real rows only get the
         // confirmations, cancelled. A library title nobody requested gets Start removal from the header search.
         [Test]
@@ -103,53 +107,66 @@ namespace Requestarr.Core.Test.Qa.Web
         private static Task AnswerAsync(HeadlessBrowser browser, string words, bool confirm) =>
             browser.RunAsync($"{ModalButton}.find(b => b.innerText.trim() === '{(confirm ? words : "Cancel")}').click()");
 
+        // A toolbar button by its words.
+        private static Task PressToolbarAsync(HeadlessBrowser browser, string label) =>
+            browser.RunAsync($"[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].find(b => b.innerText.trim() === {JsonSerializer.Serialize(label)}).click()");
+
+        private static async Task<string> MessageAsync(HeadlessBrowser browser)
+        {
+            await browser.WaitForAsync($"!!{Message}");
+            return await browser.EvalAsync<string>($"{Message}.innerText.trim()");
+        }
+
         private static Task<string> BarTextAsync(HeadlessBrowser browser) => browser.EvalAsync<string>($"{Bar}?.innerText.replace(/\\s+/g, ' ').trim() ?? ''");
 
-        // No toggle; a box on every row and in the header; three picked, then the page, then everything matching, then
-        // Clear; and each row's own action button in full view.
+        // No boxes until Select Requests; then a box on every row and in the header; three picked, then Select All (every
+        // request the filter shows, across the pages), then Unselect All and Stop Selecting; and each row's own action
+        // button in full view.
         private static async Task PickingAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             await OpenRequestsTableAsync(browser);
-            var toggles = await browser.EvalAsync<int>("[...document.querySelectorAll('button')].filter(b => ['Select', 'Stop selecting'].includes(b.innerText.trim())).length");
-            var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
-            var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
-            var header = await browser.EvalAsync<bool>("!!document.querySelector('thead input[type=checkbox]')");
-            check.Saw($"requests, Table ({theme}, {OwnersWidth}px): {toggles} Select toggles; {boxes} boxes on {rows} rows; a box in the header: {header}");
-            toggles.Should().Be(0, "there's no Select toggle");
-            boxes.Should().Be(rows, "every row has its box");
-            header.Should().BeTrue();
+            var before = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
+            check.Saw($"requests, Table ({theme}, {OwnersWidth}px): {before} boxes before Select Requests");
+            before.Should().Be(0, "boxes show only in select mode, as Sonarr's do");
 
             var buttons = await browser.EvalAsync<string>("[...document.querySelectorAll('tbody [class*=\"RequestRows-actions\"] button')].filter(b => b.innerText.trim()).slice(0, 3).map(b => `${b.innerText.trim()} at ${Math.round(b.getBoundingClientRect().right)}px`).join(', ')");
             var offscreen = await browser.EvalAsync<int>("[...document.querySelectorAll('tbody [class*=\"RequestRows-actions\"]')].filter(a => a.getBoundingClientRect().right > innerWidth).length");
             check.Saw($"row buttons ({theme}): {buttons}; {offscreen} past the window's edge at {OwnersWidth}px");
             offscreen.Should().Be(0, "each row's actions show at the owner's width");
 
+            await PressToolbarAsync(browser, "Select Requests");
+            await browser.WaitForAsync("!!document.querySelector('thead input[type=checkbox]')");
+            var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
+            var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
+            check.Saw($"Select Requests ({theme}): {boxes} boxes on {rows} rows, and one in the header");
+            boxes.Should().Be(rows, "every row has its box in select mode");
+
             await browser.RunAsync($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).forEach(r => r.querySelector('input[type=checkbox]').click())");
-            await browser.WaitForAsync($"{Bar}?.innerText.includes('{Picks} selected')");
+            await browser.WaitForAsync($"{Bar}?.innerText.includes('{Picks} request(s) selected')");
 
             // Only what every one of the three offers is shown.
             var ids = await browser.EvalAsync<int[]>($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).map(r => Number(r.querySelector('a[href*=\"/requests/\"]').getAttribute('href').split('/').pop()))");
             var expected = await PortalAsync<string[]>(browser, "requests", $"r => (picked => Object.entries({BulkLabels}).filter(([a]) => picked.every(q => q.actions.includes(a))).map(([, label]) => label))(r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)))");
-            var shown = await browser.EvalAsync<string[]>($"[...{Bar}.querySelectorAll('[class*=\"SelectionBar-actions\"] button')].map(b => b.innerText.trim())");
+            var shown = await browser.EvalAsync<string[]>($"{BarButtons}.map(b => b.innerText.trim())");
             check.Saw($"{Picks} picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"; all three offer: {string.Join(", ", expected)}");
             shown.Should().Equal(expected, "the bar shows only what every pick offers");
-            (await browser.EvalAsync<double>($"{Bar}.getBoundingClientRect().top - document.querySelector('table').getBoundingClientRect().top")).Should().BeLessThan(0, "the bar sits above the list");
+            (await browser.EvalAsync<double>($"{Bar}.getBoundingClientRect().top - document.querySelector('table').getBoundingClientRect().top")).Should().BeGreaterThan(0, "the bar sits along the bottom, as Sonarr's does");
             await check.ShotAsync(browser, $"picked-{theme}");
 
-            await browser.RunAsync("document.querySelector('thead input[type=checkbox]').click()");
-            await browser.RunAsync($"[...{Bar}.querySelectorAll('a, button')].find(e => e.innerText.startsWith('Select all'))?.click()");
-            await browser.WaitForAsync($"{Bar}?.innerText.includes('matching are selected')");
+            await PressToolbarAsync(browser, "Select All");
             var matching = await PortalAsync<int>(browser, "requests", "r => r.length");
-            var all = await BarTextAsync(browser);
-            check.Saw($"the header's box, then every match ({theme}): \"{all}\"");
-            all.Should().Contain($"All {matching} matching are selected").And.Contain($"{matching} selected");
-            await check.ShotAsync(browser, $"all-matching-{theme}");
+            await browser.WaitForAsync($"{Bar}?.innerText.includes('{matching} request(s) selected')");
+            check.Saw($"Select All ({theme}): \"{await BarTextAsync(browser)}\" of {matching} requests, across the pages");
+            await check.ShotAsync(browser, $"all-selected-{theme}");
 
-            await browser.RunAsync($"[...{Bar}.querySelectorAll('a, button')].find(e => e.innerText.trim() === 'Clear selection').click()");
-            await browser.WaitForAsync($"!{Bar}.innerText.includes('selected')");
+            await PressToolbarAsync(browser, "Unselect All");
+            await browser.WaitForAsync($"{Bar}?.innerText.includes('0 request(s) selected')");
             var ticked = await browser.EvalAsync<int>("document.querySelectorAll('tbody input[type=checkbox]:checked').length");
-            check.Saw($"Clear selection ({theme}): the bar says \"{await BarTextAsync(browser)}\", {ticked} boxes ticked");
+            check.Saw($"Unselect All ({theme}): the bar says \"{await BarTextAsync(browser)}\", {ticked} boxes ticked");
             ticked.Should().Be(0);
+
+            await PressToolbarAsync(browser, "Stop Selecting");
+            await browser.WaitForAsync($"!{Bar} && !document.querySelector('thead input[type=checkbox]')");
         }
 
         // The first row's menu lists as many actions as its page offers, plus Open in Sonarr or Radarr where it has that.
@@ -197,14 +214,16 @@ namespace Requestarr.Core.Test.Qa.Web
             }
 
             await OpenRequestsTableAsync(browser);
+            await PressToolbarAsync(browser, "Select Requests");
+            await browser.WaitForAsync("!!document.querySelector('tbody tr input[type=checkbox]')");
 
             foreach (var id in ids)
             {
                 await browser.RunAsync($"{Row(id)}.querySelector('input[type=checkbox]').click()");
             }
 
-            await browser.WaitForAsync($"{Bar}?.innerText.includes('{Picks} selected')");
-            await browser.RunAsync($"[...{Bar}.querySelectorAll('button')].find(b => b.innerText.trim() === 'Delete record').click()");
+            await browser.WaitForAsync($"{Bar}?.innerText.includes('{Picks} request(s) selected')");
+            await browser.RunAsync($"{BarButtons}.find(b => b.innerText.trim() === 'Delete record').click()");
             await browser.WaitForAsync($"document.querySelectorAll('[class*=\"BulkActionModal-titles\"] li').length === {Picks}");
             var listed = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"BulkActionModal-titles\"] li')].map(l => l.innerText).join(', ')");
             check.Saw($"{Picks} history rows picked; the bar's Delete record asks first, listing: {listed}");
@@ -213,7 +232,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
             if (isMarked)
             {
-                var said = await OutcomeAsync(browser);
+                var said = await MessageAsync(browser);
                 var left = await PortalAsync<int>(browser, "requests", $"r => r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)).length");
                 check.Saw($"the bar's Delete record: \"{said}\"; {left} of the {Picks} left");
                 left.Should().Be(0, "every record picked was deleted");

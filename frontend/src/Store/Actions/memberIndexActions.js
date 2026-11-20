@@ -38,6 +38,9 @@ export const defaultState = {
   columns: [
     { ...column('name', () => translate('PortalMember')), isModifiable: false },
     column('status', () => translate('PortalStatus')),
+
+    // Beside the status, so a row's actions stay in view however many columns are shown.
+    { name: 'actions', columnLabel: () => translate('Actions'), isVisible: true, isModifiable: false },
     ...ACCESS_TYPES.map((type) => column(`access-${type}`, () => contentTypeText(type), type !== 'music')),
     column('requests', () => translate('PortalRequests')),
     column('active', () => translate('PortalActive')),
@@ -46,8 +49,7 @@ export const defaultState = {
     column('byType', () => translate('PortalByType')),
     column('firstRequest', () => translate('PortalFirstRequest'), false),
     column('lastRequest', () => translate('PortalLastRequest')),
-    column('added', () => translate('PortalAdded')),
-    { name: 'actions', columnLabel: () => translate('Actions'), isVisible: true, isModifiable: false }
+    column('added', () => translate('PortalAdded'))
   ],
 
   sortPredicates,

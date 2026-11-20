@@ -8,14 +8,17 @@ namespace Requestarr.Core.Test.Qa.Web
 {
     public partial class QaWebChecksFixture
     {
-        private const string Pager = "document.querySelector('[class*=\"PortalPager-pager\"]')";
+        private const string Pager = "document.querySelector('[class*=\"TablePager-pager\"]')";
+
+        // A fresh browser's page size, until Options changes it.
+        private const int PageSize = 25;
 
         // The pager's Next: Servarr's pager draws first, previous, the page number, next and last, in that order.
         private const string NextPage = "document.querySelector('[class*=\"TablePager-controlsContainer\"]').firstElementChild.children[3]";
 
-        // Long lists page through, in both themes, changing nothing. The Requests list shows a page of its requests with the
-        // pager and goes to the next page; the Member filter narrows all of them (the count says how many of all), and the
-        // header's box then offers every match across the pages. The page of the member with most requests has each
+        // Long lists page through, in both themes, changing nothing. The Requests list shows a page of its requests with
+        // Servarr's pager and goes to the next page; Options holds the page size; the Movies filter narrows all of them (the
+        // pager's total says how many), and Select All then picks every match across the pages. The page of the member with most requests has each
         // section's total in its heading, a page of their requests with the pager, and no Requester column there.
         [Test]
         public Task paging() => CheckAsync(nameof(paging), PagingAsync, OwnersWidth);
@@ -40,12 +43,11 @@ namespace Requestarr.Core.Test.Qa.Web
             await OpenRequestsTableAsync(browser);
             var total = await PortalAsync<int>(browser, "requests", "r => r.length");
             var rows = await RowCountAsync(browser);
-            var size = await browser.EvalAsync<int>($"Number({Pager}?.querySelector('select[name=pageSize]')?.value ?? {total})");
             var first = await browser.EvalAsync<string>("document.querySelector('tbody tr a[href*=\"/requests/\"]').innerText");
-            check.Saw($"Requests ({theme}): {rows} rows drawn of {total}, {size} a page; first: {first}");
-            rows.Should().Be(Math.Min(total, size), "only the page is drawn");
+            check.Saw($"Requests ({theme}): {rows} rows drawn of {total}, {PageSize} a page; first: {first}");
+            rows.Should().Be(Math.Min(total, PageSize), "only the page is drawn");
 
-            if (total > size)
+            if (total > PageSize)
             {
                 await browser.RunAsync($"{NextPage}.click()");
                 await browser.WaitForAsync($"document.querySelector('tbody tr a[href*=\"/requests/\"]').innerText !== {JsonSerializer.Serialize(first)}");
@@ -53,27 +55,33 @@ namespace Requestarr.Core.Test.Qa.Web
                 await check.ShotAsync(browser, $"requests-page-2-{theme}");
             }
 
-            var (member, name) = await TopMemberAsync(browser);
-            var theirs = await PortalAsync<int>(browser, "requests", $"r => r.filter(q => q.requester.id === {member} || q.followers.some(f => f.id === {member})).length");
-            await browser.RunAsync($"const s = document.querySelector('select[name=member]'); s.value = '{member}'; s.dispatchEvent(new Event('change', {{ bubbles: true }}))");
-            await browser.WaitForAsync($"{Bar}?.innerText.includes('Showing {theirs} of {total}')");
-            check.Saw($"Member filter set to {name} ({theme}): \"{await BarTextAsync(browser)}\", {await RowCountAsync(browser)} rows drawn");
+            // The page size is under Options, as Servarr's tables have it.
+            await PressToolbarAsync(browser, "Options");
+            await browser.WaitForAsync("!!document.querySelector('input[name=pageSize]')");
+            check.Saw($"Options ({theme}): page size {await browser.EvalAsync<string>("document.querySelector('input[name=pageSize]').value")}");
+            await AnswerAsync(browser, "Close", true);
 
-            await browser.RunAsync("document.querySelector('thead input[type=checkbox]').click()");
-            await browser.WaitForAsync($"{Bar}?.innerText.includes('selected')");
-            var offer = await BarTextAsync(browser);
-            check.Saw($"the page picked ({theme}): \"{offer}\"");
+            // The Movies filter narrows every page, and Select All then picks every match across them.
+            var movies = await PortalAsync<int>(browser, "requests", "r => r.filter(q => q.contentType === 'movie').length");
+            await ChooseFilterAsync(browser, "Movies");
+            await browser.WaitForAsync($"{Pager}?.innerText.includes('Total records: {movies}')");
+            check.Saw($"the Movies filter ({theme}): {await browser.EvalAsync<string>($"{Pager}.innerText.replace(/\\s+/g, ' ')")}; {await RowCountAsync(browser)} rows drawn");
 
-            if (theirs > size)
-            {
-                offer.Should().Contain($"Select all {theirs} matching");
-                await browser.RunAsync($"[...{Bar}.querySelectorAll('a, button')].find(e => e.innerText.startsWith('Select all')).click()");
-                await browser.WaitForAsync($"{Bar}?.innerText.includes('All {theirs} matching are selected')");
-                check.Saw($"every match picked across the pages ({theme}): \"{await BarTextAsync(browser)}\"");
-            }
-
+            await PressToolbarAsync(browser, "Select Requests");
+            await PressToolbarAsync(browser, "Select All");
+            await browser.WaitForAsync($"{Bar}?.innerText.includes('{movies} request(s) selected')");
+            check.Saw($"Select All with the filter ({theme}): \"{await BarTextAsync(browser)}\"");
             await check.ShotAsync(browser, $"requests-filtered-{theme}");
-            await browser.RunAsync($"[...{Bar}.querySelectorAll('a, button')].find(e => e.innerText.trim() === 'Clear selection').click()");
+            await PressToolbarAsync(browser, "Stop Selecting");
+            await ChooseFilterAsync(browser, "All");
+        }
+
+        // A choice in the toolbar's Filter menu, by its words.
+        private static async Task ChooseFilterAsync(HeadlessBrowser browser, string label)
+        {
+            await PressToolbarAsync(browser, "Filter");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"MenuContent\"]')");
+            await browser.RunAsync($"[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].find(e => e.innerText.trim() === {JsonSerializer.Serialize(label)}).click()");
         }
 
         // The member with most requests, by their ID and name.

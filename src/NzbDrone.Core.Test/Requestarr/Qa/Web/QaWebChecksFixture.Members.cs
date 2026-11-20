@@ -20,8 +20,9 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Add member and the Members list, at the owner's width, in both themes. Add member lists the server's people
         // with a box each and one in the header, narrows as you type, and picking someone shows the bar's Set up, whose
-        // step sums up what they'll get. The Members list has a box and its actions on every row, and the bar offers
-        // Suspend, Unsuspend and Change access. With a test member named, they're onboarded, suspended and unsuspended.
+        // step sums up what they'll get. The Members list has its actions on every row, and Select Members shows a box on
+        // each and the bar along the bottom, offering Suspend, Unsuspend and Change access. With a test member named,
+        // they're onboarded, suspended and unsuspended.
         [Test]
         public Task add_members() => CheckAsync(nameof(add_members), AddMembersAsync, OwnersWidth);
 
@@ -83,9 +84,9 @@ namespace Requestarr.Core.Test.Qa.Web
             await TypeAsync(browser, AddMembersFilter, string.Empty);
 
             await browser.RunAsync("document.querySelector('tbody tr input[type=checkbox]').click()");
-            await browser.WaitForAsync($"{Bar}?.innerText.includes('1 selected')");
+            await browser.WaitForAsync($"{Bar}?.innerText.includes('1 people selected')");
             check.Saw($"one picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"");
-            await browser.RunAsync($"[...{Bar}.querySelectorAll('button')].find(b => b.innerText.startsWith('Set up')).click()");
+            await browser.RunAsync($"{BarButtons}.find(b => b.innerText.startsWith('Set up')).click()");
             await browser.WaitForAsync("document.body.innerText.includes('Onboard 1 people:')");
             var summary = await browser.EvalAsync<string>("[...document.querySelectorAll('p')].find(p => p.innerText.startsWith('Onboard')).innerText");
             check.Saw($"Set up ({theme}): \"{summary}\"");
@@ -97,19 +98,22 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.GoAsync($"{Url}/members");
             await browser.WaitForAsync("!!document.querySelector('tbody tr, [class*=\"Portal-empty\"]')");
             var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
-            var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
             var offscreen = await browser.EvalAsync<int>("[...document.querySelectorAll('tbody [class*=\"RequestRows-actions\"]')].filter(a => a.getBoundingClientRect().right > innerWidth).length");
-            check.Saw($"Members ({theme}): {boxes} boxes on {rows} rows; {offscreen} rows' actions past the window's edge");
-            boxes.Should().Be(rows);
+            check.Saw($"Members ({theme}): {rows} rows; {offscreen} rows' actions past the window's edge");
             offscreen.Should().Be(0);
 
             if (rows > 0)
             {
-                await browser.RunAsync("document.querySelector('thead input[type=checkbox]').click()");
-                await browser.WaitForAsync($"{Bar}?.innerText.includes('selected')");
-                check.Saw($"every member picked ({theme}): \"{await BarTextAsync(browser)}\"");
+                await PressToolbarAsync(browser, "Select Members");
+                await browser.WaitForAsync("!!document.querySelector('thead input[type=checkbox]')");
+                var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
+                var total = await PortalAsync<int>(browser, "members", "m => m.length");
+                await PressToolbarAsync(browser, "Select All");
+                await browser.WaitForAsync($"{Bar}?.innerText.includes('{total} member(s) selected')");
+                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows; \"{await BarTextAsync(browser)}\"");
+                boxes.Should().Be(rows);
                 await check.ShotAsync(browser, $"members-picked-{theme}");
-                await browser.RunAsync($"[...{Bar}.querySelectorAll('a, button')].find(e => e.innerText.trim() === 'Clear selection').click()");
+                await PressToolbarAsync(browser, "Stop Selecting");
             }
         }
 
@@ -120,7 +124,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"!!{TestMemberRow}");
             check.Saw($"the test member is listed: {await browser.EvalAsync<string>("document.querySelector('tbody').innerText.replace(/\\s+/g, ' ')")}");
             await browser.RunAsync($"{TestMemberRow}.querySelector('input[type=checkbox]').click()");
-            await browser.RunAsync($"[...{Bar}.querySelectorAll('button')].find(b => b.innerText.startsWith('Set up')).click()");
+            await browser.RunAsync($"{BarButtons}.find(b => b.innerText.startsWith('Set up')).click()");
             await browser.WaitForAsync("[...document.querySelectorAll('button')].some(b => b.innerText.trim() === 'Confirm')");
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Confirm').click()");
             await browser.WaitForAsync("document.body.innerText.includes('failed.')", TimeSpan.FromSeconds(60));
@@ -131,16 +135,18 @@ namespace Requestarr.Core.Test.Qa.Web
             await ShotBothAsync(browser, check, "onboarded");
         }
 
-        // From the Members list's bar: Suspend, then Unsuspend, each asked first and read back.
+        // From the Members list's bar in select mode: Suspend, then Unsuspend, each asked first and read back.
         private static async Task SuspendAndUnsuspendAsync(HeadlessBrowser browser, WebCheck check)
         {
             foreach (var (action, status) in new[] { ("Suspend", "suspended"), ("Unsuspend", "active") })
             {
                 await browser.GoAsync($"{Url}/members");
                 await browser.WaitForAsync($"!!{TestMemberRow}");
+                await PressToolbarAsync(browser, "Select Members");
+                await browser.WaitForAsync($"!!{TestMemberRow}.querySelector('input[type=checkbox]')");
                 await browser.RunAsync($"{TestMemberRow}.querySelector('input[type=checkbox]').click()");
-                await browser.WaitForAsync($"{Bar}?.innerText.includes('selected')");
-                await browser.RunAsync($"[...{Bar}.querySelectorAll('button')].find(b => b.innerText.trim() === '{action}').click()");
+                await browser.WaitForAsync($"{Bar}?.innerText.includes('1 member(s) selected')");
+                await browser.RunAsync($"{BarButtons}.find(b => b.innerText.trim() === '{action}').click()");
                 await browser.WaitForAsync($"{ModalButton}.some(b => b.innerText.trim() === '{action}')");
                 await AnswerAsync(browser, action, true);
                 var said = await OutcomeAsync(browser);

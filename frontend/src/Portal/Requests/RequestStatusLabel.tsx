@@ -17,7 +17,7 @@ function approvedKind(progress: PortalRequest['progress']): LabelKind {
 }
 
 // A request's status as a Servarr label, coloured the way the Requests footer's legend says: waiting is orange,
-// approved blue, downloading light blue, available green, denied or failed red.
+// approved blue, downloading light blue, available green, denied or failed red, anything else grey.
 export function requestStatusKind(request: PortalRequest): LabelKind {
   switch (request.status) {
     case 'pending':

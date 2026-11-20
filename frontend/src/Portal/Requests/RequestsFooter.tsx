@@ -9,9 +9,10 @@ function legend(): LegendItem[] {
   return [
     { kind: 'warning', label: statusText('pending') },
     { kind: 'primary', label: statusText('approved') },
-    { kind: 'info', label: translate('PortalProgressDownloading') },
+    { kind: 'info', label: translate('PortalDownloading') },
     { kind: 'success', label: statusText('available') },
     { kind: 'danger', label: translate('PortalDeniedOrFailed') },
+    { kind: 'default', label: translate('PortalOtherStatuses') },
   ];
 }
 
@@ -45,13 +46,17 @@ function RequestsFooter({ requests }: RequestsFooterProps) {
         { title: statusText('pending'), data: kindCount('warning') },
         { title: statusText('approved'), data: kindCount('primary') },
         {
-          title: translate('PortalProgressDownloading'),
+          title: translate('PortalDownloading'),
           data: kindCount('info'),
         },
       ],
       [
         { title: statusText('available'), data: kindCount('success') },
         { title: translate('PortalDeniedOrFailed'), data: kindCount('danger') },
+        {
+          title: translate('PortalOtherStatuses'),
+          data: kindCount('default'),
+        },
       ],
     ];
   }, [requests]);

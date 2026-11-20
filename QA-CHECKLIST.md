@@ -93,9 +93,9 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. Do it again in the dark theme.
     4. Press Open in Sonarr on a request.
   - Expect:
-    - Overview has posters with each title's details; Posters is a grid of posters.
+    - Posters is a grid of posters; Overview adds each title's details.
     - Table has a small poster on each row.
-    - The same filters and sorting in all three.
+    - The same filters and sorting in all three, and the colour legend with totals at the bottom.
     - The series' page in Sonarr opens in a new tab.
   - Checked automatically: the web app request views check.
 - **Requests and members pages**
@@ -204,14 +204,14 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app request actions check.
 - **Picking requests**
   - Steps:
-    1. In Requests, tick three rows.
-    2. Tick the header's box.
-    3. Press Clear selection.
+    1. In Requests, press Select Requests, then tick three rows.
+    2. Press Select All, then Unselect All.
+    3. Press Stop Selecting.
   - Expect:
-    - No Select button: every row has its box.
-    - The row at the top says 3 selected; nothing below it moves.
+    - A box on each row, as in Sonarr; a bar along the bottom says 3 request(s) selected.
     - Only the actions all three allow are shown.
-    - The page picked, then nothing picked after Clear.
+    - Select All picks every request, on every page.
+    - The boxes go away after Stop Selecting.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
   - Steps:
@@ -223,13 +223,13 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app request actions check.
 - **Paging long lists**
   - Steps:
-    1. In Requests, go to the next page.
-    2. Set Member to someone with many requests.
-    3. Tick the header's box, then Select all matching.
+    1. In Requests, go to the next page, then open Options.
+    2. Choose Movies in Filter.
+    3. Press Select Requests, then Select All.
   - Expect:
-    - 25 a page, with the pager and a per-page choice.
-    - The count and the pages cover only their requests.
-    - Every match across the pages picked.
+    - 25 a page with Sonarr's pager; the page size under Options.
+    - The pager's total counts only movies.
+    - Every movie picked, across the pages.
   - Checked automatically: the web app paging check.
 - **Member page sections**
   - Steps:
@@ -258,11 +258,11 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app add member check.
 - **Picking members**
   - Steps:
-    1. In Members, tick a member.
+    1. In Members, press Select Members, then tick a member.
     2. Press Suspend in the bar, then Unsuspend.
   - Expect:
-    - Every row has its box and its actions beside its status.
-    - The bar offers Suspend, Unsuspend and Change access.
+    - Every row has its actions beside its status.
+    - The bar along the bottom offers Suspend, Unsuspend and Change access.
     - Each asks first, naming who, and the status changes.
   - Checked automatically: the web app add member check.
 - **Acting from the web app**
