@@ -105,9 +105,9 @@ function useMemberActions(onDone: () => void, onBarDone: () => void = onDone) {
   const run = useCallback(
     (members: PortalMember[], action: string) => {
       if (action === 'onboard') {
-        history.push(
-          getPathWithUrlBase(`/members/add?pick=${members[0].discordId}`)
-        );
+        const picks = members.map((member) => member.discordId).join(',');
+
+        history.push(getPathWithUrlBase(`/members/add?pick=${picks}`));
       } else if (action.endsWith('suspend')) {
         perform({ action, members, fromBar: false });
       } else {

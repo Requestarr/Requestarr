@@ -21,9 +21,10 @@ import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import useClientSidePage from '../Components/Paging/useClientSidePage';
+import { toolbarActions, usePicked } from '../Components/Select/selectActions';
 import { PortalMember } from '../PortalTypes';
+import { GROUP_MEMBER_ACTIONS, memberActions } from './memberActionRules';
 import MembersFooter from './MembersFooter';
-import MembersSelectFooter from './MembersSelectFooter';
 import MembersTable from './MembersTable';
 import MembersToolbar from './MembersToolbar';
 import useMemberActions from './useMemberActions';
@@ -62,8 +63,6 @@ function useIndexDispatch() {
 interface MembersBodyProps {
   state: MembersState;
   isSelectMode: boolean;
-  isBusy: boolean;
-  onAction: (members: PortalMember[], action: string) => void;
   onSortSelect: (sortKey: string) => void;
   onTableOptionChange: (payload: unknown) => void;
 }
@@ -99,8 +98,6 @@ function MembersBody(props: MembersBodyProps) {
         sortKey={state.sortKey}
         sortDirection={state.sortDirection}
         isSelectMode={props.isSelectMode}
-        isBusy={props.isBusy}
-        onAction={props.onAction}
         onSortPress={props.onSortSelect}
         onTableOptionChange={props.onTableOptionChange}
       />
@@ -110,9 +107,33 @@ function MembersBody(props: MembersBodyProps) {
   );
 }
 
+type MemberAction = (members: PortalMember[], action: string) => void;
+
+// The toolbar's actions on the members picked. One pick acts as their own page does (run); several ask first,
+// naming everyone (ask); Onboard opens Add member with them all picked.
+function useMemberSelectActions(
+  members: PortalMember[],
+  run: MemberAction,
+  ask: MemberAction
+) {
+  const picked = usePicked(members);
+  const onAction = useCallback(
+    (name: string) =>
+      name === 'onboard' || picked.length === 1
+        ? run(picked, name)
+        : ask(picked, name),
+    [picked, run, ask]
+  );
+
+  return useMemo(
+    () => toolbarActions(GROUP_MEMBER_ACTIONS, picked, memberActions, onAction),
+    [picked, onAction]
+  );
+}
+
 // Every member Requestarr knows: their access to each type with its limit, and how many requests they have, filtered,
-// sorted and paged as Prowlarr's indexer list is, with Servarr's select mode for acting on several at once. Each row
-// has its own actions too; Add member lists the server's people to onboard.
+// sorted and paged as Prowlarr's indexer list is. Select mode picks one or several; what can be done to them is in
+// the toolbar, left of Add member, which lists the server's people to onboard.
 function MembersIndex() {
   const state = useMembers();
   const handlers = useIndexDispatch();
@@ -128,6 +149,7 @@ function MembersIndex() {
     onRefresh,
     onBarDone
   );
+  const selectActions = useMemberSelectActions(state.items, run, ask);
   const onAddPress = useCallback(
     () => history.push(getPathWithUrlBase('/members/add')),
     [history]
@@ -146,6 +168,8 @@ function MembersIndex() {
       <MembersToolbar
         {...state}
         {...handlers}
+        selectActions={selectActions}
+        isBusy={isBusy}
         isSelectMode={isSelectMode}
         isEmpty={!state.totalItems}
         onAddPress={onAddPress}
@@ -166,25 +190,16 @@ function MembersIndex() {
             {...handlers}
             state={state}
             isSelectMode={isSelectMode}
-            isBusy={isBusy}
-            onAction={run}
           />
         )}
       </PageContentBody>
 
-      {isSelectMode && (
-        <MembersSelectFooter
-          members={state.items}
-          isBusy={isBusy}
-          onAsk={ask}
-        />
-      )}
       {dialogs}
     </PageContent>
   );
 }
 
-// The page's select state, for its rows, the toolbar and the bar along the bottom.
+// The page's select state, for its rows and its toolbar.
 function MembersPage() {
   const state = useMembers();
 

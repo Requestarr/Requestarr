@@ -7,7 +7,6 @@ import PosterSelect from '../Components/Select/PosterSelect';
 import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink } from './RequestMedia';
-import { RowActions } from './RequestRows';
 import RequestStatusLabel from './RequestStatusLabel';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
@@ -60,7 +59,6 @@ function RequestsPosters({ requests, isSelectMode }: RequestsPostersProps) {
           <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
           <div className={styles.posterStatus}>
             <RequestStatusLabel request={request} />
-            <RowActions request={request} />
           </div>
           <div className={styles.posterPeople}>
             <MemberLink person={request.requester} size="small" />

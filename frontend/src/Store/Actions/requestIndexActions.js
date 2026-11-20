@@ -37,8 +37,7 @@ export const defaultState = {
     { name: 'instance', label: () => translate('PortalInstance'), isSortable: true, isVisible: true },
     { name: 'requested', label: () => translate('PortalRequested'), isSortable: true, isVisible: true },
     { name: 'decided', label: () => translate('PortalDecided'), isSortable: true, isVisible: false },
-    { name: 'fulfilled', label: () => translate('PortalFulfilled'), isSortable: true, isVisible: false },
-    { name: 'actions', columnLabel: () => translate('Actions'), isVisible: true, isModifiable: false }
+    { name: 'fulfilled', label: () => translate('PortalFulfilled'), isSortable: true, isVisible: false }
   ],
 
   sortPredicates,

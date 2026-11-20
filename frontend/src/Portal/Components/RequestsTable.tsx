@@ -17,7 +17,6 @@ import {
 } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, RequestPoster } from '../Requests/RequestMedia';
-import { RowActions } from '../Requests/RequestRows';
 import RequestStatusLabel from '../Requests/RequestStatusLabel';
 import useSortedRows, { SortValues } from '../useSortedRows';
 import FollowerStack from './FollowerStack';
@@ -100,12 +99,6 @@ function requestCell(name: string, request: PortalRequest): ReactNode {
       );
     case 'instance':
       return <TableRowCell key={name}>{request.instance ?? ''}</TableRowCell>;
-    case 'actions':
-      return (
-        <TableRowCell key={name}>
-          <RowActions request={request} />
-        </TableRowCell>
-      );
     default:
       return (
         <RelativeDateCell

@@ -13,25 +13,14 @@ import Person from '../Components/Person';
 import SelectCell from '../Components/Select/SelectCell';
 import { byTypeText } from '../portalText';
 import { ContentType, PortalMember } from '../PortalTypes';
-import MemberRowActions from './MemberRowActions';
 import MemberStatusLabel from './MemberStatusLabel';
 
 const ACCESS_PREFIX = 'access-';
 const COUNTS = ['requests', 'active', 'pending', 'following'] as const;
 const DATES = ['firstRequest', 'lastRequest', 'added'] as const;
 
-type OnAction = (members: PortalMember[], action: string) => void;
-
-interface CellContext {
-  member: PortalMember;
-  isBusy: boolean;
-  onAction: OnAction;
-}
-
 // One cell of a member's row, by its column's name, as Sonarr main's SeriesIndexRow draws them.
-function memberCell(name: string, context: CellContext): ReactNode {
-  const { member } = context;
-
+function memberCell(name: string, member: PortalMember): ReactNode {
   if (name.startsWith(ACCESS_PREFIX)) {
     const type = name.slice(ACCESS_PREFIX.length) as ContentType;
 
@@ -77,15 +66,8 @@ function memberCell(name: string, context: CellContext): ReactNode {
     case 'byType':
       return <TableRowCell key={name}>{byTypeText(member)}</TableRowCell>;
     default:
-      return (
-        <TableRowCell key={name}>
-          <MemberRowActions
-            member={member}
-            isBusy={context.isBusy}
-            onAction={context.onAction}
-          />
-        </TableRowCell>
-      );
+      // A column this version no longer has, still remembered in the browser.
+      return null;
   }
 }
 
@@ -95,8 +77,6 @@ interface MembersTableProps {
   sortKey: string;
   sortDirection: SortDirection;
   isSelectMode: boolean;
-  isBusy: boolean;
-  onAction: OnAction;
   onSortPress: (sortKey: string) => void;
   onTableOptionChange: (payload: unknown) => void;
 }
@@ -104,7 +84,7 @@ interface MembersTableProps {
 // The Members page's table: its columns from Table Options, and in select mode a box on each row and one in the
 // header that picks every member the filter shows, as Prowlarr's IndexerIndexTable has.
 function MembersTable(props: MembersTableProps) {
-  const { members, columns, isSelectMode, isBusy, onAction } = props;
+  const { members, columns, isSelectMode } = props;
   const [selectState, selectDispatch] = useSelect();
   const onSelectAllChange = useCallback(
     ({ value }: { value: boolean }) =>
@@ -129,9 +109,7 @@ function MembersTable(props: MembersTableProps) {
         {members.map((member) => (
           <TableRow key={member.id}>
             {isSelectMode && <SelectCell id={member.id} />}
-            {visible.map((column) =>
-              memberCell(column.name, { member, isBusy, onAction })
-            )}
+            {visible.map((column) => memberCell(column.name, member))}
           </TableRow>
         ))}
       </TableBody>

@@ -54,7 +54,7 @@ interface StepsProps {
 function Steps({ people, pick }: StepsProps) {
   const [picked, setPicked] = useState<PortalServerMember[]>();
   // Who was picked before Back, picked again on the list.
-  const [kept, setKept] = useState<string[]>(pick ? [pick] : []);
+  const [kept, setKept] = useState<string[]>(pick ? pick.split(',') : []);
   const [access, setAccess] = useState<OnboardAccess[]>([]);
   const { runId, refused, isStarting, start } = useStartRun();
   const onBack = useCallback(() => {

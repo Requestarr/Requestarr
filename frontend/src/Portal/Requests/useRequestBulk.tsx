@@ -3,47 +3,40 @@ import { useDispatch } from 'react-redux';
 import { useSelect } from 'App/SelectContext';
 import { messageTypes } from 'Helpers/Props';
 import { showMessage } from 'Store/Actions/appActions';
-import getSelectedIds from 'Utilities/Table/getSelectedIds';
-import { SelectAction } from '../Components/Select/SelectFooter';
+import { toolbarActions, usePicked } from '../Components/Select/selectActions';
 import { plainText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
-import { actionLabel } from './ActionButton';
 import BulkActionModal from './BulkActionModal';
 import runBulk, { BULK_PATHS } from './runBulk';
-
-// Removing a title and deleting a record are red; approving and denying look like the app's other buttons.
-const DESTRUCTIVE = ['remove', 'deleteRecord'];
 
 // How long the result stays in the sidebar, as Servarr keeps a finished command's: longer when something failed.
 const MESSAGE_SECONDS = 4;
 const FAILURE_SECONDS = 10;
 
-// What the select bar offers for the requests picked (Approve, Deny, Start removal, Delete record), each asking first
-// with the list of titles, then done to each in turn. Once done the picks clear, as Prowlarr's do after a delete, and
-// what happened shows in the sidebar's messages, as Servarr reports a finished command.
-function useRequestBulk(requests: PortalRequest[], onDone: () => void) {
-  const [selectState, selectDispatch] = useSelect();
+const GROUP = Object.keys(BULK_PATHS);
+
+// One pick: the action runs as on the request's own page (runOne). Several: it asks first with the list of titles,
+// then is done to each in turn; what happened shows in the sidebar's messages, as Servarr reports a finished
+// command, and the picks clear.
+function useRequestBulk(
+  requests: PortalRequest[],
+  runOne: (request: PortalRequest, action: string) => void,
+  onDone: () => void
+) {
+  const [, selectDispatch] = useSelect();
   const [asking, setAsking] = useState<string>();
   const [isBusy, setIsBusy] = useState(false);
   const dispatch = useDispatch();
+  const picked = usePicked(requests);
 
-  const picked = useMemo(() => {
-    const ids = getSelectedIds(selectState.selectedState);
-
-    return requests.filter((request) => ids.includes(request.id));
-  }, [requests, selectState.selectedState]);
-
-  const actions: SelectAction[] = useMemo(
-    () =>
-      Object.keys(BULK_PATHS).map((name) => ({
-        name,
-        label: actionLabel(name),
-        isDanger: DESTRUCTIVE.includes(name),
-        isOffered:
-          picked.length > 0 &&
-          picked.every((request) => request.actions.includes(name)),
-      })),
-    [picked]
+  const onAction = useCallback(
+    (name: string) =>
+      picked.length === 1 ? runOne(picked[0], name) : setAsking(name),
+    [picked, runOne]
+  );
+  const actions = useMemo(
+    () => toolbarActions(GROUP, picked, (r) => r.actions, onAction),
+    [picked, onAction]
   );
 
   const onClose = useCallback(() => setAsking(undefined), []);
@@ -78,13 +71,7 @@ function useRequestBulk(requests: PortalRequest[], onDone: () => void) {
     />
   );
 
-  return {
-    picked,
-    actions,
-    onAction: setAsking,
-    isBusy,
-    modal,
-  };
+  return { actions, isBusy, modal };
 }
 
 export default useRequestBulk;

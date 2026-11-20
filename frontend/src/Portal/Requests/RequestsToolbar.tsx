@@ -9,6 +9,8 @@ import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptions
 import { align, icons } from 'Helpers/Props';
 import SortDirection from 'Helpers/Props/SortDirection';
 import translate from 'Utilities/String/translate';
+import selectActionButtons from '../Components/Select/selectActionButtons';
+import { ToolbarAction } from '../Components/Select/selectActions';
 import SelectAllButton from '../Components/Select/SelectAllButton';
 import SelectAllMenuItem from '../Components/Select/SelectAllMenuItem';
 import SelectModeButton from '../Components/Select/SelectModeButton';
@@ -27,6 +29,8 @@ interface RequestsToolbarProps {
   columns: Column[];
   pageSize: number;
   isFetching: boolean;
+  selectActions: ToolbarAction[];
+  isBusy: boolean;
   isSelectMode: boolean;
   isEmpty: boolean;
   onRefreshPress: () => void;
@@ -38,13 +42,20 @@ interface RequestsToolbarProps {
 }
 
 // The Requests page's toolbar, as Sonarr main's SeriesIndex and Prowlarr's IndexerIndex lay theirs out: Refresh and
-// select mode on the left; Options, View, Sort and Filter on the right.
+// select mode on the left; Options, View, Sort and Filter on the right. In select mode, what can be done to the
+// picks comes first (the owner's choice over Servarr's bar along the bottom).
 function RequestsToolbar(props: RequestsToolbarProps) {
   const { view, isSelectMode, isEmpty } = props;
 
   return (
     <PageToolbar>
       <PageToolbarSection>
+        {selectActionButtons({
+          actions: props.selectActions,
+          isSelectMode,
+          isBusy: props.isBusy,
+        })}
+
         <PageToolbarButton
           label={translate('Refresh')}
           iconName={icons.REFRESH}

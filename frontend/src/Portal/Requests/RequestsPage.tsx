@@ -25,13 +25,12 @@ import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import useClientSidePage from '../Components/Paging/useClientSidePage';
 import { RequestsIndexTable } from '../Components/RequestsTable';
 import { PortalRequest } from '../PortalTypes';
-import { RequestRows, RequestRowsContext } from './RequestRows';
 import RequestsFooter from './RequestsFooter';
 import RequestsOverview from './RequestsOverview';
 import RequestsPosters from './RequestsPosters';
-import RequestsSelectFooter from './RequestsSelectFooter';
 import RequestsToolbar from './RequestsToolbar';
 import useRequestActionRunner from './useRequestActionRunner';
+import useRequestBulk from './useRequestBulk';
 
 type RequestsState = RequestsAppState &
   RequestIndexAppState &
@@ -106,14 +105,12 @@ function Shown(props: ShownProps) {
 interface RequestsBodyProps {
   state: RequestsState;
   isSelectMode: boolean;
-  isBusy: boolean;
-  onAction: RequestRows['onAction'];
   onSortSelect: (sortKey: string) => void;
   onTableOptionChange: (payload: unknown) => void;
 }
 
 function RequestsBody(props: RequestsBodyProps) {
-  const { state, isBusy, onAction } = props;
+  const { state } = props;
   const { pageItems, pager } = useClientSidePage(
     state.items,
     state.pageSize,
@@ -124,7 +121,6 @@ function RequestsBody(props: RequestsBodyProps) {
       state.sortDirection,
     ])
   );
-  const rows = useMemo(() => ({ onAction, isBusy }), [onAction, isBusy]);
 
   if (!state.items.length) {
     return (
@@ -137,23 +133,23 @@ function RequestsBody(props: RequestsBodyProps) {
   }
 
   return (
-    <RequestRowsContext.Provider value={rows}>
+    <>
       <Shown {...props} requests={pageItems} />
       <TablePager {...pager} />
       <RequestsFooter requests={state.items} />
-    </RequestRowsContext.Provider>
+    </>
   );
 }
 
-// Every request, in the Table, Posters or Overview view, filtered, sorted and paged as Sonarr's series list is, with
-// Servarr's select mode for acting on several at once. Each row has its own actions too.
-function RequestsPage() {
+// Every request, in the Table, Posters or Overview view, filtered, sorted and paged as Sonarr's series list is. Select
+// mode picks one or several; what can be done to them is in the toolbar, left of Refresh.
+function RequestsIndex() {
   const state = useRequests();
   const handlers = useIndexDispatch();
   const { onRefreshPress } = handlers;
   const [isSelectMode, setIsSelectMode] = useState(false);
-  const { run, isBusy, outcome, dialogs } =
-    useRequestActionRunner(onRefreshPress);
+  const runner = useRequestActionRunner(onRefreshPress);
+  const bulk = useRequestBulk(state.items, runner.run, onRefreshPress);
   const onSelectModePress = useCallback(
     () => setIsSelectMode((current) => !current),
     []
@@ -164,44 +160,47 @@ function RequestsPage() {
   }, [onRefreshPress]);
 
   return (
-    <SelectProvider items={state.items}>
-      <PageContent title={translate('PortalRequests')}>
-        <RequestsToolbar
-          {...state}
-          {...handlers}
-          isSelectMode={isSelectMode}
-          isEmpty={!state.totalItems}
-          onSelectModePress={onSelectModePress}
-        />
+    <PageContent title={translate('PortalRequests')}>
+      <RequestsToolbar
+        {...state}
+        {...handlers}
+        selectActions={bulk.actions}
+        isBusy={runner.isBusy || bulk.isBusy}
+        isSelectMode={isSelectMode}
+        isEmpty={!state.totalItems}
+        onSelectModePress={onSelectModePress}
+      />
 
-        <PageContentBody>
-          {state.isFetching && !state.isPopulated && <LoadingIndicator />}
+      <PageContentBody>
+        {state.isFetching && !state.isPopulated && <LoadingIndicator />}
 
-          {!state.isFetching && !!state.error && (
-            <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
-          )}
+        {!state.isFetching && !!state.error && (
+          <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
+        )}
 
-          <ActionOutcomeAlert outcome={outcome} />
+        <ActionOutcomeAlert outcome={runner.outcome} />
 
-          {state.isPopulated && !state.error && (
-            <RequestsBody
-              {...handlers}
-              state={state}
-              isSelectMode={isSelectMode}
-              isBusy={isBusy}
-              onAction={run}
-            />
-          )}
-        </PageContentBody>
-
-        {isSelectMode && (
-          <RequestsSelectFooter
-            requests={state.items}
-            onDone={onRefreshPress}
+        {state.isPopulated && !state.error && (
+          <RequestsBody
+            {...handlers}
+            state={state}
+            isSelectMode={isSelectMode}
           />
         )}
-      </PageContent>
-      {dialogs}
+      </PageContentBody>
+      {runner.dialogs}
+      {bulk.modal}
+    </PageContent>
+  );
+}
+
+// The page's select state, for its rows and its toolbar.
+function RequestsPage() {
+  const state = useRequests();
+
+  return (
+    <SelectProvider items={state.items}>
+      <RequestsIndex />
     </SelectProvider>
   );
 }

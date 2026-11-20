@@ -6,7 +6,7 @@ import styles from './SelectFooter.css';
 
 // One of the bar's actions. Only actions every pick offers now are shown; destructive ones (a removal, deleting a
 // record) sit apart on the right in red, as Prowlarr's Delete does.
-export interface SelectAction {
+interface SelectAction {
   name: string;
   label: string;
   isDanger: boolean;

@@ -8,7 +8,6 @@ import useDateText from '../Components/useDateText';
 import { contentTypeText, seasonsText, titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
-import { RowActions } from './RequestRows';
 import RequestStatusLabel from './RequestStatusLabel';
 import portalStyles from '../Portal.css';
 import styles from './RequestViews.css';
@@ -51,7 +50,6 @@ function OverviewRow({ request, isSelectMode }: OverviewRowProps) {
             {dateText(request.requested)}
           </span>
           <RequestStatusLabel request={request} />
-          <RowActions request={request} />
         </div>
         <People request={request} />
         {media?.overview && (
