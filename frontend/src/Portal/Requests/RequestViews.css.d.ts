@@ -6,6 +6,7 @@ interface CssExports {
   overviewRow: string;
   overviewText: string;
   overviewTitle: string;
+  people: string;
   posterCard: string;
   posterImage: string;
   posterMissing: string;

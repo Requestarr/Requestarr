@@ -6,11 +6,11 @@ const DEFAULT_AVATAR = 'https://cdn.discordapp.com/embed/avatars/0.png';
 
 interface AvatarProps {
   url?: string | null;
-  size?: 'small' | 'large';
+  size?: 'medium' | 'large';
 }
 
 // Someone's Discord picture, round, as Discord shows it.
-function Avatar({ url, size = 'small' }: AvatarProps) {
+function Avatar({ url, size = 'medium' }: AvatarProps) {
   // The address that didn't load: another one (the page shows someone else) is tried.
   const [failedUrl, setFailedUrl] = useState<string>();
   const onError = useCallback(() => setFailedUrl(url ?? undefined), [url]);

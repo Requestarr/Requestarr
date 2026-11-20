@@ -32,6 +32,7 @@ export interface PortalPerson {
   id: number;
   name: string | null;
   avatar: string | null;
+  handle: string | null;
 }
 
 // What a request's title is (src/NzbDrone.Core/Requestarr/Portal/PortalModels.cs); values not known are null.
@@ -143,6 +144,7 @@ export interface PortalQueueItem {
   requestId: number | null;
   memberId: number | null;
   whoAvatar: string | null;
+  whoHandle: string | null;
 }
 
 export interface PortalInstance {

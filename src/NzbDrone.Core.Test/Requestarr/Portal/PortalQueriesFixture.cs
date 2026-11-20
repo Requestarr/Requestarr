@@ -66,7 +66,7 @@ namespace Requestarr.Core.Test.Portal
             });
 
         [Test]
-        public void someone_imported_is_first_seen_with_their_first_request_and_every_member_shows_picture_dates_and_types()
+        public void someone_imported_is_first_seen_with_their_first_request_and_every_member_shows_picture_handle_dates_and_types()
         {
             var imported = Db.Insert(new RequestarrUser { DisplayName = "Chaz", Status = UserStatus.ImportedElsewhere, Added = Start.AddDays(30) });
             Db.Insert(new UserIdentity { UserId = imported.Id, Provider = UserIdentity.DiscordProvider, ExternalId = "42", Username = "chaz", AvatarUrl = "https://cdn.discordapp.com/avatars/42/a.png" });
@@ -86,7 +86,12 @@ namespace Requestarr.Core.Test.Portal
             member.ByType.Should().Equal(new PortalTypeCount(ContentType.Movie, 2), new PortalTypeCount(ContentType.Tv, 1));
             (member.Avatar, member.DiscordName).Should().Be(("https://cdn.discordapp.com/avatars/42/a.png", "chaz"));
             Subject.Members().Single(m => m.Id == _alice.Id).Added.Should().Be(Start, "a member keeps the day they were added");
-            Subject.Requests().First(r => r.Requester.Id == imported.Id).Requester.Avatar.Should().Be("https://cdn.discordapp.com/avatars/42/a.png");
+            Subject.Requests().First(r => r.Requester.Id == imported.Id).Requester
+                .Should().Be(new PortalPerson(imported.Id, "Chaz", "https://cdn.discordapp.com/avatars/42/a.png", "chaz"));
+
+            Mocker.GetMock<IAdminQueue>().Setup(q => q.Items()).Returns(new List<QueueItem> { new($"r{show.Id}", Start) });
+            var waiting = Subject.Queue().Single();
+            (waiting.WhoAvatar, waiting.WhoHandle).Should().Be(("https://cdn.discordapp.com/avatars/42/a.png", "chaz"));
         }
 
         private void Followed(Request request, RequestarrUser user) =>
@@ -106,8 +111,8 @@ namespace Requestarr.Core.Test.Portal
 
             requests.Select(r => r.Title).Should().Equal("Arrival", "Dune");
             var row = requests.Single(r => r.Title == "Dune");
-            row.Requester.Should().Be(new PortalPerson(_alice.Id, "Alice", null));
-            row.Followers.Should().Equal(new PortalPerson(_bob.Id, "Bob", null));
+            row.Requester.Should().Be(new PortalPerson(_alice.Id, "Alice", null, null));
+            row.Followers.Should().Equal(new PortalPerson(_bob.Id, "Bob", null, null));
             row.Instance.Should().Be("Radarr 4K");
         }
 

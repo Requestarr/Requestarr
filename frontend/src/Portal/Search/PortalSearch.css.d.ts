@@ -3,6 +3,7 @@
 interface CssExports {
   'detail': string;
   'group': string;
+  'handle': string;
   'highlighted': string;
   'icon': string;
   'input': string;

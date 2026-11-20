@@ -5,7 +5,7 @@ import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem'
 import FieldSet from 'Components/FieldSet';
 import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
-import MemberLink from '../Components/MemberLink';
+import { MemberLinks } from '../Components/MemberLink';
 import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
 import TimelineTable from '../Components/TimelineTable';
@@ -31,16 +31,7 @@ function People({ people }: { people: PortalPerson[] }) {
     return <span className={styles.muted}>{translate('PortalNobody')}</span>;
   }
 
-  return (
-    <>
-      {people.map((person, index) => (
-        <span key={person.id}>
-          {index > 0 && ', '}
-          <MemberLink person={person} />
-        </span>
-      ))}
-    </>
-  );
+  return <MemberLinks people={people} />;
 }
 
 // The title on The Movie Database or TheTVDB, and its page in Sonarr or Radarr when a browser can reach it.

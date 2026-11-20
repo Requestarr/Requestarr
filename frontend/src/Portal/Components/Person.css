@@ -1,0 +1,37 @@
+/* The picture's height is the two lines' together: medium 2 × 19px, large 36px + 28px. */
+.medium,
+.large {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  vertical-align: middle;
+}
+
+.large {
+  gap: 14px;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.medium .lines {
+  line-height: 19px;
+}
+
+.large .name {
+  font-size: 24px;
+  line-height: 36px;
+}
+
+.large .handle {
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.muted {
+  color: var(--helpTextColor);
+}
