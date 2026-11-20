@@ -23,16 +23,25 @@ import {
   SettingsCardSection,
 } from './ConnectionSections';
 import ConnectionsToolbar, { useShowAdvanced } from './ConnectionsToolbar';
-import useTestAll from './useTestAll';
+import useTestAll, { TestOutcome } from './useTestAll';
 import styles from './Connections.css';
 
-// What Test All Connections found: each failure on its own line, or that everything passed.
-function TestAllResult({ problems }: { problems?: string[] }) {
-  if (!problems) {
+// What Test All Connections found: each failure on its own line, that everything passed, or that nothing was turned
+// on to test.
+function TestAllResult({ outcomes }: { outcomes?: TestOutcome[] }) {
+  if (!outcomes) {
     return null;
   }
 
-  if (!problems.length) {
+  if (!outcomes.length) {
+    return (
+      <Alert kind={kinds.INFO}>{translate('TestAllConnectionsNothing')}</Alert>
+    );
+  }
+
+  const failed = outcomes.filter((outcome) => outcome.problem);
+
+  if (!failed.length) {
     return (
       <Alert kind={kinds.SUCCESS}>
         {translate('TestAllConnectionsPassed')}
@@ -43,8 +52,8 @@ function TestAllResult({ problems }: { problems?: string[] }) {
   return (
     <Alert kind={kinds.DANGER}>
       <ul className={styles.problems}>
-        {problems.map((problem) => (
-          <li key={problem}>{problem}</li>
+        {failed.map(({ id, name, problem }) => (
+          <li key={id}>{`${name}: ${problem}`}</li>
         ))}
       </ul>
     </Alert>
@@ -66,6 +75,7 @@ interface ConnectionCardsProps {
   settings: AppSettings;
   setup?: SetupStatus;
   instances?: Instance[];
+  outcomes?: TestOutcome[];
   options: SettingsForm;
   showAdvanced: boolean;
   onSaved: () => void;
@@ -76,6 +86,7 @@ function ConnectionCards({
   settings,
   setup,
   instances,
+  outcomes,
   options,
   showAdvanced,
   onSaved,
@@ -98,6 +109,7 @@ function ConnectionCards({
 
       <MediaManagersSection
         instances={instances}
+        outcomes={outcomes}
         settings={settings}
         onSaved={onSaved}
       />
@@ -175,13 +187,14 @@ function ConnectionsSettings() {
           </Alert>
         )}
 
-        <TestAllResult problems={testAll.problems} />
+        <TestAllResult outcomes={testAll.outcomes} />
 
         {settings && (
           <ConnectionCards
             settings={settings}
             setup={setup.data}
             instances={instances.data}
+            outcomes={testAll.outcomes}
             options={options}
             showAdvanced={showAdvanced}
             onSaved={onSaved}

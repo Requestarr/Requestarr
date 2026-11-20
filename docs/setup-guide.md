@@ -154,7 +154,7 @@ What's there:
 - **Requests, Members and Queue:** every request, every member, and what waits on an admin, with everything an admin does in Discord's admin channels: approve, deny, cancel, add seasons, start, force or drop a removal, add a member, change their access and limits, suspend, unsuspend, remove, link Plex. Discord's messages change as if it had been done there.
 - **Access requests, Outages and Audit log:** people asking to join or paused, what can't be reached now and past outages, and everything Requestarr recorded, by member, title, action and day. The audit log keeps an entry for 1 year by default (Settings, Requests, **Keep the audit log for**: 90 days, 6 months, 1 year, 2 years or forever; `auditLog.keepFor` in `provisioning.yml`). Older entries are removed once a day, and that is recorded too; requests, members, removals and renames (which the header search uses to find a name someone had before) stay. Histories, timelines and Settings, then Changes, show what the log still keeps, and a page whose older history was removed says so.
 - **The search in the header** (press `/`): a request by title, a member by name or Discord username.
-- **Settings:** General, UI and Tags; Discord, Sonarr and Radarr, Requests and Connections (Requestarr's own settings); Changes (every change to them); and Setup (the first-run setup).
+- **Settings:** Connections (everything Requestarr connects to: the Discord bot, Sonarr and Radarr, The Movie Database and bug reports, as cards) and Requests (Requestarr's own settings); Changes (every change to them); General, UI and Tags; and Setup (the first-run setup).
 - **System:** Status, Tasks, Backup, Updates, What's new (each version's changes), Events, and Log Files.
 
 ### 3.6 Updating
@@ -879,7 +879,7 @@ The setup then says Requestarr is ready. Finish under **Settings → Connections
 
 Every change is recorded on **Settings → Changes**. Keys and tokens are kept in Requestarr's own database and never shown again. **This server is** stays on the **Discord** card under **Settings → Connections**.
 
-**Check:** the web app shows the BETA strip; **Settings → Connections** shows both Sonarr and Radarr cards Connected (**Test All Connections** checks them again); **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
+**Check:** the web app shows the BETA strip; **Settings → Connections** shows both Sonarr and Radarr cards Connected (**Test All Connections** tests them again and shows the result on their cards); **System → Status** has no Discord, Sonarr, Radarr or webhook warnings; and in Sonarr and Radarr, **Settings → Connect** lists **Requestarr Beta (availability)**. Requestarr adds that connection itself, named for beta so it can be told apart from production's Requestarr later. Its **Test** passes.
 
 ### B.4 Delete files, and why it starts off
 

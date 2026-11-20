@@ -2,6 +2,7 @@ import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import { AppSettings, Instance, SetupStatus } from '../RequestarrSettingsTypes';
 import { CardLabel } from './ConnectionCard';
+import { TestOutcome } from './useTestAll';
 
 // The cards' status labels, in the tag style of Sonarr's profiles: green when connected, red when failing, grey for
 // the rest.
@@ -30,6 +31,8 @@ function botStatus(setup: SetupStatus | undefined): CardLabel[] {
     case 'failed':
     case 'disconnected':
       return [failing()];
+    case 'connecting':
+      return [grey('BotStateConnecting')];
     default:
       return [grey('ConnectionNotSetUp')];
   }
@@ -42,9 +45,14 @@ export function discordLabels(
   return [...botStatus(setup), ...provisioned(settings)];
 }
 
-function instanceStatus(instance: Instance): CardLabel {
+// Test All Connections' outcome when it tested this instance, otherwise Requestarr's last check.
+function instanceStatus(instance: Instance, tested?: TestOutcome): CardLabel {
   if (!instance.settings.enabled) {
     return grey('InstanceTurnedOff');
+  }
+
+  if (tested) {
+    return tested.problem ? failing() : connected();
   }
 
   if (instance.connected) {
@@ -56,10 +64,11 @@ function instanceStatus(instance: Instance): CardLabel {
 
 export function instanceLabels(
   instance: Instance,
-  settings: AppSettings | undefined
+  settings: AppSettings | undefined,
+  tested?: TestOutcome
 ): CardLabel[] {
   return [
-    instanceStatus(instance),
+    instanceStatus(instance, tested),
     ...(instance.settings.isDefault ? [grey('Default')] : []),
     ...provisioned(settings),
   ];

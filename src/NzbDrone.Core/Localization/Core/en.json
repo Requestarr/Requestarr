@@ -1111,6 +1111,7 @@
   "System": "System",
   "SystemTimeHealthCheckMessage": "System time is off by more than 1 day. Scheduled tasks may not run correctly until the time is corrected",
   "TestAllConnections": "Test All Connections",
+  "TestAllConnectionsNothing": "Nothing to test: no Sonarr or Radarr is turned on.",
   "TestAllConnectionsPassed": "Every Sonarr and Radarr that's turned on passed its test.",
   "TVSearchTypes": "TV Search Types",
   "TableOptions": "Table Options",

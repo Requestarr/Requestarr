@@ -11,6 +11,7 @@ import AddConnectionModal from './AddConnectionModal';
 import ConnectionCard, { AddConnectionCard, CardLabel } from './ConnectionCard';
 import { instanceLabels } from './connectionLabels';
 import SettingsConnectionModal from './SettingsConnectionModal';
+import { TestOutcome } from './useTestAll';
 import styles from './Connections.css';
 
 interface SettingsCardSectionProps {
@@ -77,24 +78,32 @@ export function SettingsCardSection({
 interface InstanceCardProps {
   instance: Instance;
   settings?: AppSettings;
+  tested?: TestOutcome;
   onOpen: (instance: Instance) => void;
 }
 
-function InstanceCard({ instance, settings, onOpen }: InstanceCardProps) {
+function InstanceCard({
+  instance,
+  settings,
+  tested,
+  onOpen,
+}: InstanceCardProps) {
   const onPress = useCallback(() => onOpen(instance), [instance, onOpen]);
 
   return (
     <ConnectionCard
       name={instance.settings.name}
       type={instance.settings.implementation}
-      labels={instanceLabels(instance, settings)}
+      labels={instanceLabels(instance, settings, tested)}
       onPress={onPress}
     />
   );
 }
 
+// Outcomes: what Test All Connections found, shown on the cards in place of the last check.
 interface MediaManagersSectionProps {
   instances?: Instance[];
+  outcomes?: TestOutcome[];
   settings?: AppSettings;
   onSaved: () => void;
 }
@@ -102,6 +111,7 @@ interface MediaManagersSectionProps {
 // Sonarr and Radarr instances, then the "+" card that adds one through the Add modal.
 export function MediaManagersSection({
   instances,
+  outcomes,
   settings,
   onSaved,
 }: MediaManagersSectionProps) {
@@ -136,6 +146,7 @@ export function MediaManagersSection({
               key={instance.id}
               instance={instance}
               settings={settings}
+              tested={outcomes?.find((outcome) => outcome.id === instance.id)}
               onOpen={onOpen}
             />
           ))}

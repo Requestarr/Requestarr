@@ -53,7 +53,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // The Connections settings page: its section headings, its connection cards, and an open modal's words.
         private const string Legends = "[...document.querySelectorAll('legend')].map(l => l.innerText.trim())";
-        private const string Cards = "[...document.querySelectorAll('[class*=\"ConnectionCard-connection\"]')]";
+        private const string Cards = "[...document.querySelectorAll('[class*=\"ConnectionCard-connection\"]:not([class*=\"ConnectionCard-addConnection\"])')]";
         private const string ModalText = "document.querySelector('[class*=\"ModalContent\"]').innerText.replace(/\\s+/g, ' ')";
 
         private static readonly string[] Themes = { "light", "dark" };
