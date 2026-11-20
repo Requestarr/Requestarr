@@ -10,7 +10,7 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
-    // What everyone picked gets, per content type: their access, a limit (requests per so many days; null keeps the
+    // What everyone picked gets, per content type: their access, a limit (requests per so many days; null or 0 keeps the
     // server's) and an instance (null keeps the server's).
     public record OnboardAccess(ContentType ContentType, AccessState State, int? Limit, int? Days, int? InstanceId);
 
@@ -47,6 +47,9 @@ namespace Requestarr.Core.Portal
     {
         // Runs kept for the page to read back; older ones are forgotten.
         private const int Kept = 20;
+
+        // A limit without its days counts a week, as the member card's limit does.
+        private const int DefaultDays = 7;
 
         private readonly ConcurrentDictionary<string, Run> _runs = new();
         private readonly IUserManagementService _users;
@@ -96,7 +99,8 @@ namespace Requestarr.Core.Portal
         }
 
         // The member card's onboarding with the access picked, then each type's own instance and limit where one was
-        // picked. Anything that goes wrong is this person's failure, said in Requestarr's words.
+        // picked. The add going wrong is this person's failure, in Requestarr's words; once added they're Added, and an
+        // instance or limit that didn't apply is said beside it (Retry would only find them a member already).
         private async Task<(bool Done, string Message)> OnboardAsync(OnboardPerson person, IReadOnlyList<OnboardAccess> access, Actor admin)
         {
             if (!ulong.TryParse(person.DiscordId, out var id))
@@ -104,40 +108,54 @@ namespace Requestarr.Core.Portal
                 return (false, "Pick someone from the server.");
             }
 
+            ServiceResult added;
+
             try
             {
-                var added = await _users.AddAsync(id, access.ToDictionary(a => a.ContentType, a => a.State), admin);
-
-                if (!added.Success)
-                {
-                    return (false, added.Message);
-                }
-
-                foreach (var typeAccess in access)
-                {
-                    SetOwn(id, typeAccess, admin);
-                }
-
-                return (true, added.Message);
+                added = await _users.AddAsync(id, access.ToDictionary(a => a.ContentType, a => a.State), admin);
             }
             catch (Exception ex)
             {
                 _logger.Warn(ex, "Onboarding {0} from the web app failed", person.Name);
                 return (false, $"Something went wrong: {ex.Message}");
             }
+
+            if (!added.Success)
+            {
+                return (false, added.Message);
+            }
+
+            var notSet = access.SelectMany(a => SetOwn(id, a, admin)).ToList();
+
+            return (true, string.Join(" ", new[] { added.Message }.Concat(notSet)));
         }
 
-        private void SetOwn(ulong id, OnboardAccess typeAccess, Actor admin)
+        // What didn't apply of this type's own instance and limit, in Requestarr's words.
+        private IEnumerable<string> SetOwn(ulong id, OnboardAccess typeAccess, Actor admin)
         {
-            if (typeAccess.InstanceId is { } instanceId && _backends.Find(instanceId) is { } instance)
+            var results = new List<ServiceResult>();
+
+            try
             {
-                _users.SetAccess(id, typeAccess.ContentType, typeAccess.State, admin, instance.Name);
+                if (typeAccess.InstanceId is { } instanceId)
+                {
+                    results.Add(_backends.Find(instanceId) is { } instance
+                        ? _users.SetAccess(id, typeAccess.ContentType, typeAccess.State, admin, instance.Name)
+                        : ServiceResult.Fail("That instance no longer exists."));
+                }
+
+                if (typeAccess.Limit is { } limit and > 0)
+                {
+                    results.Add(_users.SetQuota(id, typeAccess.ContentType, limit, typeAccess.Days ?? DefaultDays, admin));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Setting {0} for a member onboarded from the web app failed", typeAccess.ContentType);
+                results.Add(ServiceResult.Fail($"Something went wrong: {ex.Message}"));
             }
 
-            if (typeAccess.Limit is { } limit && typeAccess.Days is { } days)
-            {
-                _users.SetQuota(id, typeAccess.ContentType, limit, days, admin);
-            }
+            return results.Where(r => !r.Success).Select(r => $"Not set for {typeAccess.ContentType}: {r.Message}");
         }
 
         private void Forget()

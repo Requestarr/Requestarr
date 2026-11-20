@@ -23,18 +23,26 @@ type Who = Pick<PortalServerMember, 'discordId' | 'name'>;
 function useStartRun() {
   const [runId, setRunId] = useState<string>();
   const [refused, setRefused] = useState<ActionOutcome>();
+  // Pressing twice never starts two runs for the same people.
+  const [isStarting, setIsStarting] = useState(false);
   const start = useCallback((people: Who[], access: OnboardAccess[]) => {
+    setIsStarting(true);
     callApi<OnboardJob>('/portal/members/onboard', 'POST', {
       people: people.map(({ discordId, name }) => ({ discordId, name })),
       access,
     }).then(
-      (run) => setRunId(run.id),
-      (failure: Error) =>
-        setRefused({ isDone: false, message: failure.message })
+      (run) => {
+        setIsStarting(false);
+        setRunId(run.id);
+      },
+      (failure: Error) => {
+        setIsStarting(false);
+        setRefused({ isDone: false, message: failure.message });
+      }
     );
   }, []);
 
-  return { runId, refused, start };
+  return { runId, refused, isStarting, start };
 }
 
 interface StepsProps {
@@ -45,9 +53,14 @@ interface StepsProps {
 // Pick, set up, then watch it happen; Retry starts a new run with the same setup for those who failed.
 function Steps({ people, pick }: StepsProps) {
   const [picked, setPicked] = useState<PortalServerMember[]>();
+  // Who was picked before Back, picked again on the list.
+  const [kept, setKept] = useState<string[]>(pick ? [pick] : []);
   const [access, setAccess] = useState<OnboardAccess[]>([]);
-  const { runId, refused, start } = useStartRun();
-  const onBack = useCallback(() => setPicked(undefined), []);
+  const { runId, refused, isStarting, start } = useStartRun();
+  const onBack = useCallback(() => {
+    setKept((picked ?? []).map((person) => person.discordId));
+    setPicked(undefined);
+  }, [picked]);
   const onConfirm = useCallback(
     (chosen: OnboardAccess[]) => {
       setAccess(chosen);
@@ -64,7 +77,12 @@ function Steps({ people, pick }: StepsProps) {
     return (
       <>
         <ActionOutcomeAlert outcome={refused} />
-        <OnboardProgress key={runId} runId={runId} onRetry={onRetry} />
+        <OnboardProgress
+          key={runId}
+          runId={runId}
+          isStarting={isStarting}
+          onRetry={onRetry}
+        />
       </>
     );
   }
@@ -73,13 +91,18 @@ function Steps({ people, pick }: StepsProps) {
     return (
       <>
         <ActionOutcomeAlert outcome={refused} />
-        <SetUpPeople people={picked} onBack={onBack} onConfirm={onConfirm} />
+        <SetUpPeople
+          people={picked}
+          isStarting={isStarting}
+          onBack={onBack}
+          onConfirm={onConfirm}
+        />
       </>
     );
   }
 
   return people.length ? (
-    <PickPeople people={people} pick={pick} onNext={setPicked} />
+    <PickPeople people={people} kept={kept} onNext={setPicked} />
   ) : (
     <div className={styles.empty}>{translate('PortalNobodyToAdd')}</div>
   );

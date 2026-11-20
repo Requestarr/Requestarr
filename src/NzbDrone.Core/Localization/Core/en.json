@@ -811,6 +811,7 @@
   "PortalOnboardDone": "Added {added}, {failed} failed.",
   "PortalOnboardFailed": "Failed:",
   "PortalOnboardLimitHelpText": "Requests a week; 0 keeps the server's limit.",
+  "PortalOnboardLost": "This onboarding can't be followed any more (Requestarr restarted since). Members shows who was added.",
   "PortalOnboardSummary": "Onboard {count} people: {access}",
   "PortalOnboardWaiting": "Waiting",
   "PortalOpenIn": "Open in {app}",

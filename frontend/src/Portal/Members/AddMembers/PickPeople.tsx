@@ -86,14 +86,14 @@ function CandidateRow({
 
 interface PickPeopleProps {
   people: PortalServerMember[];
-  // Someone picked to begin with (a member page's Onboard), by Discord ID.
-  pick: string | null;
+  // Who's picked to begin with (a member page's Onboard, or the picks before Back), by Discord ID.
+  kept: string[];
   onNext: (picked: PortalServerMember[]) => void;
 }
 
 // Add member's first step: everyone in the server who isn't onboarded, people with imported history first, narrowed
-// as you type and sorted by any column; pick one or many, then set them up.
-function PickPeople({ people, pick, onNext }: PickPeopleProps) {
+// as you type and sorted by any column; pick one or many (a pick the filter hides stays picked), then set them up.
+function PickPeople({ people, kept, onNext }: PickPeopleProps) {
   const [words, setWords] = useState('');
   const candidates = useMemo(
     () => people.map((person) => ({ ...person, id: person.discordId })),
@@ -109,7 +109,7 @@ function PickPeople({ people, pick, onNext }: PickPeopleProps) {
     'imported',
     sortDirections.DESCENDING
   );
-  const selection = useSelection(sort.sorted, sort.sorted, pick ? [pick] : []);
+  const selection = useSelection(candidates, sort.sorted, kept);
   const onWords = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) =>
       setWords(event.target.value),

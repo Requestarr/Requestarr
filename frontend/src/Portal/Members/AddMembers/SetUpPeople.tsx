@@ -26,6 +26,9 @@ const DEFAULT_STATE: Partial<Record<ContentType, AccessState>> = {
 // A week, as requests count a limit.
 const DEFAULT_DAYS = 7;
 
+// The most requests a limit allows, as the member card has it.
+const MAX_LIMIT = 1000;
+
 function defaultsFor(type: ContentType): OnboardAccess {
   return {
     contentType: type,
@@ -90,6 +93,8 @@ function TypeFields({ access, instances, onChange }: TypeFieldsProps) {
           type={inputTypes.NUMBER}
           name="limit"
           value={access.limit ?? 0}
+          min={0}
+          max={MAX_LIMIT}
           helpText={translate('PortalOnboardLimitHelpText')}
           onChange={onFieldChange}
         />
@@ -103,6 +108,7 @@ function summary(count: number, access: OnboardAccess[]) {
   return translate('PortalOnboardSummary', {
     count,
     access: access
+      .filter((a) => a.state !== 'off')
       .map((a) => {
         const state = accessStateText(a.state).toLowerCase();
 
@@ -114,13 +120,19 @@ function summary(count: number, access: OnboardAccess[]) {
 
 interface SetUpPeopleProps {
   people: PortalServerMember[];
+  isStarting: boolean;
   onBack: () => void;
   onConfirm: (access: OnboardAccess[]) => void;
 }
 
 // Add member's second step: what everyone picked gets, once for all of them, starting from the server's defaults,
 // then the summary and Confirm.
-function SetUpPeople({ people, onBack, onConfirm }: SetUpPeopleProps) {
+function SetUpPeople({
+  people,
+  isStarting,
+  onBack,
+  onConfirm,
+}: SetUpPeopleProps) {
   const { data: types } = usePortal<ContentType[]>('types');
   const { data: instances } = usePortal<PortalInstance[]>('instances');
   const [changed, setChanged] = useState<
@@ -152,7 +164,8 @@ function SetUpPeople({ people, onBack, onConfirm }: SetUpPeopleProps) {
           key={one.contentType}
           access={one}
           instances={(instances ?? []).filter(
-            (instance) => instance.contentType === one.contentType
+            (instance) =>
+              instance.contentType === one.contentType && instance.enabled
           )}
           onChange={onChange}
         />
@@ -160,7 +173,11 @@ function SetUpPeople({ people, onBack, onConfirm }: SetUpPeopleProps) {
       <p className={styles.summary}>{summary(people.length, access)}</p>
       <div className={styles.buttons}>
         <Button onPress={onBack}>{translate('PortalBack')}</Button>
-        <Button kind={kinds.PRIMARY} onPress={onConfirmPress}>
+        <Button
+          kind={kinds.PRIMARY}
+          isDisabled={isStarting}
+          onPress={onConfirmPress}
+        >
           {translate('PortalConfirm')}
         </Button>
       </div>

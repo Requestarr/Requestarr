@@ -48,13 +48,6 @@ namespace Requestarr.Core.Discord.Gateway
             return user == null ? null : new GuildMember(user.Id, user.Username, user.GlobalName ?? user.Username, user.GetDisplayAvatarUrl(), user.IsBot, Array.Empty<ulong>());
         }
 
-        public async Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit)
-        {
-            var found = await ((IGuild)RequireGuild()).SearchUsersAsync(query, limit, CacheMode.AllowDownload);
-
-            return found.Select(ToMember).ToList();
-        }
-
         public async Task<IReadOnlyList<GuildMember>> GetMembersAsync()
         {
             var all = await ((IGuild)RequireGuild()).GetUsersAsync(CacheMode.AllowDownload);

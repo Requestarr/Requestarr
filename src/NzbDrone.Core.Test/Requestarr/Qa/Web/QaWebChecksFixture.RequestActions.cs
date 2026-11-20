@@ -130,7 +130,7 @@ namespace Requestarr.Core.Test.Qa.Web
             // Only what every one of the three offers is shown.
             var ids = await browser.EvalAsync<int[]>($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).map(r => Number(r.querySelector('a[href*=\"/requests/\"]').getAttribute('href').split('/').pop()))");
             var expected = await PortalAsync<string[]>(browser, "requests", $"r => (picked => Object.entries({BulkLabels}).filter(([a]) => picked.every(q => q.actions.includes(a))).map(([, label]) => label))(r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)))");
-            var shown = await browser.EvalAsync<string[]>($"[...{Bar}.querySelectorAll('button')].map(b => b.innerText.trim())");
+            var shown = await browser.EvalAsync<string[]>($"[...{Bar}.querySelectorAll('[class*=\"SelectionBar-actions\"] button')].map(b => b.innerText.trim())");
             check.Saw($"{Picks} picked ({theme}): the bar says \"{await BarTextAsync(browser)}\"; all three offer: {string.Join(", ", expected)}");
             shown.Should().Equal(expected, "the bar shows only what every pick offers");
             (await browser.EvalAsync<double>($"{Bar}.getBoundingClientRect().top - document.querySelector('table').getBoundingClientRect().top")).Should().BeLessThan(0, "the bar sits above the list");

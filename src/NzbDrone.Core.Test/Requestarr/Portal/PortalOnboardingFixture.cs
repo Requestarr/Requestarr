@@ -67,6 +67,21 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
+        public async Task someone_added_whose_instance_cant_be_set_is_added_and_says_what_wasnt_set()
+        {
+            var onboarding = Mocker.Resolve<PortalOnboarding>();
+            onboarding.Pace = TimeSpan.Zero;
+            var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.NeedsApproval, null, null, 999) };
+
+            var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, Admin);
+            await onboarding.WhenDoneAsync(started.Id);
+            var alice = onboarding.Find(started.Id).People.Single();
+
+            alice.State.Should().Be(OnboardState.Added);
+            alice.Message.Should().Contain("Not set for Movie").And.Contain("That instance no longer exists");
+        }
+
+        [Test]
         public async Task the_server_list_leaves_out_members_and_bots_and_puts_imported_people_first()
         {
             Discord.AddMember(Carol, "carol");

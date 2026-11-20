@@ -19,7 +19,8 @@ namespace Requestarr.Core.Portal
 
     public interface IPortalMemberActions
     {
-        // Everyone in the server who isn't onboarded (bots left out), those with imported history first.
+        // Everyone in the server who isn't onboarded (bots left out), those with imported history first; null while the bot
+        // isn't connected, since then nobody can be listed.
         Task<IReadOnlyList<PortalServerMember>> ServerMembersAsync();
 
         // InstanceId: the member's own instance for the type; null leaves it as it is.
@@ -75,13 +76,14 @@ namespace Requestarr.Core.Portal
         {
             if (!_gateway.IsConnected)
             {
-                return new List<PortalServerMember>();
+                return null;
             }
 
-            // Someone known only from an import is listed, with their history, to be onboarded.
+            // Someone known only from an import is listed, with their history, to be onboarded. Onboarded means they have
+            // their channel, as onboarding decides: an admin's own record, or one made when they asked for a Plex link, has none.
             var people = _members.All().ToDictionary(u => u.Id);
             var discordOf = _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider && people.ContainsKey(i.UserId)).ToDictionary(i => i.UserId, i => i.ExternalId);
-            var onboarded = people.Values.Where(u => u.Status is UserStatus.Active or UserStatus.Suspended).Select(u => discordOf.GetValueOrDefault(u.Id)).ToHashSet();
+            var onboarded = people.Values.Where(u => u.Status != UserStatus.Removed && u.PrivateChannelId != null).Select(u => discordOf.GetValueOrDefault(u.Id)).ToHashSet();
             var imported = _requests.All().Where(r => people.GetValueOrDefault(r.OwnerUserId)?.IsImported == true && discordOf.ContainsKey(r.OwnerUserId))
                 .GroupBy(r => discordOf[r.OwnerUserId]).ToDictionary(g => g.Key, g => g.Count());
             var roles = await _gateway.GetRoleNamesAsync();

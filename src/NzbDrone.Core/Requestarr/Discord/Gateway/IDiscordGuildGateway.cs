@@ -58,9 +58,6 @@ namespace Requestarr.Core.Discord.Gateway
         // Any Discord user by ID (their username, global name and picture), in this server or not; null when there's none.
         Task<GuildMember> GetUserAsync(ulong userId);
 
-        // Server members whose username or server name starts with the query, as Discord searches them.
-        Task<IReadOnlyList<GuildMember>> SearchMembersAsync(string query, int limit);
-
         // Everyone in the server, bots too.
         Task<IReadOnlyList<GuildMember>> GetMembersAsync();
 

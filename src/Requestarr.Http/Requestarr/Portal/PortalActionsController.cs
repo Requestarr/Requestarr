@@ -105,18 +105,26 @@ namespace Requestarr.Http.Portal
 
         [HttpGet("/api/v1/portal/server-members")]
         [Produces("application/json")]
-        public async Task<IActionResult> ServerMembers() => Json(await _members.ServerMembersAsync());
+        public async Task<IActionResult> ServerMembers() =>
+            await _members.ServerMembersAsync() is { } people ? Json(people) : Conflict(new { message = "The Discord bot isn't connected, so the server's people can't be listed." });
 
         // Starts onboarding everyone picked; the answer is the run, read again at its own address until it's done.
         [HttpPost("/api/v1/portal/members/onboard")]
         public async Task<IActionResult> Onboard([FromBody] OnboardBody body)
         {
-            if (body?.People == null || body.People.Count == 0)
+            if (body == null)
+            {
+                return await Missing();
+            }
+
+            if (body.People == null || body.People.Count == 0)
             {
                 return BadRequest(new { message = "Pick someone from the server." });
             }
 
-            return Json(_onboarding.Start(body.People, body.Access ?? new List<OnboardAccess>(), await WebAdmin.ActorAsync(HttpContext)));
+            var access = (body.Access ?? new List<OnboardAccess>()).GroupBy(a => a.ContentType).Select(g => g.Last()).ToList();
+
+            return Json(_onboarding.Start(body.People, access, await WebAdmin.ActorAsync(HttpContext)));
         }
 
         [HttpGet("/api/v1/portal/members/onboard/{id}")]

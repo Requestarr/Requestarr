@@ -29,32 +29,34 @@ const columns: Column[] = [
   { name: 'state', label: () => translate('PortalStatus') },
 ].map((column) => ({ ...column, isVisible: true, isSortable: false }));
 
-// The run as it is now, asked again every second until it's gone through everyone.
+// The run as it is now, asked again a second after each answer until it's gone through everyone; isLost once it can't
+// be read (Requestarr restarted and forgot it).
 function useRun(id: string) {
   const [run, setRun] = useState<OnboardJob>();
+  const [isLost, setIsLost] = useState(false);
 
   useEffect(() => {
     let isOver = false;
+    let timer: ReturnType<typeof setTimeout> | undefined = undefined;
     const ask = () =>
-      callApi<OnboardJob>(`/portal/members/onboard/${id}`).then((answer) => {
-        if (!isOver) {
-          setRun(answer);
-        }
-
-        return answer.isDone;
-      });
-    const timer = setInterval(() => {
-      ask().then((isDone) => isDone && clearInterval(timer));
-    }, ASK_EVERY_MS);
+      callApi<OnboardJob>(`/portal/members/onboard/${id}`).then(
+        (answer) => {
+          if (!isOver) {
+            setRun(answer);
+            timer = answer.isDone ? timer : setTimeout(ask, ASK_EVERY_MS);
+          }
+        },
+        () => !isOver && setIsLost(true)
+      );
     ask();
 
     return () => {
       isOver = true;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [id]);
 
-  return run;
+  return { run, isLost };
 }
 
 function PersonRow({ person }: { person: OnboardResult }) {
@@ -73,18 +75,23 @@ function PersonRow({ person }: { person: OnboardResult }) {
 
 interface OnboardProgressProps {
   runId: string;
+  isStarting: boolean;
   onRetry: (failed: OnboardResult[]) => void;
 }
 
 // Add member's last step: each person as they're onboarded, then who was added and who failed and why, with Retry for
 // those who failed.
-function OnboardProgress({ runId, onRetry }: OnboardProgressProps) {
-  const run = useRun(runId);
+function OnboardProgress({ runId, isStarting, onRetry }: OnboardProgressProps) {
+  const { run, isLost } = useRun(runId);
   const failed = useMemo(
     () => run?.people.filter((p) => p.state === 'failed') ?? [],
     [run]
   );
   const onRetryPress = useCallback(() => onRetry(failed), [failed, onRetry]);
+
+  if (isLost) {
+    return <Alert kind={kinds.WARNING}>{translate('PortalOnboardLost')}</Alert>;
+  }
 
   if (!run) {
     return null;
@@ -110,7 +117,11 @@ function OnboardProgress({ runId, onRetry }: OnboardProgressProps) {
       {run.isDone && (
         <div className={styles.buttons}>
           {failed.length > 0 && (
-            <Button kind={kinds.PRIMARY} onPress={onRetryPress}>
+            <Button
+              kind={kinds.PRIMARY}
+              isDisabled={isStarting}
+              onPress={onRetryPress}
+            >
               {translate('PortalRetryFailed', { count: failed.length })}
             </Button>
           )}
