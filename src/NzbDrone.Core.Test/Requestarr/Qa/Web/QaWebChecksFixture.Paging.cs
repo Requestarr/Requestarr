@@ -177,7 +177,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"document.documentElement.clientWidth <= {width}");
             const string Pagers = "[...document.querySelectorAll('[class*=\"TablePager-pager\"]')]";
             var squeezed = await browser.EvalAsync<string>(
-                $"{Pagers}.filter(p => p.getBoundingClientRect().width < p.parentElement.getBoundingClientRect().width - 1 " +
+                $"{Pagers}.filter(p => p.getBoundingClientRect().width < (s => p.parentElement.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight))(getComputedStyle(p.parentElement)) - 1 " +
                 "|| [...p.querySelectorAll('[class*=\"TablePager-records\"], [class*=\"TablePager-pageNumber\"]')].some(e => e.getClientRects().length > 1 || e.getBoundingClientRect().height > 30))" +
                 ".map(p => p.closest('fieldset')?.querySelector('legend')?.innerText ?? 'the list').join(', ')");
             var count = await browser.EvalAsync<int>($"{Pagers}.length");
