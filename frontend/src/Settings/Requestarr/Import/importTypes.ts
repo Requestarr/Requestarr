@@ -76,7 +76,7 @@ interface ImportProgress {
 
 export interface ImportJob {
   id: string;
-  state: 'reading' | 'ready' | 'failed' | 'imported';
+  state: 'reading' | 'ready' | 'importing' | 'failed' | 'imported';
   channels: ImportProgress[];
   problem?: string;
   warning?: string;

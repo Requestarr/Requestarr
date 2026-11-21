@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using NLog;
+using NzbDrone.Common.Instrumentation.Extensions;
+using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
@@ -19,6 +21,9 @@ namespace Requestarr.Core.Imports
     {
         Reading,
         Ready,
+
+        // Confirmed, written by its command (ImportRequestrrCommand) in System, then Tasks.
+        Importing,
         Failed,
         Imported
     }
@@ -48,7 +53,7 @@ namespace Requestarr.Core.Imports
 
     // Imports past requests from another request bot's channels (Requestrr): who asked for what, when, and how it ended,
     // matched to Sonarr and Radarr by ID. Discord is only read; nothing is posted anywhere, here or there.
-    public class ImportService : IImportService
+    public class ImportService : IImportService, IExecute<ImportRequestrrCommand>
     {
         public const string ImportAction = "import.requestrr";
         public const string ImportedAction = "request.imported";
@@ -74,6 +79,7 @@ namespace Requestarr.Core.Imports
         private readonly IDiscordGuildGateway _discord;
         private readonly IRequestMediaService _media;
         private readonly IMemberNameService _names;
+        private readonly IManageCommandQueue _commands;
         private readonly Logger _logger;
 
         public ImportService(IChannelHistory history,
@@ -90,6 +96,7 @@ namespace Requestarr.Core.Imports
                              IDiscordGuildGateway discord,
                              IRequestMediaService media,
                              IMemberNameService names,
+                             IManageCommandQueue commands,
                              Logger logger)
         {
             _history = history;
@@ -107,6 +114,7 @@ namespace Requestarr.Core.Imports
             _discord = discord;
             _media = media;
             _names = names;
+            _commands = commands;
             _logger = logger;
         }
 
@@ -142,29 +150,47 @@ namespace Requestarr.Core.Imports
 
         public ImportJobView Job(Guid id) => _jobs.TryGetValue(id, out var job) ? job.View() : null;
 
-        public async Task<ImportJobView> ConfirmAsync(Guid id, Actor admin)
+        // A ready preview is written by its command, once however often it's confirmed; the page follows the job until
+        // it's imported.
+        public Task<ImportJobView> ConfirmAsync(Guid id, Actor admin)
         {
             if (!_jobs.TryGetValue(id, out var job))
             {
-                return null;
+                return Task.FromResult<ImportJobView>(null);
+            }
+
+            if (job.Confirm())
+            {
+                _commands.Push(new ImportRequestrrCommand { JobId = id, ConfirmedBy = admin.Description, ConfirmedById = admin.UserId }, trigger: CommandTrigger.Manual);
+            }
+
+            return Task.FromResult(job.View());
+        }
+
+        public void Execute(ImportRequestrrCommand message) => WriteAsync(message).GetAwaiter().GetResult();
+
+        private async Task WriteAsync(ImportRequestrrCommand message)
+        {
+            if (!_jobs.TryGetValue(message.JobId, out var job))
+            {
+                return;
             }
 
             await _writing.WaitAsync();
 
             try
             {
-                if (job.State == ImportJobState.Ready)
+                if (job.State == ImportJobState.Importing)
                 {
+                    _logger.ProgressInfo("Importing {0} Requestrr messages", job.Messages.Count);
                     var plan = ImportPlanner.Plan(job.Messages, Context(job.Library));
                     var members = await MembersAsync(plan);
-                    job.Done(plan, Write(plan, job.Channels, members, admin));
+                    job.Done(plan, Write(plan, job.Channels, members, new Actor(message.ConfirmedBy, message.ConfirmedById)));
 
                     // What the imported titles are, and who the people are (@handles, pictures), in the background.
                     _media.FillInBackground();
                     _ = Task.Run(CatchUpNamesAsync);
                 }
-
-                return job.View();
             }
             finally
             {
@@ -523,6 +549,21 @@ namespace Requestarr.Core.Imports
             }
 
             public void Ready(ImportPlan plan) => Set(ImportJobState.Ready, plan, null, null);
+
+            // Ready to write, the first time it's confirmed: true when this confirmation should queue the write.
+            public bool Confirm()
+            {
+                lock (_lock)
+                {
+                    if (State != ImportJobState.Ready)
+                    {
+                        return false;
+                    }
+
+                    State = ImportJobState.Importing;
+                    return true;
+                }
+            }
 
             public void Done(ImportPlan plan, ImportResult result) => Set(ImportJobState.Imported, plan, result, null);
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { callRequestarrApi } from '../requestarrApi';
 import { ImportJob } from './importTypes';
 
-// How often the page asks how far reading has got.
+// How often the page asks how far reading, or the import's command in System, then Tasks, has got.
 const POLL_MILLISECONDS = 1500;
 
 // An import from preview to confirm: start reads the channels (followed until the preview is ready), confirm writes it.
@@ -31,7 +31,7 @@ function useImportJob() {
   }, [call, job]);
 
   useEffect(() => {
-    if (job?.state !== 'reading') {
+    if (job?.state !== 'reading' && job?.state !== 'importing') {
       return undefined;
     }
 

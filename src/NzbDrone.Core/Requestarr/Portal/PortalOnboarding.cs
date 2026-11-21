@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NLog;
+using NzbDrone.Common.Instrumentation.Extensions;
+using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Users;
@@ -43,7 +45,7 @@ namespace Requestarr.Core.Portal
         Task WhenDoneAsync(string id);
     }
 
-    public class PortalOnboarding : IPortalOnboarding
+    public class PortalOnboarding : IPortalOnboarding, IExecute<OnboardMembersCommand>
     {
         // Runs kept for the page to read back; older ones are forgotten.
         private const int Kept = 20;
@@ -54,12 +56,14 @@ namespace Requestarr.Core.Portal
         private readonly ConcurrentDictionary<string, Run> _runs = new();
         private readonly IUserManagementService _users;
         private readonly IBackendRepository _backends;
+        private readonly IManageCommandQueue _commands;
         private readonly Logger _logger;
 
-        public PortalOnboarding(IUserManagementService users, IBackendRepository backends, Logger logger)
+        public PortalOnboarding(IUserManagementService users, IBackendRepository backends, IManageCommandQueue commands, Logger logger)
         {
             _users = users;
             _backends = backends;
+            _commands = commands;
             _logger = logger;
         }
 
@@ -68,17 +72,27 @@ namespace Requestarr.Core.Portal
 
         public OnboardJob Start(IReadOnlyList<OnboardPerson> people, IReadOnlyList<OnboardAccess> access, Actor admin)
         {
-            var run = new Run(Guid.NewGuid().ToString("N"), people);
+            var run = new Run(Guid.NewGuid().ToString("N"), people) { Access = access, Admin = admin };
             _runs[run.Id] = run;
             Forget();
-            run.Task = Task.Run(() => OnboardAllAsync(run, access, admin));
+            _commands.Push(new OnboardMembersCommand { RunId = run.Id }, trigger: CommandTrigger.Manual);
 
             return run.Snapshot();
         }
 
+        // The run Start queued, on the command queue's thread; a run already forgotten is skipped.
+        public void Execute(OnboardMembersCommand message)
+        {
+            if (_runs.TryGetValue(message.RunId ?? string.Empty, out var run))
+            {
+                _logger.ProgressInfo("Onboarding {0} people", run.Count);
+                OnboardAllAsync(run, run.Access, run.Admin).GetAwaiter().GetResult();
+            }
+        }
+
         public OnboardJob Find(string id) => id != null && _runs.TryGetValue(id, out var run) ? run.Snapshot() : null;
 
-        public Task WhenDoneAsync(string id) => id != null && _runs.TryGetValue(id, out var run) ? run.Task : Task.CompletedTask;
+        public Task WhenDoneAsync(string id) => id != null && _runs.TryGetValue(id, out var run) ? run.Done : Task.CompletedTask;
 
         private async Task OnboardAllAsync(Run run, IReadOnlyList<OnboardAccess> access, Actor admin)
         {
@@ -171,6 +185,7 @@ namespace Requestarr.Core.Portal
         {
             private readonly object _lock = new();
             private readonly OnboardResult[] _people;
+            private readonly TaskCompletionSource _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
             private bool _isDone;
 
             public Run(string id, IReadOnlyList<OnboardPerson> people)
@@ -183,7 +198,12 @@ namespace Requestarr.Core.Portal
 
             public DateTime Started { get; } = DateTime.UtcNow;
 
-            public Task Task { get; set; } = Task.CompletedTask;
+            // Finished, for a test to wait on.
+            public Task Done => _finished.Task;
+
+            public IReadOnlyList<OnboardAccess> Access { get; init; }
+
+            public Actor Admin { get; init; }
 
             public int Count => _people.Length;
 
@@ -203,6 +223,8 @@ namespace Requestarr.Core.Portal
                 {
                     _isDone = true;
                 }
+
+                _finished.TrySetResult();
             }
 
             public OnboardJob Snapshot()

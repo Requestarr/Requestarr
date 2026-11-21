@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Portal;
@@ -32,12 +34,23 @@ namespace Requestarr.Core.Test.Portal
             new OnboardAccess(ContentType.Tv, AccessState.Off, null, null, null)
         };
 
+        // The onboarding with no pause between people, its queued command run straight away, as the command queue would.
+        private PortalOnboarding Onboarding()
+        {
+            var onboarding = Mocker.Resolve<PortalOnboarding>();
+            onboarding.Pace = TimeSpan.Zero;
+            Mocker.GetMock<IManageCommandQueue>()
+                .Setup(q => q.Push(It.IsAny<OnboardMembersCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()))
+                .Callback<OnboardMembersCommand, CommandPriority, CommandTrigger>((command, _, _) => Task.Run(() => onboarding.Execute(command)));
+
+            return onboarding;
+        }
+
         [Test]
         public async Task everyone_picked_is_onboarded_in_turn_and_one_failure_in_the_middle_doesnt_stop_the_rest()
         {
             Discord.AddMember(Carol, "carol");
-            var onboarding = Mocker.Resolve<PortalOnboarding>();
-            onboarding.Pace = TimeSpan.Zero;
+            var onboarding = Onboarding();
             var people = new List<OnboardPerson> { new(Alice.ToString(), "alice"), new(Gone.ToString(), "gone"), new(Carol.ToString(), "carol") };
 
             var started = onboarding.Start(people, MoviesOnly, Admin);
@@ -70,8 +83,7 @@ namespace Requestarr.Core.Test.Portal
         [Test]
         public async Task someone_added_whose_instance_cant_be_set_is_added_and_says_what_wasnt_set()
         {
-            var onboarding = Mocker.Resolve<PortalOnboarding>();
-            onboarding.Pace = TimeSpan.Zero;
+            var onboarding = Onboarding();
             var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.NeedsApproval, null, null, 999) };
 
             var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, Admin);
@@ -88,8 +100,7 @@ namespace Requestarr.Core.Test.Portal
             var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
             sonarr.Settings.DefaultAccess = AccessState.AutoApprove;
             Mocker.Resolve<IBackendRepository>().Update(sonarr);
-            var onboarding = Mocker.Resolve<PortalOnboarding>();
-            onboarding.Pace = TimeSpan.Zero;
+            var onboarding = Onboarding();
             var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.Off, null, null, null) };
 
             var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, Admin);
