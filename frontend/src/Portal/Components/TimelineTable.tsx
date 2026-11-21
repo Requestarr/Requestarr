@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+import IconButton from 'Components/Link/IconButton';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
+import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import { PortalEvent } from '../PortalTypes';
+import EventDetailsModal from './EventDetailsModal';
 import { visibleCells } from './PortalList';
 import styles from '../Portal.css';
 
@@ -45,6 +48,10 @@ export function EventRow({
   event: PortalEvent;
   columns: Column[];
 }) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const onDetailsPress = useCallback(() => setIsDetailsOpen(true), []);
+  const onDetailsClose = useCallback(() => setIsDetailsOpen(false), []);
+
   return (
     <TableRow>
       {visibleCells(columns, {
@@ -52,6 +59,17 @@ export function EventRow({
         what: <TableRowCell>{event.what}</TableRowCell>,
         who: <TableRowCell>{event.who}</TableRowCell>,
         detail: <TableRowCell>{event.detail ?? ''}</TableRowCell>,
+        // Under the options cog, as Sonarr's History rows have their details button.
+        details: (
+          <TableRowCell>
+            <IconButton name={icons.INFO} onPress={onDetailsPress} />
+            <EventDetailsModal
+              event={event}
+              isOpen={isDetailsOpen}
+              onModalClose={onDetailsClose}
+            />
+          </TableRowCell>
+        ),
       })}
     </TableRow>
   );

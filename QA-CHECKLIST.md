@@ -115,9 +115,9 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. Do it again in the dark theme.
   - Expect:
     - Every request with its requester, followers, status and instance, with filters.
-    - A request's page with its timeline in plain words and its actions.
+    - Request and member pages open like Sonarr's series page, actions in the toolbar.
     - Each member's picture beside their name and @handle, as tall as both, with access and counts.
-    - A member's page with their requests, follows, removals, history and actions.
+    - Timeline and history entries open in full from their details button.
   - Checked automatically: the web app portal pages check.
 - **Queue, outages and audit log**
   - Steps:
