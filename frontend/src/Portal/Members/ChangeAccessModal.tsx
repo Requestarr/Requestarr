@@ -53,14 +53,17 @@ function ChangeAccessModal({
       setPicked((current) => ({ ...current, [name]: value })),
     []
   );
-  const onConfirmPress = useCallback(
-    () => onConfirm(changesOf(picked)),
-    [picked, onConfirm]
-  );
+  // Enter confirms too, so nothing is sent until the types to choose from have loaded.
+  const onConfirmPress = useCallback(() => {
+    if (types) {
+      onConfirm(changesOf(picked));
+    }
+  }, [types, picked, onConfirm]);
 
   return (
     <ConfirmModal
       isOpen={members.length > 0}
+      isSpinning={!types}
       title={translate('PortalActionChangeAccess')}
       confirmLabel={translate('PortalActionChangeAccess')}
       kind={kinds.PRIMARY}

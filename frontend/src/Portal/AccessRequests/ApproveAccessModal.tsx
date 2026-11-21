@@ -58,6 +58,11 @@ function ApproveAccessModal({
     onClose();
   }, [onClose]);
   const onConfirm = useCallback(() => {
+    // Enter confirms too, so nothing is approved until the choices it starts from have loaded.
+    if (!instances) {
+      return;
+    }
+
     onApprove(
       types.map((contentType) => ({ contentType, state: levelOf(contentType) }))
     );
