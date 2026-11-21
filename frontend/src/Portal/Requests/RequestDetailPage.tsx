@@ -1,17 +1,24 @@
 import React, { ReactNode, useCallback, useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import Alert from 'Components/Alert';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
 import Link from 'Components/Link/Link';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import NotFound from 'Components/NotFound';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
-import PageSectionContent from 'Components/Page/PageSectionContent';
+import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
+import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
 import Column from 'Components/Table/Column';
+import Tooltip from 'Components/Tooltip/Tooltip';
+import { icons, kinds, tooltipPositions } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import FollowerStack from '../Components/FollowerStack';
-import MemberLink from '../Components/MemberLink';
+import DetailsHeader, {
+  detailsStyles,
+} from '../Components/Details/DetailsHeader';
+import HeaderLabel from '../Components/Details/HeaderLabel';
 import PortalList from '../Components/PortalList';
 import RemovalsTable from '../Components/RemovalsTable';
 import { EventRow, TrimmedNote } from '../Components/TimelineTable';
@@ -30,30 +37,22 @@ import {
 } from '../PortalTypes';
 import usePortal from '../usePortal';
 import FollowerRow from './FollowerRow';
-import RequestActions from './RequestActions';
 import { OpenInLink, releaseText } from './RequestMedia';
 import RequestPoster from './RequestPoster';
+import { requestStatusKind } from './RequestStatusLabel';
+import useRequestActions from './useRequestActions';
 import styles from '../Portal.css';
 
-// The summary's followers as the list views show them; the Followers section below lists everyone.
-function Followers({ request }: { request: PortalRequest }) {
-  if (!request.followers.length) {
-    return <span className={styles.muted}>{translate('PortalNobody')}</span>;
-  }
+// The Followers section's address, which a list view's follower stack opens.
+const FOLLOWERS_ID = 'followers';
 
-  return <FollowerStack requestId={request.id} followers={request.followers} />;
-}
-
-// The title on The Movie Database or TheTVDB, and its page in Sonarr or Radarr when a browser can reach it.
+// The title on The Movie Database or TheTVDB, and its page in Sonarr or Radarr when a browser can reach it, as Sonarr
+// main's SeriesDetailsLinks lists a series' sites.
 function TitleLinks({ request }: { request: PortalRequest }) {
   const page = request.media?.page;
 
-  if (!page && !request.media?.openUrl) {
-    return null;
-  }
-
   return (
-    <span className={styles.links}>
+    <div className={styles.links}>
       {page && (
         <Link to={page}>
           {translate(
@@ -62,35 +61,84 @@ function TitleLinks({ request }: { request: PortalRequest }) {
         </Link>
       )}
       <OpenInLink media={request.media} />
-    </span>
+    </div>
   );
 }
 
-// The summary's rows, title then value; a row with nothing to show is left out.
-function summaryRows(
+// The header's chips, as Sonarr's series page has its status, network and links: status, type, who asked, who follows,
+// the media manager and when it was asked for, then the title's links on hover.
+function RequestLabels({ request }: { request: PortalRequest }) {
+  const dateText = useDateText();
+  const followers = request.followers.length;
+
+  return (
+    <>
+      <HeaderLabel
+        iconName={icons.FLAG}
+        title={translate('PortalStatus')}
+        kind={requestStatusKind(request)}
+      >
+        {requestStatusText(request)}
+      </HeaderLabel>
+      <HeaderLabel
+        iconName={request.contentType === 'tv' ? icons.TV : icons.FILM}
+        title={translate('PortalType')}
+      >
+        {[contentTypeText(request.contentType), seasonsText(request.seasons)]
+          .filter(Boolean)
+          .join(' · ')}
+      </HeaderLabel>
+      <Link to={`/members/${request.requester.id}`}>
+        <HeaderLabel
+          iconName={icons.GROUP}
+          title={translate('PortalRequester')}
+        >
+          {request.requester.name ?? translate('PortalUnknownMember')}
+        </HeaderLabel>
+      </Link>
+      {followers > 0 && (
+        <Link to={`#${FOLLOWERS_ID}`}>
+          <HeaderLabel
+            iconName={icons.HEART}
+            title={translate('PortalFollowers')}
+          >
+            {translate('PortalCountFollowing', { count: followers })}
+          </HeaderLabel>
+        </Link>
+      )}
+      <HeaderLabel iconName={icons.DRIVE} title={translate('PortalInstance')}>
+        {request.instance ?? translate('PortalNotSent')}
+      </HeaderLabel>
+      <HeaderLabel iconName={icons.ADD} title={translate('PortalRequested')}>
+        {dateText(request.requested)}
+      </HeaderLabel>
+      {(request.media?.page || request.media?.openUrl) && (
+        <Tooltip
+          anchor={
+            <HeaderLabel iconName={icons.EXTERNAL_LINK}>
+              {translate('PortalLinks')}
+            </HeaderLabel>
+          }
+          tooltip={<TitleLinks request={request} />}
+          kind={kinds.INVERSE}
+          position={tooltipPositions.BOTTOM}
+        />
+      )}
+    </>
+  );
+}
+
+// What the header doesn't say: progress, the decision's reason, the seasons there, and when it was decided and
+// fulfilled; a row with nothing to show is left out.
+function moreRows(
   detail: PortalRequestDetail,
   dateText: (date: string | null) => string
 ): [string, ReactNode][] {
   const { request } = detail;
   const rows: [string, ReactNode][] = [
-    ['PortalOverview', request.media?.overview],
-    ['PortalReleased', releaseText(request.media)],
-    [
-      'PortalLinks',
-      (request.media?.page || request.media?.openUrl) && (
-        <TitleLinks key="l" request={request} />
-      ),
-    ],
-    ['PortalType', contentTypeText(request.contentType)],
-    ['PortalStatus', requestStatusText(request)],
     ['PortalProgress', detail.progressDetail],
     ['PortalReason', detail.decisionReason],
-    ['PortalRequester', <MemberLink key="r" person={request.requester} />],
-    ['PortalFollowers', <Followers key="f" request={request} />],
-    ['PortalInstance', request.instance ?? translate('PortalNotSent')],
-    ['PortalSeasonsAsked', seasonsText(request.seasons)],
     ['PortalSeasonsThere', seasonsText(detail.availableSeasons)],
-    ['PortalRequested', dateText(request.requested)],
     ['PortalDecided', dateText(request.decided)],
     ['PortalFulfilled', dateText(request.fulfilled)],
   ];
@@ -98,27 +146,26 @@ function summaryRows(
   return rows.filter(([, value]) => value);
 }
 
-function Summary({ detail }: { detail: PortalRequestDetail }) {
-  const dateText = useDateText();
+function MoreDetails({ detail }: { detail: PortalRequestDetail }) {
+  const rows = moreRows(detail, useDateText());
+
+  if (!rows.length) {
+    return null;
+  }
 
   return (
-    <DescriptionList>
-      {summaryRows(detail, dateText).map(([title, value]) => (
-        <DescriptionListItem
-          key={title}
-          title={translate(title)}
-          data={value}
-        />
-      ))}
-    </DescriptionList>
+    <FieldSet legend={translate('Details')}>
+      <DescriptionList>
+        {rows.map(([title, value]) => (
+          <DescriptionListItem
+            key={title}
+            title={translate(title)}
+            data={value}
+          />
+        ))}
+      </DescriptionList>
+    </FieldSet>
   );
-}
-
-interface RequestDetailProps {
-  detail: PortalRequestDetail;
-  // Counts actions done, so the sections read their pages again after each.
-  round: number;
-  onDone: () => void;
 }
 
 function followerRow(follower: PortalFollower, columns: Column[]) {
@@ -128,9 +175,6 @@ function followerRow(follower: PortalFollower, columns: Column[]) {
 function eventRow(event: PortalEvent, columns: Column[]) {
   return <EventRow event={event} columns={columns} />;
 }
-
-// The Followers section's address, which a list view's follower stack opens.
-const FOLLOWERS_ID = 'followers';
 
 // Opened at #followers, the page scrolls to that section once it's there.
 function useScrollToFollowers() {
@@ -143,21 +187,21 @@ function useScrollToFollowers() {
   }, [hash]);
 }
 
-function RequestDetail({ detail, round, onDone }: RequestDetailProps) {
+interface RequestDetailProps {
+  detail: PortalRequestDetail;
+  // Counts actions done, so the sections read their pages again after each.
+  round: number;
+}
+
+// Below the header: the rest of its details, its followers, its timeline and its latest removal.
+function RequestSections({ detail, round }: RequestDetailProps) {
   const { request, latestRemoval, historyTrimmedAfter } = detail;
   const query = { id: request.id };
   useScrollToFollowers();
 
   return (
-    <>
-      <FieldSet legend={titleText(request)}>
-        <div className={styles.detail}>
-          <RequestPoster url={detail.posterUrl} className={styles.poster} />
-          <Summary detail={detail} />
-        </div>
-      </FieldSet>
-
-      <RequestActions detail={detail} onDone={onDone} />
+    <div className={detailsStyles.contentContainer}>
+      <MoreDetails detail={detail} />
 
       {request.followers.length > 0 && (
         <div id={FOLLOWERS_ID}>
@@ -191,6 +235,39 @@ function RequestDetail({ detail, round, onDone }: RequestDetailProps) {
           <RemovalsTable removal={latestRemoval} />
         </FieldSet>
       )}
+    </div>
+  );
+}
+
+// The page once the request has arrived, as Sonarr main's SeriesDetails: its actions in the toolbar, then the header
+// and the sections.
+function RequestDetail({
+  detail,
+  round,
+  onDone,
+}: RequestDetailProps & { onDone: () => void }) {
+  const { request } = detail;
+  const actions = useRequestActions(detail, onDone);
+
+  return (
+    <>
+      <PageToolbar>
+        <PageToolbarSection>{actions.buttons}</PageToolbarSection>
+      </PageToolbar>
+
+      <PageContentBody innerClassName={detailsStyles.innerContentBody}>
+        <DetailsHeader
+          backdropUrl={detail.posterUrl}
+          image={<RequestPoster url={detail.posterUrl} lazy={false} />}
+          title={titleText(request)}
+          details={releaseText(request.media)}
+          labels={<RequestLabels request={request} />}
+          overview={request.media?.overview}
+        />
+        <RequestSections detail={detail} round={round} />
+      </PageContentBody>
+
+      {actions.dialogs}
     </>
   );
 }
@@ -208,29 +285,31 @@ function RequestDetailPage() {
     reload();
     setRound((current) => current + 1);
   }, [reload]);
-  const renderDetail = useCallback(
-    (detail: PortalRequestDetail) => (
-      <RequestDetail detail={detail} round={round} onDone={onActionDone} />
-    ),
-    [round, onActionDone]
-  );
 
   return (
     <PageContent title={translate('PortalRequest')}>
-      <PageContentBody>
-        {result.isNotFound ? (
-          <NotFound message={translate('PortalNotFound')} />
-        ) : (
-          <PageSectionContent
-            isFetching={result.isLoading}
-            isPopulated={result.data !== undefined}
-            error={result.hasError ? result : undefined}
-            errorMessage={translate('PortalLoadError')}
-          >
-            {result.data !== undefined && renderDetail(result.data)}
-          </PageSectionContent>
-        )}
-      </PageContentBody>
+      {result.data === undefined ? (
+        <PageContentBody>
+          {result.isNotFound ? (
+            <NotFound message={translate('PortalNotFound')} />
+          ) : (
+            <>
+              {result.isLoading && <LoadingIndicator />}
+              {result.hasError && (
+                <Alert kind={kinds.DANGER}>
+                  {translate('PortalLoadError')}
+                </Alert>
+              )}
+            </>
+          )}
+        </PageContentBody>
+      ) : (
+        <RequestDetail
+          detail={result.data}
+          round={round}
+          onDone={onActionDone}
+        />
+      )}
     </PageContent>
   );
 }

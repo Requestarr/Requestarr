@@ -643,11 +643,27 @@ namespace Requestarr.Core.Test.Qa.Web
             }
 
             await browser.GoAsync(Url + link[link.IndexOf("/" + page + "/", StringComparison.Ordinal)..]);
-            await browser.WaitForAsync("document.querySelectorAll('legend').length > 1");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"DetailsHeader-header\"]') && document.querySelectorAll('legend').length > 0");
             var sections = await browser.EvalAsync<string>("[...document.querySelectorAll('legend')].map(l => l.textContent.trim()).join(', ')");
             check.Saw($"{page} detail ({theme}): {sections}");
             sections.Should().Contain(page == "requests" ? "Timeline" : "History");
+
+            // Sonarr's series page header (backdrop, picture, title, label chips) and the actions in the toolbar.
+            var header = await browser.EvalAsync<string>("document.querySelector('[class*=\"DetailsHeader-header\"]')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''");
+            var actions = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].map(b => b.innerText.trim()).join(', ')");
+            check.Saw($"{page} detail ({theme}): header \"{header}\"; toolbar: {actions}");
+            header.Should().NotBeEmpty("the page opens with Sonarr's details header");
             await check.ShotAsync(browser, $"{page}-detail-{theme}");
+
+            // A timeline or history entry's details button opens it in full, as Sonarr's History does.
+            if (await browser.EvalAsync<bool>("!!document.querySelector('fieldset tbody tr button')"))
+            {
+                await browser.RunAsync("document.querySelector('fieldset tbody tr button').click()");
+                await browser.WaitForAsync("!!document.querySelector('[class*=\"ModalBody\"] dl')");
+                check.Saw($"an entry's details ({theme}): {await browser.EvalAsync<string>("document.querySelector('[class*=\"ModalContent\"]').innerText.replace(/\\s+/g, ' ').trim()")}");
+                await check.ShotAsync(browser, $"{page}-entry-details-{theme}");
+                await AnswerAsync(browser, "Close", true);
+            }
         }
 
         [Test]

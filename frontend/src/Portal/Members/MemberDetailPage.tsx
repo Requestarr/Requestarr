@@ -1,16 +1,24 @@
 import React, { ReactNode, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import Alert from 'Components/Alert';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
+import FieldSet from 'Components/FieldSet';
 import ClipboardButton from 'Components/Link/ClipboardButton';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import NotFound from 'Components/NotFound';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
-import PageSectionContent from 'Components/Page/PageSectionContent';
+import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
+import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
 import Column from 'Components/Table/Column';
-import { kinds } from 'Helpers/Props';
+import { icons, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import Person from '../Components/Person';
+import Avatar from '../Components/Avatar';
+import DetailsHeader, {
+  detailsStyles,
+} from '../Components/Details/DetailsHeader';
+import HeaderLabel from '../Components/Details/HeaderLabel';
 import PortalList from '../Components/PortalList';
 import { RemovalRow } from '../Components/RemovalsTable';
 import { EventRow, TrimmedNote } from '../Components/TimelineTable';
@@ -24,7 +32,8 @@ import {
 } from '../PortalTypes';
 import { RequestTableRow } from '../Requests/requestCell';
 import usePortal from '../usePortal';
-import MemberActions from './MemberActions';
+import { memberStatusKind } from './MemberStatusLabel';
+import useMemberDetailActions from './useMemberDetailActions';
 import styles from '../Portal.css';
 
 // Their Discord ID, which is how Requestarr knows them whatever they're called, with a button to copy it.
@@ -49,7 +58,6 @@ function memberRows(
       translate('PortalDiscordId'),
       member.discordId && <DiscordId id={member.discordId} />,
     ],
-    [translate('PortalStatus'), memberStatusText(member.status)],
     [translate('PortalImportedFrom'), detail.importedFrom],
     [translate('PortalFirstRequest'), dateText(member.firstRequest)],
     [translate('PortalLastRequest'), dateText(member.lastRequest)],
@@ -71,11 +79,13 @@ function Summary({ detail }: { detail: PortalMemberDetail }) {
   const dateText = useDateText();
 
   return (
-    <DescriptionList>
-      {memberRows(detail, dateText).map(([title, value]) => (
-        <DescriptionListItem key={title} title={title} data={value} />
-      ))}
-    </DescriptionList>
+    <FieldSet legend={translate('Details')}>
+      <DescriptionList>
+        {memberRows(detail, dateText).map(([title, value]) => (
+          <DescriptionListItem key={title} title={title} data={value} />
+        ))}
+      </DescriptionList>
+    </FieldSet>
   );
 }
 
@@ -152,25 +162,40 @@ interface MemberDetailProps {
   onDone: () => void;
 }
 
+// The page once the member has arrived, as Sonarr main's SeriesDetails: their actions in the toolbar, then the header
+// with their picture, name, @handle and status, then their details and sections.
 function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
+  const { member } = detail;
+  const actions = useMemberDetailActions(detail, onDone);
+
   return (
     <>
-      {/* One title, as Sonarr's series page has: their picture, name and @handle, with no heading repeating the name. */}
-      <div>
-        <div className={styles.memberHeader}>
-          <Person
-            name={detail.member.name}
-            handle={detail.member.discordName}
-            avatar={detail.member.avatar}
-            size="large"
-          />
+      <PageToolbar>
+        <PageToolbarSection>{actions.buttons}</PageToolbarSection>
+      </PageToolbar>
+
+      <PageContentBody innerClassName={detailsStyles.innerContentBody}>
+        <DetailsHeader
+          image={<Avatar url={member.avatar} size="large" />}
+          title={member.name}
+          details={member.discordName ? `@${member.discordName}` : null}
+          labels={
+            <HeaderLabel
+              iconName={icons.FLAG}
+              title={translate('PortalStatus')}
+              kind={memberStatusKind(member.status)}
+            >
+              {memberStatusText(member.status)}
+            </HeaderLabel>
+          }
+        />
+        <div className={detailsStyles.contentContainer}>
+          <Summary detail={detail} />
+          <MemberSections detail={detail} round={round} />
         </div>
-        <Summary detail={detail} />
-      </div>
+      </PageContentBody>
 
-      <MemberActions detail={detail} onDone={onDone} />
-
-      <MemberSections detail={detail} round={round} />
+      {actions.dialogs}
     </>
   );
 }
@@ -186,29 +211,31 @@ function MemberDetailPage() {
     reload();
     setRound((current) => current + 1);
   }, [reload]);
-  const renderDetail = useCallback(
-    (detail: PortalMemberDetail) => (
-      <MemberDetail detail={detail} round={round} onDone={onActionDone} />
-    ),
-    [round, onActionDone]
-  );
 
   return (
     <PageContent title={translate('PortalMember')}>
-      <PageContentBody>
-        {result.isNotFound ? (
-          <NotFound message={translate('PortalNotFound')} />
-        ) : (
-          <PageSectionContent
-            isFetching={result.isLoading}
-            isPopulated={result.data !== undefined}
-            error={result.hasError ? result : undefined}
-            errorMessage={translate('PortalLoadError')}
-          >
-            {result.data !== undefined && renderDetail(result.data)}
-          </PageSectionContent>
-        )}
-      </PageContentBody>
+      {result.data === undefined ? (
+        <PageContentBody>
+          {result.isNotFound ? (
+            <NotFound message={translate('PortalNotFound')} />
+          ) : (
+            <>
+              {result.isLoading && <LoadingIndicator />}
+              {result.hasError && (
+                <Alert kind={kinds.DANGER}>
+                  {translate('PortalLoadError')}
+                </Alert>
+              )}
+            </>
+          )}
+        </PageContentBody>
+      ) : (
+        <MemberDetail
+          detail={result.data}
+          round={round}
+          onDone={onActionDone}
+        />
+      )}
     </PageContent>
   );
 }
