@@ -288,7 +288,8 @@ namespace Requestarr.Core.Test.Qa
                 "Importing from Requestrr",
                 "Imported people",
                 "Reading another server",
-                "Approving in Discord shows at once");
+                "Approving in Discord shows at once",
+                "Member page header");
         }
 
         [Test]
