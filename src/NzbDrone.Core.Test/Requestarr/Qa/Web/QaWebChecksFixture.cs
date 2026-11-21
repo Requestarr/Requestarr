@@ -222,10 +222,11 @@ namespace Requestarr.Core.Test.Qa.Web
             var letter = await browser.EvalAsync<string>($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).innerText.trim()");
             await browser.RunAsync($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).click()");
             await browser.WaitForAsync($"{IndexBody}.scrollTop > 0 && !!{FirstShown}");
-            var first = await browser.EvalAsync<string>($"{FirstShown}.innerText");
-            check.Saw($"sorted by title, the jump bar's {letter} scrolls to {first}");
+            // The poster grid's top row: the letter's first title shares it with the titles before it.
+            var topRow = await browser.EvalAsync<string[]>($"(f => [...document.querySelectorAll('[class*=\"RequestIndexPoster-title\"]')].filter(t => t.getBoundingClientRect().top === f.getBoundingClientRect().top).map(t => t.innerText))({FirstShown})");
+            check.Saw($"sorted by title, the jump bar's {letter} scrolls to the row of {string.Join(", ", topRow)}");
             await check.ShotAsync(browser, "jump-bar");
-            first.ToUpperInvariant().Should().StartWith(letter);
+            topRow.Should().Contain(t => t.ToUpperInvariant().StartsWith(letter, StringComparison.Ordinal));
 
             var scrolled = await browser.EvalAsync<double>($"{IndexBody}.scrollTop");
             await browser.RunAsync($"{FirstShown}.closest('[class*=\"RequestIndexPoster-content\"]').querySelector('a[href*=\"/requests/\"]').click()");
