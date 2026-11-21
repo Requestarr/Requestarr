@@ -222,10 +222,12 @@ namespace Requestarr.Core.Test.Qa.Web
             var letter = await browser.EvalAsync<string>($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).innerText.trim()");
             await browser.RunAsync($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).click()");
             await browser.WaitForAsync($"{IndexBody}.scrollTop > 0 && !!{FirstShown}");
+            await browser.EvalAsync<bool>($"(async () => {{ const b = {IndexBody}; let last = -1; while (b.scrollTop !== last) {{ last = b.scrollTop; await new Promise(r => setTimeout(r, 400)); }} return true; }})()");
+            var where = await browser.EvalAsync<string>($"(b => b.scrollTop + ' of ' + b.scrollHeight)({IndexBody})");
 
             // The poster grid's top row: the letter's first title shares it with the titles before it.
             var topRow = await browser.EvalAsync<string[]>($"(f => [...document.querySelectorAll('[class*=\"RequestIndexPoster-posterContainer\"]')].filter(t => t.getBoundingClientRect().top === f.getBoundingClientRect().top).map(t => t.title))({FirstShown})");
-            check.Saw($"sorted by title, the jump bar's {letter} scrolls to the row of {string.Join(", ", topRow)}");
+            check.Saw($"sorted by title, the jump bar's {letter} scrolls the list to {where}px, the row of {string.Join(", ", topRow)}");
             await check.ShotAsync(browser, "jump-bar");
             topRow.Should().Contain(t => t.ToUpperInvariant().StartsWith(letter, StringComparison.Ordinal));
 
