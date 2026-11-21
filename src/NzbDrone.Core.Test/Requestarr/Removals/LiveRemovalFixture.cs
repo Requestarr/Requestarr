@@ -375,7 +375,7 @@ namespace Requestarr.Core.Test.Removals
                 var historyDropped = await Send(dispatcher, InFeed(FakeInteraction.Button($"{RemovalRoutes.Drop}:{historyRemoval.Id}")));
                 var historyKept = Mocker.Resolve<IRemovalProposalRepository>().Get(historyRemoval.Id);
                 Log($"[history] {DiscordText.DropRemovalLabel}: \"{historyDropped.LastReply.Content}\"; removal now {historyKept.Status}; the request is {requests.Find(history.Id)?.Status.ToString() ?? "gone"}");
-                historyKept.Status.Should().Be(RemovalStatus.Kept);
+                historyKept.Status.Should().Be(RemovalStatus.Cancelled, "dropped before any vote");
                 requests.Find(history.Id).Status.Should().Be(RequestStatus.NotInLibrary);
 
                 // Images travel with the message: the feed card's spacer was uploaded with it, so Discord serves
