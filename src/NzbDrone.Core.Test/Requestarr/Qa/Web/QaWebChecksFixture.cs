@@ -219,8 +219,8 @@ namespace Requestarr.Core.Test.Qa.Web
             await PressToolbarAsync(browser, "Sort");
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].find(e => e.innerText.trim() === 'Title').click()");
             await browser.WaitForAsync($"{Letters}.length > 1");
-            var letter = await browser.EvalAsync<string>($"{Letters}.at(-1).innerText.trim()");
-            await browser.RunAsync($"{Letters}.at(-1).click()");
+            var letter = await browser.EvalAsync<string>($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).innerText.trim()");
+            await browser.RunAsync($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).click()");
             await browser.WaitForAsync($"{IndexBody}.scrollTop > 0 && !!{FirstShown}");
             var first = await browser.EvalAsync<string>($"{FirstShown}.innerText");
             check.Saw($"sorted by title, the jump bar's {letter} scrolls to {first}");
