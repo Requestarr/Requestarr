@@ -215,7 +215,7 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task JumpAndReturnAsync(HeadlessBrowser browser, WebCheck check)
         {
             const string Letters = "[...document.querySelectorAll('[class*=\"PageJumpBarItem-jumpBarItem\"]')]";
-            const string FirstShown = "(b => [...document.querySelectorAll('[class*=\"RequestIndexPoster-title\"]')].find(t => t.getBoundingClientRect().top >= b.getBoundingClientRect().top))(document.querySelector('[class*=\"RequestsPage-contentBody\"]'))";
+            const string FirstShown = "(b => [...document.querySelectorAll('[class*=\"RequestIndexPoster-posterContainer\"]')].find(t => t.getBoundingClientRect().top >= b.getBoundingClientRect().top))(document.querySelector('[class*=\"RequestsPage-contentBody\"]'))";
             await PressToolbarAsync(browser, "Sort");
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].find(e => e.innerText.trim() === 'Title').click()");
             await browser.WaitForAsync($"{Letters}.length > 1");
@@ -224,7 +224,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"{IndexBody}.scrollTop > 0 && !!{FirstShown}");
 
             // The poster grid's top row: the letter's first title shares it with the titles before it.
-            var topRow = await browser.EvalAsync<string[]>($"(f => [...document.querySelectorAll('[class*=\"RequestIndexPoster-title\"]')].filter(t => t.getBoundingClientRect().top === f.getBoundingClientRect().top).map(t => t.innerText))({FirstShown})");
+            var topRow = await browser.EvalAsync<string[]>($"(f => [...document.querySelectorAll('[class*=\"RequestIndexPoster-posterContainer\"]')].filter(t => t.getBoundingClientRect().top === f.getBoundingClientRect().top).map(t => t.title))({FirstShown})");
             check.Saw($"sorted by title, the jump bar's {letter} scrolls to the row of {string.Join(", ", topRow)}");
             await check.ShotAsync(browser, "jump-bar");
             topRow.Should().Contain(t => t.ToUpperInvariant().StartsWith(letter, StringComparison.Ordinal));
