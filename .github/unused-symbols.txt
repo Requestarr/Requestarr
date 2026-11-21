@@ -43,3 +43,4 @@ Requestarr.Core.Imports.PlannedFollow.Year  # sent in the import API's preview, 
 Requestarr.Core.Imports.PlannedFollow.Title  # sent in the import API's preview, which the Import page shows
 Requestarr.Core.Imports.PlannedLink.Title  # sent in the import API's preview, which the Import page lists
 Requestarr.Core.Metadata.TmdbKeySourceLog  # created by the event wiring: it handles the start event to log where the key comes from
+Requestarr.Http.Portal.BulkAnswer.Failed  # in the bulk addresses' answer, which the web app reads
