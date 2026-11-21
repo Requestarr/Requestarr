@@ -1,17 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useSelect } from 'App/SelectContext';
-import { messageTypes } from 'Helpers/Props';
-import { showMessage } from 'Store/Actions/appActions';
 import { toolbarActions, usePicked } from '../Components/Select/selectActions';
-import { plainText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
+import showOutcome from '../showOutcome';
 import BulkActionModal from './BulkActionModal';
 import runBulk, { BULK_PATHS } from './runBulk';
-
-// How long the result stays in the sidebar, as Servarr keeps a finished command's: longer when something failed.
-const MESSAGE_SECONDS = 4;
-const FAILURE_SECONDS = 10;
 
 const GROUP = Object.keys(BULK_PATHS);
 
@@ -55,15 +49,7 @@ function useRequestBulk(
       setIsBusy(true);
       runBulk(asking.name, asking.requests, body).then((result) => {
         setIsBusy(false);
-        dispatch(
-          showMessage({
-            id: 'requestBulk',
-            name: 'requestBulk',
-            message: plainText(result.message),
-            type: result.isDone ? messageTypes.SUCCESS : messageTypes.ERROR,
-            hideAfter: result.isDone ? MESSAGE_SECONDS : FAILURE_SECONDS,
-          })
-        );
+        showOutcome(dispatch, 'requestBulk', result);
         selectDispatch({ type: 'unselectAll' });
         onDone();
       });

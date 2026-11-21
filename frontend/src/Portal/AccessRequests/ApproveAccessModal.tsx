@@ -2,10 +2,10 @@ import React, { useCallback, useState } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
-import { inputTypes } from 'Helpers/Props';
+import ConfirmModal from 'Components/Modal/ConfirmModal';
+import { inputTypes, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import accessLevelChoices from '../accessLevelChoices';
-import ActionModal from '../Components/ActionModal';
 import defaultAccess from '../defaultAccess';
 import { contentTypeText } from '../portalText';
 import {
@@ -65,27 +65,32 @@ function ApproveAccessModal({
   }, [levelOf, types, onApprove]);
 
   return (
-    <ActionModal
+    <ConfirmModal
       isOpen={!!asked}
       title={translate('PortalApproveAccessTitle', { name: asked?.name ?? '' })}
       confirmLabel={translate('PortalActionApprove')}
-      isConfirmDisabled={!instances}
+      isSpinning={!instances}
+      kind={kinds.PRIMARY}
+      cancelLabel={translate('Cancel')}
+      message={
+        <>
+          {types.map((type) => (
+            <FormGroup key={type}>
+              <FormLabel>{contentTypeText(type)}</FormLabel>
+              <FormInputGroup
+                type={inputTypes.SELECT}
+                name={type}
+                value={levelOf(type)}
+                values={levels}
+                onChange={onChange}
+              />
+            </FormGroup>
+          ))}
+        </>
+      }
       onConfirm={onConfirm}
-      onClose={onModalClose}
-    >
-      {types.map((type) => (
-        <FormGroup key={type}>
-          <FormLabel>{contentTypeText(type)}</FormLabel>
-          <FormInputGroup
-            type={inputTypes.SELECT}
-            name={type}
-            value={levelOf(type)}
-            values={levels}
-            onChange={onChange}
-          />
-        </FormGroup>
-      ))}
-    </ActionModal>
+      onCancel={onModalClose}
+    />
   );
 }
 

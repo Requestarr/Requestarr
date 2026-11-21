@@ -2,13 +2,13 @@ import React, { useCallback, useState } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
-import { inputTypes } from 'Helpers/Props';
+import ConfirmModal from 'Components/Modal/ConfirmModal';
+import { inputTypes, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import ActionModal from '../Components/ActionModal';
 import ForceRemovalConfirm from '../Components/ForceRemovalConfirm';
 import parseSeasons from '../Components/parseSeasons';
 import RemovalModal from '../Components/RemovalModal';
-import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
+import TextConfirmModal, { reasonPrompt } from '../Components/TextConfirmModal';
 import { actionHeading, actionLabel } from './ActionButton';
 
 export type RequestDialog = 'deny' | 'cancel' | 'seasons' | 'remove' | 'force';
@@ -98,37 +98,42 @@ function RequestActionDialogs(props: RequestActionDialogsProps) {
 
   return (
     <>
-      <TextPromptModal
+      <TextConfirmModal
         prompt={promptFor(props.title, dialog)}
         onConfirm={onReasonConfirm}
         onClose={onClose}
       />
 
-      <ActionModal
+      <ConfirmModal
         isOpen={dialog === 'seasons'}
         title={actionHeading('addSeasons', props.title)}
         confirmLabel={translate('PortalActionAddSeasons')}
+        kind={kinds.PRIMARY}
+        cancelLabel={translate('Cancel')}
+        message={
+          <>
+            {SEASON_FIELDS.map(([name, key]) => (
+              <FormGroup key={name}>
+                <FormLabel>{translate(key)}</FormLabel>
+                <FormInputGroup
+                  type={name === 'seasons' ? inputTypes.TEXT : inputTypes.CHECK}
+                  name={name}
+                  value={seasons[name]}
+                  helpText={translate(`${key}HelpText`)}
+                  helpTextWarning={
+                    name === 'seasons' && !parseSeasons(seasons.seasons)
+                      ? translate('PortalNotSeasons')
+                      : undefined
+                  }
+                  onChange={onSeasonsChange}
+                />
+              </FormGroup>
+            ))}
+          </>
+        }
         onConfirm={onSeasonsConfirm}
-        onClose={onClose}
-      >
-        {SEASON_FIELDS.map(([name, key]) => (
-          <FormGroup key={name}>
-            <FormLabel>{translate(key)}</FormLabel>
-            <FormInputGroup
-              type={name === 'seasons' ? inputTypes.TEXT : inputTypes.CHECK}
-              name={name}
-              value={seasons[name]}
-              helpText={translate(`${key}HelpText`)}
-              helpTextWarning={
-                name === 'seasons' && !parseSeasons(seasons.seasons)
-                  ? translate('PortalNotSeasons')
-                  : undefined
-              }
-              onChange={onSeasonsChange}
-            />
-          </FormGroup>
-        ))}
-      </ActionModal>
+        onCancel={onClose}
+      />
 
       <RemovalModal
         isOpen={dialog === 'remove'}

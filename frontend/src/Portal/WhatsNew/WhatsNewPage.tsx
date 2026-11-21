@@ -1,7 +1,10 @@
 import React from 'react';
 import FieldSet from 'Components/FieldSet';
+import NotFound from 'Components/NotFound';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
+import PageSectionContent from 'Components/Page/PageSectionContent';
 import translate from 'Utilities/String/translate';
-import PortalPage from '../Components/PortalPage';
 import { useDayText } from '../Components/useDateText';
 import { PortalVersion } from '../PortalTypes';
 import usePortal from '../usePortal';
@@ -78,9 +81,22 @@ function WhatsNewPage() {
   const result = usePortal<PortalVersion[]>('changes');
 
   return (
-    <PortalPage title={translate('PortalWhatsNew')} result={result}>
-      {renderVersions}
-    </PortalPage>
+    <PageContent title={translate('PortalWhatsNew')}>
+      <PageContentBody>
+        {result.isNotFound ? (
+          <NotFound message={translate('PortalNotFound')} />
+        ) : (
+          <PageSectionContent
+            isFetching={result.isLoading}
+            isPopulated={result.data !== undefined}
+            error={result.hasError ? result : undefined}
+            errorMessage={translate('PortalLoadError')}
+          >
+            {result.data !== undefined && renderVersions(result.data)}
+          </PageSectionContent>
+        )}
+      </PageContentBody>
+    </PageContent>
   );
 }
 

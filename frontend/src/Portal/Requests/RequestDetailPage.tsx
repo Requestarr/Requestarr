@@ -4,12 +4,15 @@ import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import FieldSet from 'Components/FieldSet';
 import Link from 'Components/Link/Link';
+import NotFound from 'Components/NotFound';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
+import PageSectionContent from 'Components/Page/PageSectionContent';
 import Column from 'Components/Table/Column';
 import translate from 'Utilities/String/translate';
 import FollowerStack from '../Components/FollowerStack';
 import MemberLink from '../Components/MemberLink';
 import PortalList from '../Components/PortalList';
-import PortalPage from '../Components/PortalPage';
 import RemovalsTable from '../Components/RemovalsTable';
 import { EventRow, TrimmedNote } from '../Components/TimelineTable';
 import useDateText from '../Components/useDateText';
@@ -213,9 +216,22 @@ function RequestDetailPage() {
   );
 
   return (
-    <PortalPage title={translate('PortalRequest')} result={result}>
-      {renderDetail}
-    </PortalPage>
+    <PageContent title={translate('PortalRequest')}>
+      <PageContentBody>
+        {result.isNotFound ? (
+          <NotFound message={translate('PortalNotFound')} />
+        ) : (
+          <PageSectionContent
+            isFetching={result.isLoading}
+            isPopulated={result.data !== undefined}
+            error={result.hasError ? result : undefined}
+            errorMessage={translate('PortalLoadError')}
+          >
+            {result.data !== undefined && renderDetail(result.data)}
+          </PageSectionContent>
+        )}
+      </PageContentBody>
+    </PageContent>
   );
 }
 

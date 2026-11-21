@@ -1,5 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import FieldSet from 'Components/FieldSet';
+import NotFound from 'Components/NotFound';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
+import PageSectionContent from 'Components/Page/PageSectionContent';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
@@ -7,10 +11,8 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import columnsOf from '../Components/columnsOf';
 import PortalList, { visibleCells } from '../Components/PortalList';
-import PortalPage from '../Components/PortalPage';
 import { PortalOutage, PortalOutageNow, PortalOutages } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
 import usePortal from '../usePortal';
@@ -91,8 +93,6 @@ function OutagesView({ data, round, onDone }: OutagesViewProps) {
 
   return (
     <>
-      <ActionOutcomeAlert outcome={action.outcome} />
-
       <FieldSet legend={translate('PortalDownNow')}>
         {data.now.length ? (
           <Table columns={nowColumns}>
@@ -140,9 +140,22 @@ function OutagesPage() {
   );
 
   return (
-    <PortalPage title={translate('PortalOutages')} result={result}>
-      {render}
-    </PortalPage>
+    <PageContent title={translate('PortalOutages')}>
+      <PageContentBody>
+        {result.isNotFound ? (
+          <NotFound message={translate('PortalNotFound')} />
+        ) : (
+          <PageSectionContent
+            isFetching={result.isLoading}
+            isPopulated={result.data !== undefined}
+            error={result.hasError ? result : undefined}
+            errorMessage={translate('PortalLoadError')}
+          >
+            {result.data !== undefined && render(result.data)}
+          </PageSectionContent>
+        )}
+      </PageContentBody>
+    </PageContent>
   );
 }
 

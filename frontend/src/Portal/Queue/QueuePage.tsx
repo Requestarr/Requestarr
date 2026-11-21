@@ -7,7 +7,6 @@ import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import Person from '../Components/Person';
 import PortalList, { visibleCells } from '../Components/PortalList';
 import RemovalActions from '../Components/RemovalActions';
@@ -120,7 +119,6 @@ function QueuePage() {
   return (
     <PageContent title={translate('PortalQueue')}>
       <PageContentBody>
-        <ActionOutcomeAlert outcome={action.outcome} />
         <PortalList
           name="queue"
           emptyText={translate('PortalQueueEmpty')}

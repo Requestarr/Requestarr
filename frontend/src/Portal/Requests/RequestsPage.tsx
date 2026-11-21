@@ -30,7 +30,6 @@ import scrollPositions from 'Store/scrollPositions';
 import createClientSideCollectionSelector from 'Store/Selectors/createClientSideCollectionSelector';
 import createDimensionsSelector from 'Store/Selectors/createDimensionsSelector';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import { jumpBarItems } from '../Components/Index/jumpBar';
 import RequestIndexOverviews from './Overview/RequestIndexOverviews';
 import RequestIndexPosters from './Posters/RequestIndexPosters';
@@ -131,7 +130,6 @@ function hasRequestsToShow(state: RequestsState) {
 
 interface RequestsBodyProps {
   state: RequestsState;
-  runnerOutcome: ReturnType<typeof useRequestActionRunner>['outcome'];
   scrollerRef: React.RefObject<HTMLDivElement>;
   jumpToCharacter?: string;
   isSelectMode: boolean;
@@ -149,8 +147,6 @@ function RequestsBody(props: RequestsBodyProps) {
       {!state.isFetching && !!state.error && (
         <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
       )}
-
-      <ActionOutcomeAlert outcome={props.runnerOutcome} />
 
       {hasRequestsToShow(state) && (
         <div className={styles.contentBodyContainer}>
@@ -237,7 +233,6 @@ function RequestsIndex({ initialScrollTop }: RequestsIndexProps) {
         >
           <RequestsBody
             state={state}
-            runnerOutcome={runner.outcome}
             scrollerRef={scrollerRef}
             jumpToCharacter={jumpBar.jumpToCharacter}
             isSelectMode={isSelectMode}

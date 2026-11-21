@@ -2,16 +2,14 @@ import React, { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useHistory } from 'react-router-dom';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
-import { kinds, messageTypes } from 'Helpers/Props';
+import { kinds } from 'Helpers/Props';
 import { callApi } from 'Settings/Requestarr/requestarrApi';
-import { showMessage } from 'Store/Actions/appActions';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import runEach from '../Components/runEach';
-import { plainText } from '../portalText';
 import { PortalMember } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
-import { ActionOutcome } from '../usePortalAction';
+import showOutcome, { ActionOutcome } from '../showOutcome';
 import ChangeAccessModal, { AccessChange } from './ChangeAccessModal';
 
 interface Asking {
@@ -21,10 +19,6 @@ interface Asking {
   // From the bar along the bottom in select mode, not a row's own button.
   fromBar: boolean;
 }
-
-// How long the bar's result stays in the sidebar, as Servarr keeps a finished command's: longer when something failed.
-const MESSAGE_SECONDS = 4;
-const FAILURE_SECONDS = 10;
 
 // What each action does to one member, by the services their page and Discord's member card use.
 function callFor(action: string, changes: AccessChange[]) {
@@ -46,35 +40,18 @@ function callFor(action: string, changes: AccessChange[]) {
   };
 }
 
-// Where a result goes: a row's on the page (outcome), then onDone; the bar's in the sidebar's messages, as Servarr
-// reports a finished command, then onBarDone. Either names anyone it couldn't do.
+// Where a result goes: the sidebar's messages, as Servarr reports a finished command, naming anyone it couldn't do;
+// then onDone for a row's action, onBarDone for the select bar's.
 function useReport(onDone: () => void, onBarDone: () => void) {
   const dispatch = useDispatch();
-  const [outcome, setOutcome] = useState<ActionOutcome>();
 
-  const report = useCallback(
+  return useCallback(
     (result: ActionOutcome, fromBar: boolean) => {
-      if (!fromBar) {
-        setOutcome(result);
-        onDone();
-        return;
-      }
-
-      dispatch(
-        showMessage({
-          id: 'memberBulk',
-          name: 'memberBulk',
-          message: plainText(result.message),
-          type: result.isDone ? messageTypes.SUCCESS : messageTypes.ERROR,
-          hideAfter: result.isDone ? MESSAGE_SECONDS : FAILURE_SECONDS,
-        })
-      );
-      onBarDone();
+      showOutcome(dispatch, fromBar ? 'memberBulk' : 'portalAction', result);
+      (fromBar ? onBarDone : onDone)();
     },
     [dispatch, onDone, onBarDone]
   );
-
-  return { outcome, report };
 }
 
 // Runs a member action from their row (run: suspend and unsuspend at once) or from the select bar (ask: always asks
@@ -84,7 +61,7 @@ function useMemberActions(onDone: () => void, onBarDone: () => void = onDone) {
   const history = useHistory();
   const [asking, setAsking] = useState<Asking>();
   const [isBusy, setIsBusy] = useState(false);
-  const { outcome, report } = useReport(onDone, onBarDone);
+  const report = useReport(onDone, onBarDone);
 
   const perform = useCallback(
     (job: Asking, changes: AccessChange[] = []) => {
@@ -158,7 +135,7 @@ function useMemberActions(onDone: () => void, onBarDone: () => void = onDone) {
     </>
   );
 
-  return { run, ask, isBusy, outcome, dialogs };
+  return { run, ask, isBusy, dialogs };
 }
 
 export default useMemberActions;

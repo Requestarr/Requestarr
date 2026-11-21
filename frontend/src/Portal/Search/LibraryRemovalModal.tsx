@@ -1,11 +1,12 @@
 import React, { useCallback, useState } from 'react';
+import Alert from 'Components/Alert';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
+import { kinds } from 'Helpers/Props';
 import RemovalStart from '../Components/RemovalStart';
-import { seasonsText } from '../portalText';
+import { plainText, seasonsText } from '../portalText';
 import { PortalLibraryTitle } from '../PortalTypes';
 import { actionHeading } from '../Requests/ActionButton';
 import usePortalAction from '../usePortalAction';
@@ -48,7 +49,11 @@ function LibraryRemovalContent({
         {!outcome?.isDone && (
           <RemovalStart isForce={isForce} onStart={onStart} />
         )}
-        <ActionOutcomeAlert outcome={outcome} />
+        {outcome && (
+          <Alert kind={outcome.isDone ? kinds.SUCCESS : kinds.DANGER}>
+            {plainText(outcome.message)}
+          </Alert>
+        )}
       </ModalBody>
     </ModalContent>
   );

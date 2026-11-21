@@ -6,7 +6,6 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import columnsOf from '../Components/columnsOf';
 import RemovalActions from '../Components/RemovalActions';
 import { removalStatusText } from '../portalText';
@@ -31,14 +30,12 @@ function TitleRemovals() {
     usePortal<PortalTitleRemoval[]>('title-removals');
   const action = usePortalAction(reload);
 
-  // The last one forced or dropped leaves its answer.
   if (!removals?.length) {
-    return <ActionOutcomeAlert outcome={action.outcome} />;
+    return null;
   }
 
   return (
     <FieldSet legend={translate('PortalTitleRemovals')}>
-      <ActionOutcomeAlert outcome={action.outcome} />
       <Table columns={columns}>
         <TableBody>
           {removals.map(({ title, removal }) => (
