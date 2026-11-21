@@ -133,6 +133,10 @@ export interface PortalMember {
   pending: number;
   following: number;
   avatar: string | null;
+
+  // Their Discord profile's banner and accent colour (#RRGGBB), when they have them.
+  banner?: string | null;
+  accent?: string | null;
   firstRequest: string | null;
   lastRequest: string | null;
   byType: { contentType: ContentType; count: number }[];

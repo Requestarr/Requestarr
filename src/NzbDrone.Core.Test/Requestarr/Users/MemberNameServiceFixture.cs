@@ -60,6 +60,26 @@ namespace Requestarr.Core.Test.Users
             Mocker.Resolve<IUserManagementService>().FindByDiscordId(Elsewhere).DisplayName.Should().Be("Sam K", "the name the lists show follows Discord too");
         }
 
+        // Their page's header shows their Discord profile: the banner, or their accent colour, as Discord has them now.
+        [Test]
+        public async Task a_members_profile_banner_and_colour_follow_discord_quietly()
+        {
+            await AddUser(Alice);
+            Discord.Members[Alice] = Discord.Members[Alice] with { BannerUrl = "https://cdn.discordapp.com/banners/1/c.png?size=1024", AccentColor = "#5865F2" };
+            var entries = AuditTrail.Count;
+
+            await Names.CatchUpAsync();
+
+            var identity = Mocker.Resolve<IUserIdentityRepository>().Find(UserIdentity.DiscordProvider, Alice.ToString());
+            (identity.BannerUrl, identity.AccentColor).Should().Be(("https://cdn.discordapp.com/banners/1/c.png?size=1024", "#5865F2"));
+            AuditTrail.Count.Should().Be(entries, "a new banner isn't a member event");
+
+            Discord.Members[Alice] = Discord.Members[Alice] with { BannerUrl = null };
+            await Names.CatchUpAsync();
+
+            Mocker.Resolve<IUserIdentityRepository>().Find(UserIdentity.DiscordProvider, Alice.ToString()).BannerUrl.Should().BeNull("taken down in Discord");
+        }
+
         [Test]
         public async Task a_member_who_left_keeps_their_names_and_only_their_picture_follows()
         {

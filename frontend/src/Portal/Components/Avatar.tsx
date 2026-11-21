@@ -6,7 +6,7 @@ const DEFAULT_AVATAR = 'https://cdn.discordapp.com/embed/avatars/0.png';
 
 interface AvatarProps {
   url?: string | null;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'header';
 }
 
 // Someone's Discord picture, round, as Discord shows it.

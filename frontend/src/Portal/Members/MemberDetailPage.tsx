@@ -34,6 +34,7 @@ import { RequestTableRow } from '../Requests/requestCell';
 import usePortal from '../usePortal';
 import { memberStatusKind } from './MemberStatusLabel';
 import useMemberDetailActions from './useMemberDetailActions';
+import useProfileColor from './useProfileColor';
 import styles from '../Portal.css';
 
 // Their Discord ID, which is how Requestarr knows them whatever they're called, with a button to copy it.
@@ -163,10 +164,12 @@ interface MemberDetailProps {
 }
 
 // The page once the member has arrived, as Sonarr main's SeriesDetails: their actions in the toolbar, then the header
-// with their picture, name, @handle and status, then their details and sections.
+// with their Discord banner behind it (else their profile colour), their picture, name, @handle and status, then their
+// details and sections.
 function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
   const { member } = detail;
   const actions = useMemberDetailActions(detail, onDone);
+  const profileColor = useProfileColor(member.accent ?? null, member.avatar);
 
   return (
     <>
@@ -176,7 +179,9 @@ function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
 
       <PageContentBody innerClassName={detailsStyles.innerContentBody}>
         <DetailsHeader
-          image={<Avatar url={member.avatar} size="large" />}
+          backdropUrl={member.banner}
+          backdropColor={profileColor}
+          image={<Avatar url={member.avatar} size="header" />}
           title={member.name}
           details={member.discordName ? `@${member.discordName}` : null}
           labels={

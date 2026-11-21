@@ -12,6 +12,7 @@ interface CssExports {
   'innerContentBody': string;
   'overview': string;
   'poster': string;
+  'tintOverlay': string;
   'title': string;
 }
 export const cssExports: CssExports;

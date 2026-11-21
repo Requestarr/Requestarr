@@ -26,6 +26,16 @@
   opacity: 0.7;
 }
 
+/* A colour behind the header (a member without a Discord banner): darkened less than a picture, so the colour shows and
+   the white title still reads. */
+.tintOverlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: var(--black);
+  opacity: 0.35;
+}
+
 .headerContent {
   display: flex;
   padding: 30px;

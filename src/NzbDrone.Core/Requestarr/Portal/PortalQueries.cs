@@ -239,7 +239,9 @@ namespace Requestarr.Core.Portal
                 discord?.AvatarUrl,
                 asked.Count > 0 ? asked.Min() : null,
                 asked.Count > 0 ? asked.Max() : null,
-                byType);
+                byType,
+                discord?.BannerUrl,
+                discord?.AccentColor);
         }
 
         // Someone known only from an import first appears in Requestarr's history with their earliest imported request, or

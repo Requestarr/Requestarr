@@ -191,6 +191,7 @@ namespace Requestarr.Core.Users
             }
 
             identity.AvatarUrl = found.AvatarUrl ?? identity.AvatarUrl;
+            KeepProfile(identity, found);
 
             if (_users.Find(identity.UserId) is { IsImported: true } user)
             {
@@ -204,7 +205,33 @@ namespace Requestarr.Core.Users
                 }
             }
 
-            _identities.SetFields(identity, i => i.Username, i => i.DisplayName, i => i.AvatarUrl);
+            _identities.SetFields(identity, i => i.Username, i => i.DisplayName, i => i.AvatarUrl, i => i.BannerUrl, i => i.AccentColor);
+        }
+
+        // A member's profile banner and accent colour: only Discord's user lookup has them, so it's one more call for each
+        // person, once a catch-up. Someone Discord can't read now keeps what they had.
+        private async Task RefreshProfileAsync(ulong discordUserId)
+        {
+            var identity = _identities.Find(UserIdentity.DiscordProvider, discordUserId.ToString());
+
+            if (identity != null && await UserAsync(discordUserId) is { } found && KeepProfile(identity, found))
+            {
+                _identities.SetFields(identity, i => i.BannerUrl, i => i.AccentColor);
+            }
+        }
+
+        // True when Discord's banner or colour changed (put up, changed or taken down).
+        private static bool KeepProfile(UserIdentity identity, GuildMember found)
+        {
+            if (identity.BannerUrl == found.BannerUrl && identity.AccentColor == found.AccentColor)
+            {
+                return false;
+            }
+
+            identity.BannerUrl = found.BannerUrl;
+            identity.AccentColor = found.AccentColor;
+
+            return true;
         }
 
         // Stores the names Discord has now; a change is a member event: 'from "X" to "Y"'. A new picture is kept quietly.
@@ -312,6 +339,7 @@ namespace Requestarr.Core.Users
             }
 
             var (user, renamed) = RefreshNames(member);
+            await RefreshProfileAsync(discordUserId);
 
             return (renamed, user == null ? 0 : await TryMatchAsync(user, member, attempt));
         }
