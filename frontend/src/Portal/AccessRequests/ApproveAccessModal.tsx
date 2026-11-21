@@ -67,7 +67,7 @@ function ApproveAccessModal({
       types.map((contentType) => ({ contentType, state: levelOf(contentType) }))
     );
     setChosen({});
-  }, [levelOf, types, onApprove]);
+  }, [instances, levelOf, types, onApprove]);
 
   return (
     <ConfirmModal
