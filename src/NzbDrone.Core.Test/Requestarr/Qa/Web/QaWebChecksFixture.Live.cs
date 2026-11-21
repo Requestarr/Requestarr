@@ -28,6 +28,7 @@ namespace Requestarr.Core.Test.Qa.Web
             var before = await browser.EvalAsync<string>($"{Row(ids[0])}.innerText.replace(/\\s+/g, ' ')");
 
             var status = await browser.EvalAsync<int>($"fetch(window.Requestarr.urlBase + '/api/v1/portal/requests/{ids[0]}/deny', {{ method: 'POST', headers: {{ 'X-Api-Key': window.Requestarr.apiKey, 'Content-Type': 'application/json' }}, body: JSON.stringify({{ reason: 'Automated check: live update' }}) }}).then(r => r.status)");
+
             // Denied, or closed as already available when the test media manager has it.
             await browser.WaitForAsync($"!{Row(ids[0])}?.innerText.includes('Waiting for approval')", TimeSpan.FromSeconds(30));
             var after = await browser.EvalAsync<string>($"{Row(ids[0])}.innerText.replace(/\\s+/g, ' ')");
