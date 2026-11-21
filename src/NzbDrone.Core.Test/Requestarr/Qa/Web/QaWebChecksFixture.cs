@@ -597,10 +597,10 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, $"settings-connections-edit-{theme}");
 
             // The test stacks' provisioning file sets no default access, so their instances give new members what they got
-            // before. The select's own text lists every choice, so the chosen one is read from its selected option.
+            // before. The chosen one is read from Servarr's drop-down (or a plain select's selected option).
             var defaultAccess = await browser.EvalAsync<string>(
                 "(() => { const g = [...document.querySelectorAll('[class*=\"ModalBody\"] [class*=\"FormGroup-group\"]')].find(e => e.innerText.startsWith('Default access for new members')); " +
-                "g?.scrollIntoView(); const chosen = g?.querySelector('select')?.selectedOptions[0]?.text ?? 'nothing chosen'; " +
+                "g?.scrollIntoView(); const chosen = g?.querySelector('select')?.selectedOptions[0]?.text ?? g?.querySelector('[class*=\"EnhancedSelectInputSelectedValue-selectedValue\"]')?.innerText.trim() ?? 'nothing chosen'; " +
                 "return g ? `${chosen}: ${g.querySelector('[class*=\"FormInputHelpText\"]')?.innerText ?? ''}` : ''; })()");
             check.Saw($"edit modal ({theme}): default access for new members {defaultAccess}");
             defaultAccess.Should().StartWith("Needs approval:").And.Contain("media manager");
