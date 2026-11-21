@@ -24,8 +24,8 @@ namespace Requestarr.Core.Test.Requests
         public void provisioning_should_create_several_instances_per_type()
         {
             Backends.All().Select(b => (b.Implementation, b.Name)).Should().BeEquivalentTo(new[] { ("Radarr", "Radarr"), ("Radarr", "Radarr 4K"), ("Sonarr", "Sonarr") });
-            Instance("Sonarr").Settings.SeriesType.Should().Be("anime");
-            Instance("Radarr").Settings.QualityProfile.Should().Be("HD-1080p");
+            Instance("Sonarr").Config.SeriesType.Should().Be("anime");
+            Instance("Radarr").Config.QualityProfile.Should().Be("HD-1080p");
         }
 
         [Test]

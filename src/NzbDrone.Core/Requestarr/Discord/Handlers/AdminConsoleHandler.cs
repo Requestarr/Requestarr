@@ -284,7 +284,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             // The service checks the instance (enabled, right type) and refuses it by name. Someone without this type's
             // access yet starts from the chosen instance's default.
-            var state = AccessFor(member, type.Value)?.State ?? instance?.Settings.DefaultAccess ?? _backends.DefaultAccess(type.Value);
+            var state = AccessFor(member, type.Value)?.State ?? instance?.Config.DefaultAccess ?? _backends.DefaultAccess(type.Value);
 
             return _users.SetAccess(member, type.Value, state, actor, instance?.Name ?? wanted);
         }
@@ -474,7 +474,7 @@ namespace Requestarr.Core.Discord.Handlers
             more.AddRange(ContentTypes.Offered
                 .SelectMany(type => instances.Where(i => i.Implementation == BackendImplementations.ForContentType(type)).Select(i => (type, i)))
                 .GroupBy(x => x.type).Where(g => g.Count() > 1).SelectMany(g => g)
-                .Select(x => new InteractionSelectOption(DiscordText.InstanceOption(x.type, x.i.Name), $"instance:{Key(x.type)}:{x.i.Id}", x.i.Settings.IsDefault ? "default" : null)));
+                .Select(x => new InteractionSelectOption(DiscordText.InstanceOption(x.type, x.i.Name), $"instance:{Key(x.type)}:{x.i.Id}", x.i.Config.IsDefault ? "default" : null)));
             more.Add(new InteractionSelectOption(DiscordText.TheirRequestsLabel, "requests"));
             menus.Add(new InteractionSelectMenu { CustomId = $"{AdminRoutes.More}:{member}", Placeholder = DiscordText.MorePlaceholder, Options = more });
 

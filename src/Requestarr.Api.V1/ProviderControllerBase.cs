@@ -164,7 +164,7 @@ namespace Requestarr.Api.V1
         }
 
         [RestDeleteById]
-        public object DeleteProvider(int id)
+        public virtual object DeleteProvider(int id)
         {
             _providerFactory.Delete(id);
 

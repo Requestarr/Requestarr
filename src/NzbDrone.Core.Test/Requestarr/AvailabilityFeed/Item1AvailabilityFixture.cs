@@ -290,7 +290,7 @@ namespace Requestarr.Core.Test.AvailabilityFeed
             await Availability.SetUpWebhooksAsync();
 
             var sonarr = Instance("Sonarr");
-            sonarr.Settings.PollingOnly = true;
+            sonarr.Config.PollingOnly = true;
             Mocker.Resolve<IBackendRepository>().Update(sonarr);
             await Availability.SetUpWebhooksAsync();
             Sonarr.Webhooks.Should().BeEmpty("switching an instance to polling only removes Requestarr's webhook");

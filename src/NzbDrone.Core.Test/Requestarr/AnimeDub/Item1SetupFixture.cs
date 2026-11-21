@@ -72,13 +72,13 @@ namespace Requestarr.Core.Test.AnimeDub
         {
             var repo = Mocker.Resolve<IBackendRepository>();
             var instance = SonarrInstance;
-            instance.Settings.DubRequired = new() { "Dual Audio", "English Dub" };
+            instance.Config.DubRequired = new() { "Dual Audio", "English Dub" };
             repo.Update(instance);
             await Anime.EnsureAsync(SonarrInstance);
             Sonarr.ReleaseProfiles.Single(p => p.Name == AnimeDefaults.DubProfile).Required.Should().Equal("Dual Audio", "English Dub");
 
             instance = SonarrInstance;
-            instance.Settings.DubRequired = new() { "Dual Audio" };
+            instance.Config.DubRequired = new() { "Dual Audio" };
             repo.Update(instance);
             var result = await Anime.EnsureAsync(SonarrInstance);
 

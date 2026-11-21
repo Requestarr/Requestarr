@@ -111,7 +111,7 @@ namespace Requestarr.Core.Backends
 
             try
             {
-                var status = await _backends.ApiFor(instance).GetStatusAsync(instance.Settings);
+                var status = await _backends.ApiFor(instance).GetStatusAsync(instance.Config);
                 reachable = string.Equals(status.AppName, instance.Implementation, StringComparison.OrdinalIgnoreCase);
             }
             catch (Exception ex) when (ex is BackendException || ex is InvalidOperationException)

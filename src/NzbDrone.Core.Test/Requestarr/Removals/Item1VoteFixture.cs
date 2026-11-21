@@ -67,7 +67,7 @@ namespace Requestarr.Core.Test.Removals
             Radarr.Deletes.Should().BeEmpty("the window is still open");
             await Tick(TimeSpan.FromDays(1));
 
-            Radarr.Deletes.Should().Equal((Instance("Radarr").Settings.Url, request.ExternalItemId.Value));
+            Radarr.Deletes.Should().Equal((Instance("Radarr").Config.Url, request.ExternalItemId.Value));
             Proposal().Status.Should().Be(RemovalStatus.Deleted);
             Reload(request.Id).Status.Should().Be(RequestStatus.Removed);
             Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalRemoved}").And.Contain("Removed from the library after a vote");

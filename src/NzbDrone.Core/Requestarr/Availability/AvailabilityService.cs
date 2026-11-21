@@ -207,11 +207,11 @@ namespace Requestarr.Core.Availability
         public async Task<ProgressSnapshot> EvaluateAsync(Request request, BackendInstance instance)
         {
             var itemId = request.ExternalItemId.Value;
-            var queue = await _backends.ApiFor(instance).GetQueueAsync(instance.Settings, itemId);
+            var queue = await _backends.ApiFor(instance).GetQueueAsync(instance.Config, itemId);
 
             if (request.ContentType == ContentType.Movie)
             {
-                var hasFile = await _radarr.MovieHasFileAsync(instance.Settings, itemId);
+                var hasFile = await _radarr.MovieHasFileAsync(instance.Config, itemId);
 
                 if (hasFile == null)
                 {
@@ -223,7 +223,7 @@ namespace Requestarr.Core.Availability
                     : Summarize(request, queue, Array.Empty<int>());
             }
 
-            var episodes = await _sonarr.GetEpisodesAsync(instance.Settings, itemId);
+            var episodes = await _sonarr.GetEpisodesAsync(instance.Config, itemId);
 
             if (episodes == null)
             {
@@ -309,11 +309,11 @@ namespace Requestarr.Core.Availability
         {
             var api = _backends.ApiFor(instance);
 
-            if (baseUrl == null || instance.Settings.PollingOnly)
+            if (baseUrl == null || instance.Config.PollingOnly)
             {
                 _problems.TryRemove(instance.Name, out _);
 
-                if (await api.RemoveWebhookAsync(instance.Settings, WebhookTokens.For(_config.ApiKey, instance.Id)))
+                if (await api.RemoveWebhookAsync(instance.Config, WebhookTokens.For(_config.ApiKey, instance.Id)))
                 {
                     _logger.Info("Removed Requestarr's webhook from {0} (polling only)", instance.Name);
                 }
@@ -321,14 +321,14 @@ namespace Requestarr.Core.Availability
                 return;
             }
 
-            var change = await api.EnsureWebhookAsync(instance.Settings, WebhookName, WebhookTokens.Url(baseUrl, _config.ApiKey, instance.Id));
+            var change = await api.EnsureWebhookAsync(instance.Config, WebhookName, WebhookTokens.Url(baseUrl, _config.ApiKey, instance.Id));
 
             if (change != WebhookChange.Unchanged)
             {
                 _logger.Info("{0} Requestarr's webhook on {1}", change, instance.Name);
             }
 
-            var error = await api.TestWebhookAsync(instance.Settings, WebhookTokens.For(_config.ApiKey, instance.Id));
+            var error = await api.TestWebhookAsync(instance.Config, WebhookTokens.For(_config.ApiKey, instance.Id));
 
             if (error == null)
             {

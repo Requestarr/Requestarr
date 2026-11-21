@@ -98,7 +98,7 @@ namespace Requestarr.Core.Test.Portal
         public async Task a_type_the_web_app_leaves_out_gets_the_default_access_of_its_instance()
         {
             var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
-            sonarr.Settings.DefaultAccess = AccessState.AutoApprove;
+            sonarr.Config.DefaultAccess = AccessState.AutoApprove;
             Mocker.Resolve<IBackendRepository>().Update(sonarr);
             var onboarding = Onboarding();
             var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.Off, null, null, null) };

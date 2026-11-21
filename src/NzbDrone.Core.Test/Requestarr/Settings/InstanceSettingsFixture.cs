@@ -57,7 +57,7 @@ namespace Requestarr.Core.Test.Settings
             result.Problem.Should().BeNull();
             result.Instance.ApiKeySet.Should().BeTrue();
             result.Instance.Settings.ApiKey.Should().BeNull();
-            _instances[0].Settings.IsDefault.Should().BeFalse();
+            _instances[0].Config.IsDefault.Should().BeFalse();
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.AddAction, "instance", "2", "Sonarr 4K: Sonarr at http://sonarr4k:8989"), Times.Once());
             Mocker.GetMock<IBackendService>().Verify(b => b.CheckAllAsync(), Times.Once());
         }
@@ -67,7 +67,7 @@ namespace Requestarr.Core.Test.Settings
         {
             await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:9999", "new", isDefault: true), Admin);
 
-            _instances[0].Settings.ApiKey.Should().Be("new");
+            _instances[0].Config.ApiKey.Should().Be("new");
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", It.Is<string>(d => IsChangeRecord(d))), Times.Once());
         }
 
@@ -84,7 +84,7 @@ namespace Requestarr.Core.Test.Settings
 
             await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { BrowserUrl = " http://nas.local:8989 " }, Admin);
 
-            _instances[0].Settings.BrowserUrl.Should().Be("http://nas.local:8989");
+            _instances[0].Config.BrowserUrl.Should().Be("http://nas.local:8989");
             Subject.All().Single(i => i.Id == 1).Settings.BrowserUrl.Should().Be("http://nas.local:8989");
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", It.Is<string>(d => d.Contains("address in your browser from none to http://nas.local:8989"))), Times.Once());
         }
@@ -94,7 +94,7 @@ namespace Requestarr.Core.Test.Settings
         {
             await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true), Admin);
 
-            _instances[0].Settings.ApiKey.Should().Be("old");
+            _instances[0].Config.ApiKey.Should().Be("old");
         }
 
         [Test]
@@ -125,7 +125,7 @@ namespace Requestarr.Core.Test.Settings
         {
             await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { DefaultAccess = AccessState.AutoApprove }, Admin);
 
-            _instances[0].Settings.DefaultAccess.Should().Be(AccessState.AutoApprove);
+            _instances[0].Config.DefaultAccess.Should().Be(AccessState.AutoApprove);
             Subject.All().Single(i => i.Id == 1).Settings.DefaultAccess.Should().Be(AccessState.AutoApprove);
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", It.Is<string>(d => d.Contains("default access for new members from needs approval to auto-approve"))), Times.Once());
         }
@@ -136,7 +136,7 @@ namespace Requestarr.Core.Test.Settings
             var result = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { DefaultAccess = (AccessState)7 }, Admin);
 
             result.Problem.Should().Contain("for new members");
-            _instances[0].Settings.DefaultAccess.Should().Be(AccessState.NeedsApproval);
+            _instances[0].Config.DefaultAccess.Should().Be(AccessState.NeedsApproval);
         }
 
         // As stored before the setting existed, and as sent by anything that leaves it out: what new members got then.
@@ -159,7 +159,7 @@ namespace Requestarr.Core.Test.Settings
             var result = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:9999"), Admin);
 
             result.Problem.Should().Be(AppSettingsService.ProvisionedProblem);
-            _instances[0].Settings.Url.Should().Be("http://sonarr:8989");
+            _instances[0].Config.Url.Should().Be("http://sonarr:8989");
         }
     }
 }

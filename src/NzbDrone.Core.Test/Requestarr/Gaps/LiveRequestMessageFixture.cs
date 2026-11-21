@@ -152,7 +152,7 @@ namespace Requestarr.Core.Test.Gaps
 
                 // Inception lands in the library while its request waits (added to the test Radarr directly).
                 var radarr = Mocker.Resolve<IRadarrApi>();
-                var radarrSettings = Mocker.Resolve<IBackendService>().Default(ContentType.Movie).Settings;
+                var radarrSettings = Mocker.Resolve<IBackendService>().Default(ContentType.Movie).Config;
                 var profile = BackendService.ResolveProfile(await radarr.GetQualityProfilesAsync(radarrSettings), "HD-1080p");
                 await radarr.AddMovieAsync(radarrSettings, await radarr.LookupTmdbAsync(radarrSettings, Inception), profile.Id, "/data/movies");
                 Log("[library] Inception added to the test Radarr while request #3 was pending");

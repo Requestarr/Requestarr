@@ -68,7 +68,7 @@ namespace Requestarr.Core.Test.Discord
         {
             var backends = Mocker.Resolve<IBackendRepository>();
             var radarr = backends.FindByName("Radarr");
-            radarr.Settings.DefaultAccess = AccessState.AutoApprove;
+            radarr.Config.DefaultAccess = AccessState.AutoApprove;
             backends.Update(radarr);
             var sonarr = backends.FindByName("Sonarr");
             sonarr.Enable = false;
@@ -86,7 +86,7 @@ namespace Requestarr.Core.Test.Discord
         {
             var backends = Mocker.Resolve<IBackendRepository>();
             var radarr4K = backends.FindByName("Radarr 4K");
-            radarr4K.Settings.DefaultAccess = AccessState.AutoApprove;
+            radarr4K.Config.DefaultAccess = AccessState.AutoApprove;
             backends.Update(radarr4K);
             await AddUser(Alice);
             Users.SetAccess(Alice, ContentType.Movie, AccessState.Off, Requestarr.Core.Audit.Actor.Web("owner"), "Radarr 4K");
