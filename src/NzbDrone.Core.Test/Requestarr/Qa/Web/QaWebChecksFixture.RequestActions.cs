@@ -20,6 +20,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // The portal's answer for a path, read with the page's own sign-in, then picked from in the page.
         private const string Portal = "(path => fetch(window.Requestarr.urlBase + '/api/v1/portal/' + path, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()))";
+
         // An action's answer: the newest of the sidebar's messages, as Servarr reports a finished command.
         private const string Outcome = "document.querySelector('[class*=\"Message-message\"]')";
         private const string ModalButton = "[...document.querySelectorAll('[class*=\"ModalFooter\"] button')]";
