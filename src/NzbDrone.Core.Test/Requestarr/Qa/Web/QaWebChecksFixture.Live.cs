@@ -7,20 +7,18 @@ namespace Requestarr.Core.Test.Qa.Web
 {
     public partial class QaWebChecksFixture
     {
-        // Pages update by themselves, as Sonarr's do: with the Requests table open, a request a run seeded is denied from
-        // outside the page (the API, as Discord's buttons reach the same service), and its row's status changes with no
-        // refresh, the page's own marker still there. Without a seeded request waiting, the check changes nothing.
+        // Pages update by themselves, as Sonarr's do: with the Requests table open, the request the run seeded for this
+        // check is denied from outside the page (the API, as Discord's buttons reach the same service), and its row's
+        // status changes with no refresh, the page's own marker still there. Without it there's nothing to see change,
+        // so the check fails rather than pass untested.
         [Test]
         public Task live_updates() => CheckAsync(nameof(live_updates), async (browser, check) =>
         {
             await SignInAsync(browser);
-            var (ids, isMarked) = await RowsOfferingAsync(browser, "approve", "deny");
+            var (ids, isMarked) = await RowsOfferingAsync(browser, "live update", "deny");
 
-            if (!isMarked)
-            {
-                check.Saw($"live updates: no \"{Marked}approve\" request waiting, so nothing changed");
-                return;
-            }
+            check.Saw(isMarked ? $"live updates: \"{Marked}live update\" is waiting (request {ids[0]})" : $"live updates: no \"{Marked}live update\" request waiting");
+            isMarked.Should().BeTrue("the run seeds a request for this check (docker/qa_checks.py), and without it nothing would change");
 
             await OpenRequestsTableAsync(browser);
             await ScrollToRowAsync(browser, Row(ids[0]));

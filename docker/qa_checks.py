@@ -266,12 +266,17 @@ def run_web(out, env, commit):
     password = secrets.token_urlsafe(24)
     login = {"DEV_AUTH_REQUIRED": "enabled", "REQUESTARR_ADMIN_USERNAME": ACCOUNT, "REQUESTARR_ADMIN_PASSWORD": password}
     stack(["up"], login, ref=commit)
+    # The marked requests the checks act on; removed again with everything the checks did, pass or fail.
+    print("[qa-checks] seeded %d requests for the web checks" % edit_dev_database(seed_check_rows), flush=True)
     web_dir = os.path.join(out, "web")
     web_env = dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir,
                    QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password,
                    QA_CHECKS_VERSION=running_build("dev"))
     os.makedirs(web_dir, exist_ok=True)
-    dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(web_dir, "web.log"))
+    try:
+        dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(web_dir, "web.log"))
+    finally:
+        clean_check_entries()
     results = {}
     for name in os.listdir(web_dir):
         if name.endswith(".json"):
@@ -339,6 +344,10 @@ def run_live(out, env, commit, fixtures):
 DEV_CONTAINER = "requestarr-dev-requestarr-1"
 DEV_DATABASE = "/config/requestarr.db"
 
+# The made-up owner and title prefix of the requests seeded for the web checks (seed_check_rows).
+SEED_OWNER = "Automated check"
+SEED_TITLE = "Automated check: "
+
 # What the checks write in the dev stack's audit log: everything the web checks do, signed in as ACCOUNT, and anything
 # about the made-up "Automated check" titles and people. The owner's own entries (their sign-in, Discord, the bot) and
 # the QA checklist's results stay.
@@ -349,25 +358,87 @@ def docker(*args):
     subprocess.run(["docker"] + list(args), check=True, capture_output=True)
 
 
-def clean_check_entries():
-    """Removes the audit entries the checks wrote in the dev stack's data (the head's rule: test data never stays in the
-    owner's dev data). Requestarr is stopped for the edit and always started again; returns how many went. Nothing to
-    do when the stack has no Requestarr (a reset removed it)."""
+def edit_dev_database(edit):
+    """Runs EDIT(connection) on the dev stack's database, Requestarr stopped for it and always started again, and waits
+    until it's healthy; returns what EDIT returned. Nothing when the stack has no Requestarr (a reset removed it)."""
     if subprocess.run(["docker", "inspect", DEV_CONTAINER], capture_output=True).returncode != 0:
-        print("[qa-checks] no dev Requestarr: no audit entries to remove", flush=True)
-        return 0
+        print("[qa-checks] no dev Requestarr: its data left as it is", flush=True)
+        return None
     with tempfile.TemporaryDirectory() as folder:
         local = os.path.join(folder, "requestarr.db")
         docker("stop", DEV_CONTAINER)
         try:
             copy_database_out(local)
-            removed = delete_check_entries(local)
+            con = sqlite3.connect(local)
+            try:
+                done = edit(con)
+                con.commit()
+                con.execute("pragma journal_mode=delete")
+            finally:
+                con.close()
             copy_database_in(local, folder)
         finally:
             docker("start", DEV_CONTAINER)
         docker("exec", "-u", "0", DEV_CONTAINER, "sh", "-c", "chown 1654:1654 %s* && chmod 644 %s*" % (DEV_DATABASE, DEV_DATABASE))
         docker("restart", DEV_CONTAINER)
-    print("[qa-checks] removed %d audit entries the checks wrote on dev" % removed, flush=True)
+    wait_healthy(DEV_CONTAINER)
+    return done
+
+
+def wait_healthy(container, tries=120):
+    for _ in range(tries):
+        state = subprocess.run(["docker", "inspect", "-f", "{{.State.Health.Status}}", container], capture_output=True, text=True).stdout.strip()
+        if state == "healthy":
+            return
+        time.sleep(2)
+    sys.exit("%s didn't come back healthy after its data was edited" % container)
+
+
+def seed_check_rows(con):
+    """The requests the web checks act on, titled "Automated check: ...", owned by a made-up person known only from an
+    import (so the bot never contacts them): one waiting to be approved (it goes to the test Radarr), one waiting for
+    the live updates check to deny from outside the page, three history rows for select mode, and one for a row's
+    Delete record. How many were added."""
+    now = time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
+    owner = con.execute("INSERT INTO RequestarrUsers (DisplayName, Status, Added, StatusChanged) VALUES (?, 3, ?, ?)", (SEED_OWNER, now, now)).lastrowid
+    radarr = con.execute("SELECT Id FROM Backends WHERE Implementation = 'Radarr' ORDER BY Id LIMIT 1").fetchone()
+    radarr = radarr[0] if radarr else None
+    rows = [("approve", 0, 10386, 1999, radarr), ("live update", 0, 105, 1985, radarr)]
+    rows += [("history", 7, None, 2001 + n, None) for n in range(3)] + [("delete one", 7, None, 2010, None)]
+    for name, status, tmdb, year, backend in rows:
+        con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, TmdbId, Status, BackendId, MonitorFutureSeasons, Requested, Progress) "
+                    "VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0)", (owner, SEED_TITLE + name, year, tmdb, status, backend, now))
+    return len(rows)
+
+
+def remove_check_data(con):
+    """What the checks made in the dev stack's data, the owner's own left as it is: the seeded requests and their made-up
+    owner, what was done to them (follows, removals with their keeps and prompts), removals the checks' sign-in started,
+    and the audit entries the checks wrote. How many audit entries went."""
+    people = [r[0] for r in con.execute("SELECT Id FROM RequestarrUsers WHERE DisplayName = ? AND ImportedFrom IS NULL", (SEED_OWNER,))]
+    requests = [r[0] for r in con.execute("SELECT Id FROM Requests WHERE Title LIKE ?", (SEED_TITLE + "%",))]
+    removals = [r[0] for r in con.execute("SELECT Id FROM RemovalProposals WHERE RequestId IN (%s) OR InitiatedByName LIKE ?" % marks(requests),
+                                          requests + [ACCOUNT + "%"])]
+    for table in ("RemovalFlags", "RemovalPrompts"):
+        con.execute("DELETE FROM %s WHERE ProposalId IN (%s)" % (table, marks(removals)), removals)
+    con.execute("DELETE FROM RemovalProposals WHERE Id IN (%s)" % marks(removals), removals)
+    con.execute("DELETE FROM RequestSubscribers WHERE RequestId IN (%s) OR UserId IN (%s)" % (marks(requests), marks(people)), requests + people)
+    con.execute("DELETE FROM Requests WHERE Id IN (%s)" % marks(requests), requests)
+    for table in ("UserMediaAccess", "UserIdentities"):
+        con.execute("DELETE FROM %s WHERE UserId IN (%s)" % (table, marks(people)), people)
+    con.execute("DELETE FROM RequestarrUsers WHERE Id IN (%s)" % marks(people), people)
+    return con.execute("DELETE FROM AuditEntries WHERE " + CHECK_ENTRIES, ("web:" + ACCOUNT, "web:" + ACCOUNT + " %")).rowcount
+
+
+def marks(ids):
+    return ",".join("?" * len(ids)) or "NULL"
+
+
+def clean_check_entries():
+    """The checks' data removed from the dev stack (the head's rule: test data never stays in the owner's dev data)."""
+    removed = edit_dev_database(remove_check_data)
+    if removed is not None:
+        print("[qa-checks] removed what the checks made on dev, %d audit entries with it" % removed, flush=True)
     return removed
 
 
@@ -379,18 +450,6 @@ def copy_database_out(local):
             docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE + suffix, local + suffix)
         except subprocess.CalledProcessError:
             pass  # no write-ahead log: everything is in the database file
-
-
-def delete_check_entries(local):
-    """Deletes the checks' audit entries from the database at LOCAL, its log folded into the file; how many went."""
-    con = sqlite3.connect(local)
-    try:
-        removed = con.execute("DELETE FROM AuditEntries WHERE " + CHECK_ENTRIES, ("web:" + ACCOUNT, "web:" + ACCOUNT + " %")).rowcount
-        con.commit()
-        con.execute("pragma journal_mode=delete")
-    finally:
-        con.close()
-    return removed
 
 
 def copy_database_in(local, folder):
@@ -423,8 +482,8 @@ def run(args):
         if only is None:
             suite = timed("full suite", timings, lambda: run_suite(out, env))
         if only in (None, "web"):
-            web = timed("web app checks (dev stack up at the commit, signed in)", timings, lambda: run_web(out, env, commit))
-            timed("check entries removed from dev's audit log", timings, clean_check_entries)
+            web = timed("web app checks (dev stack up at the commit, signed in, its marked requests seeded and removed)", timings,
+                        lambda: run_web(out, env, commit))
         if only in (None, "live"):
             fixtures = LIVE if only is None else sorted({c.target for c in CHECKS.values() if c.kind == "live"})
             live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit, fixtures))
@@ -669,6 +728,43 @@ def a_ready_run():
             "results": [{"name": "Build number", "check": "web app status page", "passed": True, "evidence": "Version shown 0.7.0005-dev.abc\nmore"}]}
 
 
+# The tables seed_check_rows and remove_check_data touch, with the columns they use.
+TEST_SCHEMA = """
+CREATE TABLE RequestarrUsers (Id INTEGER PRIMARY KEY, DisplayName TEXT, Status INTEGER, Added TEXT, StatusChanged TEXT, ImportedFrom TEXT);
+CREATE TABLE Backends (Id INTEGER PRIMARY KEY, Implementation TEXT);
+CREATE TABLE Requests (Id INTEGER PRIMARY KEY, OwnerUserId INTEGER, ContentType INTEGER, Title TEXT, Year INTEGER, TmdbId INTEGER,
+                       Status INTEGER, BackendId INTEGER, MonitorFutureSeasons INTEGER, Requested TEXT, Progress INTEGER);
+CREATE TABLE RemovalProposals (Id INTEGER PRIMARY KEY, RequestId INTEGER, InitiatedByName TEXT);
+CREATE TABLE RemovalFlags (Id INTEGER PRIMARY KEY, ProposalId INTEGER);
+CREATE TABLE RemovalPrompts (Id INTEGER PRIMARY KEY, ProposalId INTEGER);
+CREATE TABLE RequestSubscribers (Id INTEGER PRIMARY KEY, RequestId INTEGER, UserId INTEGER);
+CREATE TABLE UserMediaAccess (Id INTEGER PRIMARY KEY, UserId INTEGER);
+CREATE TABLE UserIdentities (Id INTEGER PRIMARY KEY, UserId INTEGER);
+CREATE TABLE AuditEntries (Id INTEGER PRIMARY KEY, Actor TEXT, Detail TEXT);
+"""
+
+
+def seeded_and_cleaned():
+    """A database with the owner's own person, request, removal and audit entry, seeded for the checks, acted on as the
+    checks do, then cleaned: what's left in each table."""
+    con = sqlite3.connect(":memory:")
+    con.executescript(TEST_SCHEMA)
+    con.execute("INSERT INTO Backends (Implementation) VALUES ('Radarr')")
+    con.execute("INSERT INTO RequestarrUsers (DisplayName, ImportedFrom) VALUES ('Owner', '#media-requests')")
+    con.execute("INSERT INTO Requests (OwnerUserId, Title) VALUES (1, 'Heat')")
+    con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (1, 'owner (web app)')")
+    con.execute("INSERT INTO AuditEntries (Actor, Detail) VALUES ('web:owner', 'Heat dropped')")
+    seeded = seed_check_rows(con)
+    con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (2, 'qa-checks (web app)')")
+    con.execute("INSERT INTO RemovalFlags (ProposalId) VALUES (2)")
+    con.execute("INSERT INTO RequestSubscribers (RequestId, UserId) VALUES (3, 2)")
+    con.execute("INSERT INTO AuditEntries (Actor, Detail) VALUES ('web:qa-checks', 'Automated check: history (2001) dropped')")
+    removed = remove_check_data(con)
+    left = {t: con.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
+            for t in ("RequestarrUsers", "Requests", "RemovalProposals", "RemovalFlags", "RequestSubscribers", "AuditEntries")}
+    return seeded, removed, left
+
+
 def self_test():
     ready = a_ready_run()
     items = checklist_items(SAMPLE)
@@ -703,6 +799,9 @@ def self_test():
         ("another commit's run refuses", any("not def" in r for r in not_ready(ready, "def"))),
         ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
+        ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
+        ("and everything the checks did removed, the owner's own kept",
+         seeded_and_cleaned()[1:] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
         ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
     wrong = [name for name, ok in expected if not ok]
