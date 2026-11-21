@@ -5,9 +5,9 @@ import { toolbarActions, usePicked } from '../Components/Select/selectActions';
 import { PortalRequest } from '../PortalTypes';
 import showOutcome from '../showOutcome';
 import BulkActionModal from './BulkActionModal';
-import runBulk, { BULK_PATHS } from './runBulk';
+import runBulk, { BULK_ACTIONS } from './runBulk';
 
-const GROUP = Object.keys(BULK_PATHS);
+const GROUP = BULK_ACTIONS;
 
 // The picks that allow the action get it. One: it runs as on the request's own page (runOne). Several: it asks first
 // with the list of their titles, then is done to each in turn; what happened shows in the sidebar's messages, as

@@ -1,27 +1,18 @@
-import { callApi } from 'Settings/Requestarr/requestarrApi';
-import runEach from '../Components/runEach';
+import runBulkAction from '../Components/runBulkAction';
 import { titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
 import { actionLabel } from './ActionButton';
 
-// What the selection bar can do to every request picked, by the path after each request's own.
-export const BULK_PATHS: Record<string, string> = {
-  approve: 'approve',
-  deny: 'deny',
-  remove: 'removal',
-};
+// What the toolbar can do to every request picked.
+export const BULK_ACTIONS = ['approve', 'deny', 'remove'];
 
-// The action on each request picked, as if pressed on each row.
+// The action on every request picked, in one call to Requestarr's bulk address.
 function runBulk(action: string, requests: PortalRequest[], body: object) {
-  return runEach(requests, {
+  return runBulkAction(requests, {
+    path: '/portal/requests/bulk',
+    body: { ...body, action },
     label: actionLabel(action),
     nameOf: titleText,
-    call: (request) =>
-      callApi(
-        `/portal/requests/${request.id}/${BULK_PATHS[action]}`,
-        'POST',
-        body
-      ),
   });
 }
 
