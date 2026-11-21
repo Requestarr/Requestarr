@@ -286,6 +286,6 @@ namespace Requestarr.Core.Settings
                 settings.DefaultAccess);
         }
 
-        public static string Terms(List<string> terms) => terms == null ? string.Empty : string.Join(", ", terms);
+        public static string Terms(IEnumerable<string> terms) => terms == null ? string.Empty : string.Join(", ", terms);
     }
 }

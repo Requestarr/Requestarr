@@ -6,6 +6,7 @@ using FluentAssertions;
 using FluentValidation;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
@@ -29,14 +30,16 @@ namespace Requestarr.Core.Test.MediaManagers
             };
 
             var instances = Mocker.GetMock<IInstanceSettingsService>().Object;
-            var sonarr = new Sonarr(instances);
-            var radarr = new Radarr(instances);
+            var repository = Mocker.GetMock<IBackendRepository>().Object;
+            var sonarr = new Sonarr(instances, repository);
+            var radarr = new Radarr(instances, repository);
 
             Mocker.SetConstant<IEnumerable<IMediaManager>>(new IMediaManager[] { sonarr, radarr });
             Mocker.GetMock<IServiceProvider>().Setup(c => c.GetService(typeof(Sonarr))).Returns(sonarr);
             Mocker.GetMock<IServiceProvider>().Setup(c => c.GetService(typeof(Radarr))).Returns(radarr);
             Mocker.GetMock<IBackendRepository>().Setup(r => r.All()).Returns(() => _stored);
             Mocker.GetMock<IBackendRepository>().Setup(r => r.Get(It.IsAny<int>())).Returns((int id) => _stored.Single(i => i.Id == id));
+            Mocker.GetMock<IBackendRepository>().Setup(r => r.Find(It.IsAny<int>())).Returns((int id) => _stored.SingleOrDefault(i => i.Id == id));
         }
 
         [TearDown]
@@ -123,6 +126,27 @@ namespace Requestarr.Core.Test.MediaManagers
 
             failure.PropertyName.Should().Be(nameof(BackendSettings.Url));
             failure.ErrorMessage.Should().Be("Couldn't reach Sonarr.");
+        }
+
+        // Servarr's form holds the saved key in place of its mask; only the saved address may receive it.
+        [Test]
+        public void should_leave_the_saved_api_key_to_the_settings_rules_when_testing()
+        {
+            TestAnswers(1, null);
+            var form = Form(1);
+            form.Config.ApiKey = "key";
+
+            Subject.Test(form);
+
+            Mocker.GetMock<IInstanceSettingsService>().Verify(s => s.TestAsync(1, It.Is<InstanceInput>(i => i.ApiKey == null && i.Url == "http://sonarr4k:8989")));
+        }
+
+        [Test]
+        public void should_not_find_an_instance_no_media_manager_handles()
+        {
+            Action get = () => Subject.Get(2);
+
+            get.Should().Throw<ModelNotFoundException>();
         }
     }
 }

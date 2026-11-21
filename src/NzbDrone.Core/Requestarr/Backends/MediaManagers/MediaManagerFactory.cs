@@ -5,6 +5,7 @@ using System.Threading;
 using FluentValidation;
 using FluentValidation.Results;
 using NLog;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.ThingiProvider.Events;
@@ -42,7 +43,15 @@ namespace Requestarr.Core.Backends.MediaManagers
         protected override bool RemovesMissingImplementations => false;
 
         public override List<BackendInstance> All() =>
-            base.All().Where(b => _providers.Any(p => p.Name == b.Implementation)).ToList();
+            base.All().Where(Handles).ToList();
+
+        // A Lidarr instance isn't one of these: asked for by its id, it isn't found.
+        public override BackendInstance Get(int id)
+        {
+            var instance = base.Get(id);
+
+            return Handles(instance) ? instance : throw new ModelNotFoundException(typeof(BackendInstance), id);
+        }
 
         public override BackendInstance Create(BackendInstance definition)
         {
@@ -57,6 +66,8 @@ namespace Requestarr.Core.Backends.MediaManagers
             var saved = Save(definition.Id, definition);
             _eventAggregator.PublishEvent(new ProviderUpdatedEvent<IMediaManager>(saved));
         }
+
+        private bool Handles(BackendInstance instance) => _providers.Any(p => p.Name == instance.Implementation);
 
         private BackendInstance Save(int? id, BackendInstance definition)
         {

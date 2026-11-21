@@ -39,10 +39,12 @@ namespace Requestarr.Core.Backends.MediaManagers
         };
 
         private readonly IInstanceSettingsService _instances;
+        private readonly IBackendRepository _repository;
 
-        protected MediaManagerBase(IInstanceSettingsService instances)
+        protected MediaManagerBase(IInstanceSettingsService instances, IBackendRepository repository)
         {
             _instances = instances;
+            _repository = repository;
         }
 
         public string Name => GetType().Name;
@@ -88,9 +90,21 @@ namespace Requestarr.Core.Backends.MediaManagers
             _ => null
         };
 
-        // Reaches it with the settings in the form; a saved instance's own API key when the form's address is its own.
-        private InstanceTestResult Probe() =>
-            _instances.TestAsync(Instance.Id > 0 ? Instance.Id : null, InstanceInputs.Of(Instance)).GetAwaiter().GetResult();
+        // Reaches it with the settings in the form. The form holds the saved API key unless one was typed (Servarr's
+        // form fills in the key it masks), so that key is left to the settings rules, which send it only to the saved
+        // address.
+        private InstanceTestResult Probe()
+        {
+            var input = InstanceInputs.Of(Instance);
+            var saved = Instance.Id > 0 ? _repository.Find(Instance.Id) : null;
+
+            if (saved != null && input.ApiKey == saved.Config.ApiKey)
+            {
+                input = input with { ApiKey = null };
+            }
+
+            return _instances.TestAsync(saved?.Id, input).GetAwaiter().GetResult();
+        }
 
         // A select's choices in the shape Servarr's provider forms read.
         private static object Options(IEnumerable<(string Value, string Name)> choices) =>

@@ -107,16 +107,16 @@ namespace Requestarr.Core.Backends
         public string AnimePriority { get; set; } = "dub";
 
         [FieldDefinition(11, Label = "BackendDubRequired", HelpText = "BackendDubRequiredHelpText", Type = FieldType.Tag, Section = MediaManagerActions.AnimeSection, Advanced = true)]
-        public List<string> DubRequired { get; set; }
+        public IEnumerable<string> DubRequired { get; set; }
 
         [FieldDefinition(12, Label = "BackendDubIgnored", HelpText = "BackendDubIgnoredHelpText", Type = FieldType.Tag, Section = MediaManagerActions.AnimeSection, Advanced = true)]
-        public List<string> DubIgnored { get; set; }
+        public IEnumerable<string> DubIgnored { get; set; }
 
         [FieldDefinition(13, Label = "BackendSubRequired", HelpText = "BackendSubRequiredHelpText", Type = FieldType.Tag, Section = MediaManagerActions.AnimeSection, Advanced = true)]
-        public List<string> SubRequired { get; set; }
+        public IEnumerable<string> SubRequired { get; set; }
 
         [FieldDefinition(14, Label = "BackendSubIgnored", HelpText = "BackendSubIgnoredHelpText", Type = FieldType.Tag, Section = MediaManagerActions.AnimeSection, Advanced = true)]
-        public List<string> SubIgnored { get; set; }
+        public IEnumerable<string> SubIgnored { get; set; }
 
         // Checked when it's saved, with its connection tested (InstanceSettingsService), as the settings pages did.
         public NzbDroneValidationResult Validate() => new();
