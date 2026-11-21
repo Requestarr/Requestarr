@@ -71,6 +71,7 @@ CHECKS = {
     "web app add member": Check("web", "add_members", "web-app"),
     "web app paging": Check("web", "paging", "web-app"),
     "web app live updates": Check("web", "live_updates", "web-app"),
+    "web app requestrr import": Check("web", "import_preview", "web-app"),
     "live portal actions": Check("live", "LivePortalActionsFixture", "admin"),
     "live member renames": Check("live", "LiveMemberRenamesFixture", "admin"),
     "live shared library": Check("live", "LiveRemovalFixture", "admin", ("[shared]",)),
