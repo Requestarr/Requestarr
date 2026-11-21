@@ -572,7 +572,7 @@ namespace Requestarr.Core.Test.Qa.Web
             toolbar.Should().Contain("Show Advanced").And.Contain("No Changes").And.Contain("Test All Connections").And.NotContain("Add Sonarr");
 
             await browser.RunAsync("document.querySelector('[class*=\"ConnectionCard-addConnection\"]').click()");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"AddConnectionModal-choice\"]')");
+            await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"AddConnectionModal-name\"]')].some(n => n.innerText === 'Sonarr')");
             var choices = await browser.EvalAsync<string>(ModalText);
             check.Saw($"add modal ({theme}): {choices}");
             choices.Should().Contain("Media managers").And.Contain("Sonarr").And.Contain("Radarr");
@@ -594,13 +594,20 @@ namespace Requestarr.Core.Test.Qa.Web
             var modal = await browser.EvalAsync<string>(ModalText);
             check.Saw($"edit modal ({theme}): {modal}");
             modal.Should().Contain("Test").And.Contain("Cancel").And.Contain("Save");
+
+            // Servarr's provider form, from the media managers' schema: Sonarr's own fields and its anime ones.
+            modal.Should().Contain("Quality profile").And.Contain("Series type").And.Contain("Anime").And.Contain("Turned on");
+
+            // Its choices come from the test Sonarr through the provider's actions; the saved profile shows once they do.
+            await browser.WaitForAsync($"{ModalText}.includes('HD-1080p') && {ModalText}.includes('/data/tv')");
+            check.Saw($"edit modal ({theme}): quality profile and root folder loaded from Sonarr (HD-1080p, /data/tv)");
             await check.ShotAsync(browser, $"settings-connections-edit-{theme}");
 
             // The test stacks' provisioning file sets no default access, so their instances give new members what they got
-            // before. The select's own text lists every choice, so the chosen one is read from its selected option.
+            // before. The chosen one is read from Servarr's drop-down (or a plain select's selected option).
             var defaultAccess = await browser.EvalAsync<string>(
                 "(() => { const g = [...document.querySelectorAll('[class*=\"ModalBody\"] [class*=\"FormGroup-group\"]')].find(e => e.innerText.startsWith('Default access for new members')); " +
-                "g?.scrollIntoView(); const chosen = g?.querySelector('select')?.selectedOptions[0]?.text ?? 'nothing chosen'; " +
+                "g?.scrollIntoView(); const chosen = g?.querySelector('select')?.selectedOptions[0]?.text ?? g?.querySelector('[class*=\"EnhancedSelectInputSelectedValue-selectedValue\"]')?.innerText.trim() ?? 'nothing chosen'; " +
                 "return g ? `${chosen}: ${g.querySelector('[class*=\"FormInputHelpText\"]')?.innerText ?? ''}` : ''; })()");
             check.Saw($"edit modal ({theme}): default access for new members {defaultAccess}");
             defaultAccess.Should().StartWith("Needs approval:").And.Contain("media manager");

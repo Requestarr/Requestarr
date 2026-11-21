@@ -154,7 +154,7 @@ namespace Requestarr.Core.Removals
 
             try
             {
-                library = await _backends.ApiFor(instance).GetLibraryAsync(instance.Settings);
+                library = await _backends.ApiFor(instance).GetLibraryAsync(instance.Config);
             }
             catch (BackendException ex)
             {
@@ -187,7 +187,7 @@ namespace Requestarr.Core.Removals
             {
                 try
                 {
-                    var library = await _backends.ApiFor(instance).GetLibraryAsync(instance.Settings);
+                    var library = await _backends.ApiFor(instance).GetLibraryAsync(instance.Config);
                     found.AddRange(library.Where(t => t.Title != null && t.Title.Contains(term, StringComparison.OrdinalIgnoreCase)).Select(t => TargetFor(instance, t)));
                 }
                 catch (BackendException ex)
@@ -662,11 +662,11 @@ namespace Requestarr.Core.Removals
 
                 if (proposal.WholeTitle)
                 {
-                    await _backends.ApiFor(instance).DeleteItemAsync(instance.Settings, proposal.ExternalItemId.Value);
+                    await _backends.ApiFor(instance).DeleteItemAsync(instance.Config, proposal.ExternalItemId.Value);
                 }
                 else
                 {
-                    await ((ISonarrApi)_backends.ApiFor(instance)).DeleteSeasonsAsync(instance.Settings, proposal.ExternalItemId.Value, proposal.Seasons);
+                    await ((ISonarrApi)_backends.ApiFor(instance)).DeleteSeasonsAsync(instance.Config, proposal.ExternalItemId.Value, proposal.Seasons);
                 }
             }
             catch (BackendException ex)

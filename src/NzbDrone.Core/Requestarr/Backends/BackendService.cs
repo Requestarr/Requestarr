@@ -89,7 +89,7 @@ namespace Requestarr.Core.Backends
             var implementation = BackendImplementations.ForContentType(type);
             var candidates = _repository.All().Where(b => b.Enable && b.Implementation == implementation).OrderBy(b => b.Id).ToList();
 
-            return candidates.FirstOrDefault(b => b.Settings.IsDefault) ?? candidates.FirstOrDefault();
+            return candidates.FirstOrDefault(b => b.Config.IsDefault) ?? candidates.FirstOrDefault();
         }
 
         // The admin's per-user assignment wins; otherwise the type's default instance.
@@ -108,7 +108,7 @@ namespace Requestarr.Core.Backends
             return Default(type);
         }
 
-        public AccessState DefaultAccess(ContentType type) => Default(type)?.Settings.DefaultAccess ?? AccessState.Off;
+        public AccessState DefaultAccess(ContentType type) => Default(type)?.Config.DefaultAccess ?? AccessState.Off;
 
         public IBackendApi ApiFor(BackendInstance instance) => instance.Implementation switch
         {
@@ -189,9 +189,9 @@ namespace Requestarr.Core.Backends
 
             try
             {
-                var probe = await ProbeAsync(instance.Implementation, instance.Settings);
-                var profile = ResolveProfile(probe.QualityProfiles, instance.Settings.QualityProfile);
-                var root = instance.Settings.RootFolder ?? (probe.RootFolders.Count > 0 ? probe.RootFolders[0] : null);
+                var probe = await ProbeAsync(instance.Implementation, instance.Config);
+                var profile = ResolveProfile(probe.QualityProfiles, instance.Config.QualityProfile);
+                var root = instance.Config.RootFolder ?? (probe.RootFolders.Count > 0 ? probe.RootFolders[0] : null);
 
                 if (probe.Error != null)
                 {
@@ -199,7 +199,7 @@ namespace Requestarr.Core.Backends
                 }
                 else if (profile == null)
                 {
-                    result = Fail(instance, $"quality profile '{instance.Settings.QualityProfile}' not found (available: {string.Join(", ", probe.QualityProfiles.Select(p => p.Name))})");
+                    result = Fail(instance, $"quality profile '{instance.Config.QualityProfile}' not found (available: {string.Join(", ", probe.QualityProfiles.Select(p => p.Name))})");
                 }
                 else if (root == null || !probe.RootFolders.Any(r => SamePath(r, root)))
                 {

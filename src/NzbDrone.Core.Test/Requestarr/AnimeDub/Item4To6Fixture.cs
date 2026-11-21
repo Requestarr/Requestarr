@@ -54,7 +54,7 @@ namespace Requestarr.Core.Test.AnimeDub
 
             Sonarr.Adds.Select(a => (a.Url, a.RootFolder)).Should().BeEquivalentTo(new[] { ("http://sonarr-test:8989", "/data/media"), ("http://sonarr-sub:8989", "/data/anime-sub") });
             RequestStore.All().Select(r => r.Language).Should().BeEquivalentTo(new AnimeLanguage?[] { AnimeLanguage.Dub, AnimeLanguage.Sub });
-            Instance("Sonarr Sub").Settings.AnimePriority.Should().Be("sub");
+            Instance("Sonarr Sub").Config.AnimePriority.Should().Be("sub");
         }
 
         [Test]
@@ -71,7 +71,7 @@ namespace Requestarr.Core.Test.AnimeDub
         {
             var repo = Mocker.Resolve<IBackendRepository>();
             var instance = SonarrInstance;
-            instance.Settings.SeriesType = "standard";
+            instance.Config.SeriesType = "standard";
             repo.Update(instance);
 
             await RequestAnime(Alice, "d");

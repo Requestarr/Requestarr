@@ -253,7 +253,7 @@ namespace Requestarr.Core.Imports
 
                 try
                 {
-                    entries.AddRange((await _backends.ApiFor(instance).GetLibraryAsync(instance.Settings)).Select(t => new LibraryEntry(instance.Id, instance.Name, type, t)));
+                    entries.AddRange((await _backends.ApiFor(instance).GetLibraryAsync(instance.Config)).Select(t => new LibraryEntry(instance.Id, instance.Name, type, t)));
                 }
                 catch (BackendException ex)
                 {

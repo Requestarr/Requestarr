@@ -107,7 +107,7 @@ namespace Requestarr.Core.Portal
         {
             var type = Discord.DiscordText.TypeOf(backend);
 
-            return new PortalInstance(backend.Id, backend.Name, type, backend.Enable, _backends.Default(type)?.Id == backend.Id, backend.Settings.DefaultAccess);
+            return new PortalInstance(backend.Id, backend.Name, type, backend.Enable, _backends.Default(type)?.Id == backend.Id, backend.Config.DefaultAccess);
         }
 
         // A paused person isn't a member: their name is the one they last asked to join with.

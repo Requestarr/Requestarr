@@ -166,10 +166,16 @@ namespace NzbDrone.Core.ThingiProvider
         {
             _logger.Debug("Initializing Providers. Count {0}", _providers.Count);
 
-            RemoveMissingImplementations();
+            if (RemovesMissingImplementations)
+            {
+                RemoveMissingImplementations();
+            }
 
             InitializeProviders();
         }
+
+        // Requestarr: false keeps stored definitions whose implementation this factory doesn't have (yet).
+        protected virtual bool RemovesMissingImplementations => true;
 
         protected virtual void InitializeProviders()
         {

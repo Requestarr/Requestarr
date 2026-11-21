@@ -9,7 +9,10 @@ import EnhancedSelectInput from './EnhancedSelectInput';
 const importantFieldNames = [
   'baseUrl',
   'apiPath',
-  'apiKey'
+  'apiKey',
+
+  // Requestarr: a media manager's address.
+  'url'
 ];
 
 function getProviderDataKey(providerData) {

@@ -132,7 +132,7 @@ namespace Requestarr.Core.Test.Welcome
         public async Task the_chooser_gives_what_they_asked_for_the_default_access_of_its_instance()
         {
             var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
-            sonarr.Settings.DefaultAccess = AccessState.AutoApprove;
+            sonarr.Config.DefaultAccess = AccessState.AutoApprove;
             Mocker.Resolve<IBackendRepository>().Update(sonarr);
             await AskForAccess(Carol, null, "movie", "tv");
 

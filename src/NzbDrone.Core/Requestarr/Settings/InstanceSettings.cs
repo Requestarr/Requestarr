@@ -20,8 +20,8 @@ namespace Requestarr.Core.Settings
                                 string DubRequired, string DubIgnored, string SubRequired, string SubIgnored, string BrowserUrl = null,
                                 AccessState DefaultAccess = AccessState.NeedsApproval);
 
-    // The API key is never shown back, only whether one is saved. Problem: why the last check failed, or null.
-    public record InstanceView(int Id, InstanceInput Settings, bool ApiKeySet, bool Connected, string Problem);
+    // The API key is never shown back, only whether one is saved.
+    public record InstanceView(int Id, InstanceInput Settings, bool ApiKeySet);
 
     public record InstanceTestResult(string Problem, IReadOnlyList<string> QualityProfiles, IReadOnlyList<string> RootFolders);
 
@@ -72,7 +72,7 @@ namespace Requestarr.Core.Settings
             }
 
             // The saved API key is only sent to the saved address: a changed address needs its key typed again.
-            var saved = id is { } savedId ? _backends.Find(savedId)?.Settings : null;
+            var saved = id is { } savedId ? _backends.Find(savedId)?.Config : null;
             var settings = Settings(input, saved?.Url == input.Url?.Trim() ? saved : null);
 
             try
@@ -101,7 +101,7 @@ namespace Requestarr.Core.Settings
             instance.Name = input.Name.Trim();
             instance.Implementation = input.Implementation;
             instance.Enable = input.Enabled;
-            instance.Settings = Settings(input, existing?.Settings);
+            instance.Settings = Settings(input, existing?.Config);
             _repository.Upsert(instance);
 
             if (input.IsDefault && input.Enabled)
@@ -157,9 +157,9 @@ namespace Requestarr.Core.Settings
 
         private void ClearOtherDefaults(BackendInstance instance)
         {
-            foreach (var other in _backends.All().Where(b => b.Id != instance.Id && b.Implementation == instance.Implementation && b.Settings.IsDefault))
+            foreach (var other in _backends.All().Where(b => b.Id != instance.Id && b.Implementation == instance.Implementation && b.Config.IsDefault))
             {
-                other.Settings.IsDefault = false;
+                other.Config.IsDefault = false;
                 _repository.Update(other);
             }
         }
@@ -170,7 +170,7 @@ namespace Requestarr.Core.Settings
 
             if (before == null)
             {
-                _audit.Record(actor, AddAction, "instance", instance.Id.ToString(), $"{instance.Name}: {instance.Implementation} at {instance.Settings.Url}");
+                _audit.Record(actor, AddAction, "instance", instance.Id.ToString(), $"{instance.Name}: {instance.Implementation} at {instance.Config.Url}");
                 return;
             }
 
@@ -196,7 +196,7 @@ namespace Requestarr.Core.Settings
         // What the change record compares, in the words it uses.
         private static IReadOnlyList<(string Label, string Value)> Described(BackendInstance instance)
         {
-            var settings = instance.Settings;
+            var settings = instance.Config;
 
             return new List<(string, string)>
             {
@@ -213,8 +213,8 @@ namespace Requestarr.Core.Settings
                 ("default access for new members", DiscordText.Label(settings.DefaultAccess)),
                 ("anime sub or dub", OnOff(settings.AnimeEnabled)),
                 ("anime priority", settings.AnimePriority),
-                ("dub terms", $"{Terms(settings.DubRequired)} / {Terms(settings.DubIgnored)}"),
-                ("sub terms", $"{Terms(settings.SubRequired)} / {Terms(settings.SubIgnored)}")
+                ("dub terms", $"{InstanceInputs.Terms(settings.DubRequired)} / {InstanceInputs.Terms(settings.DubIgnored)}"),
+                ("sub terms", $"{InstanceInputs.Terms(settings.SubRequired)} / {InstanceInputs.Terms(settings.SubIgnored)}")
             };
         }
 
@@ -242,15 +242,34 @@ namespace Requestarr.Core.Settings
             };
         }
 
-        private InstanceView View(BackendInstance instance)
+        private static InstanceView View(BackendInstance instance) =>
+            new(instance.Id, InstanceInputs.Of(instance) with { ApiKey = null }, !string.IsNullOrEmpty(instance.Config.ApiKey));
+
+        private static string Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        private static string Shown(string value) => value ?? "none";
+
+        private static string OnOff(bool value) => value ? "on" : "off";
+
+        private static List<string> TermList(string terms)
         {
-            var settings = instance.Settings;
-            var check = _backends.LastResults.FirstOrDefault(r => r.BackendId == instance.Id);
-            var input = new InstanceInput(
+            var list = (terms ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            return list.Any() ? list : null;
+        }
+    }
+
+    // An instance as the settings rules take it: its saved settings, API key included, the anime terms comma-separated.
+    public static class InstanceInputs
+    {
+        public static InstanceInput Of(BackendInstance instance)
+        {
+            var settings = instance.Config;
+
+            return new InstanceInput(
                 instance.Implementation,
                 instance.Name,
                 settings.Url,
-                null,
+                settings.ApiKey,
                 settings.QualityProfile,
                 settings.RootFolder,
                 settings.SeriesType,
@@ -265,22 +284,8 @@ namespace Requestarr.Core.Settings
                 Terms(settings.SubIgnored),
                 settings.BrowserUrl,
                 settings.DefaultAccess);
-
-            return new InstanceView(instance.Id, input, !string.IsNullOrEmpty(settings.ApiKey), check?.Ok == true, check?.Error);
         }
 
-        private static string Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-        private static string Shown(string value) => value ?? "none";
-
-        private static string OnOff(bool value) => value ? "on" : "off";
-
-        private static string Terms(List<string> terms) => terms == null ? string.Empty : string.Join(", ", terms);
-
-        private static List<string> TermList(string terms)
-        {
-            var list = (terms ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            return list.Any() ? list : null;
-        }
+        public static string Terms(IEnumerable<string> terms) => terms == null ? string.Empty : string.Join(", ", terms);
     }
 }

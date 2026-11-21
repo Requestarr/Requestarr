@@ -3,6 +3,7 @@ import Alert from 'Components/Alert';
 import Card from 'Components/Card';
 import FieldSet from 'Components/FieldSet';
 import Button from 'Components/Link/Button';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
@@ -19,17 +20,6 @@ export interface ChoiceGroup {
   choices: { implementation: string; description: string }[];
   notYet?: string;
 }
-
-// Lidarr and the rest join Media managers as their content types arrive.
-export const MEDIA_MANAGERS: ChoiceGroup[] = [
-  {
-    legend: 'ConnectionsMediaManagers',
-    choices: [
-      { implementation: 'Sonarr', description: 'ConnectionSonarrDescription' },
-      { implementation: 'Radarr', description: 'ConnectionRadarrDescription' },
-    ],
-  },
-];
 
 // Plex and Jellyfin arrive with media server links (Phase 3).
 export const MEDIA_SERVERS: ChoiceGroup[] = [
@@ -60,8 +50,10 @@ function Choice({ implementation, description, onSelect }: ChoiceProps) {
   );
 }
 
+// IsLoading: the choices are still on their way (a provider's schema), as Prowlarr's Add Application shows.
 interface AddConnectionModalProps {
   isOpen: boolean;
+  isLoading?: boolean;
   groups: ChoiceGroup[];
   onSelect: (implementation: string) => void;
   onClose: () => void;
@@ -70,6 +62,7 @@ interface AddConnectionModalProps {
 // The "+" card's choices, each a tile with its name and what it's for; picking one opens its edit modal, empty.
 function AddConnectionModal({
   isOpen,
+  isLoading = false,
   groups,
   onSelect,
   onClose,
@@ -80,23 +73,26 @@ function AddConnectionModal({
         <ModalHeader>{translate('AddConnection')}</ModalHeader>
 
         <ModalBody>
-          {groups.map(({ legend, choices, notYet }) => (
-            <FieldSet key={legend} legend={translate(legend)}>
-              {notYet && !choices.length && (
-                <Alert kind={kinds.INFO}>{translate(notYet)}</Alert>
-              )}
+          {isLoading && <LoadingIndicator />}
 
-              <div className={styles.choices}>
-                {choices.map((choice) => (
-                  <Choice
-                    key={choice.implementation}
-                    {...choice}
-                    onSelect={onSelect}
-                  />
-                ))}
-              </div>
-            </FieldSet>
-          ))}
+          {!isLoading &&
+            groups.map(({ legend, choices, notYet }) => (
+              <FieldSet key={legend} legend={translate(legend)}>
+                {notYet && !choices.length && (
+                  <Alert kind={kinds.INFO}>{translate(notYet)}</Alert>
+                )}
+
+                <div className={styles.choices}>
+                  {choices.map((choice) => (
+                    <Choice
+                      key={choice.implementation}
+                      {...choice}
+                      onSelect={onSelect}
+                    />
+                  ))}
+                </div>
+              </FieldSet>
+            ))}
         </ModalBody>
 
         <ModalFooter>

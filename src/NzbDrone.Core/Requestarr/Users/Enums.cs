@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NzbDrone.Core.Annotations;
 
 namespace Requestarr.Core.Users
 {
@@ -27,10 +28,16 @@ namespace Requestarr.Core.Users
         Book = 5
     }
 
+    // The labels are a media manager's default access choices, in the member card's words.
     public enum AccessState
     {
+        [FieldOption("Off", Hint = "")]
         Off = 0,
+
+        [FieldOption("Needs approval", Hint = "")]
         NeedsApproval = 1,
+
+        [FieldOption("Approved automatically", Hint = "")]
         AutoApprove = 2
     }
 

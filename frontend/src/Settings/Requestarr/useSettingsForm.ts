@@ -1,64 +1,98 @@
-import { useCallback, useState } from 'react';
-import { callRequestarrApi } from './requestarrApi';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { AnyAction } from 'redux';
+import AppState from 'App/State/AppState';
+import usePrevious from 'Helpers/Hooks/usePrevious';
+import {
+  fetchRequestarrSettings,
+  saveRequestarrSettings,
+  setRequestarrSettingsValue,
+} from 'Store/Actions/settingsActions';
 import { AppSettings, SettingValue } from './RequestarrSettingsTypes';
-import useApiAction from './useApiAction';
-import useRequestarrApi from './useRequestarrApi';
 
 interface SettingChange {
   name: string;
   value: SettingValue;
 }
 
-// A secret's field starts empty and its saved value only says whether one is set: a field typed in and emptied again
-// keeps the saved secret instead of erasing it.
-function changesToSend(
-  pending: Record<string, SettingValue>,
-  settings: AppSettings | undefined
-) {
-  return Object.fromEntries(
-    Object.entries(pending).filter(
-      ([name, value]) =>
-        !(value === '' && typeof settings?.values[name] === 'boolean')
-    )
-  );
+// Servarr's setting value action, typed: its payload creator is JavaScript.
+const setValue = setRequestarrSettingsValue as unknown as (
+  change: SettingChange
+) => AnyAction;
+
+interface RequestarrSettingsSection {
+  isFetching: boolean;
+  isPopulated: boolean;
+  error?: { responseJSON?: { message?: string } } | null;
+  isSaving: boolean;
+  saveError?: { responseJSON?: { message?: string } } | null;
+  pendingChanges: Record<string, SettingValue>;
+  item: Record<string, SettingValue>;
 }
 
-// Requestarr's settings and the changes made on the page; saving sends only those changes.
+// Requestarr's answer for a request that failed, in its own words when it gave some.
+function problemOf(failure: RequestarrSettingsSection['error']) {
+  return failure ? failure.responseJSON?.message ?? String(failure) : undefined;
+}
+
+// The item's settings apart from whether the provisioning file sets them.
+function settingsOf(
+  section: RequestarrSettingsSection
+): AppSettings | undefined {
+  if (!section.isPopulated) {
+    return undefined;
+  }
+
+  const { provisioned, ...values } = section.item;
+
+  return { provisioned: !!provisioned, values };
+}
+
+// Requestarr's settings and the changes made on the page, in the settings.requestarr store section as Servarr's
+// general settings are (Settings/General): Servarr's fetch and save handlers, the page's changes as its pending
+// changes. Saving sends the whole item; a secret left as shown, or emptied, keeps the saved one. onSaved runs after
+// each save that worked.
 function useSettingsForm(onSaved?: () => void) {
-  const { data, error, reload, setData } =
-    useRequestarrApi<AppSettings>('settings');
-  const [pending, setPending] = useState<Record<string, SettingValue>>({});
-  const { isBusy: isSaving, problem: saveError, run } = useApiAction();
+  const dispatch = useDispatch();
+  const section = useSelector(
+    (state: AppState) =>
+      (state.settings as unknown as { requestarr: RequestarrSettingsSection })
+        .requestarr
+  );
+  const wasSaving = usePrevious(section.isSaving);
 
-  const onChange = useCallback(({ name, value }: SettingChange) => {
-    setPending((current) => ({ ...current, [name]: value }));
-  }, []);
+  const reload = useCallback(
+    () => dispatch(fetchRequestarrSettings()),
+    [dispatch]
+  );
 
-  const onSave = useCallback(() => {
-    run(
-      () =>
-        callRequestarrApi<AppSettings>(
-          'settings',
-          'PUT',
-          changesToSend(pending, data)
-        ),
-      (saved) => {
-        setData(saved);
-        setPending({});
-        onSaved?.();
-      }
-    );
-  }, [pending, data, run, setData, onSaved]);
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
-  const hasChanges = Object.keys(pending).length > 0;
+  useEffect(() => {
+    if (wasSaving && !section.isSaving && !section.saveError) {
+      onSaved?.();
+    }
+  }, [wasSaving, section.isSaving, section.saveError, onSaved]);
+
+  const onChange = useCallback(
+    ({ name, value }: SettingChange) => dispatch(setValue({ name, value })),
+    [dispatch]
+  );
+  const onSave = useCallback(
+    () => dispatch(saveRequestarrSettings()),
+    [dispatch]
+  );
+  const settings = useMemo(() => settingsOf(section), [section]);
 
   return {
-    settings: data,
-    error,
-    pending,
-    hasChanges,
-    isSaving,
-    saveError,
+    settings,
+    error: problemOf(section.error),
+    pending: section.pendingChanges,
+    hasChanges: Object.keys(section.pendingChanges).length > 0,
+    isSaving: section.isSaving,
+    saveError: problemOf(section.saveError),
     onChange,
     onSave,
     reload,

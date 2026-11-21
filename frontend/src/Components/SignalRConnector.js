@@ -7,6 +7,7 @@ import { setAppValue, setVersion } from 'Store/Actions/appActions';
 import { removeItem, update, updateItem } from 'Store/Actions/baseActions';
 import { fetchCommands, finishCommand, updateCommand } from 'Store/Actions/commandActions';
 import { refreshLive } from 'Store/Actions/portalListActions';
+import { fetchMediaManagers } from 'Store/Actions/settingsActions';
 import { fetchHealth } from 'Store/Actions/systemActions';
 import { fetchTagDetails, fetchTags } from 'Store/Actions/tagActions';
 import { repopulatePage } from 'Utilities/pagePopulator';
@@ -44,7 +45,8 @@ const mapDispatchToProps = {
   dispatchFetchHealth: fetchHealth,
   dispatchFetchTags: fetchTags,
   dispatchFetchTagDetails: fetchTagDetails,
-  dispatchRefreshLive: refreshLive
+  dispatchRefreshLive: refreshLive,
+  dispatchFetchMediaManagers: fetchMediaManagers
 };
 
 function Logger(minimumLogLevel) {
@@ -186,6 +188,11 @@ class SignalRConnector extends Component {
     this.props.dispatchRefreshLive('queue');
   };
 
+  // A Sonarr or Radarr was added or changed, or a connection check finished.
+  handleMediamanager = () => {
+    this.props.dispatchFetchMediaManagers();
+  };
+
   handleTag = (body) => {
     if (body.action === 'sync') {
       this.props.dispatchFetchTags();
@@ -276,7 +283,8 @@ SignalRConnector.propTypes = {
   dispatchFetchHealth: PropTypes.func.isRequired,
   dispatchFetchTags: PropTypes.func.isRequired,
   dispatchFetchTagDetails: PropTypes.func.isRequired,
-  dispatchRefreshLive: PropTypes.func.isRequired
+  dispatchRefreshLive: PropTypes.func.isRequired,
+  dispatchFetchMediaManagers: PropTypes.func.isRequired
 };
 
 export default connect(createMapStateToProps, mapDispatchToProps)(SignalRConnector);

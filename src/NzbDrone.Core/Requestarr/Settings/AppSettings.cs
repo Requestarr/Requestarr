@@ -46,6 +46,10 @@ namespace Requestarr.Core.Settings
 
         // Only the settings named are changed; each change is recorded with who made it and what it was before.
         Task<SettingsSaveResult> SaveAsync(IReadOnlyDictionary<string, string> changes, Actor actor);
+
+        // Every setting at once, as Servarr's settings pages save their whole item: a secret left as the page showed
+        // it (whether one is set) or empty keeps the saved one; anything that isn't a setting is ignored.
+        Task<SettingsSaveResult> SaveItemAsync(IReadOnlyDictionary<string, string> item, Actor actor);
     }
 
     // Every setting the provisioning file has, for beta and production, where there is no file: the settings pages
@@ -140,6 +144,19 @@ namespace Requestarr.Core.Settings
 
             return SettingsSaveResult.Done;
         }
+
+        public Task<SettingsSaveResult> SaveItemAsync(IReadOnlyDictionary<string, string> item, Actor actor)
+        {
+            var definitions = Definitions().ToDictionary(d => d.Key);
+            var changes = item
+                .Where(i => definitions.TryGetValue(i.Key, out var definition) && !IsUnchangedSecret(definition, i.Value))
+                .ToDictionary(i => i.Key, i => i.Value);
+
+            return SaveAsync(changes, actor);
+        }
+
+        private static bool IsUnchangedSecret(SettingDefinition definition, string value) =>
+            definition.Kind == SettingKind.Secret && (string.IsNullOrEmpty(value) || bool.TryParse(value, out _));
 
         // Writes the value and records the change; false when it was already that.
         private bool Apply(SettingDefinition definition, string value, Actor actor)

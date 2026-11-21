@@ -1,5 +1,3 @@
-import { AccessState } from 'Portal/PortalTypes';
-
 export type SettingValue = string | number | boolean;
 
 // Values by setting name; a secret's value says only whether one is saved.
@@ -34,41 +32,4 @@ export interface SetupStatus {
   botProblem?: string;
   inviteUrl?: string;
   readOnlyInviteUrl?: string;
-}
-
-export interface InstanceSettings {
-  implementation: string;
-  name: string;
-  url: string;
-  browserUrl?: string;
-  apiKey?: string;
-  qualityProfile?: string;
-  rootFolder?: string;
-  seriesType?: string;
-  isDefault: boolean;
-
-  // What a new member gets for the type when this is the instance they use.
-  defaultAccess: AccessState;
-  enabled: boolean;
-  pollingOnly: boolean;
-  animeEnabled: boolean;
-  animePriority: string;
-  dubRequired?: string;
-  dubIgnored?: string;
-  subRequired?: string;
-  subIgnored?: string;
-}
-
-export interface Instance {
-  id: number;
-  settings: InstanceSettings;
-  apiKeySet: boolean;
-  connected: boolean;
-  problem?: string;
-}
-
-export interface InstanceTestResult {
-  problem?: string;
-  qualityProfiles: string[];
-  rootFolders: string[];
 }

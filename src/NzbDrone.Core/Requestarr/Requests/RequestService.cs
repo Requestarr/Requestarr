@@ -228,8 +228,8 @@ namespace Requestarr.Core.Requests
             try
             {
                 var results = type == ContentType.Movie
-                    ? await _radarr.LookupAsync(instance.Settings, query)
-                    : await _sonarr.LookupAsync(instance.Settings, query);
+                    ? await _radarr.LookupAsync(instance.Config, query)
+                    : await _sonarr.LookupAsync(instance.Config, query);
 
                 var top = results.Where(r => r.ExternalId(type).HasValue).Take(MaxSearchResults).ToList();
 
@@ -625,7 +625,7 @@ namespace Requestarr.Core.Requests
         {
             try
             {
-                await _backends.ApiFor(instance).SetMonitoredAsync(instance.Settings, request.ExternalItemId.Value, false);
+                await _backends.ApiFor(instance).SetMonitoredAsync(instance.Config, request.ExternalItemId.Value, false);
                 return true;
             }
             catch (Exception ex) when (ex is BackendException || ex is InvalidOperationException || ex is NullReferenceException)
@@ -807,7 +807,7 @@ namespace Requestarr.Core.Requests
 
             try
             {
-                await _sonarr.AddSeasonsAsync(instance.Settings, request.ExternalItemId.Value, seasons, future);
+                await _sonarr.AddSeasonsAsync(instance.Config, request.ExternalItemId.Value, seasons, future);
                 return null;
             }
             catch (BackendException ex)
@@ -835,7 +835,7 @@ namespace Requestarr.Core.Requests
 
             try
             {
-                await _backends.ApiFor(instance).SearchAsync(instance.Settings, request.ExternalItemId.Value);
+                await _backends.ApiFor(instance).SearchAsync(instance.Config, request.ExternalItemId.Value);
             }
             catch (Exception ex) when (ex is BackendException || ex is NullReferenceException)
             {
@@ -1046,7 +1046,7 @@ namespace Requestarr.Core.Requests
 
             try
             {
-                var episodes = await _sonarr.GetEpisodesAsync(state.Instance.Settings, state.Item.LibraryId.Value);
+                var episodes = await _sonarr.GetEpisodesAsync(state.Instance.Config, state.Item.LibraryId.Value);
                 var aired = episodes?.Where(e => e.SeasonNumber > 0 && e.AirDateUtc <= Clock()).ToList();
 
                 if (aired == null)
@@ -1290,19 +1290,19 @@ namespace Requestarr.Core.Requests
                 item ??= await Lookup(instance, request.ContentType, request.ExternalId.Value)
                          ?? throw new BackendException(DiscordText.TitleNotFound);
 
-                var profile = BackendService.ResolveProfile(await api.GetQualityProfilesAsync(instance.Settings), instance.Settings.QualityProfile)
-                              ?? throw new BackendException($"quality profile '{instance.Settings.QualityProfile}' not found on {instance.Name}");
-                var root = instance.Settings.RootFolder ?? (await api.GetRootFoldersAsync(instance.Settings)).FirstOrDefault()
+                var profile = BackendService.ResolveProfile(await api.GetQualityProfilesAsync(instance.Config), instance.Config.QualityProfile)
+                              ?? throw new BackendException($"quality profile '{instance.Config.QualityProfile}' not found on {instance.Name}");
+                var root = instance.Config.RootFolder ?? (await api.GetRootFoldersAsync(instance.Config)).FirstOrDefault()
                            ?? throw new BackendException($"no root folder on {instance.Name}");
 
                 // Anime always goes in as Sonarr's Anime type (absolute numbering, scene mapping). With
                 // sub/dub on, it's tagged with its language so the matching release profile applies.
-                var seriesType = item.IsAnime ? "anime" : instance.Settings.SeriesType;
+                var seriesType = item.IsAnime ? "anime" : instance.Config.SeriesType;
                 var tags = request.Language.HasValue && await _anime.TagsAsync(instance) is { } animeTags ? new[] { animeTags.For(request.Language.Value) } : null;
 
                 request.ExternalItemId = request.ContentType == ContentType.Movie
-                    ? await _radarr.AddMovieAsync(instance.Settings, item, profile.Id, root)
-                    : await _sonarr.AddSeriesAsync(instance.Settings, item, profile.Id, root, seriesType, request.Seasons, request.MonitorFutureSeasons, tags);
+                    ? await _radarr.AddMovieAsync(instance.Config, item, profile.Id, root)
+                    : await _sonarr.AddSeriesAsync(instance.Config, item, profile.Id, root, seriesType, request.Seasons, request.MonitorFutureSeasons, tags);
 
                 request.QualityProfileId = profile.Id;
                 request.RootFolderPath = root;
@@ -1551,8 +1551,8 @@ namespace Requestarr.Core.Requests
         private Task<MediaLookupResult> Lookup(BackendInstance instance, ContentType type, int externalId)
         {
             return type == ContentType.Movie
-                ? _radarr.LookupTmdbAsync(instance.Settings, externalId)
-                : _sonarr.LookupTvdbAsync(instance.Settings, externalId);
+                ? _radarr.LookupTmdbAsync(instance.Config, externalId)
+                : _sonarr.LookupTvdbAsync(instance.Config, externalId);
         }
 
         private (BackendInstance Instance, string Error) Resolve(RequestCaller caller, ContentType type)

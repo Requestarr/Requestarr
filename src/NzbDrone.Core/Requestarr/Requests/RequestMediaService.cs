@@ -211,8 +211,8 @@ namespace Requestarr.Core.Requests
         // Movies by The Movie Database ID, shows by TheTVDB ID; a show known only by The Movie Database isn't looked up.
         private Task<MediaLookupResult> LookupAsync(BackendInstance instance, Request request) => request.ContentType switch
         {
-            ContentType.Movie when request.TmdbId.HasValue => _radarr.LookupTmdbAsync(instance.Settings, request.TmdbId.Value),
-            ContentType.Tv when request.TvdbId.HasValue => _sonarr.LookupTvdbAsync(instance.Settings, request.TvdbId.Value),
+            ContentType.Movie when request.TmdbId.HasValue => _radarr.LookupTmdbAsync(instance.Config, request.TmdbId.Value),
+            ContentType.Tv when request.TvdbId.HasValue => _sonarr.LookupTvdbAsync(instance.Config, request.TvdbId.Value),
             _ => Task.FromResult<MediaLookupResult>(null)
         };
     }

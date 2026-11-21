@@ -27,8 +27,8 @@ namespace Requestarr.Core.Test.AnimeDub
         {
             var repo = Mocker.Resolve<IBackendRepository>();
             var instance = SonarrInstance;
-            instance.Settings.AnimePriority = priority;
-            instance.Settings.AnimeEnabled = enabled;
+            instance.Config.AnimePriority = priority;
+            instance.Config.AnimeEnabled = enabled;
             repo.Update(instance);
         }
 

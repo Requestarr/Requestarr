@@ -84,7 +84,7 @@ namespace Requestarr.Core.Test.Removals
             Mocker.Resolve<IConfigService>().RemovalDeleteFiles = true;
             await Removals.ForceAsync(1, Requestarr.Core.Audit.Actor.System, "owner", null);
 
-            Radarr.Deletes.Should().Equal((Instance("Radarr").Settings.Url, request.ExternalItemId.Value));
+            Radarr.Deletes.Should().Equal((Instance("Radarr").Config.Url, request.ExternalItemId.Value));
             Proposal().Status.Should().Be(RemovalStatus.Forced);
         }
 
@@ -127,7 +127,7 @@ namespace Requestarr.Core.Test.Removals
 
             await Tick(TimeSpan.FromDays(7));
 
-            Radarr.Deletes.Should().Equal((Instance("Radarr").Settings.Url, request.ExternalItemId.Value));
+            Radarr.Deletes.Should().Equal((Instance("Radarr").Config.Url, request.ExternalItemId.Value));
             Proposal().Status.Should().Be(RemovalStatus.Deleted);
         }
     }

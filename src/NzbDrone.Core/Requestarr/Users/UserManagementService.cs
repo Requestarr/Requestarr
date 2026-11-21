@@ -701,7 +701,7 @@ namespace Requestarr.Core.Users
 
                 row.State = ContentTypes.IsOffered(type) && requested != null && requested.TryGetValue(type, out var state)
                     ? state
-                    : _backends.ForUser(row, type)?.Settings.DefaultAccess ?? AccessState.Off;
+                    : _backends.ForUser(row, type)?.Config.DefaultAccess ?? AccessState.Off;
 
                 _access.Upsert(row);
                 rows.Add(row);

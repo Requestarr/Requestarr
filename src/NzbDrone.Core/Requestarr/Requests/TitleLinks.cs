@@ -12,7 +12,7 @@ namespace Requestarr.Core.Requests
         // browser address when set, else its own address unless that's a bare container name (http://sonarr:8989).
         public static string Open(BackendInstance instance, Request request)
         {
-            var root = instance == null ? null : BrowserRoot(instance.Settings);
+            var root = instance == null ? null : BrowserRoot(instance.Config);
 
             if (root == null || request.ExternalItemId == null || request.Status is RequestStatus.NotInLibrary or RequestStatus.Removed)
             {

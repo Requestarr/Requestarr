@@ -1,38 +1,98 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
 import SpinnerButton from 'Components/Link/SpinnerButton';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import usePrevious from 'Helpers/Hooks/usePrevious';
 import { kinds } from 'Helpers/Props';
-import InstanceFields from 'Settings/Requestarr/InstanceFields';
+import MediaManagerForm, {
+  useMediaManagerSettings,
+} from 'Settings/Requestarr/Connections/MediaManagers/MediaManagerForm';
 import { callRequestarrApi } from 'Settings/Requestarr/requestarrApi';
 import { SetupStatus } from 'Settings/Requestarr/RequestarrSettingsTypes';
 import useApiAction from 'Settings/Requestarr/useApiAction';
-import useInstanceForm from 'Settings/Requestarr/useInstanceForm';
+import {
+  fetchMediaManagerSchema,
+  saveMediaManager,
+  selectMediaManagerSchema,
+  testMediaManager,
+} from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
 import SetupStep from './SetupStep';
 import styles from './SetupPage.css';
+
+// The new instance's form, the Connections page's (MediaManagerForm), once the schema to start it from has loaded.
+function NewInstanceForm({ onSaved }: { onSaved: () => void }) {
+  const dispatch = useDispatch();
+  const settings = useMediaManagerSettings();
+  const { isSaving, isTesting, saveError } = settings;
+  const wasSaving = usePrevious(isSaving);
+
+  useEffect(() => {
+    if (wasSaving && !isSaving && !saveError) {
+      onSaved();
+    }
+  }, [wasSaving, isSaving, saveError, onSaved]);
+
+  const onTestPress = useCallback(
+    () => dispatch(testMediaManager({})),
+    [dispatch]
+  );
+  const onSavePress = useCallback(
+    () => dispatch(saveMediaManager({})),
+    [dispatch]
+  );
+
+  return (
+    <>
+      <MediaManagerForm settings={settings} isReadOnly={false} />
+
+      <div className={styles.buttons}>
+        <SpinnerButton isSpinning={isTesting} onPress={onTestPress}>
+          {translate('Test')}
+        </SpinnerButton>
+
+        <SpinnerButton
+          kind={kinds.PRIMARY}
+          isSpinning={isSaving}
+          onPress={onSavePress}
+        >
+          {translate('Save')}
+        </SpinnerButton>
+      </div>
+    </>
+  );
+}
 
 interface NewInstanceProps {
   implementation: string;
   onSaved: () => void;
 }
 
+// A new Sonarr or Radarr, started from the media managers' schema as the Connections page's Add modal starts one.
 function NewInstance({ implementation, onSaved }: NewInstanceProps) {
-  const form = useInstanceForm(undefined, implementation, onSaved);
-
-  return (
-    <>
-      <InstanceFields form={form} isReadOnly={false} />
-
-      <SpinnerButton
-        kind={kinds.PRIMARY}
-        isSpinning={form.isBusy}
-        onPress={form.onSave}
-      >
-        {translate('Save')}
-      </SpinnerButton>
-    </>
+  const dispatch = useDispatch();
+  const { isSchemaPopulated, selectedSchema } = useSelector(
+    (state: AppState) => state.settings.mediaManagers
   );
+
+  useEffect(() => {
+    dispatch(fetchMediaManagerSchema());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (isSchemaPopulated) {
+      dispatch(selectMediaManagerSchema({ implementation }));
+    }
+  }, [dispatch, isSchemaPopulated, implementation]);
+
+  if (selectedSchema.implementation !== implementation) {
+    return <LoadingIndicator />;
+  }
+
+  return <NewInstanceForm onSaved={onSaved} />;
 }
 
 interface InstanceStepProps {

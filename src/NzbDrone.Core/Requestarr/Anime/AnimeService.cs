@@ -57,7 +57,7 @@ namespace Requestarr.Core.Anime
 
         public AnimeConfig ConfigFor(BackendInstance instance)
         {
-            var settings = instance?.Settings;
+            var settings = instance?.Config;
             var enabled = instance != null && instance.Enable && instance.Implementation == BackendImplementations.Sonarr && settings.AnimeEnabled;
 
             return new AnimeConfig(
@@ -82,7 +82,7 @@ namespace Requestarr.Core.Anime
             try
             {
                 var tagsCreated = 0;
-                var existingTags = await _sonarr.GetTagsAsync(instance.Settings);
+                var existingTags = await _sonarr.GetTagsAsync(instance.Config);
 
                 async Task<int> Tag(string label)
                 {
@@ -94,11 +94,11 @@ namespace Requestarr.Core.Anime
                     }
 
                     tagsCreated++;
-                    return (await _sonarr.CreateTagAsync(instance.Settings, label)).Id;
+                    return (await _sonarr.CreateTagAsync(instance.Config, label)).Id;
                 }
 
                 var tags = new AnimeTags(await Tag(AnimeDefaults.DubTag), await Tag(AnimeDefaults.SubTag));
-                var profiles = await _sonarr.GetReleaseProfilesAsync(instance.Settings);
+                var profiles = await _sonarr.GetReleaseProfilesAsync(instance.Config);
                 var created = 0;
                 var updated = 0;
 
@@ -112,7 +112,7 @@ namespace Requestarr.Core.Anime
 
                     if (ours == null)
                     {
-                        await _sonarr.SaveReleaseProfileAsync(instance.Settings, new ReleaseProfile { Name = name, Required = required.ToList(), Ignored = ignored.ToList(), Tags = new List<int> { tag } });
+                        await _sonarr.SaveReleaseProfileAsync(instance.Config, new ReleaseProfile { Name = name, Required = required.ToList(), Ignored = ignored.ToList(), Tags = new List<int> { tag } });
                         created++;
                     }
                     else if (!ours.Enabled || !Same(ours.Required, required) || !Same(ours.Ignored, ignored) || !ours.Tags.SequenceEqual(new[] { tag }))
@@ -122,7 +122,7 @@ namespace Requestarr.Core.Anime
                         ours.Required = required.ToList();
                         ours.Ignored = ignored.ToList();
                         ours.Tags = new List<int> { tag };
-                        await _sonarr.SaveReleaseProfileAsync(instance.Settings, ours);
+                        await _sonarr.SaveReleaseProfileAsync(instance.Config, ours);
                         updated++;
                     }
                 }
@@ -175,7 +175,7 @@ namespace Requestarr.Core.Anime
             var tags = await TagsAsync(instance) ?? throw new BackendException($"sub/dub is off on {instance.Name}");
             var next = currentTags.Where(t => t != tags.Dub && t != tags.Sub).Append(tags.For(language)).ToList();
 
-            await _sonarr.SetSeriesTagsAsync(instance.Settings, seriesId, next);
+            await _sonarr.SetSeriesTagsAsync(instance.Config, seriesId, next);
         }
 
         // After each backend check, set up anime on every Sonarr that passed.

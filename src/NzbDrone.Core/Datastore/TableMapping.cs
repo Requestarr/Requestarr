@@ -61,7 +61,9 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<MediaServerAccessRequest>("MediaServerAccessRequests").RegisterModel();
             Mapper.Entity<AuditEntry>("AuditEntries").RegisterModel();
             Mapper.Entity<DiscordGuildConfig>("DiscordGuildConfigs").RegisterModel();
-            Mapper.Entity<BackendInstance>("Backends").RegisterModel();
+            Mapper.Entity<BackendInstance>("Backends").RegisterModel()
+                  .Ignore(x => x.ImplementationName)
+                  .Ignore(x => x.Message);
             Mapper.Entity<Request>("Requests").RegisterModel();
             Mapper.Entity<RequestSubscriber>("RequestSubscribers").RegisterModel();
             Mapper.Entity<RemovalProposal>("RemovalProposals").RegisterModel();

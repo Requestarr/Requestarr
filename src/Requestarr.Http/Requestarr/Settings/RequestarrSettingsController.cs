@@ -7,19 +7,17 @@ using Requestarr.Core.Settings;
 
 namespace Requestarr.Http.Settings
 {
-    // Requestarr's own settings and its Sonarr and Radarr instances, for the web app's settings pages and first-run
-    // setup. Changes are refused with 409 on a server that has a provisioning file (dev and QA). Needs the API key or a
-    // signed-in admin, like the rest of the API.
+    // Requestarr's own settings, for the web app's settings pages and first-run setup (the Sonarr and Radarr instances
+    // are the media managers' provider API). Changes are refused with 409 on a server that has a provisioning file (dev
+    // and QA). Needs the API key or a signed-in admin, like the rest of the API.
     public class RequestarrSettingsController : Controller
     {
         private readonly IAppSettingsService _settings;
-        private readonly IInstanceSettingsService _instances;
         private readonly ISetupService _setup;
 
-        public RequestarrSettingsController(IAppSettingsService settings, IInstanceSettingsService instances, ISetupService setup)
+        public RequestarrSettingsController(IAppSettingsService settings, ISetupService setup)
         {
             _settings = settings;
-            _instances = instances;
             _setup = setup;
         }
 
@@ -49,31 +47,9 @@ namespace Requestarr.Http.Settings
         [Produces("application/json")]
         public IActionResult SkipInstance() => Json(_setup.SkipInstance());
 
-        [HttpGet("/api/v1/requestarr/instances")]
-        [Produces("application/json")]
-        public IActionResult Instances() => Json(_instances.All());
-
-        [HttpPost("/api/v1/requestarr/instances/test")]
-        [Produces("application/json")]
-        public async Task<IActionResult> Test([FromBody] InstanceInput input, [FromQuery] int? id) => Json(await _instances.TestAsync(id, input));
-
-        [HttpPost("/api/v1/requestarr/instances")]
-        [Produces("application/json")]
-        public Task<IActionResult> Add([FromBody] InstanceInput input) => Save(null, input);
-
-        [HttpPut("/api/v1/requestarr/instances/{id:int}")]
-        [Produces("application/json")]
-        public Task<IActionResult> Change(int id, [FromBody] InstanceInput input) => Save(id, input);
-
-        private async Task<IActionResult> Save(int? id, InstanceInput input)
-        {
-            var result = await _instances.SaveAsync(id, input, await WebAdmin.ActorAsync(HttpContext));
-            return result.Problem == null ? Json(result.Instance) : Refused(result.Problem);
-        }
-
         private ObjectResult Refused(string problem) => Conflict(new { message = problem });
 
-        private static string Text(JsonElement value) => value.ValueKind switch
+        internal static string Text(JsonElement value) => value.ValueKind switch
         {
             JsonValueKind.String => value.GetString(),
             JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
