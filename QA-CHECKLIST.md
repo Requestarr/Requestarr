@@ -153,7 +153,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - Cards under Discord, Media managers and Media servers, with Options below.
     - Media managers' + lists Sonarr and Radarr; Media servers' + says not built yet.
-    - A card opens with Test, Cancel and Save; provisioned settings are read-only.
+    - A Sonarr card shows its quality profile, series type and Anime, read-only.
     - Requests keeps the audit log 1 year; Changes lists who changed what.
   - Checked automatically: the web app settings pages check.
 - **Default access for new members**
