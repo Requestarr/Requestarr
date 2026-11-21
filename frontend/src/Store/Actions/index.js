@@ -5,6 +5,7 @@ import * as localization from './localizationActions';
 import * as members from './memberActions';
 import * as memberIndex from './memberIndexActions';
 import * as paths from './pathActions';
+import * as portalLists from './portalListActions';
 import * as providerOptions from './providerOptionActions';
 import * as requests from './requestActions';
 import * as requestIndex from './requestIndexActions';
@@ -17,6 +18,7 @@ export default [
   commands,
   customFilters,
   paths,
+  portalLists,
   providerOptions,
   localization,
   members,

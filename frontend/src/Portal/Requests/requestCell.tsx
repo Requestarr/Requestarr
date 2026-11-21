@@ -1,6 +1,9 @@
 import React, { ElementType, ReactNode } from 'react';
 import Link from 'Components/Link/Link';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
+import TableRowCell from 'Components/Table/Cells/TableRowCell';
+import Column from 'Components/Table/Column';
+import TableRow from 'Components/Table/TableRow';
 import FollowerStack from '../Components/FollowerStack';
 import MemberLink from '../Components/MemberLink';
 import { contentTypeText, seasonsText, titleText } from '../portalText';
@@ -80,6 +83,22 @@ function requestCell(
     <Cell key={name} className={className}>
       {contentOf(name, request)}
     </Cell>
+  );
+}
+
+interface RequestTableRowProps {
+  request: PortalRequest;
+  columns: Column[];
+}
+
+// A request in a list read a page at a time (a member's requests), in the columns Table Options shows.
+export function RequestTableRow({ request, columns }: RequestTableRowProps) {
+  return (
+    <TableRow>
+      {columns
+        .filter((column) => column.isVisible)
+        .map((column) => requestCell(column.name, request, TableRowCell))}
+    </TableRow>
   );
 }
 

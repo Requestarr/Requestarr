@@ -1,7 +1,10 @@
 import Column from 'Components/Table/Column';
 import SortDirection from 'Helpers/Props/SortDirection';
 import { PortalMember, PortalRequest } from 'Portal/PortalTypes';
-import AppSectionState from './AppSectionState';
+import AppSectionState, {
+  PagedAppSectionState,
+  TableAppSectionState,
+} from './AppSectionState';
 import { Filter, FilterBuilderProp } from './AppState';
 
 // The Requests and Members lists' store sections, as Prowlarr's IndexerAppState has its indexers and indexerIndex.
@@ -48,3 +51,15 @@ export type MemberIndexAppState = IndexAppState<PortalMember>;
 export type RequestsAppState = AppSectionState<PortalRequest>;
 
 export type MembersAppState = AppSectionState<PortalMember>;
+
+// One of the portal's lists read a page at a time (Store/Actions/portalListActions.js), as Servarr's system.logs.
+interface PortalListAppState
+  extends AppSectionState<unknown>,
+    PagedAppSectionState,
+    TableAppSectionState {
+  sortKey: string;
+  sortDirection: SortDirection;
+  query: Record<string, unknown>;
+}
+
+export type PortalListsAppState = Record<string, PortalListAppState>;

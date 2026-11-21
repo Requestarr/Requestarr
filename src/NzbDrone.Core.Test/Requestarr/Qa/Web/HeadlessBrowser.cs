@@ -51,6 +51,10 @@ namespace Requestarr.Core.Test.Qa.Web
         public Task SetThemeAsync(string scheme) =>
             SendAsync("Emulation.setEmulatedMedia", new { features = new[] { new { name = "prefers-color-scheme", value = scheme } } });
 
+        // Draws the page at this width, as a phone or a narrow window would (Sonarr's small-screen layout below 768).
+        public Task SetWidthAsync(int width, int height = 900) =>
+            SendAsync("Emulation.setDeviceMetricsOverride", new { width, height, deviceScaleFactor = 1, mobile = false });
+
         // Opens the address and waits until the page has loaded (after any redirect).
         public async Task GoAsync(string url)
         {

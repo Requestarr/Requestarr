@@ -2,6 +2,7 @@ import CommandAppState from './CommandAppState';
 import {
   MemberIndexAppState,
   MembersAppState,
+  PortalListsAppState,
   RequestIndexAppState,
   RequestsAppState,
 } from './PortalAppState';
@@ -58,6 +59,7 @@ interface AppState {
   commands: CommandAppState;
   members: MembersAppState;
   memberIndex: MemberIndexAppState;
+  portalLists: PortalListsAppState;
   requests: RequestsAppState;
   requestIndex: RequestIndexAppState;
   settings: SettingsAppState;

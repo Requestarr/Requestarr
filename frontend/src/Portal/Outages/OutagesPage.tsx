@@ -2,13 +2,14 @@ import React, { useCallback, useState } from 'react';
 import FieldSet from 'Components/FieldSet';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
+import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import columnsOf from '../Components/columnsOf';
-import PagedSection from '../Components/Paging/PagedSection';
+import PortalList, { visibleCells } from '../Components/PortalList';
 import PortalPage from '../Components/PortalPage';
 import { PortalOutage, PortalOutageNow, PortalOutages } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
@@ -21,12 +22,6 @@ const nowColumns = columnsOf([
   'PortalDownSince',
   'PortalAnnounced',
   'PortalActions',
-]);
-const historyColumns = columnsOf([
-  'PortalInstance',
-  'PortalStarted',
-  'PortalEnded',
-  'PortalAnnounced',
 ]);
 
 function NowRow({
@@ -64,28 +59,22 @@ function NowRow({
   );
 }
 
-// A page of past outages, newest first.
-function historyPage(history: PortalOutage[]) {
-  if (!history.length) {
-    return <div className={styles.empty}>{translate('PortalNoOutages')}</div>;
-  }
-
+// A past outage, in the columns shown.
+function historyRow(outage: PortalOutage, columns: Column[]) {
   return (
-    <Table columns={historyColumns}>
-      <TableBody>
-        {history.map((outage) => (
-          <TableRow key={`${outage.instance}-${outage.started}`}>
-            <TableRowCell>{outage.instance}</TableRowCell>
-            <RelativeDateCell date={outage.started} />
-            <RelativeDateCell date={outage.ended} />
-            <TableRowCell>
-              {outage.announcedBy ??
-                (outage.announced ? translate('Yes') : translate('No'))}
-            </TableRowCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <TableRow>
+      {visibleCells(columns, {
+        instance: <TableRowCell>{outage.instance}</TableRowCell>,
+        started: <RelativeDateCell date={outage.started} />,
+        ended: <RelativeDateCell date={outage.ended} />,
+        announced: (
+          <TableRowCell>
+            {outage.announcedBy ??
+              (outage.announced ? translate('Yes') : translate('No'))}
+          </TableRowCell>
+        ),
+      })}
+    </TableRow>
   );
 }
 
@@ -122,13 +111,13 @@ function OutagesView({ data, round, onDone }: OutagesViewProps) {
         )}
       </FieldSet>
 
-      <PagedSection
-        key={round}
+      <PortalList
+        name="outageHistory"
         title={translate('PortalOutageHistory')}
-        path="outages/history"
-      >
-        {historyPage}
-      </PagedSection>
+        emptyText={translate('PortalNoOutages')}
+        round={round}
+        renderRow={historyRow}
+      />
     </>
   );
 }

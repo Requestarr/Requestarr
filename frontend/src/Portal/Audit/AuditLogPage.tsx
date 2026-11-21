@@ -2,17 +2,15 @@ import React, { useCallback, useState } from 'react';
 import TextInput from 'Components/Form/TextInput';
 import Button from 'Components/Link/Button';
 import Link from 'Components/Link/Link';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import Table from 'Components/Table/Table';
-import TableBody from 'Components/Table/TableBody';
+import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import columnsOf from '../Components/columnsOf';
-import PortalPager from '../Components/Paging/PortalPager';
-import usePagedPortal from '../Components/Paging/usePagedPortal';
-import PortalPage from '../Components/PortalPage';
+import PortalList, { visibleCells } from '../Components/PortalList';
 import { PortalAuditEntry } from '../PortalTypes';
 import styles from '../Portal.css';
 
@@ -43,14 +41,6 @@ const NO_FILTERS: Filters = {
   to: '',
 };
 
-const columns = columnsOf([
-  'PortalWhen',
-  'PortalWhat',
-  'PortalWho',
-  'PortalDetail',
-  'PortalAbout',
-]);
-
 function About({ entry }: { entry: PortalAuditEntry }) {
   if (entry.requestId) {
     return <Link to={`/requests/${entry.requestId}`}>{entry.about}</Link>;
@@ -63,30 +53,21 @@ function About({ entry }: { entry: PortalAuditEntry }) {
   );
 }
 
-function renderEntries(entries: PortalAuditEntry[]) {
-  if (!entries.length) {
-    return (
-      <div className={styles.empty}>{translate('PortalNothingFound')}</div>
-    );
-  }
-
+function entryRow(entry: PortalAuditEntry, columns: Column[]) {
   return (
-    <Table columns={columns}>
-      <TableBody>
-        {entries.map((entry, index) => (
-          // eslint-disable-next-line react/no-array-index-key -- entries can share a time and words; the list is never reordered on the page
-          <TableRow key={index}>
-            <RelativeDateCell date={entry.at} />
-            <TableRowCell>{entry.what}</TableRowCell>
-            <TableRowCell>{entry.who}</TableRowCell>
-            <TableRowCell>{entry.detail ?? ''}</TableRowCell>
-            <TableRowCell>
-              <About entry={entry} />
-            </TableRowCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <TableRow>
+      {visibleCells(columns, {
+        at: <RelativeDateCell date={entry.at} />,
+        what: <TableRowCell>{entry.what}</TableRowCell>,
+        who: <TableRowCell>{entry.who}</TableRowCell>,
+        detail: <TableRowCell>{entry.detail ?? ''}</TableRowCell>,
+        about: (
+          <TableRowCell>
+            <About entry={entry} />
+          </TableRowCell>
+        ),
+      })}
+    </TableRow>
   );
 }
 
@@ -94,16 +75,9 @@ function renderEntries(entries: PortalAuditEntry[]) {
 function AuditLogPage() {
   const [typed, setTyped] = useState(NO_FILTERS);
   const [applied, setApplied] = useState(NO_FILTERS);
-  const query = new URLSearchParams(
+  const query = Object.fromEntries(
     Object.entries(asSent(applied)).filter(([, value]) => value)
-  ).toString();
-  const paged = usePagedPortal<PortalAuditEntry>(`audit?${query}`);
-  const result = {
-    data: paged.records,
-    isLoading: !paged.records && !paged.hasError,
-    isNotFound: false,
-    hasError: paged.hasError,
-  };
+  );
 
   const onChange = useCallback(
     ({ name, value }: { name: string; value: string }) => {
@@ -111,37 +85,45 @@ function AuditLogPage() {
     },
     []
   );
-  const onSearchPress = useCallback(() => setApplied(typed), [typed]);
+  // Searching again reads the log again, even with the same filters.
+  const [searches, setSearches] = useState(0);
+  const onSearchPress = useCallback(() => {
+    setApplied(typed);
+    setSearches((current) => current + 1);
+  }, [typed]);
 
   return (
-    <PortalPage title={translate('PortalAuditLog')} result={result}>
-      {(entries) => (
-        <>
-          <div className={styles.filters}>
-            {FILTERS.map((name) => (
-              <label key={name} className={styles.filter}>
-                <span className={styles.filterLabel}>
-                  {translate(
-                    `PortalAuditFilter${name[0].toUpperCase()}${name.slice(1)}`
-                  )}
-                </span>
-                <TextInput
-                  type={name === 'from' || name === 'to' ? 'date' : 'text'}
-                  name={name}
-                  value={typed[name]}
-                  onChange={onChange}
-                />
-              </label>
-            ))}
-            <Button kind={kinds.PRIMARY} onPress={onSearchPress}>
-              {translate('Search')}
-            </Button>
-          </div>
-          {renderEntries(entries)}
-          <PortalPager {...paged.pager} />
-        </>
-      )}
-    </PortalPage>
+    <PageContent title={translate('PortalAuditLog')}>
+      <PageContentBody>
+        <div className={styles.filters}>
+          {FILTERS.map((name) => (
+            <label key={name} className={styles.filter}>
+              <span className={styles.filterLabel}>
+                {translate(
+                  `PortalAuditFilter${name[0].toUpperCase()}${name.slice(1)}`
+                )}
+              </span>
+              <TextInput
+                type={name === 'from' || name === 'to' ? 'date' : 'text'}
+                name={name}
+                value={typed[name]}
+                onChange={onChange}
+              />
+            </label>
+          ))}
+          <Button kind={kinds.PRIMARY} onPress={onSearchPress}>
+            {translate('Search')}
+          </Button>
+        </div>
+        <PortalList
+          name="audit"
+          query={query}
+          emptyText={translate('PortalNothingFound')}
+          round={searches}
+          renderRow={entryRow}
+        />
+      </PageContentBody>
+    </PageContent>
   );
 }
 

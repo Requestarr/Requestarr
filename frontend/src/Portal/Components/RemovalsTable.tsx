@@ -5,42 +5,45 @@ import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
-import translate from 'Utilities/String/translate';
+import { removalColumns } from 'Store/Actions/portalListActions';
 import { removalStatusText, seasonsText } from '../portalText';
 import { PortalRemoval } from '../PortalTypes';
-import styles from '../Portal.css';
+import { visibleCells } from './PortalList';
 
-const columns: Column[] = [
-  { name: 'created', label: () => translate('PortalStarted') },
-  { name: 'status', label: () => translate('PortalStatus') },
-  { name: 'seasons', label: () => translate('PortalSeasons') },
-  { name: 'startedBy', label: () => translate('PortalStartedBy') },
-  { name: 'keeps', label: () => translate('PortalKeeps') },
-  { name: 'closed', label: () => translate('PortalClosed') },
-  { name: 'closedBy', label: () => translate('PortalClosedBy') },
-].map((column) => ({ ...column, isVisible: true }));
+interface RemovalRowProps {
+  removal: PortalRemoval;
+  columns: Column[];
+}
 
-// Removals: started by a vote or an admin, who pressed Keep it on its vote, and how each ended (or that it's still
-// open).
-function RemovalsTable({ removals }: { removals: PortalRemoval[] }) {
-  if (!removals.length) {
-    return <div className={styles.empty}>{translate('PortalNoRemovals')}</div>;
-  }
+// A removal: started by a vote or an admin, who pressed Keep it on its vote, and how it ended (or that it's still
+// open), in the columns shown.
+export function RemovalRow({ removal, columns }: RemovalRowProps) {
+  return (
+    <TableRow>
+      {visibleCells(columns, {
+        created: <RelativeDateCell date={removal.created} />,
+        status: (
+          <TableRowCell>{removalStatusText(removal.status)}</TableRowCell>
+        ),
+        seasons: <TableRowCell>{seasonsText(removal.seasons)}</TableRowCell>,
+        startedBy: <TableRowCell>{removal.startedBy ?? ''}</TableRowCell>,
+        keeps: <TableRowCell>{removal.keeps.join(', ')}</TableRowCell>,
+        closed: <RelativeDateCell date={removal.closed} />,
+        closedBy: <TableRowCell>{removal.closedBy ?? ''}</TableRowCell>,
+      })}
+    </TableRow>
+  );
+}
 
+// The store's removal columns (columnLabel there is a function, as Servarr's column definitions have it).
+const columns = removalColumns as unknown as Column[];
+
+// A request's latest removal, on its own, with every column.
+function RemovalsTable({ removal }: { removal: PortalRemoval }) {
   return (
     <Table columns={columns}>
       <TableBody>
-        {removals.map((removal) => (
-          <TableRow key={removal.id}>
-            <RelativeDateCell date={removal.created} />
-            <TableRowCell>{removalStatusText(removal.status)}</TableRowCell>
-            <TableRowCell>{seasonsText(removal.seasons)}</TableRowCell>
-            <TableRowCell>{removal.startedBy ?? ''}</TableRowCell>
-            <TableRowCell>{removal.keeps.join(', ')}</TableRowCell>
-            <RelativeDateCell date={removal.closed} />
-            <TableRowCell>{removal.closedBy ?? ''}</TableRowCell>
-          </TableRow>
-        ))}
+        <RemovalRow removal={removal} columns={columns} />
       </TableBody>
     </Table>
   );

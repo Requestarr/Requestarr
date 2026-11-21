@@ -7,6 +7,10 @@ namespace Requestarr.Core.Test.Qa.Web
 {
     public partial class QaWebChecksFixture
     {
+        // The owner's screenshot of the squeezed pager (about 1060 wide) and a phone.
+        private const int OwnersNarrowWidth = 1060;
+        private const int PhoneWidth = 390;
+
         private const string IndexRows = "[...document.querySelectorAll('[class*=\"IndexTable-row\"]')]";
         private const string IndexBody = "document.querySelector('[class*=\"RequestsPage-contentBody\"]')";
 
@@ -14,7 +18,9 @@ namespace Requestarr.Core.Test.Qa.Web
         // draws only the rows on screen and more as it scrolls, with no pager and no page size under Options. The Movies
         // filter narrows it (the footer counts only movies), and Select All then picks every match, ticked at the end of
         // the scroll too. The page of the member with most requests has each section's total in its heading, a page of
-        // their requests with a pager, and no Requester column there.
+        // their requests with Servarr's pager, and no Requester column there. On that page, a request's page, the Queue,
+        // access requests, outages and the audit log, every pager spans its list at the owner's narrow window and a
+        // phone's width, its text on one line.
         [Test]
         public Task paging() => CheckAsync(nameof(paging), PagingAsync, OwnersWidth);
 
@@ -27,6 +33,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.SetThemeAsync(theme);
                 await RequestsScrollAsync(browser, check, theme);
                 await MemberPagedAsync(browser, check, theme);
+                await OtherPagersAsync(browser, check, theme);
             }
         }
 
@@ -127,11 +134,64 @@ namespace Requestarr.Core.Test.Qa.Web
             const string Theirs = "[...document.querySelectorAll('fieldset')].find(f => f.querySelector('legend').innerText.startsWith('Their requests'))";
             var rows = await RowCountAsync(browser, Theirs);
             var requester = await browser.EvalAsync<bool>($"[...{Theirs}.querySelectorAll('th')].some(h => h.innerText.trim() === 'Requester')");
-            var paged = await browser.EvalAsync<bool>($"!!{Theirs}.querySelector('[class*=\"PortalPager-pager\"]')");
-            check.Saw($"{name}'s page ({theme}): {legends}; their requests: {rows} rows drawn, a pager: {paged}, a Requester column: {requester}");
+            var paged = await browser.EvalAsync<bool>($"!!{Theirs}.querySelector('[class*=\"TablePager-pager\"]')");
+            check.Saw($"{name}'s page ({theme}): {legends}; their requests: {rows} rows drawn, Servarr's pager: {paged}, a Requester column: {requester}");
             legends.Should().MatchRegex(@"Their requests \(\d+\)");
             requester.Should().BeFalse("every row would name them");
+            paged.Should().BeTrue();
             await check.ShotAsync(browser, $"member-{theme}");
+
+            // The cog in the heading row opens the list's options: its columns and how many a page shows.
+            await browser.RunAsync($"{Theirs}.querySelector('thead th:last-child button').click()");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"ModalBody\"] input[name=pageSize]')");
+            var options = await browser.EvalAsync<string>("document.querySelector('[class*=\"ModalBody\"]').innerText.replace(/\\s+/g, ' ').trim()");
+            check.Saw($"their requests' options ({theme}): {options}");
+            await check.ShotAsync(browser, $"member-list-options-{theme}");
+            await AnswerAsync(browser, "Close", true);
+
+            await PagersAtWidthsAsync(browser, check, $"{name}'s page ({theme})");
+        }
+
+        // Every other page with a list read a page at a time: the newest request's page (its timeline), the Queue, access
+        // requests, outages and the audit log.
+        private static async Task OtherPagersAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            var request = await PortalAsync<int>(browser, "requests", "r => r[0]?.id ?? 0");
+            var pages = new[] { $"requests/{request}", "queue", "access-requests", "outages", "audit" };
+
+            foreach (var page in pages)
+            {
+                await browser.GoAsync($"{Url}/{page}");
+                await browser.WaitForAsync("!!document.querySelector('[class*=\"TablePager-pager\"], [class*=\"Alert-info\"]')");
+                await PagersAtWidthsAsync(browser, check, $"{page} ({theme})");
+            }
+        }
+
+        private static async Task PagersAtWidthsAsync(HeadlessBrowser browser, WebCheck check, string where)
+        {
+            foreach (var width in new[] { OwnersNarrowWidth, PhoneWidth })
+            {
+                await PagersAsync(browser, check, $"{where}, {width}px", width);
+            }
+
+            await browser.SetWidthAsync(OwnersWidth);
+        }
+
+        // Every pager on the page spans its list and keeps "1 / 5" and "Total records" on one line each, as Sonarr's
+        // History pager does, whatever the window's width.
+        private static async Task PagersAsync(HeadlessBrowser browser, WebCheck check, string where, int width)
+        {
+            await browser.SetWidthAsync(width);
+            await browser.WaitForAsync($"document.documentElement.clientWidth <= {width}");
+            const string Pagers = "[...document.querySelectorAll('[class*=\"TablePager-pager\"]')]";
+            var squeezed = await browser.EvalAsync<string>(
+                $"{Pagers}.filter(p => p.getBoundingClientRect().width < (s => p.parentElement.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight))(getComputedStyle(p.parentElement)) - 1 " +
+                "|| [...p.querySelectorAll('[class*=\"TablePager-records\"], [class*=\"TablePager-pageNumber\"]')].some(e => e.getClientRects().length > 1 || e.getBoundingClientRect().height > 30))" +
+                ".map(p => p.closest('fieldset')?.querySelector('legend')?.innerText ?? 'the list').join(', ')");
+            var count = await browser.EvalAsync<int>($"{Pagers}.length");
+            check.Saw($"{where}: {count} pagers, squeezed: {(squeezed.Length == 0 ? "none" : squeezed)}");
+            await check.ShotAsync(browser, $"pagers-{where.Split(' ')[0].Replace('/', '-').Replace("'", "")}-{width}");
+            squeezed.Should().BeEmpty("each pager spans its list with its text on one line");
         }
     }
 }

@@ -3,14 +3,14 @@ import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import ClipboardButton from 'Components/Link/ClipboardButton';
-import { kinds, sortDirections } from 'Helpers/Props';
+import Column from 'Components/Table/Column';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import PagedSection, { PagedSort } from '../Components/Paging/PagedSection';
 import Person from '../Components/Person';
+import PortalList from '../Components/PortalList';
 import PortalPage from '../Components/PortalPage';
-import RemovalsTable from '../Components/RemovalsTable';
-import RequestsTable from '../Components/RequestsTable';
-import TimelineTable from '../Components/TimelineTable';
+import { RemovalRow } from '../Components/RemovalsTable';
+import { EventRow, TrimmedNote } from '../Components/TimelineTable';
 import useDateText from '../Components/useDateText';
 import { accessText, contentTypeText, memberStatusText } from '../portalText';
 import {
@@ -19,6 +19,7 @@ import {
   PortalRemoval,
   PortalRequest,
 } from '../PortalTypes';
+import { RequestTableRow } from '../Requests/requestCell';
 import usePortal from '../usePortal';
 import MemberActions from './MemberActions';
 import styles from '../Portal.css';
@@ -75,65 +76,68 @@ function Summary({ detail }: { detail: PortalMemberDetail }) {
   );
 }
 
-// A page of requests in a member's section, sorted by the server.
-function requestsPage(withRequester: boolean) {
-  return function RequestsPage(records: PortalRequest[], sort: PagedSort) {
-    return (
-      <RequestsTable
-        requests={records}
-        sort={sort}
-        withRequester={withRequester}
-      />
-    );
-  };
+function requestRow(request: PortalRequest, columns: Column[]) {
+  return <RequestTableRow request={request} columns={columns} />;
 }
 
+function removalRow(removal: PortalRemoval, columns: Column[]) {
+  return <RemovalRow removal={removal} columns={columns} />;
+}
+
+function eventRow(event: PortalEvent, columns: Column[]) {
+  return <EventRow event={event} columns={columns} />;
+}
+
+// Their requests, what they follow, their removals and their history, each read a page at a time with its total.
 // Their own requests have no Requester column: every row would name them.
-const ownRequests = requestsPage(false);
-const followedRequests = requestsPage(true);
-
-function removalsPage(records: PortalRemoval[]) {
-  return <RemovalsTable removals={records} />;
-}
-
-// Their requests, what they follow, their removals and their history, each paged on its own with its total.
-function MemberSections({ detail }: { detail: PortalMemberDetail }) {
-  const path = `members/${detail.member.id}`;
-  const { historyTrimmedAfter } = detail;
-  const historyPage = useCallback(
-    (records: PortalEvent[]) => (
-      <TimelineTable events={records} trimmedAfter={historyTrimmedAfter} />
-    ),
-    [historyTrimmedAfter]
-  );
+function MemberSections({
+  detail,
+  round,
+}: {
+  detail: PortalMemberDetail;
+  round: number;
+}) {
+  const query = { id: detail.member.id };
 
   return (
     <>
-      <PagedSection
+      <PortalList
+        name="memberRequests"
+        query={query}
+        round={round}
         title={translate('PortalTheirRequests')}
-        path={`${path}/requests`}
-        initialSort="requested"
-        initialDirection={sortDirections.DESCENDING}
-      >
-        {ownRequests}
-      </PagedSection>
-      <PagedSection
+        emptyText={translate('PortalNoRequests')}
+        renderRow={requestRow}
+      />
+      <PortalList
+        name="memberFollowing"
+        query={query}
+        round={round}
         title={translate('PortalTheyFollow')}
-        path={`${path}/following`}
-        initialSort="requested"
-        initialDirection={sortDirections.DESCENDING}
-      >
-        {followedRequests}
-      </PagedSection>
-      <PagedSection
+        emptyText={translate('PortalNoRequests')}
+        renderRow={requestRow}
+      />
+      <PortalList
+        name="memberRemovals"
+        query={query}
+        round={round}
         title={translate('PortalRemovals')}
-        path={`${path}/removals`}
-      >
-        {removalsPage}
-      </PagedSection>
-      <PagedSection title={translate('PortalHistory')} path={`${path}/history`}>
-        {historyPage}
-      </PagedSection>
+        emptyText={translate('PortalNoRemovals')}
+        renderRow={removalRow}
+      />
+      <PortalList
+        name="memberHistory"
+        notice={
+          detail.historyTrimmedAfter ? (
+            <TrimmedNote trimmedAfter={detail.historyTrimmedAfter} />
+          ) : undefined
+        }
+        query={query}
+        round={round}
+        title={translate('PortalHistory')}
+        emptyText={translate('PortalNoHistory')}
+        renderRow={eventRow}
+      />
     </>
   );
 }
@@ -163,7 +167,7 @@ function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
 
       <MemberActions detail={detail} onDone={onDone} />
 
-      <MemberSections key={round} detail={detail} />
+      <MemberSections detail={detail} round={round} />
     </>
   );
 }
