@@ -643,7 +643,7 @@ namespace Requestarr.Core.Test.Qa.Web
             }
 
             await browser.GoAsync(Url + link[link.IndexOf("/" + page + "/", StringComparison.Ordinal)..]);
-            await browser.WaitForAsync("document.querySelectorAll('legend').length > 1");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"DetailsHeader-header\"]') && document.querySelectorAll('legend').length > 0");
             var sections = await browser.EvalAsync<string>("[...document.querySelectorAll('legend')].map(l => l.textContent.trim()).join(', ')");
             check.Saw($"{page} detail ({theme}): {sections}");
             sections.Should().Contain(page == "requests" ? "Timeline" : "History");
