@@ -126,6 +126,10 @@ namespace Requestarr.Core.Requests
 
     public class RequestRepository : BasicRepository<Request>, IRequestRepository
     {
+        // Each change tells the web app's open pages to read again (Requestarr.Http PortalBroadcaster), as Servarr's
+        // resources do.
+        protected override bool PublishModelEvents => true;
+
         public RequestRepository(IMainDatabase database, IEventAggregator eventAggregator)
             : base(database, eventAggregator)
         {
@@ -151,6 +155,10 @@ namespace Requestarr.Core.Requests
 
     public class RequestSubscriberRepository : BasicRepository<RequestSubscriber>, IRequestSubscriberRepository
     {
+        // Each change tells the web app's open pages to read again (Requestarr.Http PortalBroadcaster), as Servarr's
+        // resources do.
+        protected override bool PublishModelEvents => true;
+
         public RequestSubscriberRepository(IMainDatabase database, IEventAggregator eventAggregator)
             : base(database, eventAggregator)
         {

@@ -50,6 +50,10 @@ namespace Requestarr.Core.Access
 
     public class AccessRequestRepository : BasicRepository<AccessRequest>, IAccessRequestRepository
     {
+        // Each change tells the web app's open pages to read again (Requestarr.Http PortalBroadcaster), as Servarr's
+        // resources do.
+        protected override bool PublishModelEvents => true;
+
         public AccessRequestRepository(IMainDatabase database, IEventAggregator eventAggregator)
             : base(database, eventAggregator)
         {

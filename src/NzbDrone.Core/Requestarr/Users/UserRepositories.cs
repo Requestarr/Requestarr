@@ -18,6 +18,10 @@ namespace Requestarr.Core.Users
 
     public class RequestarrUserRepository : BasicRepository<RequestarrUser>, IRequestarrUserRepository
     {
+        // Each change tells the web app's open pages to read again (Requestarr.Http PortalBroadcaster), as Servarr's
+        // resources do.
+        protected override bool PublishModelEvents => true;
+
         public RequestarrUserRepository(IMainDatabase database, IEventAggregator eventAggregator)
             : base(database, eventAggregator)
         {
@@ -69,6 +73,10 @@ namespace Requestarr.Core.Users
 
     public class UserMediaAccessRepository : BasicRepository<UserMediaAccess>, IUserMediaAccessRepository
     {
+        // Each change tells the web app's open pages to read again (Requestarr.Http PortalBroadcaster), as Servarr's
+        // resources do.
+        protected override bool PublishModelEvents => true;
+
         public UserMediaAccessRepository(IMainDatabase database, IEventAggregator eventAggregator)
             : base(database, eventAggregator)
         {
