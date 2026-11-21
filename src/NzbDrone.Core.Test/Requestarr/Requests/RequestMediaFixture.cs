@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Metadata;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Users;
 
@@ -81,6 +83,18 @@ namespace Requestarr.Core.Test.Requests
             var stored = Mocker.Resolve<IRequestRepository>().All().ToDictionary(r => r.Id);
             stored[smartHouse.Id].Year.Should().Be(1999);
             stored[undated.Id].Year.Should().BeNull("nothing says when it came out");
+        }
+
+        // Hollow Trees (#382 on dev): imported without a year, and Radarr had no date for it yet.
+        [Test]
+        public async Task a_title_with_no_release_date_in_radarr_gets_its_year_from_the_movie_database()
+        {
+            var hollowTrees = Insert(ContentType.Movie, 1650534, null, new RequestMedia { Checked = DateTime.UtcNow });
+            Mocker.GetMock<ITmdbClient>().Setup(t => t.YearAsync(ContentType.Movie, 1650534, null, It.IsAny<CancellationToken>())).ReturnsAsync(2026);
+
+            await Subject.FillAsync();
+
+            Mocker.Resolve<IRequestRepository>().Get(hollowTrees.Id).Year.Should().Be(2026);
         }
 
         [Test]

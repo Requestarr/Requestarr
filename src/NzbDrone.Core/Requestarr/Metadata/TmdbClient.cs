@@ -18,6 +18,10 @@ namespace Requestarr.Core.Metadata
     public interface ITmdbClient
     {
         Task<TmdbDetails> GetAsync(ContentType type, int tmdbId, CancellationToken cancellationToken);
+
+        // The year a title first came out, by its The Movie Database ID (or a show's TheTVDB ID); null when The Movie
+        // Database has no date for it or can't be asked.
+        Task<int?> YearAsync(ContentType type, int? tmdbId, int? tvdbId, CancellationToken cancellationToken);
     }
 
     // Cast (and TV episode counts) for one title per call. Uses its own HttpClient rather than the
@@ -45,14 +49,64 @@ namespace Requestarr.Core.Metadata
 
         public async Task<TmdbDetails> GetAsync(ContentType type, int tmdbId, CancellationToken cancellationToken)
         {
-            var key = _settings.ApiKey;
-
-            if (string.IsNullOrWhiteSpace(key) || tmdbId <= 0 || (type != ContentType.Movie && type != ContentType.Tv))
+            if (tmdbId <= 0 || (type != ContentType.Movie && type != ContentType.Tv))
             {
                 return null;
             }
 
-            using var request = Build(type, tmdbId, key);
+            var json = await ReadAsync(DetailsPath(type, tmdbId), $"{type} {tmdbId}", cancellationToken);
+
+            if (json == null)
+            {
+                return null;
+            }
+
+            var credits = type == ContentType.Movie ? json["credits"] : json["aggregate_credits"];
+            var cast = credits?["cast"]?
+                .OrderBy(c => (int?)c["order"] ?? int.MaxValue)
+                .Select(c => (string)c["name"])
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Take(CastCount)
+                .ToList() ?? new List<string>();
+            var episodes = type == ContentType.Tv && (int?)json["number_of_episodes"] is > 0 ? (int?)json["number_of_episodes"] : null;
+
+            return new TmdbDetails(cast, episodes);
+        }
+
+        public async Task<int?> YearAsync(ContentType type, int? tmdbId, int? tvdbId, CancellationToken cancellationToken)
+        {
+            if (type == ContentType.Tv && tmdbId is not > 0 && tvdbId is > 0)
+            {
+                var found = await ReadAsync($"find/{tvdbId}?external_source=tvdb_id", $"TheTVDB {tvdbId}", cancellationToken);
+                return YearOf((string)found?["tv_results"]?.FirstOrDefault()?["first_air_date"]);
+            }
+
+            if (tmdbId is not > 0 || (type != ContentType.Movie && type != ContentType.Tv))
+            {
+                return null;
+            }
+
+            var details = await ReadAsync(type == ContentType.Movie ? $"movie/{tmdbId}" : $"tv/{tmdbId}", $"{type} {tmdbId}", cancellationToken);
+            return YearOf((string)details?[type == ContentType.Movie ? "release_date" : "first_air_date"]);
+        }
+
+        // A date as The Movie Database writes it (2026-12-07): its year; null when it has none.
+        private static int? YearOf(string date) => date?.Length >= 4 && int.TryParse(date[..4], out var year) && year > 0 ? year : null;
+
+        private static string DetailsPath(ContentType type, int tmdbId) =>
+            type == ContentType.Movie ? $"movie/{tmdbId}?append_to_response=credits" : $"tv/{tmdbId}?append_to_response=aggregate_credits";
+
+        // One call, its answer as JSON; null without a key, or when it fails (logged by what it asked for).
+        private async Task<JObject> ReadAsync(string path, string what, CancellationToken cancellationToken)
+        {
+            var key = _settings.ApiKey;
+
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            using var request = Build(path, key);
 
             try
             {
@@ -62,26 +116,16 @@ namespace Requestarr.Core.Metadata
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.Warn("The Movie Database lookup for {0} {1} returned HTTP {2}", type, tmdbId, (int)response.StatusCode);
+                    _logger.Warn("The Movie Database lookup for {0} returned HTTP {1}", what, (int)response.StatusCode);
                     return null;
                 }
 
-                var json = JObject.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-                var credits = type == ContentType.Movie ? json["credits"] : json["aggregate_credits"];
-                var cast = credits?["cast"]?
-                    .OrderBy(c => (int?)c["order"] ?? int.MaxValue)
-                    .Select(c => (string)c["name"])
-                    .Where(n => !string.IsNullOrWhiteSpace(n))
-                    .Take(CastCount)
-                    .ToList() ?? new List<string>();
-                var episodes = type == ContentType.Tv && (int?)json["number_of_episodes"] is > 0 ? (int?)json["number_of_episodes"] : null;
-
-                return new TmdbDetails(cast, episodes);
+                return JObject.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
                 // Only the exception type: messages and URLs could carry the key.
-                _logger.Warn("The Movie Database lookup for {0} {1} failed ({2})", type, tmdbId, ex.GetType().Name);
+                _logger.Warn("The Movie Database lookup for {0} failed ({1})", what, ex.GetType().Name);
                 return null;
             }
         }
@@ -100,11 +144,13 @@ namespace Requestarr.Core.Metadata
         }
 
         // A v4 read access token (a JWT) goes in the Authorization header; a v3 key in the query.
-        public static HttpRequestMessage Build(ContentType type, int tmdbId, string key)
+        public static HttpRequestMessage Build(ContentType type, int tmdbId, string key) => Build(DetailsPath(type, tmdbId), key);
+
+        private static HttpRequestMessage Build(string path, string key)
         {
-            var path = type == ContentType.Movie ? $"movie/{tmdbId}?append_to_response=credits" : $"tv/{tmdbId}?append_to_response=aggregate_credits";
             var bearer = IsReadAccessToken(key);
-            var request = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseUri, bearer ? path : $"{path}&api_key={Uri.EscapeDataString(key)}"));
+            var query = path.Contains('?') ? "&" : "?";
+            var request = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseUri, bearer ? path : $"{path}{query}api_key={Uri.EscapeDataString(key)}"));
 
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 

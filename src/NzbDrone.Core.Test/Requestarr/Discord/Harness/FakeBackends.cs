@@ -277,6 +277,9 @@ namespace Requestarr.Core.Test.Discord.Harness
             Calls++;
             return Task.FromResult(Fail ? null : Titles.GetValueOrDefault((type, tmdbId)));
         }
+
+        // No dates here: a title's year comes from the scenario's library.
+        public Task<int?> YearAsync(ContentType type, int? tmdbId, int? tvdbId, CancellationToken cancellationToken) => Task.FromResult<int?>(null);
     }
 
     public class FakeSonarr : FakeArr, ISonarrApi
