@@ -11,10 +11,10 @@ only once all of it passed; QA's checklist shows only the owner's items, and not
 
 run: the checkout must be at the commit (the tests are built from it). It builds the solution and runs the full suite
      the way CI does, brings the dev stack up at that commit with sign-in required and a throwaway login for the web app
-     checks (headless Edge or Chrome, light and dark theme), stops it and runs every live check on the dev server (the
-     test Sonarr and Radarr emptied before each, so no check finds another's titles), removes the audit entries the
-     checks wrote there, resets the dev stack and runs the
-     read-back of the running stack. Results, read-backs and screenshots go in DIR (default _qa-checks/<short commit>).
+     checks (headless Edge or Chrome, light and dark theme) and removes the audit entries those checks wrote there,
+     stops it and runs every live check on the dev server (the test Sonarr and Radarr emptied before each, so no check
+     finds another's titles), resets the dev stack and runs the read-back of the running stack. Results, read-backs and
+     screenshots go in DIR (default _qa-checks/<short commit>).
 record: after the automation has looked at every screenshot against its item's Expect (one that doesn't match
      is --fail), records the results on the dev stack's checklist (the automation's server; it must run that commit) and
      marks the run reviewed. QA never takes them.
@@ -345,33 +345,55 @@ def docker(*args):
 
 def clean_check_entries():
     """Removes the audit entries the checks wrote in the dev stack's data (the head's rule: test data never stays in the
-    owner's dev data). Requestarr is stopped for the edit and started again; returns how many went."""
+    owner's dev data). Requestarr is stopped for the edit and always started again; returns how many went. Nothing to
+    do when the stack has no Requestarr (a reset removed it)."""
+    if subprocess.run(["docker", "inspect", DEV_CONTAINER], capture_output=True).returncode != 0:
+        print("[qa-checks] no dev Requestarr: no audit entries to remove", flush=True)
+        return 0
     with tempfile.TemporaryDirectory() as folder:
         local = os.path.join(folder, "requestarr.db")
         docker("stop", DEV_CONTAINER)
-        docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE, local)
-        for suffix in ("-wal", "-shm"):
-            try:
-                docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE + suffix, local + suffix)
-            except subprocess.CalledProcessError:
-                pass  # no write-ahead log: everything is in the database file
-        con = sqlite3.connect(local)
         try:
-            removed = con.execute("DELETE FROM AuditEntries WHERE " + CHECK_ENTRIES, ("web:" + ACCOUNT, "web:" + ACCOUNT + " %")).rowcount
-            con.commit()
-            con.execute("pragma journal_mode=delete")
+            copy_database_out(local)
+            removed = delete_check_entries(local)
+            copy_database_in(local, folder)
         finally:
-            con.close()
-        empty = os.path.join(folder, "empty")
-        open(empty, "w").close()
-        docker("cp", local, DEV_CONTAINER + ":" + DEV_DATABASE)
-        for suffix in ("-wal", "-shm"):
-            docker("cp", empty, DEV_CONTAINER + ":" + DEV_DATABASE + suffix)
-        docker("start", DEV_CONTAINER)
+            docker("start", DEV_CONTAINER)
         docker("exec", "-u", "0", DEV_CONTAINER, "sh", "-c", "chown 1654:1654 %s* && chmod 644 %s*" % (DEV_DATABASE, DEV_DATABASE))
         docker("restart", DEV_CONTAINER)
     print("[qa-checks] removed %d audit entries the checks wrote on dev" % removed, flush=True)
     return removed
+
+
+def copy_database_out(local):
+    """The stopped dev stack's database to LOCAL, with its write-ahead log when it has one."""
+    docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE, local)
+    for suffix in ("-wal", "-shm"):
+        try:
+            docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE + suffix, local + suffix)
+        except subprocess.CalledProcessError:
+            pass  # no write-ahead log: everything is in the database file
+
+
+def delete_check_entries(local):
+    """Deletes the checks' audit entries from the database at LOCAL, its log folded into the file; how many went."""
+    con = sqlite3.connect(local)
+    try:
+        removed = con.execute("DELETE FROM AuditEntries WHERE " + CHECK_ENTRIES, ("web:" + ACCOUNT, "web:" + ACCOUNT + " %")).rowcount
+        con.commit()
+        con.execute("pragma journal_mode=delete")
+    finally:
+        con.close()
+    return removed
+
+
+def copy_database_in(local, folder):
+    """LOCAL back as the dev stack's database, its old write-ahead log emptied so it isn't replayed over the edit."""
+    empty = os.path.join(folder, "empty")
+    open(empty, "w").close()
+    docker("cp", local, DEV_CONTAINER + ":" + DEV_DATABASE)
+    for suffix in ("-wal", "-shm"):
+        docker("cp", empty, DEV_CONTAINER + ":" + DEV_DATABASE + suffix)
 
 
 def run(args):
@@ -396,11 +418,11 @@ def run(args):
             suite = timed("full suite", timings, lambda: run_suite(out, env))
         if only in (None, "web"):
             web = timed("web app checks (dev stack up at the commit, signed in)", timings, lambda: run_web(out, env, commit))
+            timed("check entries removed from dev's audit log", timings, clean_check_entries)
         if only in (None, "live"):
             fixtures = LIVE if only is None else sorted({c.target for c in CHECKS.values() if c.kind == "live"})
             live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit, fixtures))
     finally:
-        timed("check entries removed from dev's audit log", timings, clean_check_entries)
         timed("dev stack reset", timings, lambda: stack(["reset-dev"]))
     if only is None:
         live[LIVE_ON_RUNNING_STACK] = timed("read-back of the running dev stack", timings,

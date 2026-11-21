@@ -43,16 +43,20 @@ namespace Requestarr.Core.Requests
         private readonly ITmdbClient _tmdb;
         private readonly Logger _logger;
 
+        // Requests The Movie Database was asked for a year since Requestarr started: one it has no date for isn't asked
+        // again until the next start.
+        private readonly HashSet<int> _askedForYear = new();
+
         // Asked while a run was going: that run reads the requests again when it's done.
         private int _again;
 
         public RequestMediaService(IRequestRepository requests, IBackendService backends, IRadarrApi radarr, ISonarrApi sonarr, ITmdbClient tmdb, Logger logger)
         {
-            _tmdb = tmdb;
             _requests = requests;
             _backends = backends;
             _radarr = radarr;
             _sonarr = sonarr;
+            _tmdb = tmdb;
             _logger = logger;
         }
 
@@ -131,7 +135,7 @@ namespace Requestarr.Core.Requests
 
             foreach (var request in _requests.All().Where(r => r.Year == null && (r.Media != null || r.TmdbId.HasValue || r.TvdbId.HasValue)).ToList())
             {
-                request.Year = request.Media?.FirstYear() ?? await _tmdb.YearAsync(request.ContentType, request.TmdbId, request.TvdbId, CancellationToken.None);
+                request.Year = request.Media?.FirstYear() ?? await AskYearAsync(request);
 
                 if (request.Year != null)
                 {
@@ -141,6 +145,20 @@ namespace Requestarr.Core.Requests
             }
 
             return filled;
+        }
+
+        // The Movie Database's year for a title, once a start, a moment apart as the media lookups are.
+        private async Task<int?> AskYearAsync(Request request)
+        {
+            if (!_askedForYear.Add(request.Id))
+            {
+                return null;
+            }
+
+            var year = await _tmdb.YearAsync(request.ContentType, request.TmdbId, request.TvdbId, CancellationToken.None);
+            await Task.Delay(Delay);
+
+            return year;
         }
 
         private async Task<int> FillWaitingAsync()

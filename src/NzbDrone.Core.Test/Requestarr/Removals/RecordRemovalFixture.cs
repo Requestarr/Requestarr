@@ -194,8 +194,9 @@ namespace Requestarr.Core.Test.Removals
         public async Task the_feed_cards_delete_on_a_history_request_opens_its_history_card()
         {
             var request = History();
+            var delete = RequestCards.FeedCard(request, null, "alice", null, new List<string>()).Buttons.Single(b => b.Label == DiscordText.DeleteLabel);
 
-            var card = (await FeedClick(request.Id, $"{RemovalRoutes.Feed}:{request.Id}")).LastReply;
+            var card = (await FeedClick(request.Id, delete.CustomId)).LastReply;
 
             card.Content.Should().Contain("**Remove Heat (1995)** · Not in library");
             card.Buttons.Select(b => b.CustomId).Should().Equal($"{RemovalRoutes.HistoryGo}:{request.Id}", $"{RemovalRoutes.HistoryForce}:{request.Id}");

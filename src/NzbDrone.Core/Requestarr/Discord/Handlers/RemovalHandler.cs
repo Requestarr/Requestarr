@@ -261,10 +261,13 @@ namespace Requestarr.Core.Discord.Handlers
         private async Task ShowSearchResults(DiscordInteraction interaction, IInteractionResponder responder)
         {
             interaction.Fields.TryGetValue(RemovalRoutes.SearchField, out var term);
+
+            // History matches keep up to half the menu, so a search with many library matches still shows them.
+            var history = _removals.SearchHistory(term).Take(DiscordLimits.ChoicesPerMenu / 2).ToList();
             var options = (await _removals.SearchLibraryAsync(term))
+                .Take(DiscordLimits.ChoicesPerMenu - history.Count)
                 .Select(t => new InteractionSelectOption(DiscordText.RemovalChoice(t), $"{t.Instance.Id}:{t.Title.Id}"))
-                .Concat(_removals.SearchHistory(term).Select(r => new InteractionSelectOption(DiscordText.RemovalHistoryChoice(r), $"{RemovalRoutes.HistoryChoice}:{r.Id}")))
-                .Take(DiscordLimits.ChoicesPerMenu)
+                .Concat(history.Select(r => new InteractionSelectOption(DiscordText.RemovalHistoryChoice(r), $"{RemovalRoutes.HistoryChoice}:{r.Id}")))
                 .ToList();
 
             if (options.Count == 0)
@@ -364,13 +367,17 @@ namespace Requestarr.Core.Discord.Handlers
         {
             var id = interaction.Route switch
             {
-                RemovalRoutes.Pick when interaction.Values.Count > 0 && interaction.Values[0].StartsWith($"{RemovalRoutes.HistoryChoice}:", StringComparison.Ordinal) => IntAt(interaction.Values[0].Split(':'), 1),
+                RemovalRoutes.Pick => HistoryChoiceId(interaction.Values),
                 RemovalRoutes.Feed => IntAt(args, 0),
                 _ => 0
             };
 
             return id > 0 && _requests.Find(id) is { } request && RemovalService.IsRecordOnly(request) ? request : null;
         }
+
+        // The request of a search result picked for a Not in library title (h:{request}); 0 for a library title.
+        private static int HistoryChoiceId(IReadOnlyList<string> values) =>
+            values.Count > 0 && values[0].StartsWith($"{RemovalRoutes.HistoryChoice}:", StringComparison.Ordinal) ? IntAt(values[0].Split(':'), 1) : 0;
 
         private static async Task ShowHistoryCard(DiscordInteraction interaction, IInteractionResponder responder, Request request)
         {

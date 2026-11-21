@@ -49,7 +49,7 @@ namespace Requestarr.Core.Metadata
 
         public async Task<TmdbDetails> GetAsync(ContentType type, int tmdbId, CancellationToken cancellationToken)
         {
-            if (tmdbId <= 0 || (type != ContentType.Movie && type != ContentType.Tv))
+            if (tmdbId <= 0 || !Covers(type))
             {
                 return null;
             }
@@ -81,14 +81,18 @@ namespace Requestarr.Core.Metadata
                 return YearOf((string)found?["tv_results"]?.FirstOrDefault()?["first_air_date"]);
             }
 
-            if (tmdbId is not > 0 || (type != ContentType.Movie && type != ContentType.Tv))
+            if (tmdbId is not > 0 || !Covers(type))
             {
                 return null;
             }
 
-            var details = await ReadAsync(type == ContentType.Movie ? $"movie/{tmdbId}" : $"tv/{tmdbId}", $"{type} {tmdbId}", cancellationToken);
-            return YearOf((string)details?[type == ContentType.Movie ? "release_date" : "first_air_date"]);
+            var movie = type == ContentType.Movie;
+            var details = await ReadAsync(movie ? $"movie/{tmdbId}" : $"tv/{tmdbId}", $"{type} {tmdbId}", cancellationToken);
+            return YearOf((string)details?[movie ? "release_date" : "first_air_date"]);
         }
+
+        // The Movie Database has movies and shows, not music.
+        private static bool Covers(ContentType type) => type == ContentType.Movie || type == ContentType.Tv;
 
         // A date as The Movie Database writes it (2026-12-07): its year; null when it has none.
         private static int? YearOf(string date) => date?.Length >= 4 && int.TryParse(date[..4], out var year) && year > 0 ? year : null;
