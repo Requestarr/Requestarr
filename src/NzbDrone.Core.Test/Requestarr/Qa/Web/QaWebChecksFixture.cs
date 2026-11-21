@@ -219,8 +219,11 @@ namespace Requestarr.Core.Test.Qa.Web
             await PressToolbarAsync(browser, "Sort");
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].find(e => e.innerText.trim() === 'Title').click()");
             await browser.WaitForAsync($"{Letters}.length > 1");
-            var letter = await browser.EvalAsync<string>($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).innerText.trim()");
-            await browser.RunAsync($"{Letters}.filter(l => /^[A-Z]$/.test(l.innerText.trim())).at(-1).click()");
+
+            // The bar measures which letters fit before it settles; then the last letter is pressed by its text.
+            await browser.EvalAsync<bool>($"(async () => {{ let last = -1; while ({Letters}.length !== last) {{ last = {Letters}.length; await new Promise(r => setTimeout(r, 400)); }} return true; }})()");
+            var letter = await browser.EvalAsync<string>($"{Letters}.map(l => l.innerText.trim()).filter(l => /^[A-Z]$/.test(l)).at(-1)");
+            await browser.RunAsync($"{Letters}.find(l => l.innerText.trim() === '{letter}').click()");
             await browser.WaitForAsync($"{IndexBody}.scrollTop > 0 && !!{FirstShown}");
             await browser.EvalAsync<bool>($"(async () => {{ const b = {IndexBody}; let last = -1; while (b.scrollTop !== last) {{ last = b.scrollTop; await new Promise(r => setTimeout(r, 400)); }} return true; }})()");
             var where = await browser.EvalAsync<string>($"(b => b.scrollTop + ' of ' + b.scrollHeight)({IndexBody})");
