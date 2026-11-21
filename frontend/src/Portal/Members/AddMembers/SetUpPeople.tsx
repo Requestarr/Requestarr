@@ -3,6 +3,7 @@ import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
 import Button from 'Components/Link/Button';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import { inputTypes, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import accessLevelChoices from '../../accessLevelChoices';
@@ -163,6 +164,11 @@ function SetUpPeople({
     [access, onConfirm]
   );
 
+  // Until the types and media managers arrive, each type would read Off: Servarr's loading indicator instead.
+  if (!types || !instances) {
+    return <LoadingIndicator />;
+  }
+
   return (
     <>
       <ul className={styles.names}>
@@ -174,7 +180,7 @@ function SetUpPeople({
         <TypeFields
           key={one.contentType}
           access={one}
-          instances={(instances ?? []).filter(
+          instances={instances.filter(
             (instance) =>
               instance.contentType === one.contentType && instance.enabled
           )}
@@ -186,7 +192,7 @@ function SetUpPeople({
         <Button onPress={onBack}>{backLabel}</Button>
         <Button
           kind={kinds.PRIMARY}
-          isDisabled={isStarting || !instances}
+          isDisabled={isStarting}
           onPress={onConfirmPress}
         >
           {translate('PortalConfirm')}
