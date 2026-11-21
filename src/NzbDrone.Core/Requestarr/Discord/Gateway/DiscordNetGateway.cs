@@ -16,6 +16,9 @@ namespace Requestarr.Core.Discord.Gateway
     {
         private const ulong ThreadPermissions = (ulong)(ChannelPermission.CreatePublicThreads | ChannelPermission.CreatePrivateThreads | ChannelPermission.SendMessagesInThreads);
 
+        // A profile banner wide enough for the web app's member header.
+        private const ushort BannerSize = 1024;
+
         private readonly IDiscordClientHost _host;
         private readonly IDiscordSettingsStore _settings;
 
@@ -45,7 +48,18 @@ namespace Requestarr.Core.Discord.Gateway
         {
             var user = await Client.Rest.GetUserAsync(userId);
 
-            return user == null ? null : new GuildMember(user.Id, user.Username, user.GlobalName ?? user.Username, user.GetDisplayAvatarUrl(), user.IsBot, Array.Empty<ulong>());
+            if (user == null)
+            {
+                return null;
+            }
+
+            var accent = user.AccentColor is { } color ? $"#{color.RawValue:X6}" : null;
+
+            return new GuildMember(user.Id, user.Username, user.GlobalName ?? user.Username, user.GetDisplayAvatarUrl(), user.IsBot, Array.Empty<ulong>())
+            {
+                BannerUrl = user.GetBannerUrl(ImageFormat.Auto, BannerSize),
+                AccentColor = accent
+            };
         }
 
         public async Task<IReadOnlyList<GuildMember>> GetMembersAsync()

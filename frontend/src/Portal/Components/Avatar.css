@@ -1,6 +1,7 @@
 .small,
 .medium,
-.large {
+.large,
+.header {
   flex: 0 0 auto;
   border-radius: 50%;
 }
@@ -18,4 +19,10 @@
 .large {
   width: 64px;
   height: 64px;
+}
+
+/* A member's page header: as wide as a poster there, filling its space. */
+.header {
+  width: 170px;
+  height: 170px;
 }

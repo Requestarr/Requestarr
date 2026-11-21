@@ -30,6 +30,7 @@ and a beta heading names the goals' builds it includes.
 - **Link Plex is hidden for now:** the button comes back once the admin connects a Plex server.
 
 ### For admins
+- **Member pages show their Discord profile:** the header behind a member's name shows their Discord banner, or their profile colour when they have none (as Discord does), and their picture is large enough to fill it.
 - **History removal from Discord:** a title Sonarr and Radarr don't have (Not in library, usually from an import) can now be put to a removal vote from Discord too: the admin panel's Remove a title finds it, and its card in the requests feed has Delete. It's the same vote, Keep it, Force and Drop as in the web app, and only Requestarr's lists change.
 - **Years for imported titles:** a title imported without a year now gets it from The Movie Database when Sonarr or Radarr has no date for it yet, so it shows as "Hollow Trees (2026)". Titles already imported are filled in, and every import after.
 - **Fixed: the audit log's trim deleted imported history.** The yearly trim went by when each event happened, so the requests and follows an import from Requestrr brought in, dated back to 2024, were deleted. It now goes by when Requestarr wrote each entry, so imported history stays. History the trim already deleted isn't brought back.

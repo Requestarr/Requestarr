@@ -53,7 +53,7 @@ namespace Requestarr.Core.Portal
     // many of their requests are of each type.
     public record PortalMember(int Id, string Name, string DiscordName, string DiscordId, UserStatus Status, DateTime Added, IReadOnlyList<PortalAccess> Access,
                                int Requests, int Active, int Pending, int Following, string Avatar, DateTime? FirstRequest, DateTime? LastRequest,
-                               IReadOnlyList<PortalTypeCount> ByType);
+                               IReadOnlyList<PortalTypeCount> ByType, string Banner = null, string Accent = null);
 
     public record PortalTypeCount(ContentType ContentType, int Count);
 

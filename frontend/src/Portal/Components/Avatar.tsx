@@ -6,7 +6,17 @@ const DEFAULT_AVATAR = 'https://cdn.discordapp.com/embed/avatars/0.png';
 
 interface AvatarProps {
   url?: string | null;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'header';
+}
+
+// Discord's picture addresses end with the size asked for (128 by default); a member's header asks for one larger than
+// it shows, so it stays sharp.
+const HEADER_PICTURE_SIZE = 256;
+
+function sized(url: string, size: AvatarProps['size']) {
+  return size === 'header'
+    ? url.replace(/size=\d+/, `size=${HEADER_PICTURE_SIZE}`)
+    : url;
 }
 
 // Someone's Discord picture, round, as Discord shows it.
@@ -18,7 +28,7 @@ function Avatar({ url, size = 'medium' }: AvatarProps) {
   return (
     <img
       className={styles[size]}
-      src={url && url !== failedUrl ? url : DEFAULT_AVATAR}
+      src={url && url !== failedUrl ? sized(url, size) : DEFAULT_AVATAR}
       alt=""
       loading="lazy"
       onError={onError}

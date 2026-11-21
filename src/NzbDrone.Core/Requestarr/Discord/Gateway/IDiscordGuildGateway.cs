@@ -7,7 +7,10 @@ using Requestarr.Core.Discord.Interactions;
 namespace Requestarr.Core.Discord.Gateway
 {
     // JoinedAt: when they joined this server; null for someone not in it.
-    public record GuildMember(ulong Id, string Username, string DisplayName, string AvatarUrl, bool IsBot, IReadOnlyList<ulong> RoleIds, DateTimeOffset? JoinedAt = null);
+    // BannerUrl and AccentColor (#RRGGBB): the profile's banner and colour, which only Discord's user lookup (GetUserAsync)
+    // gives; null from anything else, or when the person has none.
+    public record GuildMember(ulong Id, string Username, string DisplayName, string AvatarUrl, bool IsBot, IReadOnlyList<ulong> RoleIds, DateTimeOffset? JoinedAt = null,
+                              string BannerUrl = null, string AccentColor = null);
 
     [Flags]
     public enum ChannelPermissions

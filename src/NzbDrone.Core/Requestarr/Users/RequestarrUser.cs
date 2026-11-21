@@ -30,6 +30,10 @@ namespace Requestarr.Core.Users
         public string Username { get; set; }
         public string DisplayName { get; set; }
         public string AvatarUrl { get; set; }
+
+        // Their Discord profile's banner and accent colour (#RRGGBB), behind their page's header; null when they have none.
+        public string BannerUrl { get; set; }
+        public string AccentColor { get; set; }
         public DateTime Linked { get; set; }
     }
 
