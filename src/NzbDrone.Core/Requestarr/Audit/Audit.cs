@@ -16,6 +16,10 @@ namespace Requestarr.Core.Audit
         public string TargetId { get; set; }
         public DateTime Timestamp { get; set; }
         public string Detail { get; set; }
+
+        // When Requestarr wrote it, which the trim goes by. Timestamp is when it happened: for an entry an import wrote,
+        // the day it happened in the old channel, sometimes years before.
+        public DateTime Recorded { get; set; } = DateTime.UtcNow;
     }
 
     // Who did something: a Discord member (admin or user), an admin in the web app, or Requestarr itself.
@@ -43,7 +47,7 @@ namespace Requestarr.Core.Audit
 
         List<AuditEntry> ForAction(string action);
 
-        // Deletes the entries from before the cutoff, except those of the action kept; how many went.
+        // Deletes the entries recorded before the cutoff, except those of the action kept; how many went.
         int DeleteOlderThan(DateTime cutoff, string kept);
     }
 
@@ -71,7 +75,7 @@ namespace Requestarr.Core.Audit
 
         public int DeleteOlderThan(DateTime cutoff, string kept)
         {
-            var sql = Builder().Where<AuditEntry>(a => a.Timestamp < cutoff && a.Action != kept).AddDeleteTemplate(typeof(AuditEntry));
+            var sql = Builder().Where<AuditEntry>(a => a.Recorded < cutoff && a.Action != kept).AddDeleteTemplate(typeof(AuditEntry));
 
             using var conn = _database.OpenConnection();
             return conn.Execute(sql.RawSql, sql.Parameters);
