@@ -11,7 +11,8 @@ only once all of it passed; QA's checklist shows only the owner's items, and not
 
 run: the checkout must be at the commit (the tests are built from it). It builds the solution and runs the full suite
      the way CI does, brings the dev stack up at that commit with sign-in required and a throwaway login for the web app
-     checks (headless Edge or Chrome, light and dark theme) and removes the audit entries those checks wrote there,
+     checks (headless Edge or Chrome, light and dark theme), seeds the requests they act on ("Automated check: ...") and
+     afterwards removes those and everything the checks did there, audit entries included,
      stops it and runs every live check on the dev server (the test Sonarr and Radarr emptied before each, so no check
      finds another's titles), resets the dev stack and runs the read-back of the running stack. Results, read-backs and
      screenshots go in DIR (default _qa-checks/<short commit>).
