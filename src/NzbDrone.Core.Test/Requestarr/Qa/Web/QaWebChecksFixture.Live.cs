@@ -8,7 +8,7 @@ namespace Requestarr.Core.Test.Qa.Web
     public partial class QaWebChecksFixture
     {
         // Pages update by themselves, as Sonarr's do: with the Requests table open, a request a run seeded is denied from
-        // outside the page (the API, as Discord's buttons reach the same service), and its row changes to Denied with no
+        // outside the page (the API, as Discord's buttons reach the same service), and its row's status changes with no
         // refresh, the page's own marker still there. Without a seeded request waiting, the check changes nothing.
         [Test]
         public Task live_updates() => CheckAsync(nameof(live_updates), async (browser, check) =>
@@ -28,7 +28,8 @@ namespace Requestarr.Core.Test.Qa.Web
             var before = await browser.EvalAsync<string>($"{Row(ids[0])}.innerText.replace(/\\s+/g, ' ')");
 
             var status = await browser.EvalAsync<int>($"fetch(window.Requestarr.urlBase + '/api/v1/portal/requests/{ids[0]}/deny', {{ method: 'POST', headers: {{ 'X-Api-Key': window.Requestarr.apiKey, 'Content-Type': 'application/json' }}, body: JSON.stringify({{ reason: 'Automated check: live update' }}) }}).then(r => r.status)");
-            await browser.WaitForAsync($"{Row(ids[0])}?.innerText.includes('Denied')", TimeSpan.FromSeconds(30));
+            // Denied, or closed as already available when the test media manager has it.
+            await browser.WaitForAsync($"!{Row(ids[0])}?.innerText.includes('Waiting for approval')", TimeSpan.FromSeconds(30));
             var after = await browser.EvalAsync<string>($"{Row(ids[0])}.innerText.replace(/\\s+/g, ' ')");
             var kept = await browser.EvalAsync<bool>("window.liveCheckMarker === true");
 
