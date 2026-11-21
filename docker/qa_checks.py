@@ -304,11 +304,16 @@ def suite_counts(output):
     return counts
 
 
+def build_label(which, commit):
+    """How a stack labels this commit's build: 0.7.0008-dev for a numbered commit, 0.7.0008-dev.4f2a9c1 for one between
+    goals."""
+    return subprocess.run([sys.executable, os.path.join(REPO, ".github", "build_numbers.py"), "label", which, commit],
+                          capture_output=True, text=True, check=True, cwd=REPO).stdout.strip()
+
+
 def live_env_for(out, env, commit):
     """The live checks run as the dev build of this commit, labelled the way the dev stack labels it."""
-    label = subprocess.run([sys.executable, os.path.join(REPO, ".github", "build_numbers.py"), "label", "dev", commit],
-                           capture_output=True, text=True, check=True, cwd=REPO).stdout.strip()
-    return dict(env, LIVE_QA_STATE_DIR=os.path.join(out, "live", "state"), REQUESTARR_RELEASE_VERSION=label)
+    return dict(env, LIVE_QA_STATE_DIR=os.path.join(out, "live", "state"), REQUESTARR_RELEASE_VERSION=build_label("dev", commit))
 
 
 def run_one_live(fixture, out, live_env):
@@ -498,7 +503,7 @@ def record(args):
     with open(os.path.join(out, "results.json"), encoding="utf-8") as handle:
         run_data = json.load(handle)
     running = running_build(which)
-    if not running.endswith("." + run_data["commit"][:7]):
+    if running != build_label(which, run_data["commit"]):
         sys.exit("The %s stack runs %s, not the commit that was checked (%s): nothing recorded." % (which, running, run_data["commit"][:7]))
     failed = overrides(args)
     mark_reviewed(out, run_data, failed)
