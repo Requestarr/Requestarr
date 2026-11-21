@@ -1,5 +1,6 @@
 const scrollPositions: Record<string, number> = {
-  indexerIndex: 0,
+  requestIndex: 0,
+  memberIndex: 0,
 };
 
 export default scrollPositions;

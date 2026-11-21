@@ -90,13 +90,23 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Steps:
     1. In the web app, open Requests.
     2. Use View to switch between Overview, Posters and Table.
-    3. Do it again in the dark theme.
-    4. Press Open in Sonarr on a request.
+    3. In Posters, open Options and change the poster size.
+    4. Do it again in the dark theme.
+    5. Press Open in Sonarr in Overview.
   - Expect:
-    - Posters is a grid of posters; Overview adds each title's details.
+    - Sonarr's posters, overview and table, with a status-coloured bar under each poster.
+    - Options sets the poster size and what shows with each title.
     - Table has a small poster on each row.
-    - The same filters and sorting in all three.
     - The series' page in Sonarr opens in a new tab.
+  - Checked automatically: the web app request views check.
+- **Jump bar and coming back**
+  - Steps:
+    1. In Requests, sort by Title.
+    2. Press a letter in the bar on the right.
+    3. Open a request, then go back.
+  - Expect:
+    - The list jumps to the titles starting with that letter.
+    - Going back returns to the same place in the list.
   - Checked automatically: the web app request views check.
 - **Requests and members pages**
   - Steps:
@@ -218,7 +228,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - A box on each row, as in Sonarr; nothing below the list.
     - An action is live when any of the three allows it.
-    - Select All picks every request, on every page.
+    - Select All picks every request the filter shows.
     - The boxes and actions go away after Stop Selecting.
   - Checked automatically: the web app request actions check.
 - **Removing a title from search**
@@ -229,16 +239,15 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - It's listed under In your library, not requested, with its poster.
     - Start removal opens its dialog for that title.
   - Checked automatically: the web app request actions check.
-- **Paging long lists**
+- **Long lists**
   - Steps:
-    1. In Requests, go to the next page, then open Options.
+    1. In Requests, scroll to the end of the list.
     2. Choose Movies in Filter.
-    3. Press Select Requests, then Select All.
+    3. Press Select Requests, then Select All, then scroll to the end.
   - Expect:
-    - 100 a page with Sonarr's pager; the page size under Options.
-    - The pager's total and the footer's totals count only movies.
-    - The footer's colours match the status labels.
-    - Every movie picked, across the pages.
+    - One scroll with no pager, as Sonarr's series list.
+    - The footer's totals count only movies; its colours match the labels.
+    - Every movie ticked, at the end of the list too.
   - Checked automatically: the web app paging check.
 - **Member page sections**
   - Steps:

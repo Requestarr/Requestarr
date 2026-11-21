@@ -25,7 +25,6 @@ interface MembersToolbarProps {
   filters: Filter[];
   customFilters: CustomFilter[];
   columns: Column[];
-  pageSize: number;
   isSelectMode: boolean;
   selectActions: ToolbarAction[];
   isBusy: boolean;
@@ -82,7 +81,6 @@ function MembersToolbar(props: MembersToolbarProps) {
       <PageToolbarSection alignContent={align.RIGHT} collapseButtons={false}>
         <TableOptionsModalWrapper
           columns={props.columns}
-          pageSize={props.pageSize}
           canModifyColumns={true}
           onTableOptionChange={props.onTableOptionChange}
         >

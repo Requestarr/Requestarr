@@ -16,7 +16,7 @@ namespace Requestarr.Core.Test.Qa.Web
         private static string TestMember => Environment.GetEnvironmentVariable("QA_CHECKS_TEST_MEMBER");
 
         // The test member's row in the list shown, by their Discord username.
-        private static string TestMemberRow => $"[...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('@{TestMember}'))";
+        private static string TestMemberRow => $"[...document.querySelectorAll('tbody tr, [class*=\"IndexTable-row\"]')].find(r => r.innerText.includes('@{TestMember}'))";
 
         // Onboard and the Members list, at the owner's width, in both themes. Onboard lists the server's people
         // with a box each and one in the header, narrows as you type, and picking someone shows the bar's Set up, whose
@@ -96,19 +96,19 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task MembersListAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             await browser.GoAsync($"{Url}/members");
-            await browser.WaitForAsync("!!document.querySelector('tbody tr, [class*=\"Alert-info\"]')");
-            var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
-            var rowButtons = await browser.EvalAsync<int>("document.querySelectorAll('tbody button').length");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')");
+            var rows = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"]').length");
+            var rowButtons = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"] button').length");
             check.Saw($"Members ({theme}): {rows} rows, {rowButtons} buttons on them");
             rowButtons.Should().Be(0, "actions are in the toolbar, not on rows");
 
             if (rows > 0)
             {
                 await PressToolbarAsync(browser, "Select Members");
-                await browser.WaitForAsync("!!document.querySelector('thead input[type=checkbox]')");
-                var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
+                await browser.WaitForAsync("!!document.querySelector('[class*=\"VirtualTableHeader-header\"] input[type=checkbox]')");
+                var boxes = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]').length");
                 await PressToolbarAsync(browser, "Select All");
-                await browser.WaitForAsync("document.querySelectorAll('tbody input[type=checkbox]:not(:checked)').length === 0");
+                await browser.WaitForAsync("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]:not(:checked)').length === 0");
                 var actions = await browser.EvalAsync<string[]>("(b => b.slice(0, b.findIndex(x => x.innerText.trim() === 'Onboard')))([...document.querySelectorAll('[class*=\"PageToolbar\"] button')]).map(b => b.innerText.trim())");
                 check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows, all ticked; left of Onboard: {string.Join(", ", actions)}");
                 boxes.Should().Be(rows);
@@ -165,8 +165,9 @@ namespace Requestarr.Core.Test.Qa.Web
             foreach (var (action, status) in new[] { ("Suspend", "suspended"), ("Unsuspend", "active") })
             {
                 await browser.GoAsync($"{Url}/members");
-                await browser.WaitForAsync($"!!{TestMemberRow}");
+                await browser.WaitForAsync("!!document.querySelector('[class*=\"IndexTable-row\"]')");
                 await PressToolbarAsync(browser, "Select Members");
+                await ScrollToRowAsync(browser, TestMemberRow);
                 await browser.WaitForAsync($"!!{TestMemberRow}.querySelector('input[type=checkbox]')");
                 await browser.RunAsync($"{TestMemberRow}.querySelector('label').click()");
                 await PressToolbarAsync(browser, action);

@@ -1,0 +1,12 @@
+/* Sonarr main's Series/Index/Table/SeriesIndexTable.css. */
+.tableScroller {
+  position: relative;
+}
+
+.row {
+  transition: background-color 500ms;
+
+  &:hover {
+    background-color: var(--tableRowHoverBackgroundColor);
+  }
+}

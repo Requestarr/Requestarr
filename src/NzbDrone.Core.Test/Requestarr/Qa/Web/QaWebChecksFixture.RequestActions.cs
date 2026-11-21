@@ -80,27 +80,28 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task OpenRequestsTableAsync(HeadlessBrowser browser)
         {
             await browser.GoAsync($"{Url}/requests");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestViews-\"], table, [class*=\"Alert-info\"]')");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestIndex\"], [class*=\"IndexTable-row\"], [class*=\"Alert-info\"]')");
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
             await browser.RunAsync("[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === 'Table' && e.closest('[class*=\"MenuContent\"]')).click()");
-            await browser.WaitForAsync("!!document.querySelector('tbody tr')");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"IndexTable-row\"]')");
         }
 
-        private static string Row(int id) => $"[...document.querySelectorAll('tbody tr')].find(r => r.querySelector('a[href$=\"/requests/{id}\"]'))";
+        private static string Row(int id) => $"[...document.querySelectorAll('[class*=\"IndexTable-row\"]')].find(r => r.querySelector('a[href$=\"/requests/{id}\"]'))";
 
         // The Requests table in select mode with these rows picked.
         private static async Task PickRequestsAsync(HeadlessBrowser browser, int[] ids)
         {
             await OpenRequestsTableAsync(browser);
             await PressToolbarAsync(browser, "Select Requests");
-            await browser.WaitForAsync("!!document.querySelector('tbody tr input[type=checkbox]')");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"IndexTable-row\"] input[type=checkbox]')");
 
+            // The list draws only the rows on screen, so each row is scrolled to before it's ticked.
             foreach (var id in ids)
             {
+                await ScrollToRowAsync(browser, Row(id));
                 await browser.RunAsync($"{Row(id)}.querySelector('label').click()");
+                await browser.WaitForAsync($"{Row(id)}?.querySelector('input[type=checkbox]').checked");
             }
-
-            await browser.WaitForAsync($"document.querySelectorAll('tbody input[type=checkbox]:checked').length === {ids.Length}");
         }
 
         // The toolbar's actions on the picks: every one shown, and the live ones (not greyed out).
@@ -147,24 +148,24 @@ namespace Requestarr.Core.Test.Qa.Web
         private static async Task PickingAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             await OpenRequestsTableAsync(browser);
-            var rowButtons = await browser.EvalAsync<int>("document.querySelectorAll('tbody button').length");
+            var rowButtons = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"] button').length");
             check.Saw($"requests, Table ({theme}, {OwnersWidth}px): {rowButtons} buttons on the rows");
             rowButtons.Should().Be(0, "actions are in the toolbar, not on rows");
 
             await PressToolbarAsync(browser, "Select Requests");
-            await browser.WaitForAsync("!!document.querySelector('thead input[type=checkbox]')");
-            var rows = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr').length");
-            var boxes = await browser.EvalAsync<int>("document.querySelectorAll('tbody tr input[type=checkbox]').length");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"VirtualTableHeader-header\"] input[type=checkbox]')");
+            var rows = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"]').length");
+            var boxes = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]').length");
             var (none, live) = await ToolbarActionsAsync(browser);
             check.Saw($"Select Requests ({theme}): {boxes} boxes on {rows} rows; toolbar: {string.Join(", ", none)}; live with nothing picked: {live.Length}");
             boxes.Should().Be(rows, "every row has its box in select mode");
             live.Should().BeEmpty("nothing picked, so every action is greyed out");
 
-            await browser.RunAsync($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).forEach(r => r.querySelector('label').click())");
-            await browser.WaitForAsync($"document.querySelectorAll('tbody input[type=checkbox]:checked').length === {Picks}");
+            await browser.RunAsync($"[...document.querySelectorAll('[class*=\"IndexTable-row\"]')].slice(0, {Picks}).forEach(r => r.querySelector('label').click())");
+            await browser.WaitForAsync($"document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]:checked').length === {Picks}");
 
             // Only what every one of the three offers is live.
-            var ids = await browser.EvalAsync<int[]>($"[...document.querySelectorAll('tbody tr')].slice(0, {Picks}).map(r => Number(r.querySelector('a[href*=\"/requests/\"]').getAttribute('href').split('/').pop()))");
+            var ids = await browser.EvalAsync<int[]>($"[...document.querySelectorAll('[class*=\"IndexTable-row\"]')].slice(0, {Picks}).map(r => Number(r.querySelector('a[href*=\"/requests/\"]').getAttribute('href').split('/').pop()))");
             var expected = await PortalAsync<string[]>(browser, "requests", $"r => (picked => Object.entries({GroupLabels}).filter(([a]) => picked.some(q => q.actions.includes(a))).map(([, label]) => label))(r.filter(q => {JsonSerializer.Serialize(ids)}.includes(q.id)))");
             var (shown, allowed) = await ToolbarActionsAsync(browser);
             check.Saw($"{Picks} picked ({theme}): toolbar {string.Join(", ", shown)}; live: {string.Join(", ", allowed)}; any of the three offers: {string.Join(", ", expected)}");
@@ -174,16 +175,16 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, $"picked-{theme}");
 
             await PressToolbarAsync(browser, "Select All");
-            await browser.WaitForAsync($"[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].some(b => b.innerText.trim() === 'Unselect All') && document.querySelectorAll('tbody input[type=checkbox]:not(:checked)').length === 0");
+            await browser.WaitForAsync($"[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].some(b => b.innerText.trim() === 'Unselect All') && document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]:not(:checked)').length === 0");
             check.Saw($"Select All ({theme}): every row ticked, and the button now says Unselect All (every request picked, across the pages)");
             await check.ShotAsync(browser, $"all-selected-{theme}");
 
             await PressToolbarAsync(browser, "Unselect All");
-            await browser.WaitForAsync("document.querySelectorAll('tbody input[type=checkbox]:checked').length === 0");
+            await browser.WaitForAsync("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]:checked').length === 0");
             check.Saw($"Unselect All ({theme}): no boxes ticked");
 
             await PressToolbarAsync(browser, "Stop Selecting");
-            await browser.WaitForAsync("!document.querySelector('thead input[type=checkbox]')");
+            await browser.WaitForAsync("!document.querySelector('[class*=\"VirtualTableHeader-header\"] input[type=checkbox]')");
             var left = await browser.EvalAsync<int>($"{ToolbarActions}.length");
             check.Saw($"Stop Selecting ({theme}): {left} actions left in the toolbar");
             left.Should().Be(0);

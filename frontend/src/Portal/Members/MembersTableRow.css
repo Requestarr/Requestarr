@@ -1,0 +1,48 @@
+/* Prowlarr's Indexer/Index/Table/IndexerIndexRow.css: each column's width, shared with MembersTableHeader.css. */
+.cell {
+  composes: cell from '~Components/Table/Cells/VirtualTableRowCell.css';
+
+  display: flex;
+  align-items: center;
+}
+
+.name {
+  composes: cell;
+
+  flex: 4 0 220px;
+}
+
+.status {
+  composes: cell;
+
+  flex: 0 0 190px;
+}
+
+.access {
+  composes: cell;
+
+  flex: 0 0 110px;
+}
+
+.requests,
+.active,
+.pending,
+.following {
+  composes: cell;
+
+  flex: 0 0 80px;
+}
+
+.byType {
+  composes: cell;
+
+  flex: 1 0 140px;
+}
+
+.firstRequest,
+.lastRequest,
+.added {
+  composes: cell;
+
+  flex: 0 0 110px;
+}

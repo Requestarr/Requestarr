@@ -9,7 +9,7 @@ import createSetTableOptionReducer from './Creators/Reducers/createSetTableOptio
 import { ACCESS_TYPES, filterPredicates, filters, sortPredicates } from './memberActions';
 import { uniqueBy } from './requestActions';
 
-// How the Members page shows them: sort, filters, custom filters, columns and page size, remembered in this browser.
+// How the Members page shows them: sort, filters, custom filters and columns, remembered in this browser.
 // Prowlarr Store/Actions/indexerIndexActions.js.
 
 //
@@ -33,7 +33,6 @@ export const defaultState = {
   sortDirection: sortDirections.ASCENDING,
   secondarySortKey: 'name',
   secondarySortDirection: sortDirections.ASCENDING,
-  pageSize: 25,
 
   columns: [
     { ...column('name', () => translate('PortalMember')), isModifiable: false },
@@ -76,8 +75,7 @@ export const persistState = [
   'memberIndex.sortKey',
   'memberIndex.sortDirection',
   'memberIndex.selectedFilterKey',
-  'memberIndex.columns',
-  'memberIndex.pageSize'
+  'memberIndex.columns'
 ];
 
 //

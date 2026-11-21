@@ -1,0 +1,26 @@
+/* Sonarr main's Series/Index/Overview/SeriesIndexOverviewInfo.css and SeriesIndexOverviewInfoRow.css. */
+.infos {
+  display: flex;
+  flex: 0 0 250px;
+  flex-direction: column;
+  margin-left: 10px;
+}
+
+.infoRow {
+  @add-mixin truncate;
+
+  flex: 0 0 $requestIndexOverviewInfoRowHeight;
+  margin: 2px 0;
+}
+
+.icon {
+  margin-right: 5px;
+  width: 25px !important;
+  text-align: center;
+}
+
+@media only screen and (max-width: $breakpointSmall) {
+  .infos {
+    margin-left: 0;
+  }
+}

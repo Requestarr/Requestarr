@@ -27,7 +27,8 @@ import {
 import usePortal from '../usePortal';
 import FollowersTable from './FollowersTable';
 import RequestActions from './RequestActions';
-import { OpenInLink, releaseText, RequestPoster } from './RequestMedia';
+import { OpenInLink, releaseText } from './RequestMedia';
+import RequestPoster from './RequestPoster';
 import styles from '../Portal.css';
 
 // The summary's followers as the list views show them; the Followers section below lists everyone.

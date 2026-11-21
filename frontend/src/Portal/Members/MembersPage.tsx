@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useHistory } from 'react-router-dom';
 import { SelectProvider, useSelect } from 'App/SelectContext';
@@ -8,7 +14,8 @@ import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
-import TablePager from 'Components/Table/TablePager';
+import PageJumpBar from 'Components/Page/PageJumpBar';
+import withScrollPosition from 'Components/withScrollPosition';
 import { kinds } from 'Helpers/Props';
 import { fetchMembers } from 'Store/Actions/memberActions';
 import {
@@ -16,11 +23,13 @@ import {
   setMemberSort,
   setMemberTableOption,
 } from 'Store/Actions/memberIndexActions';
+import scrollPositions from 'Store/scrollPositions';
 import createClientSideCollectionSelector from 'Store/Selectors/createClientSideCollectionSelector';
+import createDimensionsSelector from 'Store/Selectors/createDimensionsSelector';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
-import useClientSidePage from '../Components/Paging/useClientSidePage';
+import { jumpBarItems } from '../Components/Index/jumpBar';
 import { toolbarActions, usePicked } from '../Components/Select/selectActions';
 import { PortalMember } from '../PortalTypes';
 import OnboardModal from './AddMembers/OnboardModal';
@@ -30,6 +39,7 @@ import MembersFooter from './MembersFooter';
 import MembersTable from './MembersTable';
 import MembersToolbar from './MembersToolbar';
 import useMemberActions from './useMemberActions';
+import styles from '../Requests/RequestsPage.css';
 
 type MembersState = MembersAppState &
   MemberIndexAppState &
@@ -64,23 +74,15 @@ function useIndexDispatch() {
 
 interface MembersBodyProps {
   state: MembersState;
+  scrollerRef: React.RefObject<HTMLDivElement>;
+  jumpToCharacter?: string;
   isSelectMode: boolean;
+  isSmallScreen: boolean;
   onSortSelect: (sortKey: string) => void;
-  onTableOptionChange: (payload: unknown) => void;
 }
 
 function MembersBody(props: MembersBodyProps) {
   const { state } = props;
-  const { pageItems, pager } = useClientSidePage(
-    state.items,
-    state.pageSize,
-    JSON.stringify([
-      state.selectedFilterKey,
-      state.customFilters,
-      state.sortKey,
-      state.sortDirection,
-    ])
-  );
 
   if (!state.items.length) {
     return (
@@ -93,20 +95,47 @@ function MembersBody(props: MembersBodyProps) {
   }
 
   return (
-    <>
+    <div className={styles.contentBodyContainer}>
       <MembersTable
-        members={pageItems}
+        members={state.items}
         columns={state.columns}
         sortKey={state.sortKey}
         sortDirection={state.sortDirection}
+        jumpToCharacter={props.jumpToCharacter}
+        scrollerRef={props.scrollerRef}
         isSelectMode={props.isSelectMode}
+        isSmallScreen={props.isSmallScreen}
         onSortPress={props.onSortSelect}
-        onTableOptionChange={props.onTableOptionChange}
       />
-      <TablePager {...pager} />
       <MembersFooter members={state.items} />
-    </>
+    </div>
   );
+}
+
+// The jump bar when sorted by name, the letter it last jumped to, and remembering where the page was scrolled, as
+// Prowlarr's IndexerIndex.
+function useJumpBar(state: MembersState) {
+  const [jumpToCharacter, setJumpToCharacter] = useState<string>();
+  const onScroll = useCallback(({ scrollTop }: { scrollTop: number }) => {
+    setJumpToCharacter(undefined);
+    scrollPositions.memberIndex = scrollTop;
+  }, []);
+  const items = useMemo(
+    () =>
+      jumpBarItems(
+        state.items.map((member) => member.name ?? ''),
+        state.sortKey === 'name',
+        state.sortDirection
+      ),
+    [state.items, state.sortKey, state.sortDirection]
+  );
+
+  return {
+    jumpToCharacter,
+    onJumpBarItemPress: setJumpToCharacter,
+    onScroll,
+    items,
+  };
 }
 
 type MemberAction = (members: PortalMember[], action: string) => void;
@@ -138,15 +167,43 @@ function useMemberSelectActions(
   return { picked, actions };
 }
 
+// Onboard: the picks it can onboard set up in one window; with none of those picked, the page that lists the server's
+// people to onboard.
+function useOnboard(picked: PortalMember[], onDone: () => void) {
+  const history = useHistory();
+  const [onboarding, setOnboarding] = useState<Who[]>([]);
+  const onAddPress = useCallback(() => {
+    const onboardable = picked.flatMap((member) =>
+      member.discordId && memberActions(member).includes('onboard')
+        ? [{ discordId: member.discordId, name: member.name }]
+        : []
+    );
+
+    if (onboardable.length) {
+      setOnboarding(onboardable);
+    } else {
+      history.push(getPathWithUrlBase('/members/add'));
+    }
+  }, [picked, history]);
+  const onOnboardClose = useCallback(() => {
+    setOnboarding([]);
+    onDone();
+  }, [onDone]);
+
+  return { onboarding, onAddPress, onOnboardClose };
+}
+
 // Every member Requestarr knows: their access to each type with its limit, and how many requests they have, filtered,
-// sorted and paged as Prowlarr's indexer list is. Select mode picks one or several; what can be done to them is in
-// the toolbar, left of Onboard. Onboard sets up the picks it can onboard in one window; with none picked it lists the
-// server's people to onboard.
-function MembersIndex() {
+// sorted in one scroll that draws only what's on screen, as Prowlarr's Indexer/Index/IndexerIndex lists the indexers.
+// Select mode picks one or several; what can be done to them is in the toolbar, left of Onboard. Onboard sets up the
+// picks it can onboard in one window; with none picked it lists the server's people to onboard.
+function MembersIndex({ initialScrollTop }: { initialScrollTop?: number }) {
   const state = useMembers();
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const jumpBar = useJumpBar(state);
+  const { isSmallScreen } = useSelector(createDimensionsSelector());
   const handlers = useIndexDispatch();
   const { onRefresh } = handlers;
-  const history = useHistory();
   const [, selectDispatch] = useSelect();
   const [isSelectMode, setIsSelectMode] = useState(false);
   const onBarDone = useCallback(() => {
@@ -158,24 +215,7 @@ function MembersIndex() {
     onBarDone
   );
   const select = useMemberSelectActions(state.items, run, ask);
-  const [onboarding, setOnboarding] = useState<Who[]>([]);
-  const onAddPress = useCallback(() => {
-    const onboardable = select.picked.flatMap((member) =>
-      member.discordId && memberActions(member).includes('onboard')
-        ? [{ discordId: member.discordId, name: member.name }]
-        : []
-    );
-
-    if (onboardable.length) {
-      setOnboarding(onboardable);
-    } else {
-      history.push(getPathWithUrlBase('/members/add'));
-    }
-  }, [select.picked, history]);
-  const onOnboardClose = useCallback(() => {
-    setOnboarding([]);
-    onBarDone();
-  }, [onBarDone]);
+  const onboard = useOnboard(select.picked, onBarDone);
   const onSelectModePress = useCallback(
     () => setIsSelectMode((current) => !current),
     []
@@ -194,43 +234,67 @@ function MembersIndex() {
         isBusy={isBusy}
         isSelectMode={isSelectMode}
         isEmpty={!state.totalItems}
-        onAddPress={onAddPress}
+        onAddPress={onboard.onAddPress}
         onSelectModePress={onSelectModePress}
       />
 
-      <PageContentBody>
-        {state.isFetching && !state.isPopulated && <LoadingIndicator />}
+      <div className={styles.pageContentBodyWrapper}>
+        <PageContentBody
+          ref={scrollerRef}
+          className={styles.contentBody}
+          innerClassName={styles.tableInnerContentBody}
+          initialScrollTop={initialScrollTop}
+          onScroll={jumpBar.onScroll}
+        >
+          {state.isFetching && !state.isPopulated && <LoadingIndicator />}
 
-        {!state.isFetching && !!state.error && (
-          <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
-        )}
+          {!state.isFetching && !!state.error && (
+            <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
+          )}
 
-        <ActionOutcomeAlert outcome={outcome} />
+          <ActionOutcomeAlert outcome={outcome} />
 
-        {state.isPopulated && !state.error && (
-          <MembersBody
-            {...handlers}
-            state={state}
-            isSelectMode={isSelectMode}
+          {state.isPopulated && !state.error && (
+            <MembersBody
+              state={state}
+              scrollerRef={scrollerRef}
+              jumpToCharacter={jumpBar.jumpToCharacter}
+              isSelectMode={isSelectMode}
+              isSmallScreen={isSmallScreen}
+              onSortSelect={handlers.onSortSelect}
+            />
+          )}
+        </PageContentBody>
+
+        {state.isPopulated && !!jumpBar.items.order.length && (
+          <PageJumpBar
+            items={jumpBar.items}
+            onItemPress={jumpBar.onJumpBarItemPress}
           />
         )}
-      </PageContentBody>
+      </div>
 
       {dialogs}
-      <OnboardModal people={onboarding} onClose={onOnboardClose} />
+      <OnboardModal
+        people={onboard.onboarding}
+        onClose={onboard.onOnboardClose}
+      />
     </PageContent>
   );
 }
 
-// The page's select state, for its rows and its toolbar.
-function MembersPage() {
-  const state = useMembers();
+// The page's select state, for its rows and its toolbar, and where it was scrolled when you come back to it.
+const MembersPage = withScrollPosition(
+  ({ initialScrollTop }: { initialScrollTop?: number }) => {
+    const state = useMembers();
 
-  return (
-    <SelectProvider items={state.items}>
-      <MembersIndex />
-    </SelectProvider>
-  );
-}
+    return (
+      <SelectProvider items={state.items}>
+        <MembersIndex initialScrollTop={initialScrollTop} />
+      </SelectProvider>
+    );
+  },
+  'memberIndex'
+);
 
 export default MembersPage;

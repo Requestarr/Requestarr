@@ -186,6 +186,10 @@ module.exports = {
 
   tableRowHoverBackgroundColor: '#fafbfc',
 
+  // The strip under a poster, as Sonarr's seriesBackgroundColor.
+
+  requestBackgroundColor: '#ededed',
+
   //
   // Charts
 
