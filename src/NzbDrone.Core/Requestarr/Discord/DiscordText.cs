@@ -956,6 +956,19 @@ namespace Requestarr.Core.Discord
                 : "Not requested through Requestarr (or its requester was removed): it goes straight to the vote.") +
             "\nEveryone with access gets a **Keep it** button; nothing is deleted until the vote closes with no keeps. **Force** deletes now.";
 
+        // The admin's removal card for a title Sonarr and Radarr don't have, as the web app's history removal: the same
+        // vote, Keep it and Force, and only Requestarr's lists change.
+        public static string RemovalHistoryCard(Request request) =>
+            $"**Remove {request.Label}** · Not in library\n" +
+            "Sonarr and Radarr don't have it, so removing it only takes it off Requestarr's lists; nothing is deleted. " +
+            "Its requester is asked first when they can be, then everyone with access gets a **Keep it** button. **Force** removes it now.";
+
+        public static string RemovalHistoryConfirmForce(Request request) =>
+            $"Remove {request.Label} from Requestarr's lists **now**? Nobody is asked. Sonarr and Radarr don't have it, so nothing is deleted there.";
+
+        public static string RemovalHistoryChoice(Request request) =>
+            DiscordLimits.Truncate($"{request.Label} · Not in library", DiscordLimits.OptionLabelLength);
+
         public static string RemovalUserCard(Request request, IReadOnlyCollection<int> seasons) =>
             $"**Remove {RemovalScope(request.Label, seasons)}?** Everyone who can watch it gets to keep it, and nothing changes until the vote closes. If nobody keeps it, it's removed from the library and its files are deleted.";
 

@@ -8,8 +8,10 @@ using NzbDrone.Core.Configuration;
 using Requestarr.Core.Admin;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
+using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
+using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Removals
@@ -146,6 +148,57 @@ namespace Requestarr.Core.Test.Removals
             (await Start(request)).Success.Should().BeTrue();
             (await Start(request)).Message.Should().Be(DiscordText.RemovalAlreadyOpen(Proposal()));
             Proposals.All().Should().ContainSingle();
+        }
+
+        // Discord's admin panel: Remove a title finds the history request too, and its card starts the same removal.
+        private async Task<InteractionReply> HistoryCardFor(string term)
+        {
+            var results = (await Harness.SendAsync(AsAdmin(FakeInteraction.ModalSubmit(RemovalRoutes.SearchForm).WithField(RemovalRoutes.SearchField, term)))).LastReply;
+            var option = results.SelectMenu.Options.Single(o => o.Label == "Heat (1995) · Not in library");
+
+            return (await Harness.SendAsync(AsAdmin(FakeInteraction.SelectMenu(RemovalRoutes.Pick, option.Value)))).LastReply;
+        }
+
+        [Test]
+        public async Task remove_a_title_in_discord_finds_a_history_request_and_starts_its_removal()
+        {
+            var request = History();
+
+            var card = await HistoryCardFor("hea");
+            card.Content.Should().Contain("**Remove Heat (1995)** · Not in library").And.Contain("nothing is deleted");
+            var started = (await Press(card, DiscordText.StartRemovalLabel)).LastReply;
+
+            started.Content.Should().StartWith("Asked alice first");
+            Proposal().RecordOnly.Should().BeTrue();
+            Proposal().RequestId.Should().Be(request.Id);
+            Proposal().InitiatedByAdmin.Should().BeTrue();
+            NothingSentToSonarrOrRadarr();
+        }
+
+        [Test]
+        public async Task force_on_the_discord_card_asks_first_then_drops_the_record()
+        {
+            var request = History();
+
+            var confirm = (await Press(await HistoryCardFor("heat"), DiscordText.ForceRemovalLabel)).LastReply;
+            confirm.Content.Should().Contain("Remove Heat (1995) from Requestarr's lists **now**?");
+            var forced = (await Press(confirm, DiscordText.ForceRemovalLabel)).LastReply;
+
+            forced.Content.Should().Be(DiscordText.RemovalRecordDropped(Proposal()));
+            Proposal().Status.Should().Be(RemovalStatus.Forced);
+            RequestStore.Find(request.Id).Should().BeNull("it left Requestarr's lists");
+            NothingSentToSonarrOrRadarr();
+        }
+
+        [Test]
+        public async Task the_feed_cards_delete_on_a_history_request_opens_its_history_card()
+        {
+            var request = History();
+
+            var card = (await FeedClick(request.Id, $"{RemovalRoutes.Feed}:{request.Id}")).LastReply;
+
+            card.Content.Should().Contain("**Remove Heat (1995)** · Not in library");
+            card.Buttons.Select(b => b.CustomId).Should().Equal($"{RemovalRoutes.HistoryGo}:{request.Id}", $"{RemovalRoutes.HistoryForce}:{request.Id}");
         }
     }
 }
