@@ -22,6 +22,9 @@ const SONARR_SECTION = 'sonarr';
 const ANIME_SECTION = 'anime';
 const SONARR = 'Sonarr';
 
+// The media managers' provider section in the store (Store/Actions/Settings/mediaManagers.js).
+export const MEDIA_MANAGERS_SECTION = 'settings.mediaManagers';
+
 interface SettingChange {
   name: string;
   value: unknown;
@@ -114,7 +117,7 @@ function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
           advancedSettings={advancedSettings}
           provider="mediamanager"
           providerData={item}
-          section="settings.mediaManagers"
+          section={MEDIA_MANAGERS_SECTION}
           {...field}
           {...locked}
           onChange={onFieldChange}

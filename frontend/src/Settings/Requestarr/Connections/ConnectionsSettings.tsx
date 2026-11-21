@@ -7,7 +7,6 @@ import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import { kinds } from 'Helpers/Props';
-import { TestAllResult as ProviderTestAllResult } from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
 import BotStatus from '../BotStatus';
 import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
@@ -122,13 +121,11 @@ function useTestAllOutcomes(): TestOutcome[] | undefined {
 
   return useMemo(
     () =>
-      testAllResults?.map(
-        ({ id, validationFailures }: ProviderTestAllResult) => ({
-          id,
-          name: items.find((item) => item.id === id)?.name ?? '',
-          problem: validationFailures[0]?.errorMessage,
-        })
-      ),
+      testAllResults?.map(({ id, validationFailures }) => ({
+        id,
+        name: items.find((item) => item.id === id)?.name ?? '',
+        problem: validationFailures[0]?.errorMessage,
+      })),
     [items, testAllResults]
   );
 }

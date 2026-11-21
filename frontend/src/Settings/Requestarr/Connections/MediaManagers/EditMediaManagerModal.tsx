@@ -17,9 +17,10 @@ import {
 } from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
 import ConnectionModalFooter from '../ConnectionModalFooter';
-import MediaManagerForm, { useMediaManagerSettings } from './MediaManagerForm';
-
-const SECTION = 'settings.mediaManagers';
+import MediaManagerForm, {
+  MEDIA_MANAGERS_SECTION,
+  useMediaManagerSettings,
+} from './MediaManagerForm';
 
 interface EditMediaManagerModalContentProps {
   id?: number;
@@ -110,9 +111,9 @@ function EditMediaManagerModal({
   const dispatch = useDispatch();
 
   const onClose = useCallback(() => {
-    dispatch(clearPendingChanges({ section: SECTION }));
-    dispatch(cancelTestMediaManager({ section: SECTION }));
-    dispatch(cancelSaveMediaManager({ section: SECTION }));
+    dispatch(clearPendingChanges({ section: MEDIA_MANAGERS_SECTION }));
+    dispatch(cancelTestMediaManager({ section: MEDIA_MANAGERS_SECTION }));
+    dispatch(cancelSaveMediaManager({ section: MEDIA_MANAGERS_SECTION }));
     onModalClose();
   }, [dispatch, onModalClose]);
 
