@@ -7,13 +7,14 @@ using Requestarr.Core.Settings;
 
 namespace Requestarr.Core.Backends.MediaManagers
 {
-    // The provider actions a media manager's settings ask for their choices, and their fields' anime section.
+    // The provider actions a media manager's settings ask for their choices, and the sections of Sonarr-only fields.
     public static class MediaManagerActions
     {
         public const string QualityProfiles = "getQualityProfiles";
         public const string RootFolders = "getRootFolders";
         public const string SeriesTypes = "getSeriesTypes";
         public const string AnimePriorities = "getAnimePriorities";
+        public const string SonarrSection = "sonarr";
         public const string AnimeSection = "anime";
     }
 
@@ -32,8 +33,9 @@ namespace Requestarr.Core.Backends.MediaManagers
 
         private static readonly (string Value, string Name)[] AnimePriorityChoices =
         {
-            ("dub", "Dub first"),
-            ("sub", "Sub first")
+            ("dub", "Dub"),
+            ("sub", "Sub"),
+            ("first", "Whoever asked first")
         };
 
         private readonly IInstanceSettingsService _instances;

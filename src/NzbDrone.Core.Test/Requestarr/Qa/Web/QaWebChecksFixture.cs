@@ -594,6 +594,9 @@ namespace Requestarr.Core.Test.Qa.Web
             var modal = await browser.EvalAsync<string>(ModalText);
             check.Saw($"edit modal ({theme}): {modal}");
             modal.Should().Contain("Test").And.Contain("Cancel").And.Contain("Save");
+
+            // Servarr's provider form, from the media managers' schema: Sonarr's own fields and its anime ones.
+            modal.Should().Contain("Quality profile").And.Contain("Series type").And.Contain("Anime").And.Contain("Turned on");
             await check.ShotAsync(browser, $"settings-connections-edit-{theme}");
 
             // The test stacks' provisioning file sets no default access, so their instances give new members what they got

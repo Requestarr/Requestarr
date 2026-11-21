@@ -3,10 +3,12 @@ import { handleThunks } from 'Store/thunks';
 import createHandleActions from './Creators/createHandleActions';
 import development from './Settings/development';
 import general from './Settings/general';
+import mediaManagers from './Settings/mediaManagers';
 import requestarr from './Settings/requestarr';
 import ui from './Settings/ui';
 
 export * from './Settings/general';
+export * from './Settings/mediaManagers';
 export * from './Settings/requestarr';
 export * from './Settings/development';
 export * from './Settings/ui';
@@ -23,6 +25,7 @@ export const defaultState = {
   advancedSettings: false,
 
   general: general.defaultState,
+  mediaManagers: mediaManagers.defaultState,
   requestarr: requestarr.defaultState,
   development: development.defaultState,
   ui: ui.defaultState
@@ -47,6 +50,7 @@ export const toggleAdvancedSettings = createAction(TOGGLE_ADVANCED_SETTINGS);
 
 export const actionHandlers = handleThunks({
   ...general.actionHandlers,
+  ...mediaManagers.actionHandlers,
   ...requestarr.actionHandlers,
   ...development.actionHandlers,
   ...ui.actionHandlers
@@ -62,6 +66,7 @@ export const reducers = createHandleActions({
   },
 
   ...general.reducers,
+  ...mediaManagers.reducers,
   ...requestarr.reducers,
   ...development.reducers,
   ...ui.reducers

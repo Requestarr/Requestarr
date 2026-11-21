@@ -20,17 +20,6 @@ export interface ChoiceGroup {
   notYet?: string;
 }
 
-// Lidarr and the rest join Media managers as their content types arrive.
-export const MEDIA_MANAGERS: ChoiceGroup[] = [
-  {
-    legend: 'ConnectionsMediaManagers',
-    choices: [
-      { implementation: 'Sonarr', description: 'ConnectionSonarrDescription' },
-      { implementation: 'Radarr', description: 'ConnectionRadarrDescription' },
-    ],
-  },
-];
-
 // Plex and Jellyfin arrive with media server links (Phase 3).
 export const MEDIA_SERVERS: ChoiceGroup[] = [
   {

@@ -1,14 +1,12 @@
 import React, { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppState from 'App/State/AppState';
-import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
 import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
-import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
 import PageToolbarSeparator from 'Components/Page/Toolbar/PageToolbarSeparator';
 import { icons } from 'Helpers/Props';
-import AdvancedSettingsButton from 'Settings/AdvancedSettingsButton';
-import { toggleAdvancedSettings } from 'Store/Actions/settingsActions';
+import { testAllMediaManagers } from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
+import SettingsToolbar from '../settingsToolbar';
 import { SettingsForm } from '../useSettingsForm';
 import styles from './ConnectionsToolbar.css';
 
@@ -19,53 +17,42 @@ export function useShowAdvanced() {
 
 interface ConnectionsToolbarProps {
   options: SettingsForm;
-  isTesting: boolean;
-  onTestAll: () => void;
 }
 
-// The toolbar of Sonarr's Indexers and Download Clients settings: Show Advanced, Save (for the Options below the
-// cards), then Test All Connections. Each card saves from its own modal.
-function ConnectionsToolbar({
-  options,
-  isTesting,
-  onTestAll,
-}: ConnectionsToolbarProps) {
+// Servarr's settings toolbar (Show Advanced, Save for the Options below the cards, and the prompt when leaving with
+// changes unsaved), with Test All Connections after it, as Prowlarr's Applications settings add Test All Apps. Each
+// card saves from its own modal.
+function ConnectionsToolbar({ options }: ConnectionsToolbarProps) {
   const dispatch = useDispatch();
-  const showAdvanced = useShowAdvanced();
+  const isTestingAll = useSelector(
+    (state: AppState) => state.settings.mediaManagers.isTestingAll
+  );
   const { hasChanges, isSaving, onSave } = options;
 
-  const onAdvancedPress = useCallback(
-    () => dispatch(toggleAdvancedSettings()),
+  const onTestAllPress = useCallback(
+    () => dispatch(testAllMediaManagers()),
     [dispatch]
   );
 
   return (
-    <PageToolbar>
-      <PageToolbarSection>
-        <AdvancedSettingsButton
-          advancedSettings={showAdvanced}
-          onAdvancedSettingsPress={onAdvancedPress}
-        />
+    <SettingsToolbar
+      hasPendingChanges={hasChanges}
+      isSaving={isSaving}
+      additionalButtons={
+        <>
+          <PageToolbarSeparator />
 
-        <PageToolbarButton
-          label={hasChanges ? translate('SaveChanges') : translate('NoChanges')}
-          iconName={icons.SAVE}
-          isSpinning={isSaving}
-          isDisabled={!hasChanges}
-          onPress={onSave}
-        />
-
-        <PageToolbarSeparator />
-
-        <PageToolbarButton
-          className={styles.testAll}
-          label={translate('TestAllConnections')}
-          iconName={icons.TEST}
-          isSpinning={isTesting}
-          onPress={onTestAll}
-        />
-      </PageToolbarSection>
-    </PageToolbar>
+          <PageToolbarButton
+            className={styles.testAll}
+            label={translate('TestAllConnections')}
+            iconName={icons.TEST}
+            isSpinning={isTestingAll}
+            onPress={onTestAllPress}
+          />
+        </>
+      }
+      onSavePress={onSave}
+    />
   );
 }
 

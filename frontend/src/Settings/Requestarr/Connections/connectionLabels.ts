@@ -1,8 +1,15 @@
 import { kinds } from 'Helpers/Props';
+import MediaManager from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
-import { AppSettings, Instance, SetupStatus } from '../RequestarrSettingsTypes';
+import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
 import { CardLabel } from './ConnectionCard';
-import { TestOutcome } from './useTestAll';
+
+// What testing one instance found: why it failed, or no problem when it passed.
+export interface TestOutcome {
+  id: number;
+  name: string;
+  problem?: string;
+}
 
 // The cards' status labels, in the tag style of Sonarr's profiles: green when connected, red when failing, grey for
 // the rest.
@@ -46,8 +53,11 @@ export function discordLabels(
 }
 
 // Test All Connections' outcome when it tested this instance, otherwise Requestarr's last check.
-function instanceStatus(instance: Instance, tested?: TestOutcome): CardLabel {
-  if (!instance.settings.enabled) {
+function mediaManagerStatus(
+  item: MediaManager,
+  tested?: TestOutcome
+): CardLabel {
+  if (!item.enable) {
     return grey('InstanceTurnedOff');
   }
 
@@ -55,21 +65,25 @@ function instanceStatus(instance: Instance, tested?: TestOutcome): CardLabel {
     return tested.problem ? failing() : connected();
   }
 
-  if (instance.connected) {
+  if (item.connected) {
     return connected();
   }
 
-  return instance.problem ? failing() : grey('ConnectionNotChecked');
+  return item.problem ? failing() : grey('ConnectionNotChecked');
 }
 
-export function instanceLabels(
-  instance: Instance,
+function isDefault(item: MediaManager) {
+  return item.fields.some(({ name, value }) => name === 'isDefault' && !!value);
+}
+
+export function mediaManagerLabels(
+  item: MediaManager,
   settings: AppSettings | undefined,
   tested?: TestOutcome
 ): CardLabel[] {
   return [
-    instanceStatus(instance, tested),
-    ...(instance.settings.isDefault ? [grey('Default')] : []),
+    mediaManagerStatus(item, tested),
+    ...(isDefault(item) ? [grey('Default')] : []),
     ...provisioned(settings),
   ];
 }

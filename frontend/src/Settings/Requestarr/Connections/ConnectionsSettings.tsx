@@ -1,25 +1,24 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
+import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import { kinds } from 'Helpers/Props';
+import { TestAllResult as ProviderTestAllResult } from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
 import BotStatus from '../BotStatus';
-import { AppSettings, Instance, SetupStatus } from '../RequestarrSettingsTypes';
+import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
 import { CONNECTION_OPTIONS, DISCORD_SECTIONS } from '../settingsPages';
 import SettingsSections from '../SettingsSections';
 import useRequestarrApi from '../useRequestarrApi';
 import useSettingsForm, { SettingsForm } from '../useSettingsForm';
-import { discordLabels } from './connectionLabels';
-import {
-  MediaManagersSection,
-  MediaServersSection,
-  SettingsCardSection,
-} from './ConnectionSections';
+import { discordLabels, TestOutcome } from './connectionLabels';
+import { MediaServersSection, SettingsCardSection } from './ConnectionSections';
 import ConnectionsToolbar, { useShowAdvanced } from './ConnectionsToolbar';
-import useTestAll, { TestOutcome } from './useTestAll';
+import MediaManagersSection from './MediaManagers/MediaManagersSection';
 import styles from './Connections.css';
 
 // What Test All Connections found: each failure on its own line, that everything passed, or that nothing was turned
@@ -70,7 +69,6 @@ function useScrollToSection(isLoaded: boolean) {
 interface ConnectionCardsProps {
   settings: AppSettings;
   setup?: SetupStatus;
-  instances?: Instance[];
   outcomes?: TestOutcome[];
   options: SettingsForm;
   showAdvanced: boolean;
@@ -82,7 +80,6 @@ interface ConnectionCardsProps {
 function ConnectionCards({
   settings,
   setup,
-  instances,
   outcomes,
   options,
   showAdvanced,
@@ -104,12 +101,7 @@ function ConnectionCards({
         {setup && <BotStatus setup={setup} showReadOnlyInvite={true} />}
       </SettingsCardSection>
 
-      <MediaManagersSection
-        instances={instances}
-        outcomes={outcomes}
-        settings={settings}
-        onSaved={onSaved}
-      />
+      <MediaManagersSection settings={settings} outcomes={outcomes} />
 
       <MediaServersSection />
 
@@ -122,32 +114,48 @@ function ConnectionCards({
   );
 }
 
+// What Test All Connections found, one outcome per instance tested, named as its card is; undefined until it has run.
+function useTestAllOutcomes(): TestOutcome[] | undefined {
+  const { items, testAllResults } = useSelector(
+    (state: AppState) => state.settings.mediaManagers
+  );
+
+  return useMemo(
+    () =>
+      testAllResults?.map(
+        ({ id, validationFailures }: ProviderTestAllResult) => ({
+          id,
+          name: items.find((item) => item.id === id)?.name ?? '',
+          problem: validationFailures[0]?.errorMessage,
+        })
+      ),
+    [items, testAllResults]
+  );
+}
+
 // Everything Requestarr connects to, built like Sonarr's Indexers settings: a section of cards for each kind of
 // connection, each card opening its edit modal, and the Options form below. Read-only where the provisioning file
 // sets it (dev and QA).
 function ConnectionsSettings() {
   const options = useSettingsForm();
-  const instances = useRequestarrApi<Instance[]>('instances');
   const setup = useRequestarrApi<SetupStatus>('setup');
   const showAdvanced = useShowAdvanced();
+  const outcomes = useTestAllOutcomes();
   const { settings, reload } = options;
-  const { reload: reloadInstances } = instances;
   const { reload: reloadSetup } = setup;
-  const error = options.error ?? instances.error ?? setup.error;
+  const error = options.error ?? setup.error;
 
   // The hooks' reloads keep their identity, so onSaved does too (the hooks' results are new objects each render).
   const onSaved = useCallback(() => {
     reload();
-    reloadInstances();
     reloadSetup();
-  }, [reload, reloadInstances, reloadSetup]);
+  }, [reload, reloadSetup]);
 
-  const testAll = useTestAll(instances.data, onSaved);
-  useScrollToSection(!!settings && !!instances.data);
+  useScrollToSection(!!settings);
 
   return (
     <PageContent title={translate('SettingsConnections')}>
-      <ConnectionsToolbar options={options} {...testAll} />
+      <ConnectionsToolbar options={options} />
 
       <PageContentBody>
         {!settings && !error && <LoadingIndicator />}
@@ -162,14 +170,13 @@ function ConnectionsSettings() {
           </Alert>
         )}
 
-        <TestAllResult outcomes={testAll.outcomes} />
+        <TestAllResult outcomes={outcomes} />
 
         {settings && (
           <ConnectionCards
             settings={settings}
             setup={setup.data}
-            instances={instances.data}
-            outcomes={testAll.outcomes}
+            outcomes={outcomes}
             options={options}
             showAdvanced={showAdvanced}
             onSaved={onSaved}

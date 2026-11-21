@@ -75,7 +75,7 @@ namespace Requestarr.Core.Backends
         [FieldDefinition(4, Label = "BackendRootFolder", HelpText = "BackendRootFolderHelpText", Type = FieldType.Select, SelectOptionsProviderAction = MediaManagerActions.RootFolders)]
         public string RootFolder { get; set; }
 
-        [FieldDefinition(5, Label = "BackendSeriesType", HelpText = "BackendSeriesTypeHelpText", Type = FieldType.Select, SelectOptionsProviderAction = MediaManagerActions.SeriesTypes)]
+        [FieldDefinition(5, Label = "BackendSeriesType", HelpText = "BackendSeriesTypeHelpText", Type = FieldType.Select, SelectOptionsProviderAction = MediaManagerActions.SeriesTypes, Section = MediaManagerActions.SonarrSection)]
         public string SeriesType { get; set; }
 
         [FieldDefinition(6, Label = "BackendIsDefault", HelpText = "BackendIsDefaultHelpText", Type = FieldType.Checkbox)]
