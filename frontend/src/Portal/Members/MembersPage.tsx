@@ -28,7 +28,6 @@ import createClientSideCollectionSelector from 'Store/Selectors/createClientSide
 import createDimensionsSelector from 'Store/Selectors/createDimensionsSelector';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import { jumpBarItems } from '../Components/Index/jumpBar';
 import { toolbarActions, usePicked } from '../Components/Select/selectActions';
 import { PortalMember } from '../PortalTypes';
@@ -210,10 +209,7 @@ function MembersIndex({ initialScrollTop }: { initialScrollTop?: number }) {
     selectDispatch({ type: 'unselectAll' });
     onRefresh();
   }, [selectDispatch, onRefresh]);
-  const { run, ask, isBusy, outcome, dialogs } = useMemberActions(
-    onRefresh,
-    onBarDone
-  );
+  const { run, ask, isBusy, dialogs } = useMemberActions(onRefresh, onBarDone);
   const select = useMemberSelectActions(state.items, run, ask);
   const onboard = useOnboard(select.picked, onBarDone);
   const onSelectModePress = useCallback(
@@ -251,8 +247,6 @@ function MembersIndex({ initialScrollTop }: { initialScrollTop?: number }) {
           {!state.isFetching && !!state.error && (
             <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
           )}
-
-          <ActionOutcomeAlert outcome={outcome} />
 
           {state.isPopulated && !state.error && (
             <MembersBody

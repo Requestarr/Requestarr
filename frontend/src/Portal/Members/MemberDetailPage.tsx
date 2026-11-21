@@ -3,12 +3,15 @@ import { useParams } from 'react-router-dom';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
 import ClipboardButton from 'Components/Link/ClipboardButton';
+import NotFound from 'Components/NotFound';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
+import PageSectionContent from 'Components/Page/PageSectionContent';
 import Column from 'Components/Table/Column';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import Person from '../Components/Person';
 import PortalList from '../Components/PortalList';
-import PortalPage from '../Components/PortalPage';
 import { RemovalRow } from '../Components/RemovalsTable';
 import { EventRow, TrimmedNote } from '../Components/TimelineTable';
 import useDateText from '../Components/useDateText';
@@ -191,9 +194,22 @@ function MemberDetailPage() {
   );
 
   return (
-    <PortalPage title={translate('PortalMember')} result={result}>
-      {renderDetail}
-    </PortalPage>
+    <PageContent title={translate('PortalMember')}>
+      <PageContentBody>
+        {result.isNotFound ? (
+          <NotFound message={translate('PortalNotFound')} />
+        ) : (
+          <PageSectionContent
+            isFetching={result.isLoading}
+            isPopulated={result.data !== undefined}
+            error={result.hasError ? result : undefined}
+            errorMessage={translate('PortalLoadError')}
+          >
+            {result.data !== undefined && renderDetail(result.data)}
+          </PageSectionContent>
+        )}
+      </PageContentBody>
+    </PageContent>
   );
 }
 

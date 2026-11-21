@@ -1,12 +1,14 @@
 import React, { useCallback, useState } from 'react';
+import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../../Components/ActionOutcomeAlert';
+import { plainText } from '../../portalText';
 import { OnboardAccess, OnboardResult } from '../../PortalTypes';
 import OnboardProgress from './OnboardProgress';
 import SetUpPeople from './SetUpPeople';
@@ -36,7 +38,9 @@ function OnboardModalContent({ people, onClose }: OnboardModalContentProps) {
     <ModalContent onModalClose={onClose}>
       <ModalHeader>{translate('PortalActionOnboard')}</ModalHeader>
       <ModalBody>
-        <ActionOutcomeAlert outcome={refused} />
+        {refused && (
+          <Alert kind={kinds.DANGER}>{plainText(refused.message)}</Alert>
+        )}
         {runId ? (
           <OnboardProgress
             key={runId}

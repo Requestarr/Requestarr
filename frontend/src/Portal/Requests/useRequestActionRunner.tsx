@@ -33,7 +33,7 @@ interface Asking {
 }
 
 // Runs any of a request's actions by name, as its page and its row in a list offer them (the request's own list, from
-// the same rules), asking first where Discord asks. One runner serves a whole list: its dialogs and the outcome are
+// the same rules), asking first where Discord asks. One runner serves a whole list: its dialogs are
 // for the request acted on last; onDone follows every action. onRequestGone: where to go when a forced removal of a
 // request Sonarr and Radarr don't have just dropped it (its own page has nothing left to show).
 function useRequestActionRunner(

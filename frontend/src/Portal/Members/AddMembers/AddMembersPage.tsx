@@ -1,8 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import Alert from 'Components/Alert';
+import NotFound from 'Components/NotFound';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
+import PageSectionContent from 'Components/Page/PageSectionContent';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../../Components/ActionOutcomeAlert';
-import PortalPage from '../../Components/PortalPage';
+import { plainText } from '../../portalText';
 import {
   OnboardAccess,
   OnboardResult,
@@ -46,7 +51,9 @@ function Steps({ people, pick }: StepsProps) {
   if (runId) {
     return (
       <>
-        <ActionOutcomeAlert outcome={refused} />
+        {refused && (
+          <Alert kind={kinds.DANGER}>{plainText(refused.message)}</Alert>
+        )}
         <OnboardProgress
           key={runId}
           runId={runId}
@@ -60,7 +67,9 @@ function Steps({ people, pick }: StepsProps) {
   if (picked) {
     return (
       <>
-        <ActionOutcomeAlert outcome={refused} />
+        {refused && (
+          <Alert kind={kinds.DANGER}>{plainText(refused.message)}</Alert>
+        )}
         <SetUpPeople
           people={picked}
           isStarting={isStarting}
@@ -89,9 +98,22 @@ function AddMembersPage() {
   );
 
   return (
-    <PortalPage title={translate('PortalActionOnboard')} result={result}>
-      {renderSteps}
-    </PortalPage>
+    <PageContent title={translate('PortalActionOnboard')}>
+      <PageContentBody>
+        {result.isNotFound ? (
+          <NotFound message={translate('PortalNotFound')} />
+        ) : (
+          <PageSectionContent
+            isFetching={result.isLoading}
+            isPopulated={result.data !== undefined}
+            error={result.hasError ? result : undefined}
+            errorMessage={translate('PortalLoadError')}
+          >
+            {result.data !== undefined && renderSteps(result.data)}
+          </PageSectionContent>
+        )}
+      </PageContentBody>
+    </PageContent>
   );
 }
 

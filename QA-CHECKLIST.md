@@ -300,7 +300,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     4. Start a removal, then drop it.
     5. Approve someone asking to join.
   - Expect:
-    - Each one done as it is from Discord.
+    - Each one done as it is from Discord, its answer in the sidebar's messages.
     - The member's request messages and their channel's notices change the same way.
     - The admin channel's cards change too, naming you with (web app).
   - Checked automatically: the live portal actions check.

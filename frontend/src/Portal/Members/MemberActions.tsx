@@ -5,8 +5,7 @@ import ConfirmModal from 'Components/Modal/ConfirmModal';
 import { kinds } from 'Helpers/Props';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
-import TextPromptModal from '../Components/TextPromptModal';
+import TextConfirmModal from '../Components/TextConfirmModal';
 import { isImported } from '../portalText';
 import {
   ContentType,
@@ -87,7 +86,7 @@ function StatusActions({ member, action }: StatusActionsProps) {
         onCancel={onClose}
       />
 
-      <TextPromptModal
+      <TextConfirmModal
         prompt={dialog === 'plex' ? plexPrompt() : undefined}
         onConfirm={onPlex}
         onClose={onClose}
@@ -135,7 +134,6 @@ function MemberActions({ detail, onDone }: MemberActionsProps) {
     return (
       <FieldSet legend={translate('PortalActions')}>
         <OnboardAction member={member} action={action} />
-        <ActionOutcomeAlert outcome={action.outcome} />
       </FieldSet>
     );
   }
@@ -143,7 +141,6 @@ function MemberActions({ detail, onDone }: MemberActionsProps) {
   return (
     <FieldSet legend={translate('PortalActions')}>
       <StatusActions member={member} action={action} />
-      <ActionOutcomeAlert outcome={action.outcome} />
 
       {types.map((type) => (
         <AccessRow

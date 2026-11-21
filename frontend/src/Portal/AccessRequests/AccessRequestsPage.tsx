@@ -1,13 +1,15 @@
 import React, { useCallback, useState } from 'react';
+import NotFound from 'Components/NotFound';
+import PageContent from 'Components/Page/PageContent';
+import PageContentBody from 'Components/Page/PageContentBody';
+import PageSectionContent from 'Components/Page/PageSectionContent';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import PortalList, { visibleCells } from '../Components/PortalList';
-import PortalPage from '../Components/PortalPage';
-import TextPromptModal, { reasonPrompt } from '../Components/TextPromptModal';
+import TextConfirmModal, { reasonPrompt } from '../Components/TextConfirmModal';
 import { contentTypeText } from '../portalText';
 import {
   AccessState,
@@ -146,7 +148,6 @@ function AccessRequestsView({ types }: { types: ContentType[] }) {
 
   return (
     <>
-      <ActionOutcomeAlert outcome={action.outcome} />
       <PortalList
         name="accessWaiting"
         title={translate('PortalWaitingToJoin')}
@@ -167,7 +168,7 @@ function AccessRequestsView({ types }: { types: ContentType[] }) {
         onApprove={onApprove}
         onClose={onClose}
       />
-      <TextPromptModal
+      <TextConfirmModal
         prompt={
           denying ? reasonPrompt(translate('PortalActionDeny')) : undefined
         }
@@ -188,9 +189,22 @@ function AccessRequestsPage() {
   const result = usePortal<ContentType[]>('types');
 
   return (
-    <PortalPage title={translate('PortalAccessRequests')} result={result}>
-      {renderView}
-    </PortalPage>
+    <PageContent title={translate('PortalAccessRequests')}>
+      <PageContentBody>
+        {result.isNotFound ? (
+          <NotFound message={translate('PortalNotFound')} />
+        ) : (
+          <PageSectionContent
+            isFetching={result.isLoading}
+            isPopulated={result.data !== undefined}
+            error={result.hasError ? result : undefined}
+            errorMessage={translate('PortalLoadError')}
+          >
+            {result.data !== undefined && renderView(result.data)}
+          </PageSectionContent>
+        )}
+      </PageContentBody>
+    </PageContent>
   );
 }
 

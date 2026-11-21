@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import createAjaxRequest from 'Utilities/createAjaxRequest';
 
-export interface PortalResult<T> {
+interface PortalResult<T> {
   data?: T;
   isLoading: boolean;
   isNotFound: boolean;

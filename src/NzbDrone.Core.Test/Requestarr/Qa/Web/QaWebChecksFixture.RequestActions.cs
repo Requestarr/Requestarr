@@ -20,7 +20,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // The portal's answer for a path, read with the page's own sign-in, then picked from in the page.
         private const string Portal = "(path => fetch(window.Requestarr.urlBase + '/api/v1/portal/' + path, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()))";
-        private const string Outcome = "document.querySelector('[class*=\"Alert-success\"], [class*=\"Alert-danger\"]')";
+
         private const string ModalButton = "[...document.querySelectorAll('[class*=\"ModalFooter\"] button')]";
         private const string Bar = "document.querySelector('[class*=\"SelectFooter-footer\"]')";
         private const string BarButtons = "[...document.querySelectorAll('[class*=\"SelectFooter-footer\"] button')]";
@@ -119,12 +119,6 @@ namespace Requestarr.Core.Test.Qa.Web
             }
         }
 
-        private static async Task<string> OutcomeAsync(HeadlessBrowser browser)
-        {
-            await browser.WaitForAsync($"!!{Outcome}");
-            return await browser.EvalAsync<string>($"{Outcome}.innerText.trim()");
-        }
-
         // A confirmation's button by its words: pressed (confirm) or Cancel.
         private static Task AnswerAsync(HeadlessBrowser browser, string words, bool confirm) =>
             browser.RunAsync($"{ModalButton}.find(b => b.innerText.trim() === '{(confirm ? words : "Cancel")}').click()");
@@ -215,7 +209,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
             await PickRequestsAsync(browser, new[] { ids[0] });
             await PressToolbarAsync(browser, "Approve");
-            var said = await OutcomeAsync(browser);
+            var said = await MessageAsync(browser, "Request #");
             var status = await PortalAsync<string>(browser, $"requests/{ids[0]}", "d => d.request.status");
             check.Saw($"Approve in the toolbar, one picked: \"{said}\"; the request is now {status}");
             status.Should().NotBe("pending", "Approve acted on it");
@@ -311,9 +305,9 @@ namespace Requestarr.Core.Test.Qa.Web
             }
 
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].find(b => b.innerText.trim() === 'Start removal').click()");
-            await browser.WaitForAsync($"!!{Outcome}");
+            var started = await MessageAsync(browser, "Started:");
             var open = await PortalAsync<bool>(browser, "requests", $"r => r.some(q => q.id === {ids[0]} && q.removalId !== null)");
-            check.Saw($"then: \"{await OutcomeAsync(browser)}\"; a removal vote is open: {open}");
+            check.Saw($"then: \"{started}\"; a removal vote is open: {open}");
             open.Should().BeTrue("the history row follows the removal flow");
             await DropRemovalsAsync(browser, check, new[] { ids[0] });
         }
@@ -356,7 +350,7 @@ namespace Requestarr.Core.Test.Qa.Web
             try
             {
                 await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalBody\"] button')].find(b => b.innerText.trim() === 'Start removal').click()");
-                var said = await OutcomeAsync(browser);
+                var said = await MessageAsync(browser, "Started:");
                 var worked = await browser.EvalAsync<bool>("!!document.querySelector('[class*=\"ModalBody\"] [class*=\"Alert-success\"]')");
                 removal = await PortalAsync<int>(browser, "title-removals", started);
                 check.Saw($"Start removal on {label} from the search: \"{said}\" (done: {worked}); the removal it started: {removal}");

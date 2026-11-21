@@ -2,10 +2,10 @@ import React, { useCallback, useState } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
-import { inputTypes } from 'Helpers/Props';
+import ConfirmModal from 'Components/Modal/ConfirmModal';
+import { inputTypes, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import accessLevelChoices from '../accessLevelChoices';
-import ActionModal from '../Components/ActionModal';
 import { contentTypeText } from '../portalText';
 import { AccessState, ContentType, PortalMember } from '../PortalTypes';
 import usePortal from '../usePortal';
@@ -53,37 +53,45 @@ function ChangeAccessModal({
       setPicked((current) => ({ ...current, [name]: value })),
     []
   );
-  const onConfirmPress = useCallback(
-    () => onConfirm(changesOf(picked)),
-    [picked, onConfirm]
-  );
+  // Enter confirms too, so nothing is sent until the types to choose from have loaded.
+  const onConfirmPress = useCallback(() => {
+    if (types) {
+      onConfirm(changesOf(picked));
+    }
+  }, [types, picked, onConfirm]);
 
   return (
-    <ActionModal
+    <ConfirmModal
       isOpen={members.length > 0}
+      isSpinning={!types}
       title={translate('PortalActionChangeAccess')}
       confirmLabel={translate('PortalActionChangeAccess')}
+      kind={kinds.PRIMARY}
+      cancelLabel={translate('Cancel')}
+      message={
+        <>
+          <ul className={styles.titles}>
+            {members.map((member) => (
+              <li key={member.id}>{member.name}</li>
+            ))}
+          </ul>
+          {(types ?? []).map((type) => (
+            <FormGroup key={type}>
+              <FormLabel>{contentTypeText(type)}</FormLabel>
+              <FormInputGroup
+                type={inputTypes.SELECT}
+                name={type}
+                value={picked[type] ?? KEEP}
+                values={choices}
+                onChange={onChange}
+              />
+            </FormGroup>
+          ))}
+        </>
+      }
       onConfirm={onConfirmPress}
-      onClose={onClose}
-    >
-      <ul className={styles.titles}>
-        {members.map((member) => (
-          <li key={member.id}>{member.name}</li>
-        ))}
-      </ul>
-      {(types ?? []).map((type) => (
-        <FormGroup key={type}>
-          <FormLabel>{contentTypeText(type)}</FormLabel>
-          <FormInputGroup
-            type={inputTypes.SELECT}
-            name={type}
-            value={picked[type] ?? KEEP}
-            values={choices}
-            onChange={onChange}
-          />
-        </FormGroup>
-      ))}
-    </ActionModal>
+      onCancel={onClose}
+    />
   );
 }
 

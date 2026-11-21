@@ -171,7 +171,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.WaitForAsync($"!!{TestMemberRow}.querySelector('input[type=checkbox]')");
                 await browser.RunAsync($"{TestMemberRow}.querySelector('label').click()");
                 await PressToolbarAsync(browser, action);
-                var said = await OutcomeAsync(browser);
+                var said = await MessageAsync(browser, action + ":");
                 var now = await PortalAsync<string>(browser, "members", $"m => m.find(x => x.discordName === {JsonSerializer.Serialize(TestMember)})?.status ?? ''");
                 check.Saw($"the toolbar's {action}: \"{said}\"; the test member is now {now}");
                 now.Should().Be(status);

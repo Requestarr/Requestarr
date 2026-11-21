@@ -6,7 +6,6 @@ import { messageTypes } from 'Helpers/Props';
 import { showMessage } from 'Store/Actions/appActions';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
-import ActionOutcomeAlert from '../Components/ActionOutcomeAlert';
 import { PortalRequestDetail } from '../PortalTypes';
 import ActionButton from './ActionButton';
 import useRequestActionRunner from './useRequestActionRunner';
@@ -39,7 +38,7 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
     );
     history.push(getPathWithUrlBase('/requests'));
   }, [dispatch, history, title]);
-  const { run, isBusy, outcome, dialogs } = useRequestActionRunner(
+  const { run, isBusy, dialogs } = useRequestActionRunner(
     onDone,
     onRequestGone
   );
@@ -66,7 +65,6 @@ function RequestActions({ detail, onDone }: RequestActionsProps) {
         ))}
       </div>
 
-      <ActionOutcomeAlert outcome={outcome} />
       {dialogs}
     </FieldSet>
   );
