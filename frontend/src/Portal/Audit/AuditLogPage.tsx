@@ -85,7 +85,12 @@ function AuditLogPage() {
     },
     []
   );
-  const onSearchPress = useCallback(() => setApplied(typed), [typed]);
+  // Searching again reads the log again, even with the same filters.
+  const [searches, setSearches] = useState(0);
+  const onSearchPress = useCallback(() => {
+    setApplied(typed);
+    setSearches((current) => current + 1);
+  }, [typed]);
 
   return (
     <PageContent title={translate('PortalAuditLog')}>
@@ -114,6 +119,7 @@ function AuditLogPage() {
           name="audit"
           query={query}
           emptyText={translate('PortalNothingFound')}
+          round={searches}
           renderRow={entryRow}
         />
       </PageContentBody>

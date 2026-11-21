@@ -169,9 +169,13 @@ function RequestDetail({ detail, round, onDone }: RequestDetailProps) {
         </div>
       )}
 
-      <TrimmedNote trimmedAfter={historyTrimmedAfter} />
       <PortalList
         name="requestTimeline"
+        notice={
+          historyTrimmedAfter ? (
+            <TrimmedNote trimmedAfter={historyTrimmedAfter} />
+          ) : undefined
+        }
         query={query}
         title={translate('PortalTimeline')}
         emptyText={translate('PortalNoHistory')}

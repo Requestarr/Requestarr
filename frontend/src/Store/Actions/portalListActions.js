@@ -1,10 +1,12 @@
 import { createAction } from 'redux-actions';
+import { batchActions } from 'redux-batched-actions';
 import { sortDirections } from 'Helpers/Props';
 import { createThunk, handleThunks } from 'Store/thunks';
+import createAjaxRequest from 'Utilities/createAjaxRequest';
 import serverSideCollectionHandlers from 'Utilities/serverSideCollectionHandlers';
 import getSectionState from 'Utilities/State/getSectionState';
 import translate from 'Utilities/String/translate';
-import { set } from './baseActions';
+import { set, updateServerSideCollection } from './baseActions';
 import createHandleActions from './Creators/createHandleActions';
 import createServerSideCollectionHandlers from './Creators/createServerSideCollectionHandlers';
 import createSetTableOptionReducer from './Creators/Reducers/createSetTableOptionReducer';
@@ -12,7 +14,8 @@ import createSetTableOptionReducer from './Creators/Reducers/createSetTableOptio
 // The portal's long lists read from the server a page at a time, as Servarr's System, then Events
 // (Store/Actions/systemActions.js system.logs) and Prowlarr's History (historyActions.js): each a section with its page,
 // page size, sort and columns, and Servarr's server-side collection handlers. A list of one member or request (their
-// requests, a request's timeline) keeps that ID in its query, sent with every page.
+// requests, a request's timeline) keeps that ID in its query, sent with every page; reading another page cancels the
+// read before it.
 
 export const section = 'portalLists';
 
@@ -175,31 +178,68 @@ export const listActions = Object.fromEntries(LIST_NAMES.map((name) => [name, {
   setTableOption: createAction(typeOf(name, 'setTableOption'))
 }]));
 
-// Starts a list over for its query (a member's ID, the audit log's search) and reads its first page.
+// Starts a list over for its query (a member's ID, the audit log's search), at its first sort, and reads its first page.
 export function showList(name, query) {
+  const { sortKey = null, sortDirection = sortDirections.ASCENDING } = LISTS[name];
+
   return (dispatch) => {
-    dispatch(set({ section: sectionOf(name), query, page: 1, items: [], isPopulated: false }));
+    dispatch(set({ section: sectionOf(name), query, page: 1, sortKey, sortDirection, items: [], isPopulated: false }));
     dispatch(listActions[name].fetch());
   };
 }
 
-// Sends the list's query with every page it reads.
-function withQuery(name) {
-  return (getState, payload, data) => {
-    Object.assign(data, getSectionState(getState(), sectionOf(name), true).query);
+// Each list's request still on its way, cancelled when another is asked for.
+const abortCurrentRequests = {};
+
+// Servarr's createFetchServerSideCollectionHandler, with the list's query sent too and the request before it cancelled
+// (as Servarr's createSaveProviderHandler cancels an earlier save), so an answer for an earlier query or page never lands
+// over the one asked for last.
+function createFetchListHandler(name) {
+  const listSection = sectionOf(name);
+
+  return function(getState, payload, dispatch) {
+    abortCurrentRequests[listSection]?.();
+    dispatch(set({ section: listSection, isFetching: true }));
+
+    const { page, pageSize, sortKey, sortDirection, query } = getSectionState(getState(), listSection, true);
+    const sort = sortKey ? { sortKey, sortDirection } : {};
+    const { request, abortRequest } = createAjaxRequest({
+      url: LISTS[name].url,
+      data: { page: payload.page || page || 1, pageSize, ...sort, ...query },
+      traditional: true
+    });
+
+    abortCurrentRequests[listSection] = abortRequest;
+
+    request.done((response) => {
+      abortCurrentRequests[listSection] = null;
+      dispatch(batchActions([
+        updateServerSideCollection({ section: listSection, data: response }),
+        set({ section: listSection, isFetching: false, isPopulated: true, error: null })
+      ]));
+    });
+
+    request.fail((xhr) => {
+      if (!xhr.aborted) {
+        abortCurrentRequests[listSection] = null;
+        dispatch(set({ section: listSection, isFetching: false, isPopulated: false, error: xhr }));
+      }
+    });
   };
 }
 
 //
 // Action Handlers
 
-export const actionHandlers = handleThunks(Object.assign({}, ...LIST_NAMES.map((name) => createServerSideCollectionHandlers(
-  sectionOf(name),
-  LISTS[name].url,
-  listActions[name].fetch,
-  Object.fromEntries(Object.entries(PAGE_ACTIONS).map(([handler, action]) => [handler, typeOf(name, action)])),
-  withQuery(name)
-))));
+export const actionHandlers = handleThunks(Object.assign({}, ...LIST_NAMES.map((name) => ({
+  ...createServerSideCollectionHandlers(
+    sectionOf(name),
+    LISTS[name].url,
+    listActions[name].fetch,
+    Object.fromEntries(Object.entries(PAGE_ACTIONS).map(([handler, action]) => [handler, typeOf(name, action)]))
+  ),
+  [typeOf(name, 'fetch')]: createFetchListHandler(name)
+}))));
 
 //
 // Reducers

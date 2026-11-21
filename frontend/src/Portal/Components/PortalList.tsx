@@ -41,6 +41,9 @@ interface PortalListProps<T> {
   title?: string;
   emptyText: string;
 
+  // Said above the rows (that older entries were removed), in place of emptyText when there are none.
+  notice?: ReactNode;
+
   // Goes up after an action changes the list, so the page shown is read again.
   round?: number;
 
@@ -100,19 +103,20 @@ function usePortalList(
     [actions, dispatch]
   );
 
-  return { list, paging, onSortPress, onTableOptionChange };
+  // Loaded once the answer is for this query: a section another member's page used keeps their rows until then.
+  const isLoaded =
+    list.isPopulated && JSON.stringify(list.query ?? {}) === queryKey;
+
+  return { list, isLoaded, paging, onSortPress, onTableOptionChange };
 }
 
 // A list read from the server a page at a time, as Servarr's System, then Events (System/Events/LogsTable) and
 // Sonarr's History draw theirs: Servarr's Table, sorted by a column's heading, its columns and page size under the
 // table's options, and Servarr's TablePager across the list's full width.
 function PortalList<T>(props: PortalListProps<T>) {
-  const { name, query, title, emptyText, round = 0, renderRow } = props;
-  const { list, paging, onSortPress, onTableOptionChange } = usePortalList(
-    name,
-    query,
-    round
-  );
+  const { name, query, title, emptyText, notice, round = 0, renderRow } = props;
+  const { list, isLoaded, paging, onSortPress, onTableOptionChange } =
+    usePortalList(name, query, round);
   const {
     handleFirstPagePress: onFirstPagePress,
     handlePreviousPagePress: onPreviousPagePress,
@@ -123,17 +127,19 @@ function PortalList<T>(props: PortalListProps<T>) {
   const items = list.items as T[];
   const body = (
     <>
-      {list.isFetching && !list.isPopulated && <LoadingIndicator />}
+      {notice}
+
+      {!isLoaded && !list.error && <LoadingIndicator />}
 
       {!list.isFetching && !!list.error && (
         <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
       )}
 
-      {list.isPopulated && !list.error && !items.length && (
+      {isLoaded && !list.error && !items.length && !notice && (
         <Alert kind={kinds.INFO}>{emptyText}</Alert>
       )}
 
-      {list.isPopulated && !list.error && !!items.length && (
+      {isLoaded && !list.error && !!items.length && (
         <>
           <Table
             columns={list.columns}
@@ -174,9 +180,7 @@ function PortalList<T>(props: PortalListProps<T>) {
   }
 
   return (
-    <FieldSet
-      legend={list.isPopulated ? `${title} (${list.totalRecords})` : title}
-    >
+    <FieldSet legend={isLoaded ? `${title} (${list.totalRecords})` : title}>
       {body}
     </FieldSet>
   );

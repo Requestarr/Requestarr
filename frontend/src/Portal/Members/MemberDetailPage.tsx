@@ -90,7 +90,13 @@ function eventRow(event: PortalEvent, columns: Column[]) {
 
 // Their requests, what they follow, their removals and their history, each read a page at a time with its total.
 // Their own requests have no Requester column: every row would name them.
-function MemberSections({ detail }: { detail: PortalMemberDetail }) {
+function MemberSections({
+  detail,
+  round,
+}: {
+  detail: PortalMemberDetail;
+  round: number;
+}) {
   const query = { id: detail.member.id };
 
   return (
@@ -98,6 +104,7 @@ function MemberSections({ detail }: { detail: PortalMemberDetail }) {
       <PortalList
         name="memberRequests"
         query={query}
+        round={round}
         title={translate('PortalTheirRequests')}
         emptyText={translate('PortalNoRequests')}
         renderRow={requestRow}
@@ -105,6 +112,7 @@ function MemberSections({ detail }: { detail: PortalMemberDetail }) {
       <PortalList
         name="memberFollowing"
         query={query}
+        round={round}
         title={translate('PortalTheyFollow')}
         emptyText={translate('PortalNoRequests')}
         renderRow={requestRow}
@@ -112,14 +120,20 @@ function MemberSections({ detail }: { detail: PortalMemberDetail }) {
       <PortalList
         name="memberRemovals"
         query={query}
+        round={round}
         title={translate('PortalRemovals')}
         emptyText={translate('PortalNoRemovals')}
         renderRow={removalRow}
       />
-      <TrimmedNote trimmedAfter={detail.historyTrimmedAfter} />
       <PortalList
         name="memberHistory"
+        notice={
+          detail.historyTrimmedAfter ? (
+            <TrimmedNote trimmedAfter={detail.historyTrimmedAfter} />
+          ) : undefined
+        }
         query={query}
+        round={round}
         title={translate('PortalHistory')}
         emptyText={translate('PortalNoHistory')}
         renderRow={eventRow}
@@ -153,7 +167,7 @@ function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
 
       <MemberActions detail={detail} onDone={onDone} />
 
-      <MemberSections key={round} detail={detail} />
+      <MemberSections detail={detail} round={round} />
     </>
   );
 }
