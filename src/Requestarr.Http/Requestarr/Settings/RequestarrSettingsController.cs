@@ -73,7 +73,7 @@ namespace Requestarr.Http.Settings
 
         private ObjectResult Refused(string problem) => Conflict(new { message = problem });
 
-        private static string Text(JsonElement value) => value.ValueKind switch
+        internal static string Text(JsonElement value) => value.ValueKind switch
         {
             JsonValueKind.String => value.GetString(),
             JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
