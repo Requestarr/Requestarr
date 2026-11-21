@@ -250,8 +250,13 @@ can_move() {
 }
 
 # open_pull_request <branch> <base> <title> <body>: prints its address.
+# The body goes in a file: a promotion's lists every commit moving, too long for a command line on Windows.
 open_pull_request() {
-    gh pr create --base "$2" --head "$1" --title "$3" --body "$4"
+    local body
+    body=$(mktemp)
+    printf '%s' "$4" > "$body"
+    gh pr create --base "$2" --head "$1" --title "$3" --body-file "$body"
+    rm -f "$body"
 }
 
 # fast_forward <pull request> <commit> <branch>: once build passes, the branch moves to exactly that commit (GitHub
