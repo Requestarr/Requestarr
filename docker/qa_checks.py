@@ -75,8 +75,8 @@ CHECKS = {
     "web app paging": Check("web", "paging", "web-app"),
     "web app live updates": Check("web", "live_updates", "web-app"),
     "web app requestrr import": Check("web", "import_preview", "web-app"),
-    "live portal actions": Check("live", "LivePortalActionsFixture", "admin"),
-    "live member renames": Check("live", "LiveMemberRenamesFixture", "admin"),
+    "live portal actions": Check("live", "LivePortalActionsFixture", "admin", ("[access]", "[request]", "[requests]", "[removal]")),
+    "live member renames": Check("live", "LiveMemberRenamesFixture", "admin", ("[stored]", "[history]", "[search]", "[channel]", "[portal]")),
     "live shared library": Check("live", "LiveRemovalFixture", "admin", ("[shared]",)),
     "live deleting turned off": Check("live", "LiveRemovalFixture", "admin", ("[by-hand]",)),
     "live history removal": Check("live", "LiveRemovalFixture", "admin", ("[history]",)),
@@ -696,6 +696,7 @@ def self_test():
         ("a failed suite refuses", any("suite" in r for r in not_ready(dict(ready, suite=dict(ready["suite"], ok=False)), "abc"))),
         ("screenshots not looked at refuses", any("screenshots" in r for r in not_ready(dict(ready, reviewed=False), "abc"))),
         ("another commit's run refuses", any("not def" in r for r in not_ready(ready, "def"))),
+        ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
