@@ -42,13 +42,15 @@ function requestColumns(withRequester) {
   ];
 }
 
-const eventColumns = [
+// An event's own columns, before the options column (the audit log adds its About column between).
+const eventDataColumns = [
   column('at', 'PortalWhen'),
   column('what', 'PortalWhat'),
   column('who', 'PortalWho'),
-  column('detail', 'PortalDetail'),
-  optionsColumn
+  column('detail', 'PortalDetail')
 ];
+
+const eventColumns = [...eventDataColumns, optionsColumn];
 
 // A removal's columns, also a request's latest removal on its own page.
 export const removalColumns = [
@@ -77,7 +79,7 @@ const LISTS = {
     sortKey: 'followed',
     sortDirection: sortDirections.ASCENDING
   },
-  audit: { url: '/portal/audit', columns: [...eventColumns.slice(0, -1), column('about', 'PortalAbout'), optionsColumn] },
+  audit: { url: '/portal/audit', columns: [...eventDataColumns, column('about', 'PortalAbout'), optionsColumn] },
   outageHistory: {
     url: '/portal/outages/history',
     columns: [
