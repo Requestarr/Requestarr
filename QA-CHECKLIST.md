@@ -86,6 +86,20 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The plain Requestarr picture.
     - The yellow QA banner.
   - Checked by the owner, needs human eyes: the bot's profile only shows in the Discord app, and how it looks is a judgement.
+- **Pages update by themselves**
+  - Steps:
+    1. Open Requests in the web app, as a table.
+    2. Change a request from somewhere else.
+  - Expect:
+    - Its row changes within a few seconds, with no refresh.
+  - Checked automatically: the web app live updates check.
+- **Approving in Discord shows at once**
+  - Steps:
+    1. Open Requests in the web app.
+    2. In Discord's admin channel, approve a waiting request.
+  - Expect:
+    - Its status in the web app changes within a few seconds, with no refresh.
+  - Checked by the owner, couldn't verify: the automated checks can't press an admin's button in Discord.
 - **Requests views**
   - Steps:
     1. In the web app, open Requests.
@@ -159,6 +173,13 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Rows stay one line however many follow a title.
     - The request's page opens at Followers, listing everyone with their @handle and when they followed.
   - Checked automatically: the web app request views check.
+- **Long jobs in Tasks**
+  - Steps:
+    1. In Settings, then Import from Requestrr, confirm an import.
+    2. Open System, then Tasks.
+  - Expect:
+    - Import Requestrr is listed in the queue, with when it ran.
+  - Checked automatically: the web app requestrr import check.
 - **Importing from Requestrr**
   - Steps:
     1. Open Settings, then Import from Requestrr.

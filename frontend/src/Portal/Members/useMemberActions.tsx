@@ -3,10 +3,9 @@ import { useDispatch } from 'react-redux';
 import { useHistory } from 'react-router-dom';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
 import { kinds } from 'Helpers/Props';
-import { callApi } from 'Settings/Requestarr/requestarrApi';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
-import runEach from '../Components/runEach';
+import runBulkAction from '../Components/runBulkAction';
 import { PortalMember } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
 import showOutcome, { ActionOutcome } from '../showOutcome';
@@ -18,26 +17,6 @@ interface Asking {
 
   // From the bar along the bottom in select mode, not a row's own button.
   fromBar: boolean;
-}
-
-// What each action does to one member, by the services their page and Discord's member card use.
-function callFor(action: string, changes: AccessChange[]) {
-  return (member: PortalMember) => {
-    if (action === 'changeAccess') {
-      return Promise.all(
-        changes.map((change) =>
-          callApi(`/portal/members/${member.id}/access`, 'PUT', {
-            ...change,
-            instanceId: null,
-          })
-        )
-      );
-    }
-
-    const path = action === 'remove-member' ? 'remove' : action;
-
-    return callApi(`/portal/members/${member.id}/${path}`, 'POST', {});
-  };
 }
 
 // Where a result goes: the sidebar's messages, as Servarr reports a finished command, naming anyone it couldn't do;
@@ -67,10 +46,11 @@ function useMemberActions(onDone: () => void, onBarDone: () => void = onDone) {
     (job: Asking, changes: AccessChange[] = []) => {
       setAsking(undefined);
       setIsBusy(true);
-      runEach(job.members, {
+      runBulkAction(job.members, {
+        path: '/portal/members/bulk',
+        body: { action: job.action, changes },
         label: actionLabel(job.action),
-        nameOf: (member) => member.name,
-        call: callFor(job.action, changes),
+        nameOf: (member) => member.name ?? String(member.id),
       }).then((result) => {
         setIsBusy(false);
         report(result, job.fromBar);

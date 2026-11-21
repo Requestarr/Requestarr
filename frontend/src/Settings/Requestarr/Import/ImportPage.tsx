@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import Alert from 'Components/Alert';
-import Button from 'Components/Link/Button';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
@@ -43,6 +42,32 @@ function Outcome({ job }: { job: ImportJob }) {
 }
 
 // Import → From Requestrr: the old request channels by ID, a preview of everything it would import, then Confirm.
+// Confirm, once the preview is ready; it spins while the import's command writes it (System, then Tasks).
+function ConfirmButton({
+  job,
+  isBusy,
+  onConfirm,
+}: {
+  job: ImportJob;
+  isBusy: boolean;
+  onConfirm: () => void;
+}) {
+  if (job.state !== 'ready' && job.state !== 'importing') {
+    return null;
+  }
+
+  return (
+    <SpinnerButton
+      kind={kinds.SUCCESS}
+      isSpinning={job.state === 'importing'}
+      isDisabled={isBusy}
+      onPress={onConfirm}
+    >
+      {translate('ImportConfirm')}
+    </SpinnerButton>
+  );
+}
+
 // Discord is only read; nothing is posted, edited or reacted to there.
 function ImportPage() {
   const [text, setText] = useState('');
@@ -85,11 +110,7 @@ function ImportPage() {
         {job?.warning && <Alert kind={kinds.WARNING}>{job.warning}</Alert>}
         {job?.plan && <ImportPreview plan={job.plan} />}
 
-        {job?.state === 'ready' && (
-          <Button kind={kinds.SUCCESS} isDisabled={isBusy} onPress={confirm}>
-            {translate('ImportConfirm')}
-          </Button>
-        )}
+        {job && <ConfirmButton job={job} isBusy={isBusy} onConfirm={confirm} />}
       </PageContentBody>
     </PageContent>
   );

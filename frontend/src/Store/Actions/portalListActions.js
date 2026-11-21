@@ -10,6 +10,8 @@ import { set, updateServerSideCollection } from './baseActions';
 import createHandleActions from './Creators/createHandleActions';
 import createServerSideCollectionHandlers from './Creators/createServerSideCollectionHandlers';
 import createSetTableOptionReducer from './Creators/Reducers/createSetTableOptionReducer';
+import { fetchMembers } from './memberActions';
+import { fetchRequests } from './requestActions';
 
 // The portal's long lists read from the server a page at a time, as Servarr's System, then Events
 // (Store/Actions/systemActions.js system.logs) and Prowlarr's History (historyActions.js): each a section with its page,
@@ -185,6 +187,31 @@ export function showList(name, query) {
   return (dispatch) => {
     dispatch(set({ section: sectionOf(name), query, page: 1, sortKey, sortDirection, items: [], isPopulated: false }));
     dispatch(listActions[name].fetch());
+  };
+}
+
+// The lists each live message from the server (Requestarr.Http PortalBroadcaster) concerns, with the whole list it
+// reads again.
+const LIVE_GROUPS = {
+  requests: { fetchAll: fetchRequests, section: 'requests', lists: ['memberRequests', 'memberFollowing', 'requestTimeline', 'requestFollowers', 'audit'] },
+  members: { fetchAll: fetchMembers, section: 'members', lists: ['memberHistory', 'memberRemovals'] },
+  queue: { lists: ['queue', 'accessWaiting', 'accessPaused', 'outageHistory'] }
+};
+
+// Reads again what's shown of a live message's group, as Servarr's SignalRConnector reads its sections again on a
+// "sync": the whole list when a page has it, and each of its lists a page shows.
+export function refreshLive(group) {
+  return (dispatch, getState) => {
+    const { fetchAll, section: allSection, lists } = LIVE_GROUPS[group];
+    const state = getState();
+
+    if (fetchAll && state[allSection].isPopulated) {
+      dispatch(fetchAll());
+    }
+
+    lists
+      .filter((name) => state[section][name].isPopulated)
+      .forEach((name) => dispatch(listActions[name].fetch()));
   };
 }
 

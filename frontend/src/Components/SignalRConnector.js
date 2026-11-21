@@ -6,6 +6,7 @@ import { createSelector } from 'reselect';
 import { setAppValue, setVersion } from 'Store/Actions/appActions';
 import { removeItem, update, updateItem } from 'Store/Actions/baseActions';
 import { fetchCommands, finishCommand, updateCommand } from 'Store/Actions/commandActions';
+import { refreshLive } from 'Store/Actions/portalListActions';
 import { fetchHealth } from 'Store/Actions/systemActions';
 import { fetchTagDetails, fetchTags } from 'Store/Actions/tagActions';
 import { repopulatePage } from 'Utilities/pagePopulator';
@@ -42,7 +43,8 @@ const mapDispatchToProps = {
   dispatchRemoveItem: removeItem,
   dispatchFetchHealth: fetchHealth,
   dispatchFetchTags: fetchTags,
-  dispatchFetchTagDetails: fetchTagDetails
+  dispatchFetchTagDetails: fetchTagDetails,
+  dispatchRefreshLive: refreshLive
 };
 
 function Logger(minimumLogLevel) {
@@ -170,6 +172,20 @@ class SignalRConnector extends Component {
     this.props.dispatchFetchCommands();
   };
 
+  // Requestarr's portal: requests, members and the queue changed (in Discord, the web app or a download), so what
+  // the open pages show of them is read again.
+  handleRequests = () => {
+    this.props.dispatchRefreshLive('requests');
+  };
+
+  handleMembers = () => {
+    this.props.dispatchRefreshLive('members');
+  };
+
+  handleQueue = () => {
+    this.props.dispatchRefreshLive('queue');
+  };
+
   handleTag = (body) => {
     if (body.action === 'sync') {
       this.props.dispatchFetchTags();
@@ -259,7 +275,8 @@ SignalRConnector.propTypes = {
   dispatchRemoveItem: PropTypes.func.isRequired,
   dispatchFetchHealth: PropTypes.func.isRequired,
   dispatchFetchTags: PropTypes.func.isRequired,
-  dispatchFetchTagDetails: PropTypes.func.isRequired
+  dispatchFetchTagDetails: PropTypes.func.isRequired,
+  dispatchRefreshLive: PropTypes.func.isRequired
 };
 
 export default connect(createMapStateToProps, mapDispatchToProps)(SignalRConnector);

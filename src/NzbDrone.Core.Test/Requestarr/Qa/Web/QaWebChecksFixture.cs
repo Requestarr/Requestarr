@@ -346,7 +346,8 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
         // the read-only invite link, both channels found and readable, the one list of what would be imported, then,
-        // once confirmed, the Requests and Members pages with the imported statuses, in both themes; a rerun finds
+        // once confirmed, the import listed as a command in System, then Tasks, and the Requests and Members pages with
+        // the imported statuses, in both themes; a rerun finds
         // nothing new. A stack without recordings says so and passes: reading a real server is the owner's run, on beta.
         [Test]
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
@@ -414,6 +415,13 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Confirm and import').click()");
             await browser.WaitForAsync("document.body.innerText.includes('Imported ')");
             check.Saw("import: " + await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Imported ')) ?? ''"));
+
+            // It ran as a Servarr command: System, then Tasks lists it in the queue, as Sonarr lists its long jobs.
+            await browser.GoAsync($"{Url}/system/tasks");
+            await browser.WaitForAsync("[...document.querySelectorAll('tr')].some(r => r.innerText.includes('Import Requestrr'))");
+            var task = await browser.EvalAsync<string>("[...document.querySelectorAll('tr')].find(r => r.innerText.includes('Import Requestrr')).innerText.replace(/\\s+/g, ' ').trim()");
+            check.Saw($"System, then Tasks: {task}");
+            await check.ShotAsync(browser, "import-task");
 
             foreach (var theme in Themes)
             {

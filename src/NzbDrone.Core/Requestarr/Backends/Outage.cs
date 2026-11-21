@@ -31,6 +31,10 @@ namespace Requestarr.Core.Backends
 
     public class OutageRepository : BasicRepository<Outage>, IOutageRepository
     {
+        // Each change tells the web app's open pages to read again (Requestarr.Http PortalBroadcaster), as Servarr's
+        // resources do.
+        protected override bool PublishModelEvents => true;
+
         public OutageRepository(IMainDatabase database, IEventAggregator eventAggregator)
             : base(database, eventAggregator)
         {

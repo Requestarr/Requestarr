@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
@@ -44,6 +45,11 @@ namespace Requestarr.Core.Test.Imports
         {
             _recorded = new RecordedChannelHistory(Item4To6Fixture.RepoFile("src", "NzbDrone.Core.Test", "Requestarr", "Imports", "Recorded"));
             Mocker.GetMock<IChannelHistory>().Setup(h => h.DescribeAsync(It.IsAny<ulong>())).ReturnsAsync((ulong id) => _recorded.Describe(id));
+
+            // The write a confirmation queues runs at once, as the command queue would run it.
+            Mocker.GetMock<IManageCommandQueue>()
+                .Setup(q => q.Push(It.IsAny<ImportRequestrrCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()))
+                .Callback<ImportRequestrrCommand, CommandPriority, CommandTrigger>((command, _, _) => Subject.Execute(command));
             Mocker.GetMock<IChannelHistory>().Setup(h => h.ReadAsync(It.IsAny<ulong>(), It.IsAny<ulong?>())).ReturnsAsync((ulong id, ulong? before) => _recorded.Read(id, before));
 
             Mocker.SetConstant<IRequestRepository>(Mocker.Resolve<RequestRepository>());
