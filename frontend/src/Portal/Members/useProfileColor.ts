@@ -3,7 +3,12 @@ import { useEffect, useState } from 'react';
 // The picture is read at this size: enough for its overall colour, cheap to read.
 const SAMPLE_SIZE = 16;
 
-// The average colour of a picture, as #RRGGBB; undefined until it has loaded, or when it can't be read.
+// One colour channel (0 to 255) as two hex digits.
+function hexByte(value: number) {
+  return Math.round(value).toString(16).padStart(2, '0');
+}
+
+// The average colour of a loaded picture, as #RRGGBB; undefined when the browser can't draw it.
 function averageColor(image: HTMLImageElement) {
   const canvas = document.createElement('canvas');
   canvas.width = SAMPLE_SIZE;
@@ -17,22 +22,22 @@ function averageColor(image: HTMLImageElement) {
   context.drawImage(image, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
   const pixels = context.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
   const sums = [0, 0, 0];
+  let weight = 0;
 
+  // Each pixel counts as much as it's opaque, so a picture's see-through corners don't darken its colour.
   for (let i = 0; i < pixels.length; i += 4) {
-    sums[0] += pixels[i];
-    sums[1] += pixels[i + 1];
-    sums[2] += pixels[i + 2];
+    const alpha = pixels[i + 3];
+    sums[0] += pixels[i] * alpha;
+    sums[1] += pixels[i + 1] * alpha;
+    sums[2] += pixels[i + 2] * alpha;
+    weight += alpha;
   }
 
-  const count = pixels.length / 4;
+  if (!weight) {
+    return undefined;
+  }
 
-  return `#${sums
-    .map((sum) =>
-      Math.round(sum / count)
-        .toString(16)
-        .padStart(2, '0')
-    )
-    .join('')}`;
+  return `#${sums.map((sum) => hexByte(sum / weight)).join('')}`;
 }
 
 // The colour behind a member's header when they have no Discord banner: the accent colour they chose in Discord, or,
@@ -51,10 +56,12 @@ function useProfileColor(accent: string | null, avatar: string | null) {
     image.crossOrigin = 'anonymous';
 
     image.onload = () => {
+      if (!current) {
+        return;
+      }
+
       try {
-        if (current) {
-          setPictureColor(averageColor(image));
-        }
+        setPictureColor(averageColor(image));
       } catch {
         // The picture's server didn't allow reading it: the header stays dark.
       }
