@@ -23,6 +23,12 @@ function column(name, label, isSortable = false, isVisible = true) {
   return { name, label: () => translate(label), isSortable, isVisible };
 }
 
+// Where Servarr's table puts its options (the cog in the heading row), as Sonarr's History has its details column.
+const optionsColumn = { name: 'details', label: '', columnLabel: () => translate('Details'), isVisible: true, isModifiable: false };
+
+// A list's own actions column, which also holds the options cog.
+const actionsColumn = { name: 'actions', label: '', columnLabel: () => translate('PortalActions'), isVisible: true, isModifiable: false };
+
 function requestColumns(withRequester) {
   return [
     { ...column('title', 'PortalTitle', true), isModifiable: false },
@@ -31,7 +37,8 @@ function requestColumns(withRequester) {
     ...(withRequester ? [column('requester', 'PortalRequester', true)] : []),
     column('followers', 'PortalFollowers', true),
     column('instance', 'PortalInstance', true),
-    column('requested', 'PortalRequested', true)
+    column('requested', 'PortalRequested', true),
+    optionsColumn
   ];
 }
 
@@ -39,7 +46,8 @@ const eventColumns = [
   column('at', 'PortalWhen'),
   column('what', 'PortalWhat'),
   column('who', 'PortalWho'),
-  column('detail', 'PortalDetail')
+  column('detail', 'PortalDetail'),
+  optionsColumn
 ];
 
 // A removal's columns, also a request's latest removal on its own page.
@@ -50,7 +58,8 @@ export const removalColumns = [
   column('startedBy', 'PortalStartedBy'),
   column('keeps', 'PortalKeeps'),
   column('closed', 'PortalClosed'),
-  column('closedBy', 'PortalClosedBy')
+  column('closedBy', 'PortalClosedBy'),
+  optionsColumn
 ];
 
 const newestRequested = { sortKey: 'requested', sortDirection: sortDirections.DESCENDING };
@@ -64,18 +73,19 @@ const LISTS = {
   requestTimeline: { url: '/portal/requests/timeline', columns: eventColumns },
   requestFollowers: {
     url: '/portal/requests/followers',
-    columns: [column('member', 'PortalMember', true), column('followed', 'PortalFollowed', true)],
+    columns: [column('member', 'PortalMember', true), column('followed', 'PortalFollowed', true), optionsColumn],
     sortKey: 'followed',
     sortDirection: sortDirections.ASCENDING
   },
-  audit: { url: '/portal/audit', columns: [...eventColumns, column('about', 'PortalAbout')] },
+  audit: { url: '/portal/audit', columns: [...eventColumns.slice(0, -1), column('about', 'PortalAbout'), optionsColumn] },
   outageHistory: {
     url: '/portal/outages/history',
     columns: [
       column('instance', 'PortalInstance'),
       column('started', 'PortalStarted'),
       column('ended', 'PortalEnded'),
-      column('announced', 'PortalAnnounced')
+      column('announced', 'PortalAnnounced'),
+      optionsColumn
     ]
   },
   accessWaiting: {
@@ -85,7 +95,7 @@ const LISTS = {
       column('askedFor', 'PortalAskedFor'),
       column('note', 'PortalNote'),
       column('requested', 'PortalRequested'),
-      column('actions', 'PortalActions')
+      actionsColumn
     ]
   },
   accessPaused: {
@@ -93,7 +103,7 @@ const LISTS = {
     columns: [
       column('who', 'PortalWho'),
       column('since', 'PortalPausedSince'),
-      column('actions', 'PortalActions')
+      actionsColumn
     ]
   },
   queue: {
@@ -103,7 +113,7 @@ const LISTS = {
       column('kind', 'PortalWaitingFor'),
       column('title', 'PortalTitle'),
       column('who', 'PortalWho'),
-      column('actions', 'PortalActions')
+      actionsColumn
     ]
   }
 };

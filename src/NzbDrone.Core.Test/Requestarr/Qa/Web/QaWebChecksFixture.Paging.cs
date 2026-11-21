@@ -141,6 +141,14 @@ namespace Requestarr.Core.Test.Qa.Web
             paged.Should().BeTrue();
             await check.ShotAsync(browser, $"member-{theme}");
 
+            // The cog in the heading row opens the list's options: its columns and how many a page shows.
+            await browser.RunAsync($"{Theirs}.querySelector('thead th:last-child button').click()");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"ModalBody\"] input[name=pageSize]')");
+            var options = await browser.EvalAsync<string>("document.querySelector('[class*=\"ModalBody\"]').innerText.replace(/\\s+/g, ' ').trim()");
+            check.Saw($"their requests' options ({theme}): {options}");
+            await check.ShotAsync(browser, $"member-list-options-{theme}");
+            await AnswerAsync(browser, "Close", true);
+
             await PagersAtWidthsAsync(browser, check, $"{name}'s page ({theme})");
         }
 

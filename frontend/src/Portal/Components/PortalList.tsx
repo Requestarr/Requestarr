@@ -5,6 +5,7 @@ import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
 import FieldSet from 'Components/FieldSet';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
@@ -14,7 +15,8 @@ import { kinds } from 'Helpers/Props';
 import { listActions, showList } from 'Store/Actions/portalListActions';
 import translate from 'Utilities/String/translate';
 
-// The cells a row shows, in its columns' order, for the columns Table Options shows.
+// The cells a row shows, in its columns' order, for the columns Table Options shows; the options column's cell is
+// empty, as Sonarr's History rows leave room under its cog.
 export function visibleCells(
   columns: Column[],
   cells: Record<string, ReactNode>
@@ -22,7 +24,9 @@ export function visibleCells(
   return columns
     .filter((column) => column.isVisible)
     .map((column) => (
-      <React.Fragment key={column.name}>{cells[column.name]}</React.Fragment>
+      <React.Fragment key={column.name}>
+        {cells[column.name] ?? <TableRowCell />}
+      </React.Fragment>
     ));
 }
 

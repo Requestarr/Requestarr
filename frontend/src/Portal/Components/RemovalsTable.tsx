@@ -35,12 +35,15 @@ export function RemovalRow({ removal, columns }: RemovalRowProps) {
   );
 }
 
+// The store's removal columns (columnLabel there is a function, as Servarr's column definitions have it).
+const columns = removalColumns as unknown as Column[];
+
 // A request's latest removal, on its own, with every column.
 function RemovalsTable({ removal }: { removal: PortalRemoval }) {
   return (
-    <Table columns={removalColumns}>
+    <Table columns={columns}>
       <TableBody>
-        <RemovalRow removal={removal} columns={removalColumns} />
+        <RemovalRow removal={removal} columns={columns} />
       </TableBody>
     </Table>
   );
