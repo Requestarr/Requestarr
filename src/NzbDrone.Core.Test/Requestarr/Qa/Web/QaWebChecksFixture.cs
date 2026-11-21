@@ -597,6 +597,10 @@ namespace Requestarr.Core.Test.Qa.Web
 
             // Servarr's provider form, from the media managers' schema: Sonarr's own fields and its anime ones.
             modal.Should().Contain("Quality profile").And.Contain("Series type").And.Contain("Anime").And.Contain("Turned on");
+
+            // Its choices come from the test Sonarr through the provider's actions; the saved profile shows once they do.
+            await browser.WaitForAsync($"{ModalText}.includes('HD-1080p') && {ModalText}.includes('/data/tv')");
+            check.Saw($"edit modal ({theme}): quality profile and root folder loaded from Sonarr (HD-1080p, /data/tv)");
             await check.ShotAsync(browser, $"settings-connections-edit-{theme}");
 
             // The test stacks' provisioning file sets no default access, so their instances give new members what they got
