@@ -29,7 +29,14 @@ namespace Requestarr.Core.Removals
         public const string Search = "rm-search";       // the admin panel's Remove a title
         public const string SearchForm = "rm-search-form";
         public const string SearchField = "term";
-        public const string Pick = "rm-pick";           // the search results menu, value {backend}:{item}
+        public const string Pick = "rm-pick";           // the search results menu, value {backend}:{item} or h:{request}
+
+        // A title Sonarr and Radarr don't have (Not in library, usually imported): its removal only leaves Requestarr's lists.
+        public const string History = "rm-hist";             // rm-hist:{request}, the admin's removal card
+        public const string HistoryGo = "rm-hist-go";        // rm-hist-go:{request}
+        public const string HistoryForce = "rm-hist-force";  // rm-hist-force:{request}, asks first
+        public const string HistoryForceYes = "rm-hist-force-yes";
+        public const string HistoryChoice = "h";             // a search result's value: h:{request}
 
         // A season scope in a custom ID: "all", or "1.2.3".
         public static string Encode(IReadOnlyCollection<int> seasons) => seasons == null || seasons.Count == 0 ? "all" : string.Join(".", seasons.OrderBy(s => s));

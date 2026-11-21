@@ -349,6 +349,35 @@ namespace Requestarr.Core.Test.Removals
                 Log($"[by-hand] the admin deleted Heat in Radarr, then {DiscordText.DeletedByHandLabel}: \"{done.LastReply.Content}\"; removal now {Mocker.Resolve<IRemovalProposalRepository>().Get(byHand.Id).Status}; in the admin queue: {Mocker.Resolve<IAdminQueue>().Items().Any(i => i.Key == $"x{byHand.Id}")}");
                 Mocker.Resolve<IRemovalProposalRepository>().Get(byHand.Id).Status.Should().Be(RemovalStatus.Deleted);
 
+                // A history request (Not in library, as an import leaves one), removed from Discord as the web app does: Remove a
+                // title finds it, its card starts the same removal, the test member is asked first, and the admin drops it. The
+                // record is made-up and stays in this run's own database.
+                var history = requests.Insert(new Request
+                {
+                    OwnerUserId = users.FindByDiscordId(member.Id).Id,
+                    ContentType = ContentType.Movie,
+                    Title = "Automated check: history",
+                    Year = 2001,
+                    Status = RequestStatus.NotInLibrary,
+                    Requested = DateTime.UtcNow.AddYears(-2)
+                });
+                var historyForm = await Send(dispatcher, AsOwner(FakeInteraction.Button(RemovalRoutes.Search)));
+                var historyResults = await Send(dispatcher, AsOwner(FakeInteraction.ModalSubmit(historyForm.Responder.LastModal.CustomId).WithField(RemovalRoutes.SearchField, "automated check")));
+                var historyOption = historyResults.LastReply.SelectMenu.Options.Single(o => o.Label == DiscordText.RemovalHistoryChoice(history));
+                var historyCard = await Send(dispatcher, AsOwner(FakeInteraction.SelectMenu(RemovalRoutes.Pick, historyOption.Value)));
+                var historyStarted = await Send(dispatcher, AsOwner(FakeInteraction.Button(historyCard.LastReply.Buttons.Single(b => b.Label == DiscordText.StartRemovalLabel).CustomId)));
+                var historyRemoval = Mocker.Resolve<IRemovalProposalRepository>().All().Single(p => p.RequestId == history.Id);
+                Log($"[history] Remove a title found \"{historyOption.Label}\"; card: \"{historyCard.LastReply.Content.Replace("\n", " | ")}\"; {DiscordText.StartRemovalLabel}: \"{historyStarted.LastReply.Content}\"; removal #{historyRemoval.Id} {historyRemoval.Status}, record only {historyRemoval.RecordOnly}; {member.Username}'s channel: \"{await LatestIn(rest)}\"");
+                historyStarted.LastReply.Content.Should().StartWith("Asked");
+                historyRemoval.RecordOnly.Should().BeTrue();
+                historyRemoval.Status.Should().Be(RemovalStatus.AwaitingRequester);
+
+                var historyDropped = await Send(dispatcher, InFeed(FakeInteraction.Button($"{RemovalRoutes.Drop}:{historyRemoval.Id}")));
+                var historyKept = Mocker.Resolve<IRemovalProposalRepository>().Get(historyRemoval.Id);
+                Log($"[history] {DiscordText.DropRemovalLabel}: \"{historyDropped.LastReply.Content}\"; removal now {historyKept.Status}; the request is {requests.Find(history.Id)?.Status.ToString() ?? "gone"}");
+                historyKept.Status.Should().Be(RemovalStatus.Cancelled, "dropped before any vote");
+                requests.Find(history.Id).Status.Should().Be(RequestStatus.NotInLibrary);
+
                 // Images travel with the message: the feed card's spacer was uploaded with it, so Discord serves
                 // it from the message's own attachments (no GitHub link anywhere).
                 var image = new Uri((await Feed(show)).Embeds.First().Image.Value.Url);

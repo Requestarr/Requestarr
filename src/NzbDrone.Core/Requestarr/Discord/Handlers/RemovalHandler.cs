@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -46,7 +47,11 @@ namespace Requestarr.Core.Discord.Handlers
             (InteractionKind.Button, RemovalRoutes.ByHand),
             (InteractionKind.Button, RemovalRoutes.Search),
             (InteractionKind.ModalSubmit, RemovalRoutes.SearchForm),
-            (InteractionKind.SelectMenu, RemovalRoutes.Pick)
+            (InteractionKind.SelectMenu, RemovalRoutes.Pick),
+            (InteractionKind.Button, RemovalRoutes.History),
+            (InteractionKind.Button, RemovalRoutes.HistoryGo),
+            (InteractionKind.Button, RemovalRoutes.HistoryForce),
+            (InteractionKind.Button, RemovalRoutes.HistoryForceYes)
         };
 
         public async Task HandleAsync(DiscordInteraction interaction, IInteractionResponder responder)
@@ -211,21 +216,8 @@ namespace Requestarr.Core.Discord.Handlers
                     return;
 
                 case RemovalRoutes.AdminForce:
-                {
-                    var target = await _removals.TargetAsync(IntAt(args, 0), IntAt(args, 1));
-                    var seasons = RemovalRoutes.Decode(args.Count > 2 ? args[2] : null);
-
-                    await responder.UpdateMessageAsync(new InteractionReply
-                    {
-                        Content = DiscordText.RemovalConfirmForce(target.Value?.Label ?? "it", seasons, _settings.DeleteFiles),
-                        Buttons = new List<InteractionButton>
-                        {
-                            new() { CustomId = $"{RemovalRoutes.AdminForceYes}:{IntAt(args, 0)}:{IntAt(args, 1)}:{RemovalRoutes.Encode(seasons)}", Label = DiscordText.ConfirmDeleteLabel, Style = ButtonStyle.Danger },
-                            new() { CustomId = $"{RemovalRoutes.Admin}:{IntAt(args, 0)}:{IntAt(args, 1)}", Label = DiscordText.BackLabel, Style = ButtonStyle.Secondary }
-                        }
-                    });
+                    await ConfirmAdminForce(responder, args);
                     return;
-                }
 
                 case RemovalRoutes.AdminGo:
                 case RemovalRoutes.AdminForceYes:
@@ -235,6 +227,13 @@ namespace Requestarr.Core.Discord.Handlers
                     await responder.EditAsync(new InteractionReply { Content = result.Message });
                     return;
                 }
+
+                case RemovalRoutes.History:
+                case RemovalRoutes.HistoryForce:
+                case RemovalRoutes.HistoryGo:
+                case RemovalRoutes.HistoryForceYes:
+                    await HandleHistory(interaction.Route, responder, actor, adminName, caller.User?.Id, IntAt(args, 0));
+                    return;
 
                 case RemovalRoutes.Force:
                     await ConfirmForce(responder, IntAt(args, 0));
@@ -262,9 +261,16 @@ namespace Requestarr.Core.Discord.Handlers
         private async Task ShowSearchResults(DiscordInteraction interaction, IInteractionResponder responder)
         {
             interaction.Fields.TryGetValue(RemovalRoutes.SearchField, out var term);
-            var found = await _removals.SearchLibraryAsync(term);
 
-            if (found.Count == 0)
+            // History matches keep up to half the menu, so a search with many library matches still shows them.
+            var history = _removals.SearchHistory(term).Take(DiscordLimits.ChoicesPerMenu / 2).ToList();
+            var options = (await _removals.SearchLibraryAsync(term))
+                .Take(DiscordLimits.ChoicesPerMenu - history.Count)
+                .Select(t => new InteractionSelectOption(DiscordText.RemovalChoice(t), $"{t.Instance.Id}:{t.Title.Id}"))
+                .Concat(history.Select(r => new InteractionSelectOption(DiscordText.RemovalHistoryChoice(r), $"{RemovalRoutes.HistoryChoice}:{r.Id}")))
+                .ToList();
+
+            if (options.Count == 0)
             {
                 await responder.Ephemeral(DiscordText.RemovalNothingFound);
                 return;
@@ -272,13 +278,13 @@ namespace Requestarr.Core.Discord.Handlers
 
             await responder.RespondAsync(new InteractionReply
             {
-                Content = DiscordText.RemovalSearchResults(term, found.Count),
+                Content = DiscordText.RemovalSearchResults(term, options.Count),
                 Ephemeral = true,
                 SelectMenu = new InteractionSelectMenu
                 {
                     CustomId = RemovalRoutes.Pick,
                     Placeholder = DiscordText.RemovalPickPlaceholder,
-                    Options = found.Select(t => new InteractionSelectOption(DiscordText.RemovalChoice(t), $"{t.Instance.Id}:{t.Title.Id}")).ToList()
+                    Options = options
                 }
             });
         }
@@ -287,6 +293,12 @@ namespace Requestarr.Core.Discord.Handlers
         // else (the search menu, the card's season menu, Back) the message is updated in place.
         private async Task ShowAdminCard(DiscordInteraction interaction, IInteractionResponder responder, IReadOnlyList<string> args)
         {
+            if (HistoryRequest(interaction, args) is { } history)
+            {
+                await ShowHistoryCard(interaction, responder, history);
+                return;
+            }
+
             var target = interaction.Route switch
             {
                 RemovalRoutes.Pick => await Target(interaction.Values.Count > 0 ? interaction.Values[0] : null),
@@ -311,6 +323,100 @@ namespace Requestarr.Core.Discord.Handlers
                 await responder.UpdateMessageAsync(card);
             }
         }
+
+        // Force on the admin's removal card for a library title: what goes, then Yes or Back.
+        private async Task ConfirmAdminForce(IInteractionResponder responder, IReadOnlyList<string> args)
+        {
+            var target = await _removals.TargetAsync(IntAt(args, 0), IntAt(args, 1));
+            var seasons = RemovalRoutes.Decode(args.Count > 2 ? args[2] : null);
+
+            await responder.UpdateMessageAsync(new InteractionReply
+            {
+                Content = DiscordText.RemovalConfirmForce(target.Value?.Label ?? "it", seasons, _settings.DeleteFiles),
+                Buttons = new List<InteractionButton>
+                {
+                    new() { CustomId = $"{RemovalRoutes.AdminForceYes}:{IntAt(args, 0)}:{IntAt(args, 1)}:{RemovalRoutes.Encode(seasons)}", Label = DiscordText.ConfirmDeleteLabel, Style = ButtonStyle.Danger },
+                    new() { CustomId = $"{RemovalRoutes.Admin}:{IntAt(args, 0)}:{IntAt(args, 1)}", Label = DiscordText.BackLabel, Style = ButtonStyle.Secondary }
+                }
+            });
+        }
+
+        // A Not in library request's removal card, its Force confirmation, and starting it, as the web app's history removal.
+        private async Task HandleHistory(string route, IInteractionResponder responder, Audit.Actor actor, string adminName, int? adminUserId, int requestId)
+        {
+            switch (route)
+            {
+                case RemovalRoutes.History:
+                    await responder.UpdateMessageAsync(HistoryCard(_requests.Find(requestId)));
+                    return;
+
+                case RemovalRoutes.HistoryForce:
+                    await responder.UpdateMessageAsync(HistoryForceConfirm(_requests.Find(requestId)));
+                    return;
+
+                default:
+                    await responder.DeferAsync();
+                    var result = await _removals.StartRecordByAdminAsync(actor, adminName, adminUserId, requestId, new List<int>(), route == RemovalRoutes.HistoryForceYes);
+                    await responder.EditAsync(new InteractionReply { Content = result.Message });
+                    return;
+            }
+        }
+
+        // A Not in library request picked in Remove a title, or the Delete on its feed card; null for a library title.
+        private Request HistoryRequest(DiscordInteraction interaction, IReadOnlyList<string> args)
+        {
+            var id = interaction.Route switch
+            {
+                RemovalRoutes.Pick => HistoryChoiceId(interaction.Values),
+                RemovalRoutes.Feed => IntAt(args, 0),
+                _ => 0
+            };
+
+            return id > 0 && _requests.Find(id) is { } request && RemovalService.IsRecordOnly(request) ? request : null;
+        }
+
+        // The request of a search result picked for a Not in library title (h:{request}); 0 for a library title.
+        private static int HistoryChoiceId(IReadOnlyList<string> values) =>
+            values.Count > 0 && values[0].StartsWith($"{RemovalRoutes.HistoryChoice}:", StringComparison.Ordinal) ? IntAt(values[0].Split(':'), 1) : 0;
+
+        private static async Task ShowHistoryCard(DiscordInteraction interaction, IInteractionResponder responder, Request request)
+        {
+            if (interaction.Route is RemovalRoutes.Feed)
+            {
+                await responder.RespondAsync(HistoryCard(request));
+            }
+            else
+            {
+                await responder.UpdateMessageAsync(HistoryCard(request));
+            }
+        }
+
+        // The admin's removal card for a title Sonarr and Radarr don't have: no seasons to choose, Start or Force.
+        private static InteractionReply HistoryCard(Request request) => request == null
+            ? new InteractionReply { Content = DiscordText.RequestNotFound, Ephemeral = true }
+            : new InteractionReply
+            {
+                Content = DiscordText.RemovalHistoryCard(request),
+                Ephemeral = true,
+                Buttons = new List<InteractionButton>
+                {
+                    new() { CustomId = $"{RemovalRoutes.HistoryGo}:{request.Id}", Label = DiscordText.StartRemovalLabel, Style = ButtonStyle.Primary },
+                    new() { CustomId = $"{RemovalRoutes.HistoryForce}:{request.Id}", Label = DiscordText.ForceRemovalLabel, Style = ButtonStyle.Danger }
+                }
+            };
+
+        private static InteractionReply HistoryForceConfirm(Request request) => request == null
+            ? new InteractionReply { Content = DiscordText.RequestNotFound, Ephemeral = true }
+            : new InteractionReply
+            {
+                Content = DiscordText.RemovalHistoryConfirmForce(request),
+                Ephemeral = true,
+                Buttons = new List<InteractionButton>
+                {
+                    new() { CustomId = $"{RemovalRoutes.HistoryForceYes}:{request.Id}", Label = DiscordText.ForceRemovalLabel, Style = ButtonStyle.Danger },
+                    new() { CustomId = $"{RemovalRoutes.History}:{request.Id}", Label = DiscordText.BackLabel, Style = ButtonStyle.Secondary }
+                }
+            };
 
         // Force on an open removal: a private confirmation first.
         private async Task ConfirmForce(IInteractionResponder responder, int proposalId)

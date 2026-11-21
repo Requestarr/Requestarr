@@ -565,12 +565,13 @@ namespace Requestarr.Core.Requests
                 reply.Buttons.Add(AddSeasonsButton(request.Id));
             }
 
-            // Removal: Force or drop one that's open; Delete starts one for a downloaded title.
+            // Removal: Force or drop one that's open; Delete starts one for a downloaded title, or one Sonarr and Radarr
+            // don't have (Not in library), whose removal only leaves Requestarr's lists.
             if (removal?.IsOpen == true)
             {
                 reply.Buttons.AddRange(RemovalButtons(removal));
             }
-            else if (Downloaded(request))
+            else if (Downloaded(request) || Removals.RemovalService.IsRecordOnly(request))
             {
                 reply.Buttons.Add(new InteractionButton { CustomId = $"{Removals.RemovalRoutes.Feed}:{request.Id}", Label = DiscordText.DeleteLabel, Style = ButtonStyle.Danger });
             }

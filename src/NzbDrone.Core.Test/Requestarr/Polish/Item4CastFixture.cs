@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -124,6 +125,28 @@ namespace Requestarr.Core.Test.Polish
 
             details.Cast.Should().Equal("A", "B", "C");
             details.EpisodeCount.Should().Be(9);
+        }
+
+        // The year a title first came out: a film's release date, a show's first air date, and a show known only by its
+        // TheTVDB ID found through The Movie Database's find.
+        [Test]
+        public async Task the_client_reads_the_year_a_title_first_came_out()
+        {
+            var client = Client(out _);
+            var asked = new List<string>();
+            client.Transport = (request, _) =>
+            {
+                asked.Add(request.RequestUri.AbsolutePath + request.RequestUri.Query.Split("api_key")[0]);
+                var body = request.RequestUri.AbsolutePath.Contains("/find/")
+                    ? "{\"tv_results\":[{\"first_air_date\":\"2017-09-25\"}]}"
+                    : "{\"release_date\":\"2026-12-07\",\"first_air_date\":\"\"}";
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+            };
+
+            (await client.YearAsync(ContentType.Movie, 1650534, null, CancellationToken.None)).Should().Be(2026);
+            (await client.YearAsync(ContentType.Tv, null, 328724, CancellationToken.None)).Should().Be(2017);
+            (await client.YearAsync(ContentType.Tv, 71446, null, CancellationToken.None)).Should().BeNull("no first air date");
+            asked.Should().Equal("/3/movie/1650534?", "/3/find/328724?external_source=tvdb_id&", "/3/tv/71446?");
         }
 
         [Test]

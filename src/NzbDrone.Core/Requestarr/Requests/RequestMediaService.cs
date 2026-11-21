@@ -8,6 +8,7 @@ using NzbDrone.Common.Http;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Metadata;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Requests
@@ -39,17 +40,23 @@ namespace Requestarr.Core.Requests
         private readonly IBackendService _backends;
         private readonly IRadarrApi _radarr;
         private readonly ISonarrApi _sonarr;
+        private readonly ITmdbClient _tmdb;
         private readonly Logger _logger;
+
+        // Requests The Movie Database was asked for a year since Requestarr started: one it has no date for isn't asked
+        // again until the next start.
+        private readonly HashSet<int> _askedForYear = new();
 
         // Asked while a run was going: that run reads the requests again when it's done.
         private int _again;
 
-        public RequestMediaService(IRequestRepository requests, IBackendService backends, IRadarrApi radarr, ISonarrApi sonarr, Logger logger)
+        public RequestMediaService(IRequestRepository requests, IBackendService backends, IRadarrApi radarr, ISonarrApi sonarr, ITmdbClient tmdb, Logger logger)
         {
             _requests = requests;
             _backends = backends;
             _radarr = radarr;
             _sonarr = sonarr;
+            _tmdb = tmdb;
             _logger = logger;
         }
 
@@ -99,7 +106,7 @@ namespace Requestarr.Core.Requests
                     filled += await FillWaitingAsync();
                 }
 
-                var years = FillYears();
+                var years = await FillYearsAsync();
 
                 if (years > 0)
                 {
@@ -119,20 +126,39 @@ namespace Requestarr.Core.Requests
             }
         }
 
-        // Requests without a year (older Requestrr replies imported without one) that know when their title came out: the
-        // year it first did, so they're shown as "Smart House (1999)".
-        private int FillYears()
+        // Requests without a year (older Requestrr replies imported without one): the year their title first came out, so
+        // they're shown as "Smart House (1999)". From the release dates Sonarr or Radarr gave, else from The Movie Database
+        // by the title's ID (a title Sonarr or Radarr has no date for yet, such as Hollow Trees).
+        private async Task<int> FillYearsAsync()
         {
             var filled = 0;
 
-            foreach (var request in _requests.All().Where(r => r.Year == null && r.Media?.FirstYear() != null).ToList())
+            foreach (var request in _requests.All().Where(r => r.Year == null && (r.Media != null || r.TmdbId.HasValue || r.TvdbId.HasValue)).ToList())
             {
-                request.Year = request.Media.FirstYear();
-                _requests.SetFields(request, r => r.Year);
-                filled++;
+                request.Year = request.Media?.FirstYear() ?? await AskYearAsync(request);
+
+                if (request.Year != null)
+                {
+                    _requests.SetFields(request, r => r.Year);
+                    filled++;
+                }
             }
 
             return filled;
+        }
+
+        // The Movie Database's year for a title, once a start, a moment apart as the media lookups are.
+        private async Task<int?> AskYearAsync(Request request)
+        {
+            if (!_askedForYear.Add(request.Id))
+            {
+                return null;
+            }
+
+            var year = await _tmdb.YearAsync(request.ContentType, request.TmdbId, request.TvdbId, CancellationToken.None);
+            await Task.Delay(Delay);
+
+            return year;
         }
 
         private async Task<int> FillWaitingAsync()

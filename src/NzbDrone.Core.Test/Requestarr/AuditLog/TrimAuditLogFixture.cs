@@ -27,7 +27,20 @@ namespace Requestarr.Core.Test.AuditLog
         }
 
         private void EntryDaysAgo(int days, string action) =>
-            Storage.Insert(new AuditEntry { Actor = "system", Action = action, Timestamp = DateTime.UtcNow.AddDays(-days) });
+            Storage.Insert(new AuditEntry { Actor = "system", Action = action, Timestamp = DateTime.UtcNow.AddDays(-days), Recorded = DateTime.UtcNow.AddDays(-days) });
+
+        // The owner's dev data, 2026-11-20: the import's entries are dated in the old channel, back to 2024, and a 1-year
+        // trim deleted them. The trim goes by when an entry was written.
+        [Test]
+        public void entries_an_import_wrote_today_about_long_ago_stay()
+        {
+            Storage.Insert(new AuditEntry { Actor = "discord:1 (someone)", Action = "request.imported", Timestamp = DateTime.UtcNow.AddDays(-700) });
+            EntryDaysAgo(400, "old");
+
+            Subject.Clean();
+
+            AllStoredModels.Select(e => e.Action).Should().BeEquivalentTo("request.imported", TrimAuditLog.TrimAction);
+        }
 
         [Test]
         public void by_default_a_year_is_kept_and_the_trim_is_recorded()
