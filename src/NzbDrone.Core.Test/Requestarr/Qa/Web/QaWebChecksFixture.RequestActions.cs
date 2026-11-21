@@ -135,6 +135,14 @@ namespace Requestarr.Core.Test.Qa.Web
             return await browser.EvalAsync<string>($"{mine}.innerText.trim()");
         }
 
+        // The sidebar's message that names this, wherever in its text.
+        private static async Task<string> MessageAboutAsync(HeadlessBrowser browser, string words)
+        {
+            var mine = $"[...document.querySelectorAll('[class*=\"Message-message\"]')].find(m => m.innerText.includes({JsonSerializer.Serialize(words)}))";
+            await browser.WaitForAsync($"!!{mine}");
+            return await browser.EvalAsync<string>($"{mine}.innerText.trim()");
+        }
+
         private static Task<string> BarTextAsync(HeadlessBrowser browser) => browser.EvalAsync<string>($"{Bar}?.innerText.replace(/\\s+/g, ' ').trim() ?? ''");
 
         // No buttons on rows; Select Requests, three picked (only what all three allow is live, nothing below the
@@ -209,7 +217,9 @@ namespace Requestarr.Core.Test.Qa.Web
 
             await PickRequestsAsync(browser, new[] { ids[0] });
             await PressToolbarAsync(browser, "Approve");
-            var said = await MessageAsync(browser, "Request #");
+
+            // Approved and sent, or closed as already in the library when the test Radarr has it from an earlier run.
+            var said = await MessageAboutAsync(browser, $"Request #{ids[0]} ");
             var status = await PortalAsync<string>(browser, $"requests/{ids[0]}", "d => d.request.status");
             check.Saw($"Approve in the toolbar, one picked: \"{said}\"; the request is now {status}");
             status.Should().NotBe("pending", "Approve acted on it");
