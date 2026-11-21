@@ -668,6 +668,11 @@ namespace Requestarr.Core.Test.Qa.Web
             var actions = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].map(b => b.innerText.trim()).join(', ')");
             check.Saw($"{page} detail ({theme}): header \"{header}\"; toolbar: {actions}");
             header.Should().NotBeEmpty("the page opens with Sonarr's details header");
+
+            // The poster or picture stays in its place at the left, as Sonarr's poster does, never over the title.
+            var imageWidth = await browser.EvalAsync<double>("document.querySelector('[class*=\"DetailsHeader-poster\"] img')?.getBoundingClientRect().width ?? 0");
+            check.Saw($"{page} detail ({theme}): its poster or picture is {imageWidth:0}px wide");
+            imageWidth.Should().BeLessThanOrEqualTo(170, "the header's poster space is 170px wide");
             await check.ShotAsync(browser, $"{page}-detail-{theme}");
 
             // A timeline or history entry's details button opens it in full, as Sonarr's History does.
