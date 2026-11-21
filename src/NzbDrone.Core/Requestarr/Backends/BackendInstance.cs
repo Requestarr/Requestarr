@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
@@ -86,8 +87,17 @@ namespace Requestarr.Core.Backends
 
         // What a new member gets for this instance's type until an admin changes it. An instance saved before this
         // setting existed reads as Needs approval, what every new member got then.
-        [FieldDefinition(8, Label = "BackendDefaultAccess", HelpText = "BackendDefaultAccessHelpText", Type = FieldType.Select, SelectOptions = typeof(AccessState))]
         public AccessState DefaultAccess { get; set; } = AccessState.NeedsApproval;
+
+        // The default access as Servarr's provider form picks it: by number, as all of Servarr's choices are. It isn't
+        // saved, so the stored settings keep the access by name.
+        [FieldDefinition(8, Label = "BackendDefaultAccess", HelpText = "BackendDefaultAccessHelpText", Type = FieldType.Select, SelectOptions = typeof(AccessState))]
+        [JsonIgnore]
+        public int DefaultAccessChoice
+        {
+            get => (int)DefaultAccess;
+            set => DefaultAccess = (AccessState)value;
+        }
 
         // Sonarr only: anime sub/dub (see AnimeDefaults). On unless the instance opts out.
         [FieldDefinition(9, Label = "BackendAnimeEnabled", HelpText = "BackendAnimeEnabledHelpText", Type = FieldType.Checkbox, Section = MediaManagerActions.AnimeSection)]

@@ -14,7 +14,7 @@ namespace Requestarr.Core.Test.Settings
     public class SetupFixture : CoreTest<SetupService>
     {
         private static InstanceView Instance(bool enabled) =>
-            new(1, new InstanceInput("Sonarr", "Sonarr", "http://sonarr:8989", null, null, null, null, true, enabled, false, true, "dub", null, null, null, null), true, true, null);
+            new(1, new InstanceInput("Sonarr", "Sonarr", "http://sonarr:8989", null, null, null, null, true, enabled, false, true, "dub", null, null, null, null), true);
 
         private void Given(AuthenticationType auth, bool botConfigured, params InstanceView[] instances)
         {

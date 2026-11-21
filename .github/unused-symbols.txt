@@ -1,8 +1,7 @@
 # Public and internal members in Requestarr's code that no code calls, and why each stays (.github/unused_check.py).
 # One symbol a line as Roslynator names it, then two spaces, "# " and the reason. Remove a line once the member is used
 # or removed; the check reports stale lines.
-Requestarr.Core.Backends.BackendInstance.ConfigContract  # a database column of the backend instance (Servarr's provider record)
-Requestarr.Core.Backends.BackendInstance.Tags  # a database column of the backend instance (Servarr's provider record)
+Requestarr.Core.Backends.BackendSettings.DefaultAccessChoice  # a field of the media managers' provider form, read and set through Servarr's schema
 Requestarr.Core.Backends.EpisodeInfo.EpisodeNumber  # part of Sonarr's answer this record mirrors
 Requestarr.Core.Backends.QueueEntry.SeasonNumber  # part of Sonarr's and Radarr's download queue this record mirrors
 Requestarr.Core.Backends.QueueEntry.Size  # part of Sonarr's and Radarr's download queue this record mirrors
@@ -27,11 +26,6 @@ Requestarr.Core.Qa.QaChecklistState.New  # in the QA checklist's API answer, whi
 Requestarr.Core.Requests.Request.ComicVineId  # a database column of the request (comics, deferred)
 Requestarr.Core.Requests.Request.Isbn  # a database column of the request (books, deferred)
 Requestarr.Core.Requests.Request.MusicBrainzId  # a database column of the request (music, Phase 2)
-Requestarr.Core.Settings.InstanceTestResult.Problem  # sent in the settings API's answer to Test, which the web app shows
-Requestarr.Core.Settings.InstanceTestResult.QualityProfiles  # sent in the settings API's answer to Test, which the web app shows
-Requestarr.Core.Settings.InstanceTestResult.RootFolders  # sent in the settings API's answer to Test, which the web app shows
-Requestarr.Core.Settings.InstanceView.Connected  # sent in the settings API's list of instances, which the web app shows
-Requestarr.Core.Settings.InstanceView.Problem  # sent in the settings API's list of instances, which the web app shows
 Requestarr.Core.Settings.SetupStatus.BotProblem  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Settings.SetupStatus.BotState  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Imports.ChannelHistory  # the import's IChannelHistory, made by the container (Discord's channels, or recorded ones on dev)

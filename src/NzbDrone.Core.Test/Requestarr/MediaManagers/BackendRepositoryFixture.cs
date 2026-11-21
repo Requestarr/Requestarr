@@ -50,7 +50,7 @@ namespace Requestarr.Core.Test.MediaManagers
             var row = connection.QuerySingle<(string Settings, string ConfigContract)>("SELECT \"Settings\", \"ConfigContract\" FROM \"Backends\"");
 
             row.ConfigContract.Should().Be("BackendSettings");
-            row.Settings.Should().Contain("\"url\": \"http://radarr:7878\"").And.Contain("\"defaultAccess\": \"off\"");
+            row.Settings.Should().Contain("\"url\": \"http://radarr:7878\"").And.Contain("\"defaultAccess\": \"off\"").And.NotContain("defaultAccessChoice");
         }
     }
 }

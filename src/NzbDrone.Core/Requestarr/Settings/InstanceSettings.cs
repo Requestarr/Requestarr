@@ -20,8 +20,8 @@ namespace Requestarr.Core.Settings
                                 string DubRequired, string DubIgnored, string SubRequired, string SubIgnored, string BrowserUrl = null,
                                 AccessState DefaultAccess = AccessState.NeedsApproval);
 
-    // The API key is never shown back, only whether one is saved. Problem: why the last check failed, or null.
-    public record InstanceView(int Id, InstanceInput Settings, bool ApiKeySet, bool Connected, string Problem);
+    // The API key is never shown back, only whether one is saved.
+    public record InstanceView(int Id, InstanceInput Settings, bool ApiKeySet);
 
     public record InstanceTestResult(string Problem, IReadOnlyList<string> QualityProfiles, IReadOnlyList<string> RootFolders);
 
@@ -242,12 +242,8 @@ namespace Requestarr.Core.Settings
             };
         }
 
-        private InstanceView View(BackendInstance instance)
-        {
-            var check = _backends.LastResults.FirstOrDefault(r => r.BackendId == instance.Id);
-
-            return new InstanceView(instance.Id, InstanceInputs.Of(instance) with { ApiKey = null }, !string.IsNullOrEmpty(instance.Config.ApiKey), check?.Ok == true, check?.Error);
-        }
+        private static InstanceView View(BackendInstance instance) =>
+            new(instance.Id, InstanceInputs.Of(instance) with { ApiKey = null }, !string.IsNullOrEmpty(instance.Config.ApiKey));
 
         private static string Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

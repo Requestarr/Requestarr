@@ -57,7 +57,7 @@ namespace Requestarr.Core.Test.MediaManagers
 
         private void SaveAnswers(string problem)
         {
-            var result = problem == null ? new InstanceSaveResult(new InstanceView(1, null, true, true, null), null) : new InstanceSaveResult(null, problem);
+            var result = problem == null ? new InstanceSaveResult(new InstanceView(1, null, true), null) : new InstanceSaveResult(null, problem);
 
             Mocker.GetMock<IInstanceSettingsService>()
                   .Setup(s => s.SaveAsync(It.IsAny<int?>(), It.IsAny<InstanceInput>(), It.IsAny<Actor>()))
