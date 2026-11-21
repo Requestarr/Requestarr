@@ -111,7 +111,8 @@ SUITE_FILTER = "Category!=ManualTest&Category!=IntegrationTest&Category!=Automat
 # Every live check: these need the dev stack's bot stopped; the read-back reads the running stack, so it runs last.
 LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
         "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
-        "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture"]
+        "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture", "LivePortalActionsFixture",
+        "LiveMemberRenamesFixture"]
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 
@@ -695,6 +696,7 @@ def self_test():
         ("a failed suite refuses", any("suite" in r for r in not_ready(dict(ready, suite=dict(ready["suite"], ok=False)), "abc"))),
         ("screenshots not looked at refuses", any("screenshots" in r for r in not_ready(dict(ready, reviewed=False), "abc"))),
         ("another commit's run refuses", any("not def" in r for r in not_ready(ready, "def"))),
+        ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
     wrong = [name for name, ok in expected if not ok]

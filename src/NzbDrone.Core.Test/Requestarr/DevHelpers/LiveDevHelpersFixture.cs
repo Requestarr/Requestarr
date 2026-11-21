@@ -93,6 +93,9 @@ namespace Requestarr.Core.Test.DevHelpers
             Mocker.SetConstant<IDevFastVotes>(new DevFastVotes(folders.Object) { Variable = name => name == DevFastVotes.DevStackVariable ? "true" : null });
             var settingsStore = Mocker.Resolve<RemovalSettings>();
             Mocker.SetConstant<IRemovalSettings>(settingsStore);
+
+            // Deleting on, as the test stacks' provisioning file sets it (it starts off elsewhere): agreed removals delete.
+            Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>().RemovalDeleteFiles = true;
             Mocker.SetConstant<IRadarrApi>(Mocker.Resolve<RadarrApi>());
             Mocker.SetConstant<ISonarrApi>(Mocker.Resolve<SonarrApi>());
             Mocker.SetConstant<IBackendService>(Mocker.Resolve<BackendService>());
