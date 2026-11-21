@@ -572,7 +572,7 @@ namespace Requestarr.Core.Test.Qa.Web
             toolbar.Should().Contain("Show Advanced").And.Contain("No Changes").And.Contain("Test All Connections").And.NotContain("Add Sonarr");
 
             await browser.RunAsync("document.querySelector('[class*=\"ConnectionCard-addConnection\"]').click()");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"AddConnectionModal-choice\"]')");
+            await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"AddConnectionModal-name\"]')].some(n => n.innerText === 'Sonarr')");
             var choices = await browser.EvalAsync<string>(ModalText);
             check.Saw($"add modal ({theme}): {choices}");
             choices.Should().Contain("Media managers").And.Contain("Sonarr").And.Contain("Radarr");

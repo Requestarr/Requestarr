@@ -138,6 +138,7 @@ function MediaManagersSection({
 
       <AddConnectionModal
         isOpen={isAdding}
+        isLoading={!section.isSchemaPopulated}
         groups={choices}
         onSelect={onSelect}
         onClose={onAddClose}
