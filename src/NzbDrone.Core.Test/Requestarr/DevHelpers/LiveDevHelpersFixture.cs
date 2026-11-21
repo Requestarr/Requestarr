@@ -82,7 +82,10 @@ namespace Requestarr.Core.Test.DevHelpers
             Mocker.SetConstant<IRemovalFlagRepository>(Mocker.Resolve<RemovalFlagRepository>());
             Mocker.SetConstant<IRemovalPromptRepository>(Mocker.Resolve<RemovalPromptRepository>());
             Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigRepository>(Mocker.Resolve<NzbDrone.Core.Configuration.ConfigRepository>());
-            Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigService>(Mocker.Resolve<NzbDrone.Core.Configuration.ConfigService>());
+
+            // Built here on the real settings store, as the removal check does: one resolved earlier (for real HTTP) would keep a
+            // stand-in store, and a setting written to it (deleting on, below) would be lost.
+            Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigService>(new NzbDrone.Core.Configuration.ConfigService(Mocker.Resolve<NzbDrone.Core.Configuration.IConfigRepository>(), Mocker.Resolve<IEventAggregator>(), LogManager.GetLogger("LiveConfig")));
 
             // Fast votes on, as the dev stack's container reads them: the dev-stack variable and the marker file.
             var appData = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "requestarr-devhelpers-" + Guid.NewGuid().ToString("N"));
