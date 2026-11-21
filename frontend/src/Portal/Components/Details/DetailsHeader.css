@@ -50,6 +50,14 @@
   width: 170px;
 }
 
+/* A poster at the poster's width, as Sonarr's SeriesDetails sizes its SeriesPoster; drawn at its own size it would
+   spill over the header. */
+.posterImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .info {
   display: flex;
   flex-direction: column;

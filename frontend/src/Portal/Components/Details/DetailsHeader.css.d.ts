@@ -12,6 +12,7 @@ interface CssExports {
   'innerContentBody': string;
   'overview': string;
   'poster': string;
+  'posterImage': string;
   'tintOverlay': string;
   'title': string;
 }

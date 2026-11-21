@@ -258,7 +258,13 @@ function RequestDetail({
       <PageContentBody innerClassName={detailsStyles.innerContentBody}>
         <DetailsHeader
           backdropUrl={detail.posterUrl}
-          image={<RequestPoster url={detail.posterUrl} lazy={false} />}
+          image={
+            <RequestPoster
+              className={detailsStyles.posterImage}
+              url={detail.posterUrl}
+              lazy={false}
+            />
+          }
           title={titleText(request)}
           details={releaseText(request.media)}
           labels={<RequestLabels request={request} />}
