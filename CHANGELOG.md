@@ -14,7 +14,7 @@ versions after it, 0.4.0 to 0.6.0, never reached the testers and are folded into
 finished goal's build takes the next number, the beta and the release carry the number of the build promoted to them,
 and a beta heading names the goals' builds it includes.
 
-## Unreleased
+## 0.7.0010 (2026-11-22), with 0.7.0004 to 0.7.0010
 
 ### For users
 - **Asking for access:** friends who aren't members yet can ask for access themselves from the welcome channel, and they hear back privately.
