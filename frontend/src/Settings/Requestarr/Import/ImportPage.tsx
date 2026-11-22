@@ -51,8 +51,11 @@ function useImport() {
   const checks = useChannelChecks(ids);
   const { job, error, isBusy, start, confirm } = useImportJob();
   const onPreview = useCallback(() => start(ids), [ids, start]);
+  // A new preview while the import runs would stop the page following it, so Preview waits until it's done.
+  const isImporting = job?.state === 'importing';
   const canPreview =
     !isBusy &&
+    !isImporting &&
     ids.length > 0 &&
     checks.length === ids.length &&
     checks.every((c) => c.channel?.canRead);
@@ -67,7 +70,7 @@ function useImport() {
     error,
     onImport: confirm,
     isReading: job?.state === 'reading',
-    isImporting: job?.state === 'importing',
+    isImporting,
     canImport: !isBusy && job?.state === 'ready',
   };
 }
