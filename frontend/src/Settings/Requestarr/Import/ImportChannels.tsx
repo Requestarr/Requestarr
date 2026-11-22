@@ -1,99 +1,138 @@
-import React, { useCallback } from 'react';
-import Alert from 'Components/Alert';
-import FormGroup from 'Components/Form/FormGroup';
-import FormInputGroup from 'Components/Form/FormInputGroup';
-import FormLabel from 'Components/Form/FormLabel';
-import Button from 'Components/Link/Button';
-import { inputTypes, kinds } from 'Helpers/Props';
+import { groupBy } from 'lodash';
+import React, { useCallback, useState } from 'react';
+import { useSelect } from 'App/SelectContext';
+import CheckInput from 'Components/Form/CheckInput';
+import Icon from 'Components/Icon';
+import Link from 'Components/Link/Link';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import { ImportChannel } from './importTypes';
-import { ChannelCheck } from './useChannelChecks';
-import styles from './ImportPage.css';
+import { ImportProgress } from './importTypes';
+import styles from './ImportChannels.css';
+
+// A channel the bot can read, numbered for the page's SelectProvider (Discord's IDs are too long for its numbers).
+export interface PickableChannel {
+  id: number;
+  channelId: string;
+  server: string;
+  name: string;
+  hasSourceReplies: boolean;
+}
+
+interface ChannelProps {
+  channel: PickableChannel;
+  progress?: ImportProgress;
+  isReading: boolean;
+  isDisabled: boolean;
+}
+
+interface CheckChange {
+  value: boolean;
+  shiftKey?: boolean;
+}
+
+// A channel's box and name, with how many of its messages have been read once it has been.
+function Channel({ channel, progress, isReading, isDisabled }: ChannelProps) {
+  const [selectState, selectDispatch] = useSelect();
+  const onChange = useCallback(
+    ({ value, shiftKey = false }: CheckChange) =>
+      selectDispatch({
+        type: 'toggleSelected',
+        id: channel.id,
+        isSelected: value,
+        shiftKey,
+      }),
+    [channel.id, selectDispatch]
+  );
+
+  return (
+    <div className={styles.channel}>
+      <CheckInput
+        containerClassName={styles.check}
+        name={channel.channelId}
+        value={!!selectState.selectedState[channel.id]}
+        isDisabled={isDisabled}
+        onChange={onChange}
+      />
+      <span className={styles.name}>{`#${channel.name}`}</span>
+      {progress && (
+        <span className={styles.read}>
+          {translate('ImportMessagesRead', {
+            count: progress.read.toLocaleString(),
+          })}
+        </span>
+      )}
+      {isReading && (
+        <Icon className={styles.read} name={icons.SPINNER} isSpinning={true} />
+      )}
+    </div>
+  );
+}
 
 interface ImportChannelsProps {
-  text: string;
-  checks: ChannelCheck[];
-  readable?: ImportChannel[];
-  onChange: (text: string) => void;
+  channels: PickableChannel[];
+  progress: Record<string, ImportProgress>;
+
+  // The channels the preview is still reading.
+  reading: string[];
+  isLoading: boolean;
+  isDisabled: boolean;
 }
 
-function CheckLine({ check }: { check: ChannelCheck }) {
-  const { channel } = check;
-  const kind = channel?.canRead ? kinds.SUCCESS : kinds.DANGER;
-  const problem = check.problem || channel?.problem;
-  const where = channel?.name
-    ? translate('ImportChannelFound', {
-        channel: channel.name,
-        server: channel.server ?? '',
-      })
-    : check.id;
+// The channels Requestrr answered in (and any already ticked), or on request every channel the bot can read, under
+// their server's name in as many narrow columns as fit. Ticking one reads it (once; Requestarr keeps what it read).
+function ImportChannels(props: ImportChannelsProps) {
+  const { channels, progress, reading, isLoading, isDisabled } = props;
+  const [selectState] = useSelect();
+  const [showAll, setShowAll] = useState(false);
+  const onTogglePress = useCallback(() => setShowAll((all) => !all), []);
+  const shown = showAll
+    ? channels
+    : channels.filter(
+        (c) => c.hasSourceReplies || selectState.selectedState[c.id]
+      );
 
-  return (
-    <Alert kind={kind}>
-      {where}
-      {channel?.canRead ? ` · ${translate('ImportChannelReadable')}` : ''}
-      {problem ? ` · ${problem}` : ''}
-    </Alert>
-  );
-}
-
-function ChannelButton({
-  channel,
-  onAdd,
-}: {
-  channel: ImportChannel;
-  onAdd: (id: string) => void;
-}) {
-  const onPress = useCallback(() => onAdd(channel.id), [channel, onAdd]);
-
-  return (
-    <Button onPress={onPress}>{`#${channel.name} · ${channel.server}`}</Button>
-  );
-}
-
-// The old request channels, by ID: each checked as it's entered, with the channels the bot can read as a shortcut.
-function ImportChannels({
-  text,
-  checks,
-  readable,
-  onChange,
-}: ImportChannelsProps) {
-  const onTextChange = useCallback(
-    ({ value }: { value: string }) => onChange(value),
-    [onChange]
-  );
-  const add = useCallback(
-    (id: string) => {
-      const current = text.trim();
-      onChange(current ? `${current}\n${id}` : id);
-    },
-    [onChange, text]
-  );
+  if (isLoading) {
+    return <LoadingIndicator />;
+  }
 
   return (
     <>
-      <FormGroup>
-        <FormLabel>{translate('ImportChannelIds')}</FormLabel>
-        <FormInputGroup
-          type={inputTypes.TEXT_AREA}
-          name="channelIds"
-          value={text}
-          helpText={translate('ImportChannelIdsHelpText')}
-          onChange={onTextChange}
-        />
-      </FormGroup>
-
-      {checks.map((check) => (
-        <CheckLine key={check.id} check={check} />
-      ))}
-
-      {readable && readable.length > 0 && (
-        <div className={styles.readable}>
-          <div>{translate('ImportReadableChannels')}</div>
-          {readable.map((channel) => (
-            <ChannelButton key={channel.id} channel={channel} onAdd={add} />
-          ))}
+      {!shown.length && (
+        <div className={styles.none}>
+          {translate(
+            channels.length
+              ? 'ImportNoRequestrrChannels'
+              : 'ImportNoReadableChannels'
+          )}
         </div>
+      )}
+
+      {Object.entries(groupBy(shown, (c) => c.server)).map(
+        ([server, items]) => (
+          <div key={server} className={styles.server}>
+            <div className={styles.serverName}>{server}</div>
+            <div className={styles.columns}>
+              {items.map((channel) => (
+                <Channel
+                  key={channel.channelId}
+                  channel={channel}
+                  progress={progress[channel.channelId]}
+                  isReading={reading.includes(channel.channelId)}
+                  isDisabled={isDisabled}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      )}
+
+      {channels.length > 0 && (
+        <Link className={styles.toggle} onPress={onTogglePress}>
+          {showAll
+            ? translate('ImportShowRequestrrChannels')
+            : translate('ImportShowAllChannels', { count: channels.length })}
+        </Link>
       )}
     </>
   );

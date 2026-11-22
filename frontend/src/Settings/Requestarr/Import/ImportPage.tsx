@@ -1,33 +1,33 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { SelectProvider, useSelect } from 'App/SelectContext';
+import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
-import SpinnerButton from 'Components/Link/SpinnerButton';
+import FieldSet from 'Components/FieldSet';
+import Icon from 'Components/Icon';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
-import { kinds } from 'Helpers/Props';
+import Popover from 'Components/Tooltip/Popover';
+import { icons, kinds, tooltipPositions } from 'Helpers/Props';
+import { setImportPreviewTableOption } from 'Store/Actions/importPreviewActions';
 import translate from 'Utilities/String/translate';
+import getSelectedIds from 'Utilities/Table/getSelectedIds';
 import useRequestarrApi from '../useRequestarrApi';
 import ImportAccessNotes from './ImportAccessNotes';
-import ImportChannels from './ImportChannels';
+import ImportChannels, { PickableChannel } from './ImportChannels';
 import ImportPreview from './ImportPreview';
-import { ImportAccess, ImportChannel, ImportJob } from './importTypes';
-import useChannelChecks, { channelIdsIn } from './useChannelChecks';
+import ImportToolbar from './ImportToolbar';
+import {
+  ImportAccess,
+  ImportChannel,
+  ImportJob,
+  ImportProgress,
+} from './importTypes';
 import useImportJob from './useImportJob';
 import styles from './ImportPage.css';
 
-function Progress({ job }: { job: ImportJob }) {
-  return (
-    <Alert kind={kinds.INFO}>
-      {job.channels
-        .map((c) =>
-          translate('ImportReading', {
-            channel: c.name ?? c.channelId,
-            read: c.read,
-          })
-        )
-        .join(' · ')}
-    </Alert>
-  );
-}
+// Wait this long after the last tick before reading, so ticking several channels reads them in one preview.
+const PICK_DELAY_MILLISECONDS = 400;
 
 function Outcome({ job }: { job: ImportJob }) {
   if (job.state === 'failed') {
@@ -41,78 +41,177 @@ function Outcome({ job }: { job: ImportJob }) {
   ) : null;
 }
 
-// Import → From Requestrr: the old request channels by ID, a preview of everything it would import, then Confirm.
-// Confirm, once the preview is ready; it spins while the import's command writes it (System, then Tasks).
-function ConfirmButton({
-  job,
-  isBusy,
-  onConfirm,
-}: {
-  job: ImportJob;
-  isBusy: boolean;
-  onConfirm: () => void;
-}) {
-  if (job.state !== 'ready' && job.state !== 'importing') {
-    return null;
-  }
-
+// What the page says about importing, behind the heading's info icon, as Sonarr explains its monitoring options.
+function ChannelsLegend() {
   return (
-    <SpinnerButton
-      kind={kinds.SUCCESS}
-      isSpinning={job.state === 'importing'}
-      isDisabled={isBusy}
-      onPress={onConfirm}
-    >
-      {translate('ImportConfirm')}
-    </SpinnerButton>
+    <>
+      {translate('ImportChannels')}
+      <Popover
+        anchor={<Icon className={styles.help} name={icons.INFO} />}
+        title={translate('ImportFromRequestrr')}
+        body={
+          <>
+            <p>{translate('ImportIntro')}</p>
+            <p>{translate('ImportReadInviteHelpText')}</p>
+            <p>{translate('ImportPickHelpText')}</p>
+          </>
+        }
+        position={tooltipPositions.RIGHT}
+      />
+    </>
   );
 }
 
-// Discord is only read; nothing is posted, edited or reacted to there.
-function ImportPage() {
-  const [text, setText] = useState('');
-  const ids = useMemo(() => channelIdsIn(text), [text]);
-  const checks = useChannelChecks(ids);
-  const { data: access } = useRequestarrApi<ImportAccess>('import/access');
-  const { data: readable } =
-    useRequestarrApi<ImportChannel[]>('import/channels');
-  const { job, error, isBusy, start, confirm } = useImportJob();
-  const onPreview = useCallback(() => start(ids), [ids, start]);
-  const canPreview =
-    ids.length > 0 &&
-    checks.length === ids.length &&
-    checks.every((c) => c.channel?.canRead);
+// The channels the bot can read, numbered from 1 for the SelectProvider (its shift-click range treats 0 as none).
+function usePickable(readable?: ImportChannel[]): PickableChannel[] {
+  return useMemo(
+    () =>
+      (readable ?? [])
+        .filter((c) => c.canRead)
+        .map((c, index) => ({
+          id: index + 1,
+          channelId: c.id,
+          server: c.server ?? '',
+          name: c.name ?? c.id,
+          hasSourceReplies: !!c.hasSourceReplies,
+        })),
+    [readable]
+  );
+}
+
+// The picked channels' IDs: a new preview a moment after the picks change, or none when nothing is picked. Changed:
+// the picks aren't yet what the preview shows, so Import waits rather than write the earlier picks.
+function usePickedPreview(channels: PickableChannel[]) {
+  const [selectState] = useSelect();
+  const importJob = useImportJob();
+  const { job, start, reset } = importJob;
+  const key = getSelectedIds(selectState.selectedState)
+    .map((id) => channels.find((c) => c.id === id)?.channelId)
+    .filter(Boolean)
+    .sort()
+    .join(',');
+  const shown = (job?.channels ?? [])
+    .map((c) => c.channelId)
+    .sort()
+    .join(',');
+
+  useEffect(() => {
+    const ids = key ? key.split(',') : [];
+    const timer = setTimeout(
+      () => (ids.length ? start(ids) : reset()),
+      PICK_DELAY_MILLISECONDS
+    );
+
+    return () => clearTimeout(timer);
+  }, [key, start, reset]);
+
+  return { ...importJob, isChanged: key !== shown };
+}
+
+// The channels the current preview is still reading: the only ones that show a spinner.
+function readingIds(job?: ImportJob) {
+  return job?.state === 'reading'
+    ? job.channels.filter((c) => !c.done).map((c) => c.channelId)
+    : [];
+}
+
+// How far each channel has been read, kept across previews so a channel unpicked still shows its count.
+function useProgress(job?: ImportJob) {
+  const [progress, setProgress] = useState<Record<string, ImportProgress>>({});
+  const [seen, setSeen] = useState<ImportJob>();
+
+  // Each new answer is added while rendering, as React suggests for state that follows a prop.
+  if (job !== seen) {
+    setSeen(job);
+    setProgress((current) => ({
+      ...current,
+      ...Object.fromEntries((job?.channels ?? []).map((c) => [c.channelId, c])),
+    }));
+  }
+
+  return progress;
+}
+
+function useTableOptions() {
+  const columns = useSelector((state: AppState) => state.importPreview.columns);
+  const dispatch = useDispatch();
+  const onTableOptionChange = useCallback(
+    (payload: unknown) => dispatch(setImportPreviewTableOption(payload)),
+    [dispatch]
+  );
+
+  return { columns, onTableOptionChange };
+}
+
+interface ImportContentProps {
+  access?: ImportAccess;
+  channels: PickableChannel[];
+  isLoading: boolean;
+}
+
+// Pick the old Requestrr channels; the list of what an import would bring in follows the picks, then Import in the
+// toolbar writes it (a task in System, then Tasks). Discord is only read; nothing is posted, edited or reacted to
+// there.
+function ImportContent({ access, channels, isLoading }: ImportContentProps) {
+  const { job, error, isBusy, isConfirming, isChanged, confirm } =
+    usePickedPreview(channels);
+  const progress = useProgress(job);
+  const { columns, onTableOptionChange } = useTableOptions();
+  const isImporting = job?.state === 'importing';
+  const inviteUrl = access?.readInviteUrl;
+  const onInvitePress = useCallback(
+    () => window.open(inviteUrl, '_blank', 'noopener'),
+    [inviteUrl]
+  );
 
   return (
     <PageContent title={translate('ImportFromRequestrr')}>
-      <PageContentBody>
-        <div className={styles.intro}>{translate('ImportIntro')}</div>
-        <ImportAccessNotes access={access} />
-        <ImportChannels
-          text={text}
-          checks={checks}
-          readable={readable}
-          onChange={setText}
-        />
+      <ImportToolbar
+        columns={columns}
+        inviteUrl={inviteUrl}
+        canImport={!isBusy && !isChanged && job?.state === 'ready'}
+        isImporting={isImporting}
+        onImportPress={confirm}
+        onInvitePress={onInvitePress}
+        onTableOptionChange={onTableOptionChange}
+      />
 
-        <SpinnerButton
-          kind={kinds.PRIMARY}
-          isSpinning={isBusy || job?.state === 'reading'}
-          isDisabled={!canPreview}
-          onPress={onPreview}
-        >
-          {translate('ImportPreview')}
-        </SpinnerButton>
+      <PageContentBody>
+        <ImportAccessNotes access={access} />
+
+        <FieldSet legend={<ChannelsLegend />}>
+          <ImportChannels
+            channels={channels}
+            isLoading={isLoading}
+            progress={progress}
+            reading={readingIds(job)}
+            isDisabled={isImporting || isConfirming}
+          />
+        </FieldSet>
 
         {error && <Alert kind={kinds.DANGER}>{error}</Alert>}
-        {job?.state === 'reading' && <Progress job={job} />}
         {job && <Outcome job={job} />}
         {job?.warning && <Alert kind={kinds.WARNING}>{job.warning}</Alert>}
         {job?.plan && <ImportPreview plan={job.plan} />}
-
-        {job && <ConfirmButton job={job} isBusy={isBusy} onConfirm={confirm} />}
       </PageContentBody>
     </PageContent>
+  );
+}
+
+function ImportPage() {
+  const { data: access } = useRequestarrApi<ImportAccess>('import/access');
+  const { data: readable } =
+    useRequestarrApi<ImportChannel[]>('import/channels');
+  const channels = usePickable(readable);
+
+  return (
+    <SelectProvider items={channels}>
+      <ImportContent
+        access={access}
+        channels={channels}
+        isLoading={!readable}
+      />
+    </SelectProvider>
   );
 }
 

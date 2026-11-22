@@ -14,7 +14,8 @@ using Requestarr.Core.Settings;
 namespace Requestarr.Core.Imports
 {
     // A channel an admin names for an import, as the bot sees it. Problem: why it can't be read, in words, or null.
-    public record ImportChannel([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong Id, string Server, string Name, bool CanRead, string Problem);
+    // HasSourceReplies: the old bot (Requestrr) answered there, going by the channel's newest messages.
+    public record ImportChannel([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong Id, string Server, string Name, bool CanRead, string Problem, bool HasSourceReplies = false);
 
     // What the Import page shows above the channels: the link that adds the bot to another server only to read it,
     // whether the bot may read other bots' messages (unknown while it isn't connected), and the Developer Portal page

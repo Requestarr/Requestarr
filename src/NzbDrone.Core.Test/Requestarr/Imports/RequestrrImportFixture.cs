@@ -426,6 +426,43 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
+        public async Task channels_where_requestrr_answered_are_marked_and_each_is_looked_at_once()
+        {
+            const ulong Chat = 900000000000100099;
+            var chatter = new HistoryMessage(900000000001009901, Chat, DateTime.UtcNow, Riley, false, "anyone up for a game?", Array.Empty<HistoryEmbed>(), null, null, Array.Empty<ulong>(), 0);
+            Mocker.GetMock<IChannelHistory>().Setup(h => h.ReadableChannelsAsync()).ReturnsAsync(new[]
+            {
+                new ImportChannel(ChannelA, "Old server", "media-requests", true, null),
+                new ImportChannel(Chat, "Old server", "general", true, null)
+            });
+            Mocker.GetMock<IChannelHistory>().Setup(h => h.ReadAsync(Chat, null)).ReturnsAsync(new[] { chatter });
+
+            var channels = await Subject.ReadableChannelsAsync();
+            await Subject.ReadableChannelsAsync();
+
+            channels.Select(c => (c.Name, c.HasSourceReplies)).Should().Equal(("media-requests", true), ("general", false));
+            Mocker.GetMock<IChannelHistory>().Verify(h => h.ReadAsync(ChannelA, null), Times.Once());
+        }
+
+        [Test]
+        public async Task a_channel_picked_again_is_read_once_until_an_import_runs()
+        {
+            GivenChannelA(Sent(900000000001000001, Riley, "season 1"));
+
+            await Preview(ChannelA);
+            await PreviewBoth();
+            var again = await Preview(ChannelA);
+
+            again.Channels.Single().Read.Should().Be(1);
+            Mocker.GetMock<IChannelHistory>().Verify(h => h.ReadAsync(ChannelA, null), Times.Once());
+
+            await Subject.ConfirmAsync(again.Id, Actor.Web("owner"));
+            await Preview(ChannelA);
+
+            Mocker.GetMock<IChannelHistory>().Verify(h => h.ReadAsync(ChannelA, null), Times.Exactly(2));
+        }
+
+        [Test]
         public async Task replies_whose_text_discord_withholds_warn_that_message_content_is_off()
         {
             var withheld = new HistoryMessage(900000000001000099, ChannelA, DateTime.UtcNow, 900000000000300001, true, string.Empty, Array.Empty<HistoryEmbed>(), Riley, "Riley", Array.Empty<ulong>(), 0);

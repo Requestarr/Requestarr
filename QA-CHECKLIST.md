@@ -200,19 +200,6 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - Import Requestrr is listed in the queue, with when it ran.
   - Checked automatically: the web app requestrr import check.
-- **Importing from Requestrr**
-  - Steps:
-    1. Open Settings, then Import from Requestrr.
-    2. If the old channels are in another server, use Invite the bot to read another server.
-    3. Paste the old channel IDs, then press Preview.
-    4. Press Confirm and import.
-    5. Open Requests.
-  - Expect:
-    - Each channel named, with whether the bot can read it.
-    - One list of past requests: requester, followers, how it ended, In library.
-    - A line counting searches that weren't requests.
-    - Requests show their original dates; missing titles say Not in library.
-  - Checked by the owner, couldn't verify: the automated checks never read a real server's history.
 - **Imported people**
   - Steps:
     1. After an import, open Members.
@@ -459,3 +446,16 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The summary counting only those items.
     - Nothing from the automated checks.
   - Checked by the owner, needs human eyes: how the checklist cards read in the Discord app.
+- **Importing from Requestrr**
+  - Steps:
+    1. Open Settings, then Import from Requestrr.
+    2. If the old channels are in another server, press Invite bot.
+    3. Tick the old channels; untick one, then tick it again.
+    4. Scroll down, then press Import.
+    5. Open Requests.
+  - Expect:
+    - Only Requestrr's channels listed; ticking one lists its requests.
+    - Ticking it again doesn't read it again.
+    - One sortable list; Import stays in reach.
+    - Requests show their original dates; missing titles say Not in library.
+  - Checked by the owner, couldn't verify: the automated checks never read a real server's history.

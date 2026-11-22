@@ -12,6 +12,9 @@ export interface ImportChannel {
   name?: string;
   canRead: boolean;
   problem?: string;
+
+  // Requestrr answered there, going by the channel's newest messages.
+  hasSourceReplies?: boolean;
 }
 
 interface ImportPerson {
@@ -67,7 +70,7 @@ export interface ImportPlan {
   alreadyImported: number;
 }
 
-interface ImportProgress {
+export interface ImportProgress {
   channelId: string;
   name?: string;
   read: number;
