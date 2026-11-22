@@ -67,7 +67,7 @@ export interface ImportPlan {
   alreadyImported: number;
 }
 
-interface ImportProgress {
+export interface ImportProgress {
   channelId: string;
   name?: string;
   read: number;

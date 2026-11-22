@@ -10,31 +10,21 @@ import translate from 'Utilities/String/translate';
 
 interface ImportToolbarProps {
   columns: Column[];
-  canPreview: boolean;
-  isReading: boolean;
+  inviteUrl?: string;
   canImport: boolean;
   isImporting: boolean;
-  onPreviewPress: () => void;
   onImportPress: () => void;
+  onInvitePress: () => void;
   onTableOptionChange: (payload: unknown) => void;
 }
 
-// The page's toolbar, as Sonarr's Wanted, then Missing puts its search actions on the left and Table Options on the
-// right: Preview reads the channels, Import writes what the preview listed. Both stay in reach above the list.
+// The page's toolbar, as Sonarr's Wanted, then Missing puts its actions on the left and Table Options on the right:
+// Import writes what the list shows, and Invite bot adds the bot to the server the old channels are in, only to read.
+// Both stay in reach above the list.
 function ImportToolbar(props: ImportToolbarProps) {
   return (
     <PageToolbar>
       <PageToolbarSection>
-        <PageToolbarButton
-          label={translate('ImportPreview')}
-          iconName={icons.SEARCH}
-          isSpinning={props.isReading}
-          isDisabled={!props.canPreview}
-          onPress={props.onPreviewPress}
-        />
-
-        <PageToolbarSeparator />
-
         <PageToolbarButton
           label={translate('ImportRun')}
           iconName={icons.ADD}
@@ -42,6 +32,17 @@ function ImportToolbar(props: ImportToolbarProps) {
           isDisabled={!props.canImport}
           onPress={props.onImportPress}
         />
+
+        {/* PageToolbarSection counts its children for the overflow menu, so no fragment around these two. */}
+        {props.inviteUrl ? <PageToolbarSeparator /> : null}
+
+        {props.inviteUrl ? (
+          <PageToolbarButton
+            label={translate('ImportInviteBot')}
+            iconName={icons.EXTERNAL_LINK}
+            onPress={props.onInvitePress}
+          />
+        ) : null}
       </PageToolbarSection>
 
       <PageToolbarSection alignContent={align.RIGHT} collapseButtons={false}>

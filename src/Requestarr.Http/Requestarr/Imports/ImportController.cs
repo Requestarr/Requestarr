@@ -8,8 +8,8 @@ using Requestarr.Core.Imports;
 
 namespace Requestarr.Http.Imports
 {
-    // Importing past requests from another request bot's channels (Requestrr), for the web app's Import page: check a
-    // channel, preview what an import would do, then confirm it. Needs the API key or a signed-in admin, like the rest
+    // Importing past requests from another request bot's channels (Requestrr), for the web app's Import page: the
+    // channels the bot can read, a preview of what an import of the ones picked would do, then confirm it. Needs the API key or a signed-in admin, like the rest
     // of the API. Channel IDs travel as text: they're too long for a browser's numbers.
     public class ImportController : Controller
     {
@@ -30,11 +30,6 @@ namespace Requestarr.Http.Imports
         [HttpGet("/api/v1/requestarr/import/channels")]
         [Produces("application/json")]
         public async Task<IActionResult> Channels() => Json(await _imports.ReadableChannelsAsync());
-
-        [HttpGet("/api/v1/requestarr/import/channels/{id}")]
-        [Produces("application/json")]
-        public async Task<IActionResult> Channel(string id) =>
-            ChannelId(id) is { } channel ? Json(await _imports.DescribeAsync(channel)) : BadRequest(new { message = NotAChannelId });
 
         // { "channelIds": ["123…", "456…"] }
         [HttpPost("/api/v1/requestarr/import/preview")]

@@ -40,10 +40,10 @@ namespace Requestarr.Core.Imports
     public interface IImportService
     {
         Task<ImportAccess> AccessAsync();
-        Task<ImportChannel> DescribeAsync(ulong channelId);
         Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync();
 
-        // Checks every channel, then reads them in the background; nothing is written until ConfirmAsync.
+        // Checks every channel, then reads them in the background. Each channel is read once and kept for the next
+        // preview. Nothing is written until ConfirmAsync.
         Task<ImportJobView> StartPreviewAsync(IReadOnlyList<ulong> channelIds);
         ImportJobView Job(Guid id);
 
@@ -60,6 +60,9 @@ namespace Requestarr.Core.Imports
         public const string LinkedAction = "request.linked";
 
         private readonly ConcurrentDictionary<Guid, PreviewJob> _jobs = new();
+
+        // Each channel's history, read once and kept until Requestarr restarts (ChannelRead).
+        private readonly ConcurrentDictionary<ulong, Lazy<ChannelRead>> _reads = new();
 
         // One import writes at a time, whichever preview it confirms: each plans again inside, so a second confirm (a
         // double click, two tabs, two previews of the same channels) finds the first one's messages already imported.
@@ -120,8 +123,6 @@ namespace Requestarr.Core.Imports
 
         public Task<ImportAccess> AccessAsync() => _history.AccessAsync();
 
-        public Task<ImportChannel> DescribeAsync(ulong channelId) => _history.DescribeAsync(channelId);
-
         public Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync() => _history.ReadableChannelsAsync();
 
         public async Task<ImportJobView> StartPreviewAsync(IReadOnlyList<ulong> channelIds)
@@ -144,7 +145,8 @@ namespace Requestarr.Core.Imports
                 return job.View();
             }
 
-            _ = Task.Run(() => ReadAsync(job));
+            job.Reads = channels.Select(ReadOf).ToList();
+            _ = Task.Run(() => PlanAsync(job));
             return job.View();
         }
 
@@ -187,6 +189,12 @@ namespace Requestarr.Core.Imports
                     var members = await MembersAsync(plan);
                     job.Done(plan, Write(plan, job.Channels, members, new Actor(message.ConfirmedBy, message.ConfirmedById)));
 
+                    // A later import reads these channels afresh, for anything said in them since.
+                    foreach (var channel in job.Channels)
+                    {
+                        _reads.TryRemove(channel.Id, out _);
+                    }
+
                     // What the imported titles are, and who the people are (@handles, pictures), in the background.
                     _media.FillInBackground();
                     _ = Task.Run(CatchUpNamesAsync);
@@ -210,14 +218,12 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        private async Task ReadAsync(PreviewJob job)
+        // Waits for the channels' reads (each started or kept by ReadOf), then plans against the library as it is now.
+        private async Task PlanAsync(PreviewJob job)
         {
             try
             {
-                foreach (var channel in job.Channels)
-                {
-                    await ReadChannelAsync(job, channel);
-                }
+                await Task.WhenAll(job.Reads.Select(r => r.Reading));
 
                 job.Library = await LibraryAsync();
                 job.Ready(ImportPlanner.Plan(job.Messages, Context(job.Library)));
@@ -229,18 +235,38 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // Page by page, newest first, until the channel's start; Discord.Net waits out Discord's rate limits.
-        private async Task ReadChannelAsync(PreviewJob job, ImportChannel channel)
+        // The channel's read: the one kept from earlier, or one started now.
+        private ChannelRead ReadOf(ImportChannel channel) =>
+            _reads.GetOrAdd(channel.Id, _ => new Lazy<ChannelRead>(() => StartReading(channel))).Value;
+
+        private ChannelRead StartReading(ImportChannel channel)
         {
-            ulong? before = null;
+            var read = new ChannelRead(channel);
+            read.Reading = Task.Run(() => ReadChannelAsync(read));
+            return read;
+        }
 
-            while (await _history.ReadAsync(channel.Id, before) is { Count: > 0 } page)
+        // Page by page, newest first, until the channel's start; Discord.Net waits out Discord's rate limits. A read that
+        // stops part way isn't kept, so picking the channel again reads it afresh.
+        private async Task ReadChannelAsync(ChannelRead read)
+        {
+            try
             {
-                job.Read(channel.Id, page.Select(_source.Read).ToList(), page.Any(m => m.LooksWithheld));
-                before = page.Min(m => m.Id);
-            }
+                ulong? before = null;
 
-            job.Finished(channel.Id);
+                while (await _history.ReadAsync(read.Channel.Id, before) is { Count: > 0 } page)
+                {
+                    read.Add(page.Select(_source.Read).ToList(), page.Any(m => m.LooksWithheld));
+                    before = page.Min(m => m.Id);
+                }
+
+                read.Finish();
+            }
+            catch
+            {
+                _reads.TryRemove(read.Channel.Id, out _);
+                throw;
+            }
         }
 
         private async Task<IReadOnlyList<LibraryEntry>> LibraryAsync()
@@ -500,10 +526,7 @@ namespace Requestarr.Core.Imports
         private sealed class PreviewJob
         {
             private readonly object _lock = new();
-            private readonly Dictionary<ulong, ImportProgress> _progress;
-            private readonly List<SourceMessage> _messages = new();
             private string _problem;
-            private string _warning;
             private ImportPlan _plan;
             private ImportResult _result;
 
@@ -511,7 +534,6 @@ namespace Requestarr.Core.Imports
             {
                 Id = id;
                 Channels = channels;
-                _progress = channels.ToDictionary(c => c.Id, c => new ImportProgress(c.Id, c.Name, 0, false));
             }
 
             public Guid Id { get; }
@@ -519,34 +541,10 @@ namespace Requestarr.Core.Imports
             public ImportJobState State { get; private set; } = ImportJobState.Reading;
             public IReadOnlyList<LibraryEntry> Library { get; set; } = Array.Empty<LibraryEntry>();
 
-            public IReadOnlyList<SourceMessage> Messages
-            {
-                get
-                {
-                    lock (_lock)
-                    {
-                        return _messages.ToList();
-                    }
-                }
-            }
+            // Each channel's read, in the order the channels were named; none when a channel can't be read.
+            public IReadOnlyList<ChannelRead> Reads { get; set; } = Array.Empty<ChannelRead>();
 
-            public void Read(ulong channel, IReadOnlyList<SourceMessage> page, bool withheld)
-            {
-                lock (_lock)
-                {
-                    _messages.AddRange(page);
-                    _progress[channel] = _progress[channel] with { Read = _progress[channel].Read + page.Count };
-                    _warning = withheld ? ImportText.NoMessageContent : _warning;
-                }
-            }
-
-            public void Finished(ulong channel)
-            {
-                lock (_lock)
-                {
-                    _progress[channel] = _progress[channel] with { Done = true };
-                }
-            }
+            public IReadOnlyList<SourceMessage> Messages => Reads.SelectMany(r => r.Messages).ToList();
 
             public void Ready(ImportPlan plan) => Set(ImportJobState.Ready, plan, null, null);
 
@@ -571,9 +569,12 @@ namespace Requestarr.Core.Imports
 
             public ImportJobView View()
             {
+                var progress = Reads.Count > 0 ? Reads.Select(r => r.Progress).ToList() : Channels.Select(c => new ImportProgress(c.Id, c.Name, 0, false)).ToList();
+                var warning = Reads.Any(r => r.Withheld) ? ImportText.NoMessageContent : null;
+
                 lock (_lock)
                 {
-                    return new ImportJobView(Id, State, Channels.Select(c => _progress[c.Id]).ToList(), _problem, _warning, _plan, _result);
+                    return new ImportJobView(Id, State, progress, _problem, warning, _plan, _result);
                 }
             }
 

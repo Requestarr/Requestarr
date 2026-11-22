@@ -1,100 +1,122 @@
+import { groupBy } from 'lodash';
 import React, { useCallback } from 'react';
-import Alert from 'Components/Alert';
-import FormGroup from 'Components/Form/FormGroup';
-import FormInputGroup from 'Components/Form/FormInputGroup';
-import FormLabel from 'Components/Form/FormLabel';
-import Button from 'Components/Link/Button';
-import { inputTypes, kinds } from 'Helpers/Props';
+import { useSelect } from 'App/SelectContext';
+import Icon from 'Components/Icon';
+import TableRowCell from 'Components/Table/Cells/TableRowCell';
+import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
+import Table from 'Components/Table/Table';
+import TableBody from 'Components/Table/TableBody';
+import TableRow from 'Components/Table/TableRow';
+import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import { ImportChannel } from './importTypes';
-import { ChannelCheck } from './useChannelChecks';
+import { ImportProgress } from './importTypes';
 import styles from './ImportPage.css';
 
+// A channel the bot can read, numbered for the page's SelectProvider (Discord's IDs are too long for its numbers).
+export interface PickableChannel {
+  id: number;
+  channelId: string;
+  server: string;
+  name: string;
+}
+
+const columns = [
+  { name: 'select', isVisible: true },
+  { name: 'channel', label: () => translate('ImportChannel'), isVisible: true },
+  {
+    name: 'read',
+    label: () => translate('ImportMessagesRead'),
+    isVisible: true,
+  },
+];
+
+interface ChannelRowProps {
+  channel: PickableChannel;
+  progress?: ImportProgress;
+  isDisabled: boolean;
+}
+
+interface SelectedChange {
+  value: boolean | null;
+  shiftKey?: boolean;
+}
+
+// A channel with its box, as Sonarr's rows are picked, and how many of its messages have been read.
+function ChannelRow({ channel, progress, isDisabled }: ChannelRowProps) {
+  const [selectState, selectDispatch] = useSelect();
+  const onSelectedChange = useCallback(
+    ({ value, shiftKey = false }: SelectedChange) =>
+      selectDispatch({
+        type: 'toggleSelected',
+        id: channel.id,
+        isSelected: !!value,
+        shiftKey,
+      }),
+    [channel, selectDispatch]
+  );
+
+  return (
+    <TableRow>
+      <TableSelectCell
+        id={channel.id}
+        isSelected={!!selectState.selectedState[channel.id]}
+        isDisabled={isDisabled}
+        onSelectedChange={onSelectedChange}
+      />
+      <TableRowCell>{`#${channel.name}`}</TableRowCell>
+      <TableRowCell>
+        {progress?.read.toLocaleString()}
+        {progress && !progress.done && (
+          <Icon
+            className={styles.reading}
+            name={icons.SPINNER}
+            isSpinning={true}
+          />
+        )}
+      </TableRowCell>
+    </TableRow>
+  );
+}
+
 interface ImportChannelsProps {
-  text: string;
-  checks: ChannelCheck[];
-  readable?: ImportChannel[];
-  onChange: (text: string) => void;
+  channels: PickableChannel[];
+  progress: Record<string, ImportProgress>;
+  isDisabled: boolean;
 }
 
-function CheckLine({ check }: { check: ChannelCheck }) {
-  const { channel } = check;
-  const kind = channel?.canRead ? kinds.SUCCESS : kinds.DANGER;
-  const problem = check.problem || channel?.problem;
-  const where = channel?.name
-    ? translate('ImportChannelFound', {
-        channel: channel.name,
-        server: channel.server ?? '',
-      })
-    : check.id;
-
-  return (
-    <Alert kind={kind}>
-      {where}
-      {channel?.canRead ? ` · ${translate('ImportChannelReadable')}` : ''}
-      {problem ? ` · ${problem}` : ''}
-    </Alert>
-  );
-}
-
-function ChannelButton({
-  channel,
-  onAdd,
-}: {
-  channel: ImportChannel;
-  onAdd: (id: string) => void;
-}) {
-  const onPress = useCallback(() => onAdd(channel.id), [channel, onAdd]);
-
-  return (
-    <Button onPress={onPress}>{`#${channel.name} · ${channel.server}`}</Button>
-  );
-}
-
-// The old request channels, by ID: each checked as it's entered, with the channels the bot can read as a shortcut.
+// Every channel the bot can read, under its server's name: ticking one reads it (once; Requestarr keeps what it read).
 function ImportChannels({
-  text,
-  checks,
-  readable,
-  onChange,
+  channels,
+  progress,
+  isDisabled,
 }: ImportChannelsProps) {
-  const onTextChange = useCallback(
-    ({ value }: { value: string }) => onChange(value),
-    [onChange]
-  );
-  const add = useCallback(
-    (id: string) => {
-      const current = text.trim();
-      onChange(current ? `${current}\n${id}` : id);
-    },
-    [onChange, text]
-  );
+  const servers = groupBy(channels, (c) => c.server);
+
+  if (!channels.length) {
+    return (
+      <div className={styles.note}>{translate('ImportNoReadableChannels')}</div>
+    );
+  }
 
   return (
     <>
-      <FormGroup>
-        <FormLabel>{translate('ImportChannelIds')}</FormLabel>
-        <FormInputGroup
-          type={inputTypes.TEXT_AREA}
-          name="channelIds"
-          value={text}
-          helpText={translate('ImportChannelIdsHelpText')}
-          onChange={onTextChange}
-        />
-      </FormGroup>
-
-      {checks.map((check) => (
-        <CheckLine key={check.id} check={check} />
-      ))}
-
-      {readable && readable.length > 0 && (
-        <div className={styles.readable}>
-          <div>{translate('ImportReadableChannels')}</div>
-          {readable.map((channel) => (
-            <ChannelButton key={channel.id} channel={channel} onAdd={add} />
-          ))}
+      {Object.entries(servers).map(([server, rows]) => (
+        <div key={server} className={styles.server}>
+          <div className={styles.serverName}>{server}</div>
+          <Table columns={columns}>
+            <TableBody>
+              {rows.map((channel) => (
+                <ChannelRow
+                  key={channel.channelId}
+                  channel={channel}
+                  progress={progress[channel.channelId]}
+                  isDisabled={isDisabled}
+                />
+              ))}
+            </TableBody>
+          </Table>
         </div>
-      )}
+      ))}
     </>
   );
 }

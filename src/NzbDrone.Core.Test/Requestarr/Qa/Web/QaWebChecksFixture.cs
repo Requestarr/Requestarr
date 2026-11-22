@@ -345,14 +345,13 @@ namespace Requestarr.Core.Test.Qa.Web
         });
 
         // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
-        // the read-only invite link, both channels found and readable, the one list of what would be imported, then,
-        // once confirmed, the import listed as a command in System, then Tasks, and the Requests and Members pages with
-        // the imported statuses, in both themes; a rerun finds
-        // nothing new. A stack without recordings says so and passes: reading a real server is the owner's run, on beta.
+        // Invite bot in the toolbar asks only to read, ticking both channels lists what would be imported, then, once
+        // Import is pressed, the import is listed as a command in System, then Tasks, and the Requests and Members pages
+        // show the imported statuses, in both themes; a rerun finds nothing new. A stack without recordings says so and passes: reading a real server is the owner's run, on beta.
         [Test]
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
         {
-            const string ReadInvite = "Invite the bot to read another server";
+            const string Invite = "Invite bot";
             await SignInAsync(browser);
             var recorded = false;
 
@@ -360,13 +359,14 @@ namespace Requestarr.Core.Test.Qa.Web
             {
                 await browser.SetThemeAsync(theme);
                 await browser.GoAsync($"{Url}/settings/import");
-                await browser.WaitForAsync("document.body.innerText.includes('Channel IDs')");
+                await browser.WaitForAsync("[...document.querySelectorAll('legend')].some(l => l.innerText.trim() === 'Channels')");
 
-                // The invite for another server asks only to read, and adds no commands.
-                await browser.WaitForAsync($"document.body.innerText.includes('{ReadInvite}')");
-                var invite = await browser.EvalAsync<string>($"[...document.querySelectorAll('a')].find(a => a.innerText.includes('{ReadInvite}')).href");
+                // The invite for another server asks only to read, and adds no commands. The window it opens is caught.
+                await browser.WaitForAsync($"[...document.querySelectorAll('button')].some(b => b.innerText.trim() === '{Invite}')");
+                await browser.RunAsync($"window.open = (url) => {{ window.invited = url; }}; [...document.querySelectorAll('button')].find(b => b.innerText.trim() === '{Invite}').click()");
+                var invite = await browser.EvalAsync<string>("window.invited ?? ''");
                 var asks = invite.Substring(invite.IndexOf("&permissions=", StringComparison.Ordinal) + 1);
-                check.Saw($"import ({theme}): {ReadInvite}, asking {asks}");
+                check.Saw($"import ({theme}): {Invite}, asking {asks}");
                 asks.Should().Be("permissions=66560&integration_type=0&scope=bot");
 
                 try
@@ -392,16 +392,15 @@ namespace Requestarr.Core.Test.Qa.Web
             }
         });
 
-        // The recorded channels' IDs typed in, checked, and previewed: the preview's summary line.
+        // Both recorded channels ticked, which reads them and lists what would be imported: the list's summary line.
         private static async Task<string> PreviewImportAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
-            const string Channels = "900000000000100001\n900000000000100002";
+            const string Recorded = "[...document.querySelectorAll('tr')].filter(r => r.innerText.includes('#recorded-'))";
 
-            await browser.RunAsync($"const e = document.querySelector('textarea[name=\"channelIds\"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(e, {JsonSerializer.Serialize(Channels)}); e.dispatchEvent(new Event('input', {{ bubbles: true }}))");
-            await browser.WaitForAsync("document.body.innerText.split('the bot can read it').length > 2");
-            await check.ShotAsync(browser, $"import-channels-{theme}");
-            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Preview').click()");
+            await browser.WaitForAsync($"{Recorded}.length === 2");
+            await browser.RunAsync($"{Recorded}.forEach(r => r.querySelector('input[type=checkbox]').click())");
             await browser.WaitForAsync("document.body.innerText.includes('Requests to import')");
+            await check.ShotAsync(browser, $"import-channels-{theme}");
             var summary = await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Read ')) ?? ''");
             check.Saw($"import ({theme}): {summary}");
 
