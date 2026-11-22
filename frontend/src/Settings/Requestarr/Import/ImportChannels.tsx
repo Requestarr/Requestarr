@@ -64,7 +64,7 @@ function ChannelRow({ channel, progress, isDisabled }: ChannelRowProps) {
         onSelectedChange={onSelectedChange}
       />
       <TableRowCell>{`#${channel.name}`}</TableRowCell>
-      <TableRowCell>
+      <TableRowCell className={styles.read}>
         {progress?.read.toLocaleString()}
         {progress && !progress.done && (
           <Icon

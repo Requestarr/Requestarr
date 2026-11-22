@@ -14,6 +14,13 @@
   font-weight: bold;
 }
 
+/* The same width in every server's table, so the columns line up down the page. */
+.read {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  width: 160px;
+}
+
 .reading {
   margin-left: 8px;
 }

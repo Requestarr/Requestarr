@@ -3,6 +3,7 @@
 interface CssExports {
   'help': string;
   'note': string;
+  'read': string;
   'reading': string;
   'server': string;
   'serverName': string;
