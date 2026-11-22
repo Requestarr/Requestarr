@@ -771,7 +771,7 @@ and the first-run setup links to it once it's done.
    each Requestrr channel and **Copy Channel ID**. Paste them one per line. Each one is checked as you type: the page
    says which channel and server it is and whether the bot can read it, or what's missing. Below the box is every
    channel the bot can already read, to add with a click.
-3. **Preview.** Requestarr reads each channel from the oldest message to the newest, showing how far it has got. A
+3. **Preview** (in the toolbar at the top of the page, with **Import** beside it). Requestarr reads each channel from the oldest message to the newest, showing how far it has got. A
    channel with a lot of history takes a while, because Discord limits how fast a bot can read; keep the page open
    until it's done. The preview is one list of every past request, whether or not it's in your library now:
    - **Each title:** its type, the member who asked first (the requester), everyone who asked after them
@@ -783,7 +783,7 @@ and the first-run setup links to it once it's done.
      request, and no second one is made.
    - **Not requests:** searches that found nothing and title pickers left without a choice aren't listed; one line
      under the list says how many there were.
-4. **Confirm and import.** Nothing is written before this.
+4. **Import.** Nothing is written before this.
    - **Requests:** each keeps its original date, its history starts with "Imported from Requestrr", and a title
      Requestrr announced as finished downloading shows when it became available.
    - **Not in library:** a title none of your Sonarr or Radarr has is kept as history with that status. Nothing is

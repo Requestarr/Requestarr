@@ -205,11 +205,11 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     1. Open Settings, then Import from Requestrr.
     2. If the old channels are in another server, use Invite the bot to read another server.
     3. Paste the old channel IDs, then press Preview.
-    4. Press Confirm and import.
+    4. Scroll down, then press Import.
     5. Open Requests.
   - Expect:
     - Each channel named, with whether the bot can read it.
-    - One list of past requests: requester, followers, how it ended, In library.
+    - One sortable list of past requests; Import stays in reach.
     - A line counting searches that weren't requests.
     - Requests show their original dates; missing titles say Not in library.
   - Checked by the owner, couldn't verify: the automated checks never read a real server's history.

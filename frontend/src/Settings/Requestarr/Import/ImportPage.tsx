@@ -1,14 +1,17 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
-import SpinnerButton from 'Components/Link/SpinnerButton';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import { kinds } from 'Helpers/Props';
+import { setImportPreviewTableOption } from 'Store/Actions/importPreviewActions';
 import translate from 'Utilities/String/translate';
 import useRequestarrApi from '../useRequestarrApi';
 import ImportAccessNotes from './ImportAccessNotes';
 import ImportChannels from './ImportChannels';
 import ImportPreview from './ImportPreview';
+import ImportToolbar from './ImportToolbar';
 import { ImportAccess, ImportChannel, ImportJob } from './importTypes';
 import useChannelChecks, { channelIdsIn } from './useChannelChecks';
 import useImportJob from './useImportJob';
@@ -41,76 +44,79 @@ function Outcome({ job }: { job: ImportJob }) {
   ) : null;
 }
 
-// Import → From Requestrr: the old request channels by ID, a preview of everything it would import, then Confirm.
-// Confirm, once the preview is ready; it spins while the import's command writes it (System, then Tasks).
-function ConfirmButton({
-  job,
-  isBusy,
-  onConfirm,
-}: {
-  job: ImportJob;
-  isBusy: boolean;
-  onConfirm: () => void;
-}) {
-  if (job.state !== 'ready' && job.state !== 'importing') {
-    return null;
-  }
-
-  return (
-    <SpinnerButton
-      kind={kinds.SUCCESS}
-      isSpinning={job.state === 'importing'}
-      isDisabled={isBusy}
-      onPress={onConfirm}
-    >
-      {translate('ImportConfirm')}
-    </SpinnerButton>
-  );
-}
-
-// Discord is only read; nothing is posted, edited or reacted to there.
-function ImportPage() {
+// The channels typed in, whether every one can be read, and the preview job: what the toolbar's buttons act on.
+function useImport() {
   const [text, setText] = useState('');
   const ids = useMemo(() => channelIdsIn(text), [text]);
   const checks = useChannelChecks(ids);
-  const { data: access } = useRequestarrApi<ImportAccess>('import/access');
-  const { data: readable } =
-    useRequestarrApi<ImportChannel[]>('import/channels');
-  const { job, error, isBusy, start, confirm } = useImportJob();
+  const importJob = useImportJob();
+  const { start, isBusy, job } = importJob;
   const onPreview = useCallback(() => start(ids), [ids, start]);
   const canPreview =
+    !isBusy &&
     ids.length > 0 &&
     checks.length === ids.length &&
     checks.every((c) => c.channel?.canRead);
 
+  return {
+    text,
+    onTextChange: setText,
+    checks,
+    canPreview,
+    onPreview,
+    job,
+    error: importJob.error,
+    onImport: importJob.confirm,
+    isReading: job?.state === 'reading',
+    isImporting: job?.state === 'importing',
+    canImport: !isBusy && job?.state === 'ready',
+  };
+}
+
+// Import → From Requestrr: the old request channels by ID, a preview of everything it would import, then Import in
+// the toolbar, which spins while the import's command writes it (System, then Tasks). Discord is only read; nothing
+// is posted, edited or reacted to there.
+function ImportPage() {
+  const page = useImport();
+  const { job, error } = page;
+  const { data: access } = useRequestarrApi<ImportAccess>('import/access');
+  const { data: readable } =
+    useRequestarrApi<ImportChannel[]>('import/channels');
+  const columns = useSelector((state: AppState) => state.importPreview.columns);
+  const dispatch = useDispatch();
+  const onTableOptionChange = useCallback(
+    (payload: unknown) => dispatch(setImportPreviewTableOption(payload)),
+    [dispatch]
+  );
+
   return (
     <PageContent title={translate('ImportFromRequestrr')}>
+      <ImportToolbar
+        columns={columns}
+        canPreview={page.canPreview}
+        isReading={page.isReading}
+        canImport={page.canImport}
+        isImporting={page.isImporting}
+        onPreviewPress={page.onPreview}
+        onImportPress={page.onImport}
+        onTableOptionChange={onTableOptionChange}
+      />
+
       <PageContentBody>
         <div className={styles.intro}>{translate('ImportIntro')}</div>
         <ImportAccessNotes access={access} />
         <ImportChannels
-          text={text}
-          checks={checks}
+          text={page.text}
+          checks={page.checks}
           readable={readable}
-          onChange={setText}
+          onChange={page.onTextChange}
         />
 
-        <SpinnerButton
-          kind={kinds.PRIMARY}
-          isSpinning={isBusy || job?.state === 'reading'}
-          isDisabled={!canPreview}
-          onPress={onPreview}
-        >
-          {translate('ImportPreview')}
-        </SpinnerButton>
-
         {error && <Alert kind={kinds.DANGER}>{error}</Alert>}
-        {job?.state === 'reading' && <Progress job={job} />}
+        {page.isReading && job && <Progress job={job} />}
         {job && <Outcome job={job} />}
         {job?.warning && <Alert kind={kinds.WARNING}>{job.warning}</Alert>}
         {job?.plan && <ImportPreview plan={job.plan} />}
-
-        {job && <ConfirmButton job={job} isBusy={isBusy} onConfirm={confirm} />}
       </PageContentBody>
     </PageContent>
   );

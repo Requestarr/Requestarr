@@ -412,7 +412,7 @@ namespace Requestarr.Core.Test.Qa.Web
         // previewing again finds nothing new.
         private async Task ConfirmImportAsync(HeadlessBrowser browser, WebCheck check)
         {
-            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Confirm and import').click()");
+            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Import').click()");
             await browser.WaitForAsync("document.body.innerText.includes('Imported ')");
             check.Saw("import: " + await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Imported ')) ?? ''"));
 
