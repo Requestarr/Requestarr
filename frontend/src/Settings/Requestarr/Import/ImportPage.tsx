@@ -49,8 +49,7 @@ function useImport() {
   const [text, setText] = useState('');
   const ids = useMemo(() => channelIdsIn(text), [text]);
   const checks = useChannelChecks(ids);
-  const importJob = useImportJob();
-  const { start, isBusy, job } = importJob;
+  const { job, error, isBusy, start, confirm } = useImportJob();
   const onPreview = useCallback(() => start(ids), [ids, start]);
   const canPreview =
     !isBusy &&
@@ -65,8 +64,8 @@ function useImport() {
     canPreview,
     onPreview,
     job,
-    error: importJob.error,
-    onImport: importJob.confirm,
+    error,
+    onImport: confirm,
     isReading: job?.state === 'reading',
     isImporting: job?.state === 'importing',
     canImport: !isBusy && job?.state === 'ready',
