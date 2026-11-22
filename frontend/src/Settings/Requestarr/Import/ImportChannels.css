@@ -1,0 +1,51 @@
+.server {
+  margin-bottom: 15px;
+}
+
+.serverName {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+/* As many narrow columns as fit, filled top to bottom, so a server's channels take a few short rows. */
+.columns {
+  column-width: 220px;
+  column-gap: 20px;
+}
+
+.channel {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  break-inside: avoid;
+}
+
+.check {
+  composes: container from '~Components/Form/CheckInput.css';
+
+  flex: 0 0 auto;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.read {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  color: var(--helpTextColor);
+  font-size: 12px;
+}
+
+.none {
+  margin-bottom: 10px;
+  color: var(--helpTextColor);
+}
+
+.toggle {
+  composes: link from '~Components/Link/Link.css';
+
+  font-size: 12px;
+}

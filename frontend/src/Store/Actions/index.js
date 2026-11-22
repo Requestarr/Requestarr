@@ -1,6 +1,7 @@
 import * as app from './appActions';
 import * as commands from './commandActions';
 import * as customFilters from './customFilterActions';
+import * as importPreview from './importPreviewActions';
 import * as localization from './localizationActions';
 import * as members from './memberActions';
 import * as memberIndex from './memberIndexActions';
@@ -17,6 +18,7 @@ export default [
   app,
   commands,
   customFilters,
+  importPreview,
   paths,
   portalLists,
   providerOptions,

@@ -1,4 +1,5 @@
 import CommandAppState from './CommandAppState';
+import ImportPreviewAppState from './ImportPreviewAppState';
 import {
   MemberIndexAppState,
   MembersAppState,
@@ -57,6 +58,7 @@ export interface AppSectionState {
 interface AppState {
   app: AppSectionState;
   commands: CommandAppState;
+  importPreview: ImportPreviewAppState;
   members: MembersAppState;
   memberIndex: MemberIndexAppState;
   portalLists: PortalListsAppState;
