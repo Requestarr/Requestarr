@@ -9,8 +9,9 @@ using Requestarr.Core.Imports;
 namespace Requestarr.Http.Imports
 {
     // Importing past requests from another request bot's channels (Requestrr), for the web app's Import page: the
-    // channels the bot can read, a preview of what an import of the ones picked would do, then confirm it. Needs the API key or a signed-in admin, like the rest
-    // of the API. Channel IDs travel as text: they're too long for a browser's numbers.
+    // channels the bot can read, a preview of what an import of the ones picked would do, then confirm it. Needs the API
+    // key or a signed-in admin, like the rest of the API. Channel IDs travel as text: they're too long for a browser's
+    // numbers.
     public class ImportController : Controller
     {
         public const string NotAChannelId = "That isn't a channel ID: it's the long number Discord copies with Developer Mode on (right-click the channel, Copy Channel ID).";

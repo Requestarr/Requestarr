@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,7 +23,15 @@ namespace Requestarr.Core.Imports
         public ImportChannel Channel { get; }
 
         // The reading itself, started once; it fails when Discord stops answering part way through.
-        public Task Reading { get; set; }
+        public Task Reading { get; private set; }
+
+        public void StartOnce(Func<Task> read)
+        {
+            lock (_lock)
+            {
+                Reading ??= Task.Run(read);
+            }
+        }
 
         public IReadOnlyList<SourceMessage> Messages
         {

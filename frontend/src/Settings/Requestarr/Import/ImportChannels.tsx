@@ -33,6 +33,7 @@ const columns = [
 interface ChannelRowProps {
   channel: PickableChannel;
   progress?: ImportProgress;
+  isReading: boolean;
   isDisabled: boolean;
 }
 
@@ -42,7 +43,12 @@ interface SelectedChange {
 }
 
 // A channel with its box, as Sonarr's rows are picked, and how many of its messages have been read.
-function ChannelRow({ channel, progress, isDisabled }: ChannelRowProps) {
+function ChannelRow({
+  channel,
+  progress,
+  isReading,
+  isDisabled,
+}: ChannelRowProps) {
   const [selectState, selectDispatch] = useSelect();
   const onSelectedChange = useCallback(
     ({ value, shiftKey = false }: SelectedChange) =>
@@ -52,7 +58,7 @@ function ChannelRow({ channel, progress, isDisabled }: ChannelRowProps) {
         isSelected: !!value,
         shiftKey,
       }),
-    [channel, selectDispatch]
+    [channel.id, selectDispatch]
   );
 
   return (
@@ -66,7 +72,7 @@ function ChannelRow({ channel, progress, isDisabled }: ChannelRowProps) {
       <TableRowCell>{`#${channel.name}`}</TableRowCell>
       <TableRowCell className={styles.read}>
         {progress?.read.toLocaleString()}
-        {progress && !progress.done && (
+        {isReading && (
           <Icon
             className={styles.reading}
             name={icons.SPINNER}
@@ -81,6 +87,9 @@ function ChannelRow({ channel, progress, isDisabled }: ChannelRowProps) {
 interface ImportChannelsProps {
   channels: PickableChannel[];
   progress: Record<string, ImportProgress>;
+
+  // The channels the preview is still reading.
+  reading: string[];
   isDisabled: boolean;
 }
 
@@ -88,6 +97,7 @@ interface ImportChannelsProps {
 function ImportChannels({
   channels,
   progress,
+  reading,
   isDisabled,
 }: ImportChannelsProps) {
   const servers = groupBy(channels, (c) => c.server);
@@ -110,6 +120,7 @@ function ImportChannels({
                   key={channel.channelId}
                   channel={channel}
                   progress={progress[channel.channelId]}
+                  isReading={reading.includes(channel.channelId)}
                   isDisabled={isDisabled}
                 />
               ))}

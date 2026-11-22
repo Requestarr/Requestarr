@@ -190,9 +190,9 @@ namespace Requestarr.Core.Imports
                     job.Done(plan, Write(plan, job.Channels, members, new Actor(message.ConfirmedBy, message.ConfirmedById)));
 
                     // A later import reads these channels afresh, for anything said in them since.
-                    foreach (var channel in job.Channels)
+                    foreach (var read in job.Reads)
                     {
-                        _reads.TryRemove(channel.Id, out _);
+                        Forget(read);
                     }
 
                     // What the imported titles are, and who the people are (@handles, pictures), in the background.
@@ -235,19 +235,28 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // The channel's read: the one kept from earlier, or one started now.
-        private ChannelRead ReadOf(ImportChannel channel) =>
-            _reads.GetOrAdd(channel.Id, _ => new Lazy<ChannelRead>(() => StartReading(channel))).Value;
-
-        private ChannelRead StartReading(ImportChannel channel)
+        // The channel's read: the one kept from earlier, or one started now. It starts only once it's in the cache, so a
+        // read that fails at once can still be found there and dropped.
+        private ChannelRead ReadOf(ImportChannel channel)
         {
-            var read = new ChannelRead(channel);
-            read.Reading = Task.Run(() => ReadChannelAsync(read));
+            var read = _reads.GetOrAdd(channel.Id, _ => new Lazy<ChannelRead>(() => new ChannelRead(channel))).Value;
+            read.StartOnce(() => ReadChannelAsync(read));
             return read;
         }
 
-        // Page by page, newest first, until the channel's start; Discord.Net waits out Discord's rate limits. A read that
-        // stops part way isn't kept, so picking the channel again reads it afresh.
+        // Drops this read from the cache, and only this one: a newer read of the same channel stays.
+        private void Forget(ChannelRead read)
+        {
+            var id = read.Channel.Id;
+
+            if (_reads.TryGetValue(id, out var kept) && kept.IsValueCreated && kept.Value == read)
+            {
+                _reads.TryRemove(new KeyValuePair<ulong, Lazy<ChannelRead>>(id, kept));
+            }
+        }
+
+        // Page by page, newest first, until the channel's start; Discord.Net waits out Discord's rate limits. A read
+        // that stops part way isn't kept, so picking the channel again reads it afresh.
         private async Task ReadChannelAsync(ChannelRead read)
         {
             try
@@ -264,7 +273,7 @@ namespace Requestarr.Core.Imports
             }
             catch
             {
-                _reads.TryRemove(read.Channel.Id, out _);
+                Forget(read);
                 throw;
             }
         }
@@ -569,7 +578,9 @@ namespace Requestarr.Core.Imports
 
             public ImportJobView View()
             {
-                var progress = Reads.Count > 0 ? Reads.Select(r => r.Progress).ToList() : Channels.Select(c => new ImportProgress(c.Id, c.Name, 0, false)).ToList();
+                var progress = Reads.Count > 0
+                    ? Reads.Select(r => r.Progress).ToList()
+                    : Channels.Select(c => new ImportProgress(c.Id, c.Name, 0, false)).ToList();
                 var warning = Reads.Any(r => r.Withheld) ? ImportText.NoMessageContent : null;
 
                 lock (_lock)

@@ -347,7 +347,8 @@ namespace Requestarr.Core.Test.Qa.Web
         // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
         // Invite bot in the toolbar asks only to read, ticking both channels lists what would be imported, then, once
         // Import is pressed, the import is listed as a command in System, then Tasks, and the Requests and Members pages
-        // show the imported statuses, in both themes; a rerun finds nothing new. A stack without recordings says so and passes: reading a real server is the owner's run, on beta.
+        // show the imported statuses, in both themes; a rerun finds nothing new. A stack without recordings says so and
+        // passes: reading a real server is the owner's run, on beta.
         [Test]
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
         {

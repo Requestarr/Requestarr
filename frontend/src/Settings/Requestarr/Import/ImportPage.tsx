@@ -61,14 +61,14 @@ function ChannelsLegend() {
   );
 }
 
-// The channels the bot can read, numbered for the SelectProvider.
+// The channels the bot can read, numbered from 1 for the SelectProvider (its shift-click range treats 0 as none).
 function usePickable(readable?: ImportChannel[]): PickableChannel[] {
   return useMemo(
     () =>
       (readable ?? [])
         .filter((c) => c.canRead)
         .map((c, index) => ({
-          id: index,
+          id: index + 1,
           channelId: c.id,
           server: c.server ?? '',
           name: c.name ?? c.id,
@@ -77,14 +77,20 @@ function usePickable(readable?: ImportChannel[]): PickableChannel[] {
   );
 }
 
-// The picked channels' IDs: a new preview a moment after the picks change, or none when nothing is picked.
+// The picked channels' IDs: a new preview a moment after the picks change, or none when nothing is picked. Changed:
+// the picks aren't yet what the preview shows, so Import waits rather than write the earlier picks.
 function usePickedPreview(channels: PickableChannel[]) {
   const [selectState] = useSelect();
   const importJob = useImportJob();
-  const { start, reset } = importJob;
+  const { job, start, reset } = importJob;
   const key = getSelectedIds(selectState.selectedState)
-    .map((index) => channels[index]?.channelId)
+    .map((id) => channels.find((c) => c.id === id)?.channelId)
     .filter(Boolean)
+    .sort()
+    .join(',');
+  const shown = (job?.channels ?? [])
+    .map((c) => c.channelId)
+    .sort()
     .join(',');
 
   useEffect(() => {
@@ -97,7 +103,14 @@ function usePickedPreview(channels: PickableChannel[]) {
     return () => clearTimeout(timer);
   }, [key, start, reset]);
 
-  return importJob;
+  return { ...importJob, isChanged: key !== shown };
+}
+
+// The channels the current preview is still reading: the only ones that show a spinner.
+function readingIds(job?: ImportJob) {
+  return job?.state === 'reading'
+    ? job.channels.filter((c) => !c.done).map((c) => c.channelId)
+    : [];
 }
 
 // How far each channel has been read, kept across previews so a channel unpicked still shows its count.
@@ -134,9 +147,11 @@ interface ImportContentProps {
 }
 
 // Pick the old Requestrr channels; the list of what an import would bring in follows the picks, then Import in the
-// toolbar writes it (a task in System, then Tasks). Discord is only read; nothing is posted, edited or reacted to there.
+// toolbar writes it (a task in System, then Tasks). Discord is only read; nothing is posted, edited or reacted to
+// there.
 function ImportContent({ access, channels }: ImportContentProps) {
-  const { job, error, isBusy, confirm } = usePickedPreview(channels);
+  const { job, error, isBusy, isConfirming, isChanged, confirm } =
+    usePickedPreview(channels);
   const progress = useProgress(job);
   const { columns, onTableOptionChange } = useTableOptions();
   const isImporting = job?.state === 'importing';
@@ -151,7 +166,7 @@ function ImportContent({ access, channels }: ImportContentProps) {
       <ImportToolbar
         columns={columns}
         inviteUrl={inviteUrl}
-        canImport={!isBusy && job?.state === 'ready'}
+        canImport={!isBusy && !isChanged && job?.state === 'ready'}
         isImporting={isImporting}
         onImportPress={confirm}
         onInvitePress={onInvitePress}
@@ -165,7 +180,8 @@ function ImportContent({ access, channels }: ImportContentProps) {
           <ImportChannels
             channels={channels}
             progress={progress}
-            isDisabled={isImporting}
+            reading={readingIds(job)}
+            isDisabled={isImporting || isConfirming}
           />
         </FieldSet>
 

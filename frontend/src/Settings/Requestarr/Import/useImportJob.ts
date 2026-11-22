@@ -5,28 +5,38 @@ import { ImportJob } from './importTypes';
 // How often the page asks how far reading, or the import's command in System, then Tasks, has got.
 const POLL_MILLISECONDS = 1500;
 
-// Asks after a job while it's reading or importing; answers reach the page through the callbacks.
+// Asks after a job while it's reading or importing. An answer, or a failure, that arrives after the page has moved on
+// to another job (or none) is dropped, so it never replaces the newer one.
 function useFollowJob(
   job: ImportJob | undefined,
-  onAnswer: (answer: ImportJob) => void,
-  onFailure: (failure: Error) => void
+  setJob: (job?: ImportJob) => void,
+  setError: (error?: string) => void
 ) {
   useEffect(() => {
     if (job?.state !== 'reading' && job?.state !== 'importing') {
       return undefined;
     }
 
+    let isCurrent = true;
     const timer = setTimeout(
       () =>
         callRequestarrApi<ImportJob>(`import/preview/${job.id}`).then(
-          onAnswer,
-          onFailure
+          (answer) => isCurrent && setJob(answer),
+          (failure: Error) => {
+            if (isCurrent) {
+              setError(failure.message);
+              setJob(undefined);
+            }
+          }
         ),
       POLL_MILLISECONDS
     );
 
-    return () => clearTimeout(timer);
-  }, [job, onAnswer, onFailure]);
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [job, setJob, setError]);
 }
 
 // An import from preview to confirm: start reads the channels (followed until the preview is ready), confirm writes it,
@@ -36,6 +46,7 @@ function useImportJob() {
   const [job, setJob] = useState<ImportJob>();
   const [error, setError] = useState<string>();
   const [isBusy, setIsBusy] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const latest = useRef(0);
 
   const call = useCallback((path: string, method = 'GET', body?: unknown) => {
@@ -49,17 +60,24 @@ function useImportJob() {
         (answer) => isLatest() && setJob(answer),
         (failure: Error) => isLatest() && setError(failure.message)
       )
-      .finally(() => isLatest() && setIsBusy(false));
+      .finally(() => {
+        if (isLatest()) {
+          setIsBusy(false);
+          setIsConfirming(false);
+        }
+      });
   }, []);
 
   const start = useCallback(
     (channelIds: string[]) => call('import/preview', 'POST', { channelIds }),
     [call]
   );
-  const confirm = useCallback(
-    () => job && call(`import/preview/${job.id}/confirm`, 'POST'),
-    [call, job]
-  );
+  const confirm = useCallback(() => {
+    if (job) {
+      setIsConfirming(true);
+      call(`import/preview/${job.id}/confirm`, 'POST');
+    }
+  }, [call, job]);
   const reset = useCallback(() => {
     latest.current++;
     setJob(undefined);
@@ -67,20 +85,9 @@ function useImportJob() {
     setIsBusy(false);
   }, []);
 
-  // A job's answer counts only while it's still the page's job.
-  const onAnswer = useCallback(
-    (answer: ImportJob) =>
-      setJob((current) => (current?.id === answer.id ? answer : current)),
-    []
-  );
-  const onFailure = useCallback((failure: Error) => {
-    setError(failure.message);
-    setJob(undefined);
-  }, []);
+  useFollowJob(job, setJob, setError);
 
-  useFollowJob(job, onAnswer, onFailure);
-
-  return { job, error, isBusy, start, confirm, reset };
+  return { job, error, isBusy, isConfirming, start, confirm, reset };
 }
 
 export default useImportJob;
