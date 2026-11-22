@@ -1,16 +1,14 @@
 import { groupBy } from 'lodash';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useSelect } from 'App/SelectContext';
+import CheckInput from 'Components/Form/CheckInput';
 import Icon from 'Components/Icon';
-import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
-import Table from 'Components/Table/Table';
-import TableBody from 'Components/Table/TableBody';
-import TableRow from 'Components/Table/TableRow';
+import Link from 'Components/Link/Link';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import { ImportProgress } from './importTypes';
-import styles from './ImportPage.css';
+import styles from './ImportChannels.css';
 
 // A channel the bot can read, numbered for the page's SelectProvider (Discord's IDs are too long for its numbers).
 export interface PickableChannel {
@@ -18,69 +16,56 @@ export interface PickableChannel {
   channelId: string;
   server: string;
   name: string;
+  hasSourceReplies: boolean;
 }
 
-const columns = [
-  { name: 'select', isVisible: true },
-  { name: 'channel', label: () => translate('ImportChannel'), isVisible: true },
-  {
-    name: 'read',
-    label: () => translate('ImportMessagesRead'),
-    isVisible: true,
-  },
-];
-
-interface ChannelRowProps {
+interface ChannelProps {
   channel: PickableChannel;
   progress?: ImportProgress;
   isReading: boolean;
   isDisabled: boolean;
 }
 
-interface SelectedChange {
-  value: boolean | null;
+interface CheckChange {
+  value: boolean;
   shiftKey?: boolean;
 }
 
-// A channel with its box, as Sonarr's rows are picked, and how many of its messages have been read.
-function ChannelRow({
-  channel,
-  progress,
-  isReading,
-  isDisabled,
-}: ChannelRowProps) {
+// A channel's box and name, with how many of its messages have been read once it has been.
+function Channel({ channel, progress, isReading, isDisabled }: ChannelProps) {
   const [selectState, selectDispatch] = useSelect();
-  const onSelectedChange = useCallback(
-    ({ value, shiftKey = false }: SelectedChange) =>
+  const onChange = useCallback(
+    ({ value, shiftKey = false }: CheckChange) =>
       selectDispatch({
         type: 'toggleSelected',
         id: channel.id,
-        isSelected: !!value,
+        isSelected: value,
         shiftKey,
       }),
     [channel.id, selectDispatch]
   );
 
   return (
-    <TableRow>
-      <TableSelectCell
-        id={channel.id}
-        isSelected={!!selectState.selectedState[channel.id]}
+    <div className={styles.channel}>
+      <CheckInput
+        containerClassName={styles.check}
+        name={channel.channelId}
+        value={!!selectState.selectedState[channel.id]}
         isDisabled={isDisabled}
-        onSelectedChange={onSelectedChange}
+        onChange={onChange}
       />
-      <TableRowCell>{`#${channel.name}`}</TableRowCell>
-      <TableRowCell className={styles.read}>
-        {progress?.read.toLocaleString()}
-        {isReading && (
-          <Icon
-            className={styles.reading}
-            name={icons.SPINNER}
-            isSpinning={true}
-          />
-        )}
-      </TableRowCell>
-    </TableRow>
+      <span className={styles.name}>{`#${channel.name}`}</span>
+      {progress && (
+        <span className={styles.read}>
+          {translate('ImportMessagesRead', {
+            count: progress.read.toLocaleString(),
+          })}
+        </span>
+      )}
+      {isReading && (
+        <Icon className={styles.read} name={icons.SPINNER} isSpinning={true} />
+      )}
+    </div>
   );
 }
 
@@ -90,33 +75,46 @@ interface ImportChannelsProps {
 
   // The channels the preview is still reading.
   reading: string[];
+  isLoading: boolean;
   isDisabled: boolean;
 }
 
-// Every channel the bot can read, under its server's name: ticking one reads it (once; Requestarr keeps what it read).
-function ImportChannels({
-  channels,
-  progress,
-  reading,
-  isDisabled,
-}: ImportChannelsProps) {
-  const servers = groupBy(channels, (c) => c.server);
+// The channels Requestrr answered in (and any already ticked), or on request every channel the bot can read, under
+// their server's name in as many narrow columns as fit. Ticking one reads it (once; Requestarr keeps what it read).
+function ImportChannels(props: ImportChannelsProps) {
+  const { channels, progress, reading, isLoading, isDisabled } = props;
+  const [selectState] = useSelect();
+  const [showAll, setShowAll] = useState(false);
+  const onTogglePress = useCallback(() => setShowAll((all) => !all), []);
+  const shown = showAll
+    ? channels
+    : channels.filter(
+        (c) => c.hasSourceReplies || selectState.selectedState[c.id]
+      );
 
-  if (!channels.length) {
-    return (
-      <div className={styles.note}>{translate('ImportNoReadableChannels')}</div>
-    );
+  if (isLoading) {
+    return <LoadingIndicator />;
   }
 
   return (
     <>
-      {Object.entries(servers).map(([server, rows]) => (
-        <div key={server} className={styles.server}>
-          <div className={styles.serverName}>{server}</div>
-          <Table columns={columns}>
-            <TableBody>
-              {rows.map((channel) => (
-                <ChannelRow
+      {!shown.length && (
+        <div className={styles.none}>
+          {translate(
+            channels.length
+              ? 'ImportNoRequestrrChannels'
+              : 'ImportNoReadableChannels'
+          )}
+        </div>
+      )}
+
+      {Object.entries(groupBy(shown, (c) => c.server)).map(
+        ([server, items]) => (
+          <div key={server} className={styles.server}>
+            <div className={styles.serverName}>{server}</div>
+            <div className={styles.columns}>
+              {items.map((channel) => (
+                <Channel
                   key={channel.channelId}
                   channel={channel}
                   progress={progress[channel.channelId]}
@@ -124,10 +122,18 @@ function ImportChannels({
                   isDisabled={isDisabled}
                 />
               ))}
-            </TableBody>
-          </Table>
-        </div>
-      ))}
+            </div>
+          </div>
+        )
+      )}
+
+      {channels.length > 0 && (
+        <Link className={styles.toggle} onPress={onTogglePress}>
+          {showAll
+            ? translate('ImportShowRequestrrChannels')
+            : translate('ImportShowAllChannels', { count: channels.length })}
+        </Link>
+      )}
     </>
   );
 }

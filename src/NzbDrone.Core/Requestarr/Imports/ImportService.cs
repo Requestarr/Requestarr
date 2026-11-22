@@ -64,6 +64,9 @@ namespace Requestarr.Core.Imports
         // Each channel's history, read once and kept until Requestarr restarts (ChannelRead).
         private readonly ConcurrentDictionary<ulong, Lazy<ChannelRead>> _reads = new();
 
+        // Whether each channel has Requestrr's replies (HasSourceRepliesAsync).
+        private readonly ConcurrentDictionary<ulong, Lazy<Task<bool>>> _probes = new();
+
         // One import writes at a time, whichever preview it confirms: each plans again inside, so a second confirm (a
         // double click, two tabs, two previews of the same channels) finds the first one's messages already imported.
         private readonly SemaphoreSlim _writing = new(1, 1);
@@ -123,7 +126,34 @@ namespace Requestarr.Core.Imports
 
         public Task<ImportAccess> AccessAsync() => _history.AccessAsync();
 
-        public Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync() => _history.ReadableChannelsAsync();
+        // Every channel the bot can read, each marked when Requestrr answered there, so the page can list those first.
+        public async Task<IReadOnlyList<ImportChannel>> ReadableChannelsAsync()
+        {
+            var channels = await _history.ReadableChannelsAsync();
+            var found = await Task.WhenAll(channels.Select(c => HasSourceRepliesAsync(c.Id)));
+
+            return channels.Select((c, i) => c with { HasSourceReplies = found[i] }).ToList();
+        }
+
+        // Whether the channel's newest page has one of Requestrr's replies: one read of Discord per channel, kept until
+        // Requestarr restarts. A channel that couldn't be read counts as no, and is asked again next time.
+        private Task<bool> HasSourceRepliesAsync(ulong channelId) =>
+            _probes.GetOrAdd(channelId, id => new Lazy<Task<bool>>(() => ProbeAsync(id))).Value;
+
+        private async Task<bool> ProbeAsync(ulong channelId)
+        {
+            try
+            {
+                var newest = await _history.ReadAsync(channelId, null);
+                return newest.Any(m => _source.Read(m).Kind != SourceMessageKind.Other);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Couldn't look for Requestrr's replies in channel {0}", channelId);
+                _probes.TryRemove(channelId, out _);
+                return false;
+            }
+        }
 
         public async Task<ImportJobView> StartPreviewAsync(IReadOnlyList<ulong> channelIds)
         {

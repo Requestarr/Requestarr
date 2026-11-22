@@ -393,13 +393,15 @@ namespace Requestarr.Core.Test.Qa.Web
             }
         });
 
-        // Both recorded channels ticked, which reads them and lists what would be imported: the list's summary line.
+        // Both recorded channels, listed as ones Requestrr answered in, ticked, which reads them and lists what would be
+        // imported: the list's summary line.
         private static async Task<string> PreviewImportAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
-            const string Recorded = "[...document.querySelectorAll('tr')].filter(r => r.innerText.includes('#recorded-'))";
+            // Each channel's box is named by its ID; the recorded channels are 900000000000100001 and ...02.
+            const string Recorded = "[...document.querySelectorAll('input[type=checkbox][name^=\"90000000000010000\"]')]";
 
             await browser.WaitForAsync($"{Recorded}.length === 2");
-            await browser.RunAsync($"{Recorded}.forEach(r => r.querySelector('input[type=checkbox]').click())");
+            await browser.RunAsync($"{Recorded}.forEach(box => box.click())");
             await browser.WaitForAsync("document.body.innerText.includes('Requests to import')");
             await check.ShotAsync(browser, $"import-channels-{theme}");
             var summary = await browser.EvalAsync<string>("[...document.querySelectorAll('div')].map(d => d.innerText).find(t => t.startsWith('Read ')) ?? ''");

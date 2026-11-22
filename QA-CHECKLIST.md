@@ -208,7 +208,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     4. Scroll down, then press Import.
     5. Open Requests.
   - Expect:
-    - Channels grouped by server; ticking one lists its requests.
+    - Only Requestrr's channels listed; ticking one lists its requests.
     - Ticking it again doesn't read it again.
     - One sortable list; Import stays in reach.
     - Requests show their original dates; missing titles say Not in library.

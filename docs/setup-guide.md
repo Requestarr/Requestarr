@@ -767,8 +767,9 @@ and the first-run setup links to it once it's done.
      after saving, reopen the page. No restart is needed.
 
    Requestarr only reads: nothing is posted, edited, moved or deleted in those channels, and no message text is kept.
-2. **Tick the channels.** The page lists every channel the bot can read, under its server's name. Tick the channels
-   Requestrr answered in. The info icon beside **Channels** says what the page does.
+2. **Tick the channels.** The page lists the channels Requestrr answered in (it looks at each channel's newest
+   messages), under their server's name; **Show every channel** lists the rest, for one it missed. Tick the old
+   request channels. The info icon beside **Channels** says what the page does.
 3. **The list.** Ticking a channel reads it, with how many messages have been read beside it. A channel with a lot
    of history takes a while, because Discord limits how fast a bot can read. Each channel is read once: unticking it
    and ticking it again, or ticking another, doesn't read it twice (until Requestarr restarts or an import runs). The

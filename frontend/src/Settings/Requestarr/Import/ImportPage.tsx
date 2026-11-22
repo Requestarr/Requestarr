@@ -53,6 +53,7 @@ function ChannelsLegend() {
           <>
             <p>{translate('ImportIntro')}</p>
             <p>{translate('ImportReadInviteHelpText')}</p>
+            <p>{translate('ImportPickHelpText')}</p>
           </>
         }
         position={tooltipPositions.RIGHT}
@@ -72,6 +73,7 @@ function usePickable(readable?: ImportChannel[]): PickableChannel[] {
           channelId: c.id,
           server: c.server ?? '',
           name: c.name ?? c.id,
+          hasSourceReplies: !!c.hasSourceReplies,
         })),
     [readable]
   );
@@ -144,12 +146,13 @@ function useTableOptions() {
 interface ImportContentProps {
   access?: ImportAccess;
   channels: PickableChannel[];
+  isLoading: boolean;
 }
 
 // Pick the old Requestrr channels; the list of what an import would bring in follows the picks, then Import in the
 // toolbar writes it (a task in System, then Tasks). Discord is only read; nothing is posted, edited or reacted to
 // there.
-function ImportContent({ access, channels }: ImportContentProps) {
+function ImportContent({ access, channels, isLoading }: ImportContentProps) {
   const { job, error, isBusy, isConfirming, isChanged, confirm } =
     usePickedPreview(channels);
   const progress = useProgress(job);
@@ -179,6 +182,7 @@ function ImportContent({ access, channels }: ImportContentProps) {
         <FieldSet legend={<ChannelsLegend />}>
           <ImportChannels
             channels={channels}
+            isLoading={isLoading}
             progress={progress}
             reading={readingIds(job)}
             isDisabled={isImporting || isConfirming}
@@ -202,7 +206,11 @@ function ImportPage() {
 
   return (
     <SelectProvider items={channels}>
-      <ImportContent access={access} channels={channels} />
+      <ImportContent
+        access={access}
+        channels={channels}
+        isLoading={!readable}
+      />
     </SelectProvider>
   );
 }
