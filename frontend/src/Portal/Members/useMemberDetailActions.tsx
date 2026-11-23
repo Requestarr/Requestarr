@@ -13,10 +13,7 @@ import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import TextConfirmModal from '../Components/TextConfirmModal';
 import { isImported } from '../portalText';
-import {
-  ContentType,
-  PortalMemberDetail,
-} from '../PortalTypes';
+import { ContentType, PortalMemberDetail } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
 import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';

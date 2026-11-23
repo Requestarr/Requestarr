@@ -60,7 +60,8 @@ export function usePurpose(item: MediaManagerItem, app: string) {
   const others = useOthers(item);
   const chosen = purposeOf(item);
   const isNew = !item.id?.value;
-  const startsOnEverything = isNew && others.length > 0 && chosen === EVERYTHING;
+  const startsOnEverything =
+    isNew && others.length > 0 && chosen === EVERYTHING;
 
   useEffect(() => {
     if (startsOnEverything) {
@@ -69,7 +70,9 @@ export function usePurpose(item: MediaManagerItem, app: string) {
   }, [dispatch, startsOnEverything]);
 
   const holder =
-    chosen === NOTHING ? undefined : others.find((o) => purposeOf(o) === chosen);
+    chosen === NOTHING
+      ? undefined
+      : others.find((o) => purposeOf(o) === chosen);
 
   return {
     isShown: others.length > 0,
