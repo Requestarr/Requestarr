@@ -169,6 +169,7 @@ namespace Requestarr.Core.Requests
         private readonly IAuditService _audit;
         private readonly IMetadataService _metadata;
         private readonly IAnimeService _anime;
+        private readonly SeriesFixes.ISeriesFixService _fixes;
         private readonly IUserIdentityRepository _identities;
         private readonly IRequestFeed _feed;
         private readonly Removals.IRemovalProposalRepository _removals;
@@ -187,6 +188,7 @@ namespace Requestarr.Core.Requests
                               IAuditService audit,
                               IMetadataService metadata,
                               IAnimeService anime,
+                              SeriesFixes.ISeriesFixService fixes,
                               IUserIdentityRepository identities,
                               IRequestFeed feed,
                               Removals.IRemovalProposalRepository removals,
@@ -206,6 +208,7 @@ namespace Requestarr.Core.Requests
             _audit = audit;
             _metadata = metadata;
             _anime = anime;
+            _fixes = fixes;
             _identities = identities;
             _feed = feed;
             _events = events;
@@ -350,6 +353,7 @@ namespace Requestarr.Core.Requests
 
             var state = detail.Value;
             seen.Value = state.Item;
+            await ApplyFixInLibraryAsync(state);
 
             // Anime: one language per series per instance, settled by the instance's priority rule.
             if (state.Anime == null)
@@ -380,6 +384,24 @@ namespace Requestarr.Core.Requests
             }
 
             return await NewRequestAsync(caller, access, type, externalId, state, seasons, language);
+        }
+
+        // A listed series already in Sonarr gets its fix too, so it still applies; a failure there never stops the request.
+        private async Task ApplyFixInLibraryAsync(TitleState state)
+        {
+            if (state.Item.LibraryId is not { } seriesId || _fixes.For(state.Item.TvdbId) == null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _fixes.ApplyToLibraryAsync(state.Instance, state.Item.TvdbId, seriesId, state.Item.TagIds?.ToList() ?? new List<int>());
+            }
+            catch (BackendException ex)
+            {
+                _logger.Warn(ex, "Applying the series fix for {0} on {1} failed", state.Item.Title, state.Instance.Name);
+            }
         }
 
         // An anime series' language now. In the library, Sonarr's tag is the truth (like any title
@@ -1328,7 +1350,20 @@ namespace Requestarr.Core.Requests
                 // Anime always goes in as Sonarr's Anime type (absolute numbering, scene mapping). With
                 // sub/dub on, it's tagged with its language so the matching release profile applies.
                 var seriesType = item.IsAnime ? "anime" : instance.Config.SeriesType;
-                var tags = request.Language.HasValue && await _anime.TagsAsync(instance) is { } animeTags ? new[] { animeTags.For(request.Language.Value) } : null;
+                var tags = new List<int>();
+
+                if (request.Language.HasValue && await _anime.TagsAsync(instance) is { } animeTags)
+                {
+                    tags.Add(animeTags.For(request.Language.Value));
+                }
+
+                var fix = request.ContentType == ContentType.Tv ? await _fixes.BuildAsync(instance, item.TvdbId) : null;
+
+                if (fix != null)
+                {
+                    tags.Add(fix.TagId);
+                    request.AppliedFix = fix.Fix.Reason;
+                }
 
                 request.ExternalItemId = request.ContentType == ContentType.Movie
                     ? await _radarr.AddMovieAsync(instance.Config, item, profile.Id, root)
@@ -1340,9 +1375,14 @@ namespace Requestarr.Core.Requests
                 request.Decided = Clock();
                 _requests.Update(request);
 
-                var tagDetail = tags != null ? $", tag {tags[0]}" : string.Empty;
+                var tagDetail = tags.Any() ? $", tags {string.Join(", ", tags)}" : string.Empty;
                 var typeDetail = request.ContentType == ContentType.Tv ? $", type {seriesType ?? "standard"}{tagDetail}" : string.Empty;
                 _audit.Record(actor, "request.send", "request", request.Id.ToString(), $"{instance.Name} item {request.ExternalItemId}, profile {profile.Name}, root {root}{typeDetail}");
+
+                if (fix != null)
+                {
+                    _audit.Record(actor, "seriesfix.applied", "request", request.Id.ToString(), $"{fix.Fix.Series} on {instance.Name}: {fix.Fix.Reason}");
+                }
 
                 return (true, item);
             }

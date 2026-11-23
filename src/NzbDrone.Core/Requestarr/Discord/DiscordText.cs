@@ -1343,6 +1343,9 @@ namespace Requestarr.Core.Discord
         public static string PersonLine(string name, string role, ContentType type, AccessState state, int used, int? limit, int days, int pending) =>
             $"• **{name}** ({role}): {Label(type)} {Label(state)} · {used}{(limit.HasValue ? $" of {limit}" : string.Empty)} {Label(type)} request{(used == 1 && !limit.HasValue ? string.Empty : "s")} in {days} days{(limit.HasValue ? string.Empty : " (no limit)")} · {pending} waiting for approval";
 
+        // A request added with a series fix: why, so a fix that stops downloads can be found.
+        public static string FixLine(string reason) => $"Series fix: {reason}";
+
         public static string NothingToSearch(Request request) => $"Request #{request.Id} isn't in the library, so there's nothing to search for.";
 
         public static string NothingToRetry(Request request) => $"Request #{request.Id} isn't waiting to be added again; it's {Label(request.Status)}.";

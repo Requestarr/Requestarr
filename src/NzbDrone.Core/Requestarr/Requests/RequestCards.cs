@@ -449,6 +449,11 @@ namespace Requestarr.Core.Requests
                 lines.Add(DiscordText.LanguageLine(request.Language.Value));
             }
 
+            if (request.AppliedFix != null)
+            {
+                lines.Add(DiscordText.FixLine(request.AppliedFix));
+            }
+
             if (note != null)
             {
                 lines.Add(note);
@@ -526,6 +531,11 @@ namespace Requestarr.Core.Requests
             if (request.Language.HasValue)
             {
                 lines.Add(DiscordText.LanguageLine(request.Language.Value));
+            }
+
+            if (request.AppliedFix != null)
+            {
+                lines.Add(DiscordText.FixLine(request.AppliedFix));
             }
 
             if (followers.Any())

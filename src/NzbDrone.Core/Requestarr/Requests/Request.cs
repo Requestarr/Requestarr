@@ -66,6 +66,9 @@ namespace Requestarr.Core.Requests
         public string DecidedByName { get; set; }
         public string DecisionReason { get; set; }
         public int? ExternalItemId { get; set; }
+
+        // The series fix it was added to Sonarr with (its reason), shown on its card; null without one.
+        public string AppliedFix { get; set; }
         public DateTime Requested { get; set; }
         public DateTime? Decided { get; set; }
         public DateTime? Fulfilled { get; set; }
