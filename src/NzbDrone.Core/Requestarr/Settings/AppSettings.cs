@@ -287,7 +287,7 @@ namespace Requestarr.Core.Settings
 
         private IEnumerable<SettingDefinition> ConnectionDefinitions() => new[]
         {
-            new SettingDefinition(WebhookAddress, "Address Sonarr and Radarr reach Requestarr at", SettingKind.Text, () => _availability.WebhookUrl, v => _config.AvailabilityWebhookUrl = v, Check: UrlProblem),
+            new SettingDefinition(WebhookAddress, "Address your media managers reach Requestarr at", SettingKind.Text, () => _availability.WebhookUrl, v => _config.AvailabilityWebhookUrl = v, Check: UrlProblem),
             Number("availabilityPollMinutes", "Minutes between download checks", () => _availability.PollMinutes, v => _config.AvailabilityPollMinutes = v, AvailabilitySettingsStore.MinPollMinutes)
         };
 

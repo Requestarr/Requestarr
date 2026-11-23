@@ -22,13 +22,15 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - It refuses, and says to choose Everything on the Sonarr that should take over.
   - Checked by the owner, unsure of the desired behavior: the task said to ask which takes over; is pointing you to the other Sonarr what you want?
-- **Sonarr and Radarr wording**
+- **Media manager wording**
   - Steps:
     1. In the web app, open Settings, then Connections.
     2. Press the Sonarr card.
     3. Press the gear at the bottom to show advanced fields.
+    4. Close it and press Test All Connections.
   - Expect:
     - Labels and help in plain words you understand.
+    - Test All says every connection passed, naming no apps.
     - Delete at the left, then the gear, Test, Cancel and Save.
     - An Updates line saying right away or on a timer.
   - Checked by the owner, needs human eyes: whether the new wording reads plainly is a judgment only you can make.

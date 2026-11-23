@@ -103,7 +103,7 @@ jobs:
             tmdb_key=${{ secrets.TMDB_API_KEY }}
           labels: |
             org.opencontainers.image.title=Requestarr
-            org.opencontainers.image.description=Discord requests for Sonarr and Radarr, with per-user access, approvals and removal votes.
+            org.opencontainers.image.description=Discord requests for your Servarr apps, with per-user access, approvals and removal votes.
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=GPL-3.0-only
             org.opencontainers.image.version=${{ steps.tags.outputs.label }}

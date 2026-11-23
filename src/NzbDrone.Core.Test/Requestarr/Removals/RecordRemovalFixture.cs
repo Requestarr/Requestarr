@@ -94,7 +94,7 @@ namespace Requestarr.Core.Test.Removals
             RequestStore.Find(request.Id).Should().BeNull();
             Mocker.Resolve<IAdminQueue>().Items().Should().NotContain(i => i.Key == "x1");
             NothingSentToSonarrOrRadarr();
-            DiscordText.RemovalConfirmForce(Proposal(), false).Should().Contain("nothing is deleted there").And.NotContain("delete it by hand");
+            DiscordText.RemovalConfirmForce(Proposal(), false).Should().Contain("nothing is deleted").And.NotContain("delete it by hand");
         }
 
         [TestCase(RemovalStatus.Voting)]

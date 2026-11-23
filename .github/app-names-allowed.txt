@@ -1,0 +1,1 @@
+# Fixed lists of app names that are meant (.github/app_names_check.py): "path: the exact words  # why", one a line.
