@@ -28,7 +28,7 @@ using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.Admin
 {
-    // Live (task 3c): the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
+    // Live: the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
     // Grants Music with no Lidarr (the private notice, and the member's real panel without Music); walks
     // two pending requests from two members and one Plex link through /admin requests; stops the test
     // Sonarr for longer than a shortened alert threshold, reads back the down alert and the paused
@@ -100,7 +100,7 @@ namespace Requestarr.Core.Test.Admin
             IPanelService panels = null;
             IRequestFeed feed = null;
 
-            // Task 4e: no media server is connected (as on a real server today); the outage record and the access
+            // No media server is connected (as on a real server today); the outage record and the access
             // request stores are real.
             Mocker.SetConstant<Requestarr.Core.MediaServers.IMediaServerConnections>(new FakeMediaServers { Servers = { MediaServerProvider.Plex } }); // the walk includes a Plex link
             Mocker.SetConstant<Requestarr.Core.Backends.IOutageRepository>(Mocker.Resolve<Requestarr.Core.Backends.OutageRepository>());

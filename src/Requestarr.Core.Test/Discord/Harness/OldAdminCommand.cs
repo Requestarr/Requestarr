@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Requestarr.Core.Test.Discord.Harness
 {
-    // One of the 16 admin slash commands from before task 3b ("user access", "approve", "queue", ...),
+    // One of the 16 admin slash commands from before the /admin commands ("user access", "approve", "queue", ...),
     // with its options. Sending it does the same thing the way it is done now: on the member card
     // (/admin user), the request card (/admin request), or the admin panel. Tests written against the
     // old commands keep reading the same, and prove that nothing the admin could do was lost.

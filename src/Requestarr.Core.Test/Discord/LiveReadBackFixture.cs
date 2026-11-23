@@ -79,7 +79,7 @@ namespace Requestarr.Core.Test.Discord
             }
         }
 
-        // Since task 4e the panel is the channel's newest message and isn't pinned.
+        // The panel is the channel's newest message and isn't pinned.
         private static async Task CheckPanel(RestTextChannel channel, string firstButton, ulong botId)
         {
             var recent = (await channel.GetMessagesAsync(50).FlattenAsync()).OrderByDescending(m => m.Id).ToList();

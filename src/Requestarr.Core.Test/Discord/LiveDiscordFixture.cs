@@ -74,7 +74,7 @@ namespace Requestarr.Core.Test.Discord
             IPanelService panels = null;
             Requestarr.Core.Requests.IRequestFeed feed = null;
 
-            // Task 4e: no media server is connected (as on a real server today); the outage record and the access
+            // No media server is connected (as on a real server today); the outage record and the access
             // request stores are real.
             Mocker.SetConstant<Requestarr.Core.MediaServers.IMediaServerConnections>(new Requestarr.Core.MediaServers.MediaServerConnections());
             Mocker.SetConstant<Requestarr.Core.Backends.IOutageRepository>(Mocker.Resolve<Requestarr.Core.Backends.OutageRepository>());
@@ -154,7 +154,7 @@ namespace Requestarr.Core.Test.Discord
                     created.Add($"channel:{adminChannel}");
                 }
 
-                // Only the users group itself, if this run made it: since task 4e the run may also have made the admin group,
+                // Only the users group itself, if this run made it: the run may also have made the admin group,
                 // and deleting a group this run didn't make would leave its channels loose at the top level.
                 var madeHere = Mocker.Resolve<IAuditRepository>().All().Where(a => a.Action == "discord.category.create").Select(a => a.TargetId).ToHashSet();
 
@@ -163,7 +163,7 @@ namespace Requestarr.Core.Test.Discord
                     created.Add($"channel:{category}");
                 }
 
-                // Problem 0: the admin role exists, read back from Discord.
+                // The admin role exists, read back from Discord.
                 var adminRoleId = guildSetup.AdminRoleId.Value;
                 var roleGuild = await host.Client.Rest.GetGuildAsync(guild.Id);
                 var adminRoleRead = roleGuild.GetRole(adminRoleId);
@@ -268,7 +268,7 @@ namespace Requestarr.Core.Test.Discord
                 overwrites.Where(o => o.TargetId != guild.Id).Should().OnlyContain(o => o.Allow.HasFlag(ChannelPermissions.ViewChannel));
                 Log("[permissions] verified: @everyone denied; only the user's role, the Requestarr Admin role, and the bot allowed");
 
-                // Panels read back from Discord: posted, the newest message, not pinned (task 4e).
+                // Panels read back from Discord: posted, the newest message, not pinned.
                 foreach (var (label, channelId) in new[] { ("user channel", userChannel), ("admin channel", adminChannel) })
                 {
                     var channel = (global::Discord.IMessageChannel)await host.Client.Rest.GetChannelAsync(channelId);

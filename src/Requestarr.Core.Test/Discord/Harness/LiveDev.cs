@@ -6,7 +6,7 @@ namespace Requestarr.Core.Test.Discord.Harness
     // Every live check runs in the dev environment only: the dev Discord server and its bot (DEV_DISCORD_* in
     // docker/secrets.env) and the dev stack's test Sonarr and Radarr (docker\dev.ps1 -Stack dev). The QA server and
     // the QA stack (DISCORD_*, the default ports) are the owner's manual QA and are never touched by automated
-    // testing; no live fixture reads their variables (Item4cReleaseFlowFixture checks).
+    // testing; no live fixture reads their variables (ReleaseFlowFixture checks).
     public static class LiveDev
     {
         public const string Stack = "dev";

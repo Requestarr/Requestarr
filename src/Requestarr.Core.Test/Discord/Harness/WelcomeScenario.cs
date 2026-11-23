@@ -8,7 +8,7 @@ using Requestarr.Core.Discord.Interactions;
 
 namespace Requestarr.Core.Test.Discord.Harness
 {
-    // Task 4e: the welcome channel, its access requests and spam guard, from the point of view of someone new in the
+    // The welcome channel, its access requests and spam guard, from the point of view of someone new in the
     // server (Carol) and the admin. The clock is the test's, so cooldowns pass without waiting.
     public abstract class WelcomeScenario : DiscordScenario
     {

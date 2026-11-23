@@ -91,7 +91,7 @@ namespace Requestarr.Core.Test.Admin
             IPanelService panels = null;
             IRequestFeed feed = null;
 
-            // Task 4e: no media server is connected (as on a real server today); the outage record and the access
+            // No media server is connected (as on a real server today); the outage record and the access
             // request stores are real.
             Mocker.SetConstant<Requestarr.Core.MediaServers.IMediaServerConnections>(new FakeMediaServers { Servers = { MediaServerProvider.Plex } }); // the Plex link part needs Link Plex
             Mocker.SetConstant<Requestarr.Core.Backends.IOutageRepository>(Mocker.Resolve<Requestarr.Core.Backends.OutageRepository>());
@@ -154,7 +154,7 @@ namespace Requestarr.Core.Test.Admin
                 registered.Select(c => c.Name).Should().BeEquivalentTo("admin", "help", "request");
                 registered.Single(c => c.Name == "admin").Options.Select(o => o.Name).Should().Equal("user", "requests", "help");
 
-                // 2. The admin panel's buttons, read back from the panel (the newest message, unpinned since task 4e).
+                // 2. The admin panel's buttons, read back from the panel (the newest message, not pinned).
                 var adminRest = (IMessageChannel)await host.Client.Rest.GetChannelAsync(adminChannel);
                 var panel = await adminRest.GetMessageAsync(ulong.Parse(guildSetup.GetConfig().AdminPanelMessageId));
                 var panelButtons = panel.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components).OfType<ButtonComponent>().Select(b => b.Label).ToList();

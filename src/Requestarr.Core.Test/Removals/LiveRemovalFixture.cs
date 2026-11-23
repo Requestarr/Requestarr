@@ -32,7 +32,7 @@ using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.Removals
 {
-    // Live (task 4): the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
+    // Live: the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
     // A movie removed by its requester's vote with no keeps (read back: gone from Radarr with its file,
     // not excluded); a TV season removed by the admin's Force (its files gone, the season unmonitored,
     // the show still there); a title nobody requested, from the panel's Remove a title, kept by one keep.
@@ -113,7 +113,7 @@ namespace Requestarr.Core.Test.Removals
             IPanelService panels = null;
             IRequestFeed feed = null;
 
-            // Task 4e: no media server is connected (as on a real server today); the outage record and the access
+            // No media server is connected (as on a real server today); the outage record and the access
             // request stores are real.
             Mocker.SetConstant<Requestarr.Core.MediaServers.IMediaServerConnections>(new Requestarr.Core.MediaServers.MediaServerConnections());
             Mocker.SetConstant<Requestarr.Core.Backends.IOutageRepository>(Mocker.Resolve<Requestarr.Core.Backends.OutageRepository>());

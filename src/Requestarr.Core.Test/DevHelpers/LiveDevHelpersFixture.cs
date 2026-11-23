@@ -32,7 +32,7 @@ using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.DevHelpers
 {
-    // Live (task 4b): the dev helpers with the real dev bot in the dev Discord server and the dev stack's TEST
+    // Live: the dev helpers with the real dev bot in the dev Discord server and the dev stack's TEST
     // Radarr and Sonarr. The test member requests Dune and Severance; docker\dev.ps1 fake-download (run here
     // from a fresh Windows PowerShell) makes them look downloaded, and Requestarr's poll finds them (Available,
     // partly available). Then, with fast votes on (the same switch the dev stack's container reads, turned on
@@ -120,7 +120,7 @@ namespace Requestarr.Core.Test.DevHelpers
             IPanelService panels = null;
             IRequestFeed feed = null;
 
-            // Task 4e: no media server is connected (as on a real server today); the outage record and the access
+            // No media server is connected (as on a real server today); the outage record and the access
             // request stores are real.
             Mocker.SetConstant<Requestarr.Core.MediaServers.IMediaServerConnections>(new Requestarr.Core.MediaServers.MediaServerConnections());
             Mocker.SetConstant<Requestarr.Core.Backends.IOutageRepository>(Mocker.Resolve<Requestarr.Core.Backends.OutageRepository>());

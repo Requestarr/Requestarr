@@ -147,7 +147,7 @@ namespace Requestarr.Core.Test.Requests
 
             if (step.SelectMenu == null)
             {
-                // Anime asks dub or sub before the seasons (task 2d), then offers all seasons or a choice.
+                // Anime asks dub or sub before the seasons, then offers all seasons or a choice.
                 Log($"[anime] {label} asks first: {step.Content.Split('\n')[0]}; picking dub, then Choose seasons");
                 await Click($"{RequestRoutes.TvLanguage}:{tvdbId}:d");
                 step = (await Click($"{RequestRoutes.TvChoose}:{tvdbId}:d")).LastReply;

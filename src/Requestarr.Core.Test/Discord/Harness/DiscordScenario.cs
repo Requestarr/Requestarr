@@ -72,7 +72,7 @@ namespace Requestarr.Core.Test.Discord.Harness
             Mocker.SetConstant<NzbDrone.Core.Configuration.IConfigService>(Mocker.Resolve<NzbDrone.Core.Configuration.ConfigService>());
             Mocker.SetConstant<Requestarr.Core.Removals.IRemovalSettings>(Mocker.Resolve<Requestarr.Core.Removals.RemovalSettings>());
 
-            // The backends here are fakes, so removals delete in them, as on the test stacks; Item5DeleteFilesFixture turns it off.
+            // The backends here are fakes, so removals delete in them, as on the test stacks; KeepFilesRemovalFixture turns it off.
             Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>().RemovalDeleteFiles = true;
             Mocker.SetConstant<Requestarr.Core.Access.IAccessRequestRepository>(Mocker.Resolve<Requestarr.Core.Access.AccessRequestRepository>());
             Mocker.SetConstant<Requestarr.Core.Access.IWelcomeGuardRepository>(Mocker.Resolve<Requestarr.Core.Access.WelcomeGuardRepository>());
@@ -260,7 +260,7 @@ namespace Requestarr.Core.Test.Discord.Harness
                     await MemberButton(member, AdminRoutes.Plex);
                     return await MemberForm($"{AdminRoutes.PlexForm}:{member}", (AdminRoutes.PlexField, old.Get<string>("username")));
 
-                // Task 3c: the queue is /admin requests (one item at a time); a member's requests are on
+                // The queue is /admin requests (one item at a time); a member's requests are on
                 // their card's "More…" menu. There's no filter by type any more.
                 case "queue" when old.Has("user"):
                     return await MemberMenu(Convert.ToUInt64(old.Options["user"]), AdminRoutes.More, "requests");
@@ -352,7 +352,7 @@ namespace Requestarr.Core.Test.Discord.Harness
 
         protected FakeDiscordGuild.FakeChannel ChannelFor(ulong discordId) => Discord.Channels[ChannelOf(discordId)];
 
-        // The panel Requestarr keeps in a channel, found by the ID it stored (panels aren't pinned since task 4e).
+        // The panel Requestarr keeps in a channel, found by the ID it stored (panels aren't pinned).
         protected ulong? PanelIdIn(FakeDiscordGuild.FakeChannel channel)
         {
             var config = Config;

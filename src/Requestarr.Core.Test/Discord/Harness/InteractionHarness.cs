@@ -42,7 +42,7 @@ namespace Requestarr.Core.Test.Discord.Harness
 
         public Task<InteractionRun> SendAsync(FakeInteraction interaction) => SendAsync(interaction.Build());
 
-        // An admin command from before task 3b, done the way it is done now.
+        // An admin command from before the /admin commands, done the way it is done now.
         public Task<InteractionRun> SendAsync(OldAdminCommand command) => command.RunAsync();
     }
 }

@@ -30,7 +30,7 @@ using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.Portal
 {
-    // Live (task 5c): the admin portal's actions with the real bot in the dev server and the dev stack's test Radarr.
+    // Live: the admin portal's actions with the real bot in the dev server and the dev stack's test Radarr.
     // The test member asks to join and is approved from the portal; asks for two films, one denied and one approved
     // from the portal; is suspended and unsuspended; has a removal started and dropped on the approved film. Each
     // Discord result is read back: the access request card, the member's request messages, their channel's notices,

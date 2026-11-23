@@ -11,7 +11,7 @@ using Requestarr.Core.Requests;
 
 namespace Requestarr.Core.Test.Discord.Harness
 {
-    // Task 3: availability (webhook and poll), the admin feed, adding seasons. Real services over
+    // Availability (webhook and poll), the admin feed, adding seasons. Real services over
     // the fake server and backends; one clock for the request service and the availability checks.
     public abstract class FeedScenario : RequestMessageScenario
     {
