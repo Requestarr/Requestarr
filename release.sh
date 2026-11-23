@@ -508,7 +508,14 @@ EOF
     files_at "origin/$from" "$work/theirs"
     # Their common base: a line one side rewrote or removed since it is gone from the merge, not kept beside the new one.
     files_at "$(git merge-base "origin/$to" "origin/$from")" "$work/base"
-    numbers merge "$work/ours" "$work/theirs" "$work/tree" "$work/base" >&2
+    if ! numbers merge "$work/ours" "$work/theirs" "$work/tree" "$work/base" >&2; then
+        git -C "$work/tree" merge --abort
+        git worktree remove --force "$work/tree"
+        git branch -q -D "$branch"
+        rm -rf "$work"
+        echo "CHANGELOG.md and QA-CHECKLIST.md couldn't be merged: nothing pushed." >&2
+        return 1
+    fi
     git -C "$work/tree" add "${files[@]}"
     git -C "$work/tree" commit -q -m "Merge $from back into $to" >&2
     git -C "$work/tree" push -q origin "$branch" >&2

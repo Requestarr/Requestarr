@@ -13,7 +13,9 @@ heading is free) is checked for:
   - no placeholders: "nothing this time", "n/a", "TBD" and the like;
   - no summary without substance: a line with "minor fixes", "various improvements" or another summary phrase must say,
     on the same line, what that changes (at least five more words);
-  - short: each line one to three sentences, at most 50 words after its bold lead, and at most 8 lines in a section
+  - short: each line one to three sentences, at most 50 words after its bold lead, at most 8 lines in a section and
+    3,500 characters of lines in a build, so Read changes is one message (the security line the staging promotion
+    may add isn't counted);
     (owner, 2026-11-23: "every note should be like 1-3 sentences not a bible"); Unreleased says where a thing ended
     up, so a change rewrites its line to the final state instead of adding to it;
   - versions: "## 0.7.0004 (YYYY-MM-DD)", the day the build was made, each once, newest first; versions up to 0.6.0
@@ -27,7 +29,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build_numbers import text as shown  # noqa: E402
+from build_numbers import SECURITY_LINE, text as shown  # noqa: E402
 
 SECTIONS = ("For users", "For admins")
 UNRELEASED = "Unreleased"
@@ -56,11 +58,14 @@ FILLER = ["and", "&", "other", "some", "a few", "several", "plus", "more", "lots
 MAX_WORDS = 50
 MAX_SENTENCES = 3
 MAX_LINES = 8
+# Discord shows at most 4,000 characters in one message's cards; this leaves room for the headings, the compose file
+# link and the security line (VersionCards.MessageTextLength).
+MAX_CHARACTERS = 3500
 
 LEAD = re.compile(r"^\*\*[^*]+\*\*")
-# A sentence ends at . ! or ? followed by the end of the line or a space and a capital (version numbers like 0.7.0010
-# and "Settings, then Changes" don't end one).
-SENTENCE_END = re.compile(r"[.!?](?=\s*$|\s+[\"(]?[A-Z])")
+# A sentence ends at . ! or ? (and any closing quote or bracket) before a space and a capital, a number or a command;
+# the last one ends the line. Version numbers like 0.7.0010, "Settings, then Changes" and e.g. don't end one.
+SENTENCE_END = re.compile(r"(?<!\be\.g)(?<!\bi\.e)(?<!\betc)(?<!\bvs)[.!?][\"'”’)]*(?=\s+[\"“'(]?[A-Z0-9/])")
 
 
 def words(text):
@@ -75,10 +80,10 @@ def too_long(text):
     """Problems with one line's length: the words after its bold lead, and its sentences."""
     body = LEAD.sub("", text).strip()
     problems = []
-    count = len(words(body))
+    count = sum(1 for token in body.split() if re.search(r"[A-Za-z0-9]", token))
     if count > MAX_WORDS:
         problems.append("%d words after the bold lead: at most %d; say what changed in one to three short sentences" % (count, MAX_WORDS))
-    sentences = max(1, len(SENTENCE_END.findall(body)))
+    sentences = len(SENTENCE_END.findall(body)) + 1
     if sentences > MAX_SENTENCES:
         problems.append("%d sentences: at most %d; leave details to the setup guide" % (sentences, MAX_SENTENCES))
     return problems
@@ -121,8 +126,6 @@ def check(text):
     def close_section():
         if section is not None and section_items == 0:
             problems.append((section_line, "empty section '%s': leave the heading out when there's nothing under it" % section))
-        if section is not None and section_items > MAX_LINES:
-            problems.append((section_line, "%d lines in '%s': at most %d; group related changes into one line" % (section_items, section, MAX_LINES)))
 
     def close_unreleased():
         if version is UNRELEASED and unreleased_items == 0:
@@ -173,6 +176,28 @@ def check(text):
             problems.append((number, "only headings and '- ' lines inside a version"))
     close_section()
     close_unreleased()
+    return problems + too_big(text)
+
+
+def too_big(text):
+    """Problems with a build's size (Unreleased's too): lines in a section, and characters in all its lines. The
+    security line the staging promotion may add isn't counted, so adding it never fails the release."""
+    builds = []
+    for number, raw in enumerate(text.splitlines(), 1):
+        line = raw.rstrip()
+        if line.startswith("## "):
+            builds.append((number, []))
+        elif builds and line.startswith("### "):
+            builds[-1][1].append((number, line[4:].strip(), []))
+        elif builds and builds[-1][1] and line.startswith("- ") and line != SECURITY_LINE:
+            builds[-1][1][-1][2].append(line)
+    problems = []
+    for heading, sections in builds:
+        problems += [(number, "%d lines in '%s': at most %d; group related changes into one line" % (len(rows), name, MAX_LINES))
+                     for number, name, rows in sections if len(rows) > MAX_LINES]
+        size = sum(len(row) + 1 for _, _, rows in sections for row in rows)
+        if size > MAX_CHARACTERS:
+            problems.append((heading, "%d characters of lines in this build: at most %d, so Read changes is one message" % (size, MAX_CHARACTERS)))
     return problems
 
 
@@ -197,7 +222,7 @@ BAD = """# Changelog
 - Minor fixes.
 - Various improvements and bug fixes.
 - **Too long:** this line goes on and on, word after word, about every small detail of a feature that a reader only needed to hear about once, in a sentence or two, before the setup guide took over with the rest of it, the settings, the windows, the buttons, the menus, the colours and every last label on every page too.
-- **Too many sentences:** one. Two. Three. Four.
+- **Too many sentences:** one. Two. Three. Four
 
 ### For admins
 
@@ -248,6 +273,11 @@ Text before the first version is free.
 - **Removals:** Sonarr/Radarr titles nobody requested can be removed too, from /admin requests.
 - Fixed: approving a request sometimes left the old Cancel button working, and the queue count updates after a restart.
 - **Settings in the web app:** build 0.7.0010 is set up from the web app. Settings, then Changes, records who changed what. Is that clear?
+- **A long lead that names the whole feature, its settings page and everything around it:** these few words, e.g. this note, stay well under the limit.
+- **Three:** c.
+- **Four:** d.
+- **Five:** e.
+- **Six:** f.
 
 ## 0.6.0 (2026-10-21)
 """
@@ -262,11 +292,12 @@ def real_date(year, month, day):
 
 
 def self_test():
-    found = check(BAD)
+    big = "## 0.5.0 (2025-09-01)\n\n### For admins\n" + "".join("- **Long %d:** %s.\n" % (n, " ".join(["considerably"] * 45)) for n in range(7))
+    found = check(BAD + big)
     expected = ["backticks", "a file name", "a file path", "a command flag", "a settings key", "an environment variable name",
                 "placeholder", "summary without substance", "empty section", "section 'Internal'", "only headings",
                 "appears twice", "newest first", "a version heading", "goes once, on top", "an empty '## Unreleased'",
-                "words after the bold lead", "4 sentences", "9 lines in 'For users'"]
+                "words after the bold lead", "4 sentences", "9 lines in 'For users'", "characters of lines in this build"]
     missing = [e for e in expected if not any(e in p for _, p in found)]
     headings = sum("a version heading" in p for _, p in found)
     summaries = sum("summary without substance" in p for _, p in found)
