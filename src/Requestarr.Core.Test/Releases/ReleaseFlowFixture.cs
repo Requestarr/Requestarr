@@ -7,11 +7,11 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Releases
 {
-    // Task 4c: the release flow. Pull requests merge to dev; qa moves only on the owner's word; fixes made in QA
+    // The release flow: pull requests merge to dev; qa moves only on the owner's word; fixes made in QA
     // are merged back so dev and qa never drift. Two local stacks side by side: QA (the owner's manual QA, the
     // default) and dev (the automated testing on its own Discord server and bot).
     [TestFixture]
-    public class Item4cReleaseFlowFixture
+    public class ReleaseFlowFixture
     {
         private static string Read(params string[] path) => File.ReadAllText(RepoFiles.Path(path));
 
@@ -58,7 +58,7 @@ namespace Requestarr.Core.Test.Releases
 
             tests.Where(f => File.ReadAllText(f).Contains("com.docker.compose.service=") && !File.ReadAllText(f).Contains("com.docker.compose.project={LiveDev.ComposeProject}"))
                 .Select(Path.GetFileName).Should().BeEmpty("a container found by its service alone could be the QA stack's");
-            tests.Where(f => Path.GetFileName(f) != "Item4cReleaseFlowFixture.cs" && File.ReadAllText(f).Contains("\"requestarr-qa-"))
+            tests.Where(f => Path.GetFileName(f) != "ReleaseFlowFixture.cs" && File.ReadAllText(f).Contains("\"requestarr-qa-"))
                 .Select(Path.GetFileName).Should().BeEmpty("live checks never name a QA container");
 
             var live = tests.Where(f => Path.GetFileName(f).StartsWith("Live") && File.ReadAllText(f).Contains("[ManualTest]")).ToList();

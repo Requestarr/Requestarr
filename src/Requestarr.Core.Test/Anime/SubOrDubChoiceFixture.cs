@@ -5,11 +5,11 @@ using NUnit.Framework;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 
-namespace Requestarr.Core.Test.AnimeDub
+namespace Requestarr.Core.Test.Anime
 {
-    // Item 2: anime (genre "Anime") asks Sub or Dub before seasons; the language rides along to Sonarr.
+    // Anime (genre "Anime") asks Sub or Dub before seasons; the language rides along to Sonarr.
     [TestFixture]
-    public class Item2ChoiceFixture : AnimeScenario
+    public class SubOrDubChoiceFixture : AnimeScenario
     {
         [Test]
         public async Task an_anime_card_asks_dub_or_sub_and_states_the_rule()
@@ -103,19 +103,6 @@ namespace Requestarr.Core.Test.AnimeDub
 
             RequestFor().Language.Should().Be(AnimeLanguage.Dub);
             Sonarr.Adds.Single().Tags.Should().Equal(tags.Dub);
-        }
-
-        [Test]
-        public async Task a_late_language_click_after_someone_requested_it_is_settled_by_the_rule()
-        {
-            await SetAccess(Alice, "tv", "approval");
-            await RequestAnime(Alice, "d");
-
-            var run = await AskLanguage(Bob, "s");
-
-            RequestStore.All().Should().ContainSingle();
-            RequestFor().Language.Should().Be(AnimeLanguage.Dub);
-            run.LastReply.Content.Should().StartWith(DiscordText.FinalFollowing).And.Contain("stays **Dub**");
         }
     }
 }

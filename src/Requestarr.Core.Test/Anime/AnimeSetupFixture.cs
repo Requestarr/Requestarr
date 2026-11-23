@@ -6,12 +6,12 @@ using NUnit.Framework;
 using Requestarr.Core.Anime;
 using Requestarr.Core.Backends;
 
-namespace Requestarr.Core.Test.AnimeDub
+namespace Requestarr.Core.Test.Anime
 {
-    // Item 1: Requestarr sets up Sonarr for sub/dub itself: clearly its own, idempotent, and
+    // Requestarr sets up Sonarr for sub/dub itself: clearly its own, idempotent, and
     // never touching what the Sonarr owner made.
     [TestFixture]
-    public class Item1SetupFixture : AnimeScenario
+    public class AnimeSetupFixture : AnimeScenario
     {
         [Test]
         public async Task setup_creates_two_tags_and_two_tagged_release_profiles()

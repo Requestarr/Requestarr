@@ -6,11 +6,11 @@ using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 
-namespace Requestarr.Core.Test.AnimeDub
+namespace Requestarr.Core.Test.Anime
 {
-    // Item 3: one language per series per instance; the instance's priority decides who wins.
+    // One language per series per instance; the instance's priority decides who wins.
     [TestFixture]
-    public class Item3PriorityFixture : AnimeScenario
+    public class AnimeLanguagePriorityFixture : AnimeScenario
     {
         private IRequestSubscriberRepository Subscribers => Mocker.Resolve<IRequestSubscriberRepository>();
 
@@ -48,6 +48,7 @@ namespace Requestarr.Core.Test.AnimeDub
 
             var run = await AskLanguage(Bob, "s");
 
+            RequestStore.All().Should().ContainSingle("a late language click follows the request, never a second one");
             RequestFor().Language.Should().Be(AnimeLanguage.Dub);
             run.LastReply.Content.Should().StartWith(DiscordText.FinalFollowing).And.Contain("stays **Dub** (the English dub is kept here)");
             Subscribers.ForRequest(RequestFor().Id).Should().ContainSingle();
@@ -90,8 +91,8 @@ namespace Requestarr.Core.Test.AnimeDub
             RequestStore.All().Should().BeEmpty();
         }
 
-        // Task 4 item 13: a series that was sent to Sonarr but has nothing downloaded is not "already
-        // available"; the reply says where it really stands, and the switcher follows the request.
+        // A series that was sent to Sonarr but has nothing downloaded is not "already available": the
+        // reply says where it really stands, and the switcher follows the request.
         [Test]
         public async Task switching_a_series_that_was_sent_but_not_downloaded_says_so()
         {

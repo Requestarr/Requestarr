@@ -11,11 +11,11 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Removals
 {
-    // Task 4b: dev fast votes. On the dev stack, `dev.ps1 fast-votes on` makes removal votes close after
+    // Fast votes on dev: on the dev stack, `dev.ps1 fast-votes on` makes removal votes close after
     // 5 minutes and requesters answer within 5 (reminded at minute 3); the admin channel says so. It can't
     // be on anywhere else, and off is the real day values.
     [TestFixture]
-    public class Item4FastVotesFixture : RemovalScenario
+    public class FastVotesFixture : RemovalScenario
     {
         private void FastVotes(bool on) => Mocker.GetMock<IDevFastVotes>().SetupGet(f => f.On).Returns(on);
 
