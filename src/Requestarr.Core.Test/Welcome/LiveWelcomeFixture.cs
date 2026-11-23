@@ -29,7 +29,7 @@ using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.Welcome
 {
-    // Live, task 4e: the real bot in the dev server. Reads back both channel groups and their permissions, the welcome
+    // Live: the real bot in the dev server. Reads back both channel groups and their permissions, the welcome
     // channel (read-only for a non-admin, no media server buttons), and the blocked channel. As the test member: asks
     // for access, is denied, is refused within the cooldown, asks again after it and is approved (their channel
     // appears); then clicks until blocked (the blocked channel shows, the welcome channel hides), is unblocked by the

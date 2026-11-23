@@ -30,7 +30,7 @@ using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.Announcements
 {
-    // Live (task 3d): the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
+    // Live: the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
     // Reads back the announcements channel, its permissions and the members role on a real member, then
     // posts what's new for the current version and for a simulated upgrade; stops the test Sonarr past
     // shortened thresholds, presses Announce to users and reads back the notice, then starts it again
@@ -100,7 +100,7 @@ namespace Requestarr.Core.Test.Announcements
             IPanelService panels = null;
             IRequestFeed feed = null;
 
-            // Task 4e: no media server is connected (as on a real server today); the outage record and the access
+            // No media server is connected (as on a real server today); the outage record and the access
             // request stores are real.
             Mocker.SetConstant<Requestarr.Core.MediaServers.IMediaServerConnections>(new Requestarr.Core.MediaServers.MediaServerConnections());
             Mocker.SetConstant<Requestarr.Core.Backends.IOutageRepository>(Mocker.Resolve<Requestarr.Core.Backends.OutageRepository>());
@@ -134,7 +134,7 @@ namespace Requestarr.Core.Test.Announcements
                 Mocker.Resolve<DownInstanceSource>()
             }));
 
-            // The dev server keeps only the build running now (task 4d), as the dev stack does: the next build number and
+            // The dev server keeps only the build running now, as the dev stack does: the next build number and
             // this commit, the label the dev image is built with (.github/build_numbers.py label dev <commit>).
             var label = Environment.GetEnvironmentVariable(ReleaseEnvironment.ReleaseVersionVariable);
             label.Should().MatchRegex(@"^\d+\.\d+\.\d{4,}-dev(\.[0-9a-f]{7})?$", "the live check runs as a dev build: set it to what ./release.sh next-version says dev shows");
@@ -221,12 +221,12 @@ namespace Requestarr.Core.Test.Announcements
                 (afterAdd, afterSuspend, afterUnsuspend).Should().Be((true, false, true));
 
                 // 3. What's new on the dev server: only the current version, then a simulated upgrade replaces it, and a
-                // restart changes nothing (task 4d: dev shows only the version running now).
+                // restart changes nothing (dev shows only the version running now).
                 async Task<List<IMessage>> Recent(IMessageChannel c) => (await c.GetMessagesAsync(30).FlattenAsync()).OrderBy(m => m.Id).ToList();
                 var current = Changelog.Release(announcements.CurrentVersion());
                 await announcements.PostVersionNotesAsync();
 
-                // Since task 4e each version is a one-line card, found by its Read changes button; read back as
+                // Each version is a one-line card, found by its Read changes button; read back as
                 // "title | description".
                 static IEnumerable<string> ButtonIds(IMessage m) => m.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components).OfType<ButtonComponent>().Select(b => b.CustomId);
                 async Task<List<IMessage>> CardMessages(IMessageChannel c, VersionAudience audience) =>
