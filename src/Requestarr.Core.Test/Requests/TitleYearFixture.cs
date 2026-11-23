@@ -6,11 +6,11 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.Polish
+namespace Requestarr.Core.Test.Requests
 {
-    // Item 5: a title that already carries its year never shows it twice.
+    // A title shows its year once, even when the title already carries it.
     [TestFixture]
-    public class Item5YearFixture : RequestCardScenario
+    public class TitleYearFixture : RequestCardScenario
     {
         [TestCase("Dark Matter (2024)", 2024, "Dark Matter (2024)")]
         [TestCase("Dark Matter", 2015, "Dark Matter (2015)")]

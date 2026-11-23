@@ -7,12 +7,12 @@ using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.Gaps
+namespace Requestarr.Core.Test.Requests
 {
-    // Gap 2: Choose seasons pages through every season of any show in the same message, keeping
-    // picks across pages, and the confirmation states exactly what was picked.
+    // Choose seasons pages through every season of any show in the same message, keeping picks across pages, and the
+    // confirmation states exactly what was picked.
     [TestFixture]
-    public class Gap2SeasonPagesFixture : RequestMessageScenario
+    public class SeasonPagesFixture : RequestMessageScenario
     {
         private ulong _message;
 
@@ -143,7 +143,7 @@ namespace Requestarr.Core.Test.Gaps
         }
 
         [Test]
-        public async Task scattered_picks_on_a_long_show_still_fit_discord_custom_ids()
+        public void scattered_picks_on_a_long_show_still_fit_discord_custom_ids()
         {
             var odd = new SeasonChoice(false, Enumerable.Range(0, 20).Select(n => (n * 2) + 1).ToList(), true);
             var spec = RequestCards.EncodeSeasons(odd);

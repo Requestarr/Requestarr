@@ -9,9 +9,10 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Requests
 {
-    // Item 5: off refuses, needs approval queues a card, auto-approve sends immediately.
+    // A member's access decides what a request does: off refuses it, needs approval queues it on an approval card for an
+    // admin to approve or deny, auto-approve sends it at once. An admin's own request needs no approval.
     [TestFixture]
-    public class Item5ApprovalFixture : RequestScenario
+    public class RequestApprovalFixture : RequestScenario
     {
         [Test]
         public async Task access_off_should_refuse()
@@ -92,6 +93,24 @@ namespace Requestarr.Core.Test.Requests
             await AdminButton("req-approve:1");
             (await AdminButton("req-approve:1")).LastReply.Content.Should().Contain(DiscordText.NotPending(1, RequestStatus.Approved));
             (await AdminButton("req-deny:1")).LastReply.Content.Should().Contain(DiscordText.NotPending(1, RequestStatus.Approved));
+        }
+
+        [Test]
+        public async Task admin_can_request_from_admin_channel_without_being_added()
+        {
+            var run = await Harness.SendAsync(FakeInteraction.Button($"req-make:movie:{DuneTwo}").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
+
+            run.LastReply.Content.Should().Contain(DiscordText.RequestAdded("Dune: Part Two (2024)", 1));
+            UserFor(FakeDiscordGuild.Owner).PrivateChannelId.Should().BeNull();
+            LastRequest.OwnerUserId.Should().Be(UserFor(FakeDiscordGuild.Owner).Id);
+        }
+
+        [Test]
+        public async Task admin_record_does_not_block_adding_the_owner_as_a_user_later()
+        {
+            await Harness.SendAsync(FakeInteraction.Button($"req-make:movie:{DuneTwo}").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
+
+            (await AddUser(FakeDiscordGuild.Owner)).LastReply.Content.Should().StartWith("Added owner.");
         }
     }
 }

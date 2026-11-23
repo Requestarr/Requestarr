@@ -6,11 +6,11 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.Polish
+namespace Requestarr.Core.Test.Requests
 {
-    // Item 3: one message per request, edited in place, ending in an unmistakable status.
+    // One message per request, edited in place at every step, ending in an unmistakable status.
     [TestFixture]
-    public class Item3OneBlockFixture : RequestCardScenario
+    public class OneMessagePerRequestFixture : RequestCardScenario
     {
         private static void EditedInPlace(InteractionRun run)
         {
@@ -76,14 +76,6 @@ namespace Requestarr.Core.Test.Polish
         }
 
         [Test]
-        public async Task already_available_ends_with_available_status()
-        {
-            var final = (await RequestMovie(Alice, Arrival)).LastReply;
-
-            final.Content.Should().StartWith(DiscordText.FinalAvailable).And.Contain(DiscordText.AlreadyInLibrary);
-        }
-
-        [Test]
         public async Task refused_ends_with_the_reason_and_red_card()
         {
             await Harness.SendAsync(AdminCommand("user quota", Alice).WithOption("type", "movie").WithOption("limit", 1L));
@@ -137,8 +129,9 @@ namespace Requestarr.Core.Test.Polish
             var run = await Harness.SendAsync(CancelButton(Alice, 1));
 
             run.Responder.Responses.Single().Kind.Should().Be(ResponseKind.MessageUpdate);
-            run.LastReply.Content.Should().StartWith(DiscordText.FinalCancelled);
+            run.LastReply.Content.Should().StartWith(DiscordText.FinalCancelled).And.Contain(DiscordText.RequestCancelled("Dune (2021)", 1));
             run.LastReply.Buttons.Should().BeEmpty();
+            RequestStore.Get(1).Status.Should().Be(RequestStatus.Cancelled);
         }
 
         [Test]

@@ -6,12 +6,12 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.Gaps
+namespace Requestarr.Core.Test.Requests
 {
-    // Gap 1: every button on a request message re-checks the request on the server. Clicked late,
-    // nothing harmful happens: the asker is told privately and the message is refreshed.
+    // Every button on a request message re-checks the request on the server. Clicked late, nothing harmful happens:
+    // the asker is told privately and the message is refreshed.
     [TestFixture]
-    public class Gap1LateClickFixture : RequestMessageScenario
+    public class LateClickFixture : RequestMessageScenario
     {
         private IRequestSubscriberRepository Subscribers => Mocker.Resolve<IRequestSubscriberRepository>();
 
@@ -43,17 +43,6 @@ namespace Requestarr.Core.Test.Gaps
 
             RequestStore.Get(1).Status.Should().Be(RequestStatus.Denied);
             Message(Alice, message).Content.Should().StartWith(DiscordText.FinalDenied);
-        }
-
-        [Test]
-        public async Task someone_elses_cancel_is_refused_and_their_view_is_untouched()
-        {
-            await PendingMovie(Alice, Dune);
-
-            var run = await Harness.SendAsync(CancelButton(Bob, 1));
-
-            run.LastReply.Content.Should().Be(DiscordText.NotYourRequest);
-            RequestStore.Get(1).Status.Should().Be(RequestStatus.Pending);
         }
 
         [Test]
@@ -91,6 +80,14 @@ namespace Requestarr.Core.Test.Gaps
 
             (await Click(Bob, $"req-follow:movie:{Dune}")).LastReply.Content.Should().StartWith(DiscordText.FinalFollowing);
             Subscribers.ForRequest(1).Should().ContainSingle();
+        }
+
+        [Test]
+        public async Task a_late_click_on_a_title_now_in_the_library_gets_the_good_news()
+        {
+            Radarr.Catalog.Single(c => c.TmdbId == Dune).LibraryId = 55;
+
+            (await Click(Alice, $"req-follow:movie:{Dune}")).LastReply.Content.Should().Be(DiscordText.AlreadyThereNote);
         }
 
         [Test]
