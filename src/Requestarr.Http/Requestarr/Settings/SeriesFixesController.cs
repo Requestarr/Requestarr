@@ -15,17 +15,17 @@ namespace Requestarr.Http.Settings
             _fixes = fixes;
         }
 
-        [HttpGet("/api/v1/seriesfixes")]
+        [HttpGet("/api/v1/requestarr/seriesfixes")]
         [Produces("application/json")]
         public IActionResult List() => Json(_fixes.All());
 
-        [HttpPost("/api/v1/seriesfixes")]
+        [HttpPost("/api/v1/requestarr/seriesfixes")]
         public Task<IActionResult> Add([FromBody] SeriesFixInput body) => Answer(async () => _fixes.Save(null, body, await WebAdmin.ActorAsync(HttpContext)));
 
-        [HttpPut("/api/v1/seriesfixes/{id:int}")]
+        [HttpPut("/api/v1/requestarr/seriesfixes/{id:int}")]
         public Task<IActionResult> Change(int id, [FromBody] SeriesFixInput body) => Answer(async () => _fixes.Save(id, body, await WebAdmin.ActorAsync(HttpContext)));
 
-        [HttpDelete("/api/v1/seriesfixes/{id:int}")]
+        [HttpDelete("/api/v1/requestarr/seriesfixes/{id:int}")]
         public Task<IActionResult> Remove(int id) => Answer(async () => _fixes.Delete(id, await WebAdmin.ActorAsync(HttpContext)));
 
         private async Task<IActionResult> Answer(System.Func<Task<SeriesFixResult>> action)

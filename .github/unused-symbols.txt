@@ -64,3 +64,4 @@ Requestarr.Core.Settings.InstanceDeletionPreview.Implementation  # sent in the d
 Requestarr.Http.Settings.SetupBroadcaster  # created by the event wiring: it handles the bot's status events to tell open setup pages
 Requestarr.Core.Settings.InstanceDeleteResult.OpenRequests  # sent in the delete's answer, which the web app shows
 Requestarr.Core.Backends.BackendSettings.PurposeChoice  # a field of the media managers' provider form, read and set through Servarr's schema
+Requestarr.Core.SeriesFixes.SeriesFixRepository  # created by the container for ISeriesFixRepository, as Servarr's repositories are
