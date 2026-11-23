@@ -10,12 +10,12 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Welcome
 {
-    // Task 4e item 5: spam protection on the welcome buttons. Only clicks that can't do anything count, within a rolling
-    // hour: 5 make them wait a minute, 10 make them wait 24 hours, 5 more within 24 hours of the 10th block them. A block
-    // gives the blocked role (welcome hidden, blocked channel shown), one notice to the admins, and lasts until the admin
-    // lifts it (Unblock, or removing the role by hand). Rapid clicks cost one row and nothing else.
+    // Spam protection on the welcome buttons. Only clicks that can't do anything count, within a rolling hour: 5 make
+    // them wait a minute, 10 make them wait 24 hours, 5 more within 24 hours of the 10th block them. A block gives the
+    // blocked role (welcome hidden, blocked channel shown), one notice to the admins, and lasts until the admin lifts it
+    // (Unblock, or removing the role by hand). Rapid clicks cost one row and nothing else.
     [TestFixture]
-    public class Item5SpamFixture : WelcomeScenario
+    public class WelcomeSpamFixture : WelcomeScenario
     {
         private WelcomeGuard Guard => Mocker.Resolve<IWelcomeGuardRepository>().Find(Carol.ToString());
 
@@ -68,7 +68,7 @@ namespace Requestarr.Core.Test.Welcome
                 await Click();
             }
 
-            (await Click()).Should().EndWith(DiscordText.WelcomeSlowDown(TimeSpan.FromHours(24)));
+            (await Click()).Should().Be(DiscordText.WelcomeSlowDown(TimeSpan.FromHours(24)), "the tenth click lands inside the minute's wait, so the long wait is said once");
             Guard.CooldownUntil.Should().Be(Now.AddHours(24));
 
             for (var i = 1; i <= 4; i++)
@@ -113,19 +113,6 @@ namespace Requestarr.Core.Test.Welcome
         }
 
         [Test]
-        public async Task the_long_wait_starting_during_the_short_one_is_said_once()
-        {
-            await OpenRequest();
-
-            for (var i = 1; i <= 9; i++)
-            {
-                await Click();
-            }
-
-            (await Click()).Should().Be(DiscordText.WelcomeSlowDown(TimeSpan.FromHours(24)), "the tenth click lands inside the minute's wait");
-        }
-
-        [Test]
         public async Task unblock_on_the_member_card_lifts_the_block()
         {
             await BlockCarol();
@@ -140,6 +127,26 @@ namespace Requestarr.Core.Test.Welcome
             Guard.Blocked.Should().BeNull();
             (await Click()).Should().Be(DiscordText.WelcomePending(LastRequest.Requested), "back to normal, counting from zero");
             AuditTrail.Should().Contain(a => a.Action == "access.unblock");
+        }
+
+        [Test]
+        public async Task a_second_block_replaces_the_first_notice_and_unblocking_closes_it()
+        {
+            await OpenRequest();
+
+            for (var round = 0; round < 2; round++)
+            {
+                for (var i = 0; i < 15; i++)
+                {
+                    await Press(Carol);
+                }
+
+                AdminRoom.Messages.Count(m => m.Content != null && m.Content.StartsWith("🚫") && m.Content.Contains($"<@{Carol}>")).Should().Be(1, "one notice per person");
+                await Harness.SendAsync(AsAdmin(FakeInteraction.Button($"{AccessRoutes.Unblock}:{Carol}")));
+            }
+
+            AdminRoom.Messages.Should().ContainSingle(m => m.Content == DiscordText.Unblocked(Carol), "the notice now says it was lifted");
+            AdminRoom.Messages.Should().NotContain(m => m.Buttons.Any(b => b.CustomId == $"{AccessRoutes.Unblock}:{Carol}"));
         }
 
         [Test]
@@ -214,12 +221,7 @@ namespace Requestarr.Core.Test.Welcome
         {
             await OpenRequest();
 
-            for (var i = 0; i < 10; i++)
-            {
-                await Click();
-            }
-
-            for (var i = 0; i < 5; i++)
+            for (var i = 0; i < 15; i++)
             {
                 await Click();
             }

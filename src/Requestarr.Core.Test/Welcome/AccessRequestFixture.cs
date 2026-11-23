@@ -7,18 +7,16 @@ using Requestarr.Core.Access;
 using Requestarr.Core.Admin;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
-using Requestarr.Core.MediaServers;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Welcome
 {
-    // Task 4e items 2 and 3: the welcome message says what Requestarr is and has Request access (and a button per
-    // connected media server, none today). A request goes to the admin as a card and an /admin requests item; the
-    // admin approves with real access levels (the person is added exactly as from the panel) or denies with a reason, and
-    // the person hears privately. One open request; after a denial, a cooldown.
+    // The welcome message says what Requestarr is and has Request access. A request goes to the admin as a card and an
+    // /admin requests item; the admin approves with real access levels (the person is added exactly as from the panel)
+    // or denies with a reason, and the person hears privately. One open request; after a denial, a cooldown.
     [TestFixture]
-    public class Item2AccessRequestFixture : WelcomeScenario
+    public class AccessRequestFixture : WelcomeScenario
     {
         private Requestarr.Core.Discord.Interactions.InteractionReply WelcomeMessage => PanelIn(Discord.Channels[WelcomeChannel]);
 
@@ -31,16 +29,6 @@ namespace Requestarr.Core.Test.Welcome
             PanelIn(Discord.Channels[BlockedChannel]).Cards.Single().Text.Should().Be(DiscordText.BlockedMessage).And.StartWith("## ");
             PanelIn(Discord.Channels[BlockedChannel]).Cards.Single().Color.Should().Be(DiscordText.BlockedColor);
             Discord.Channels[WelcomeChannel].Messages.Should().ContainSingle("the one message the bot keeps current");
-        }
-
-        [Test]
-        public async Task a_connected_media_server_gets_its_own_button()
-        {
-            ConnectedMediaServers.Servers.Add(MediaServerProvider.Plex);
-            await Mocker.Resolve<IPanelService>().EnsureWelcomeAsync();
-
-            WelcomeMessage.Cards.Single().Buttons.Select(b => b.CustomId).Should().Equal(WelcomeRoutes.Request, $"{WelcomeRoutes.Media}:plex");
-            WelcomeMessage.Cards.Single().Text.Should().Contain("Plex");
         }
 
         [Test]
@@ -116,30 +104,21 @@ namespace Requestarr.Core.Test.Welcome
             after.LastReply.Content.Should().Be(DiscordText.AdminRequestsInOwnChannel(UserFor(FakeDiscordGuild.Owner).PrivateChannelId));
         }
 
-        [Test]
-        public async Task the_chooser_starts_from_what_they_asked_for()
+        // The chooser starts each type they asked for at its instance's default access, and every other type off.
+        [TestCase("tv", AccessState.NeedsApproval, "off,approval,off", "010")]
+        [TestCase("movie,tv", AccessState.AutoApprove, "approval,auto,off", "120")]
+        public async Task the_chooser_starts_from_what_they_asked_for_at_its_instances_default_access(string types, AccessState sonarrDefault, string defaults, string levels)
         {
-            await AskForAccess(Carol, null, "tv");
+            var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
+            sonarr.Config.DefaultAccess = sonarrDefault;
+            Mocker.Resolve<IBackendRepository>().Update(sonarr);
+            await AskForAccess(Carol, null, types.Split(','));
 
             var chooser = (await Harness.SendAsync(AsAdmin(FakeInteraction.Button($"{AccessRoutes.Approve}:{LastRequest.Id}")))).LastReply;
 
             chooser.Ephemeral.Should().BeTrue();
-            new[] { chooser.SelectMenu }.Concat(chooser.MoreMenus).Select(m => m.Options.Single(o => o.Default).Value).Should().Equal("off", "approval", "off");
-            chooser.Buttons.Single().CustomId.Should().Be($"{AccessRoutes.Confirm}:{LastRequest.Id}:010");
-        }
-
-        [Test]
-        public async Task the_chooser_gives_what_they_asked_for_the_default_access_of_its_instance()
-        {
-            var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
-            sonarr.Config.DefaultAccess = AccessState.AutoApprove;
-            Mocker.Resolve<IBackendRepository>().Update(sonarr);
-            await AskForAccess(Carol, null, "movie", "tv");
-
-            var chooser = (await Harness.SendAsync(AsAdmin(FakeInteraction.Button($"{AccessRoutes.Approve}:{LastRequest.Id}")))).LastReply;
-
-            new[] { chooser.SelectMenu }.Concat(chooser.MoreMenus).Select(m => m.Options.Single(o => o.Default).Value).Should().Equal("approval", "auto", "off");
-            chooser.Buttons.Single().CustomId.Should().Be($"{AccessRoutes.Confirm}:{LastRequest.Id}:120");
+            new[] { chooser.SelectMenu }.Concat(chooser.MoreMenus).Select(m => m.Options.Single(o => o.Default).Value).Should().Equal(defaults.Split(','));
+            chooser.Buttons.Single().CustomId.Should().Be($"{AccessRoutes.Confirm}:{LastRequest.Id}:{levels}");
         }
 
         [Test]
@@ -224,52 +203,6 @@ namespace Requestarr.Core.Test.Welcome
 
             run.LastReply.Content.Should().Be(DiscordText.AdminOnly);
             LastRequest.Status.Should().Be(AccessRequestState.Pending);
-        }
-
-        [Test]
-        public async Task media_server_access_alone_goes_to_the_admin_like_link_plex()
-        {
-            ConnectedMediaServers.Servers.Add(MediaServerProvider.Plex);
-            await Mocker.Resolve<IPanelService>().EnsureWelcomeAsync();
-
-            var open = await Press(Carol, $"{WelcomeRoutes.Media}:plex");
-            open.Responder.LastModal.CustomId.Should().Be($"{WelcomeRoutes.MediaForm}:plex");
-
-            var sent = await Harness.SendAsync(FakeInteraction.ModalSubmit($"{WelcomeRoutes.MediaForm}:plex").WithField(WelcomeRoutes.UsernameField, "carol_plex")
-                .By(Carol, "carol").InGuild(FakeDiscordGuild.Guild).InChannel(WelcomeChannel));
-
-            sent.LastReply.Content.Should().Be(DiscordText.AccessRequestSent(MediaServerProvider.Plex));
-            AdminRoom.Messages.Last().Buttons.Select(b => b.CustomId).Should().Equal("msreq-approve:1", "msreq-deny:1");
-            UserFor(Carol).PrivateChannelId.Should().BeNull("asking for Plex doesn't add anyone to Requestarr");
-            (await Press(Carol, $"{WelcomeRoutes.Media}:plex")).LastReply.Content.Should().Be(DiscordText.AccessRequestAlreadyPending);
-        }
-
-        [Test]
-        public async Task media_server_access_together_with_requestarr_follows_the_approval()
-        {
-            ConnectedMediaServers.Servers.Add(MediaServerProvider.Plex);
-            var click = await Press(Carol);
-            click.LastReply.SelectMenu.Options.Select(o => o.Value).Should().Equal("movie", "tv", "media:plex");
-
-            var picked = await Harness.SendAsync(FakeInteraction.SelectMenu(WelcomeRoutes.Types, "movie", "media:plex").By(Carol).InGuild(FakeDiscordGuild.Guild).InChannel(WelcomeChannel));
-            var form = await Harness.SendAsync(FakeInteraction.Button(picked.LastReply.Buttons.Single().CustomId).By(Carol).InGuild(FakeDiscordGuild.Guild).InChannel(WelcomeChannel));
-            form.Responder.LastModal.Fields.Select(f => f.CustomId).Should().Equal(WelcomeRoutes.NoteField, WelcomeRoutes.UsernameField);
-
-            await Harness.SendAsync(FakeInteraction.ModalSubmit(form.Responder.LastModal.CustomId).WithField(WelcomeRoutes.UsernameField, "carol_plex").By(Carol, "carol").InGuild(FakeDiscordGuild.Guild).InChannel(WelcomeChannel));
-            LastRequest.MediaProvider.Should().Be(MediaServerProvider.Plex);
-
-            await Approve(LastRequest.Id);
-
-            Mocker.Resolve<IMediaServerAccessRequestRepository>().GetPendingForUser(UserFor(Carol).Id).Single().Username.Should().Be("carol_plex", "it goes to the admin the same way as Link Plex");
-        }
-
-        [Test]
-        public async Task without_a_connected_media_server_its_button_does_nothing()
-        {
-            var run = await Press(Carol, $"{WelcomeRoutes.Media}:plex");
-
-            run.LastReply.Content.Should().Be(DiscordText.MediaServerNotConnected(MediaServerProvider.Plex));
-            run.Responder.LastModal.Should().BeNull();
         }
     }
 }

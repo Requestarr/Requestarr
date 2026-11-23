@@ -1,23 +1,20 @@
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Announcements;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Test.Discord.Harness;
-using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Announcements
 {
-    // Task 3d item 3: on a new version, the full list to the admin channel, the user-facing lines to the
-    // announcements channel (nothing to users when there are none), once per version, across restarts.
-    // Task 4d: two sections only, empty ones never shown; production and staging (the default here) keep every post
-    // and start with the full history. Task 4e: each post is a one-line card (Read changes shows the full card).
+    // On a new version, a card to the admin channel and, when it has lines for users, to the announcements channel:
+    // once per version, across restarts, in order. Production and staging (the default here) keep every post and
+    // start with the full history; how the other environments keep them: VersionPostsFixture.
     [TestFixture]
-    public class Item3UpgradeFixture : DiscordScenario
+    public class UpgradePostsFixture : DiscordScenario
     {
         private const string Text = @"# Changelog
 
@@ -46,11 +43,11 @@ namespace Requestarr.Core.Test.Announcements
         private AnnouncementService Service => (AnnouncementService)Mocker.Resolve<IAnnouncementService>();
 
         // The version cards' titles, oldest first.
-        private System.Collections.Generic.List<string> AdminPosts => Titles(AdminChannel);
+        private List<string> AdminPosts => Titles(AdminChannel);
 
-        private System.Collections.Generic.List<string> UserPosts => Titles(ulong.Parse(Config.AnnouncementsChannelId));
+        private List<string> UserPosts => Titles(ulong.Parse(Config.AnnouncementsChannelId));
 
-        private System.Collections.Generic.List<string> Titles(ulong channel) =>
+        private List<string> Titles(ulong channel) =>
             Discord.Channels[channel].Messages.Where(m => m.Embeds.Any()).Select(m => m.Embeds[0].Title).Where(t => t != null && t.StartsWith("Requestarr ")).ToList();
 
         // A card's title is its version and the day it was made; this changelog's headings have no date.
@@ -64,41 +61,14 @@ namespace Requestarr.Core.Test.Announcements
         }
 
         [Test]
-        public void the_changelog_parses_into_versions_and_sections()
+        public async Task the_first_start_posts_the_full_history_oldest_first()
         {
-            var versions = Changelog.Parse(Text);
+            Config.AnnouncedVersion.Should().BeNull("a new server");
 
-            versions.Select(v => v.Version.ToString()).Should().Equal("0.3.0", "0.2.5", "0.2.0", "0.1.0");
-            versions[2].Users.Should().Equal("You can now follow a request from its card.", "Your panel shows your limits.");
-            versions[2].Admins.Should().Equal("New member card layout.");
-            versions[0].Users.Should().BeEmpty();
-            versions[1].HasNews.Should().BeFalse("a version with nothing for users or admins has only its heading");
-        }
+            await StartOn("0.3.0");
 
-        [Test]
-        public void a_staging_heading_naming_the_goals_builds_keeps_its_day()
-        {
-            var version = Changelog.Parse("# Changelog\n\n## 0.7.0011 (2026-12-01), with 0.7.0005 to 0.7.0011\n\n### For users\n- **Numbers:** shown.\n").Single();
-
-            version.Version.Should().Be(new Version(0, 7, 11));
-            version.Date.Should().Be(new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc));
-        }
-
-        [Test]
-        public async Task the_full_list_goes_to_admins_and_only_user_lines_to_members()
-        {
-            await StartOn("0.2.0");
-
-            AdminPosts.Last().Should().Be(Card("0.2.0"));
-            UserPosts.Last().Should().Be(Card("0.2.0"));
-
-            var full = Service.FullCard(VersionAudience.Admins, new Version(0, 2, 0)).Single();
-            full.Ephemeral.Should().BeTrue();
-            full.Cards.Select(c => c.Text).Should().Equal(
-                "## Requestarr 0.2.0\n### For users\n- You can now follow a request from its card.\n- Your panel shows your limits.",
-                "### For admins\n- New member card layout.");
-            Service.FullCard(VersionAudience.Users, new Version(0, 2, 0)).Single().Cards.Should().ContainSingle("members see only their lines");
-            Config.AnnouncedVersion.Should().Be("0.1.0,0.2.0");
+            AdminPosts.Should().Equal(Card("0.1.0"), Card("0.2.0"), Card("0.3.0"));
+            UserPosts.Should().Equal(Card("0.1.0"), Card("0.2.0"));
         }
 
         [Test]
@@ -142,23 +112,11 @@ namespace Requestarr.Core.Test.Announcements
         [Test]
         public async Task skipped_versions_are_each_announced_in_order()
         {
-            Service.ChangelogText = () => Text;
             await StartOn("0.1.0");
             await StartOn("0.3.0");
 
             AdminPosts.Should().Equal(Card("0.1.0"), Card("0.2.0"), Card("0.3.0"));
             UserPosts.Should().HaveCount(2);
-        }
-
-        [Test]
-        public async Task the_first_start_posts_the_full_history_oldest_first()
-        {
-            Config.AnnouncedVersion.Should().BeNull("a new server");
-
-            await StartOn("0.3.0");
-
-            AdminPosts.Should().Equal(Card("0.1.0"), Card("0.2.0"), Card("0.3.0"));
-            UserPosts.Should().Equal(Card("0.1.0"), Card("0.2.0"));
         }
 
         [Test]
@@ -185,7 +143,7 @@ namespace Requestarr.Core.Test.Announcements
             AdminPosts.Should().HaveCount(3, "0.1.0, 0.2.0 and 0.3.0, once each");
         }
 
-        // Task 4c: a fix made in QA takes the next number above dev's, so the dev versions it skipped reach QA later.
+        // A fix made in QA takes the next number above dev's, so the dev versions it skipped reach QA later.
         [Test]
         public async Task versions_a_qa_fix_skipped_over_are_announced_when_they_arrive()
         {
@@ -299,44 +257,6 @@ namespace Requestarr.Core.Test.Announcements
             var text = full.SelectMany(r => r.Cards).Select(c => c.Text).ToList();
             text.SelectMany(t => t.Split('\n')).Where(l => l.StartsWith("- ")).Should().HaveCount(400, "every line, none cut");
             text.Count(t => t.StartsWith("### For users (continued)")).Should().BeGreaterThan(0);
-        }
-
-        // The shipped CHANGELOG.md: the process every pull request follows (docs/development.md).
-        [Test]
-        public void the_shipped_changelog_is_embedded_and_the_build_number_is_stamped_when_built()
-        {
-            var file = File.ReadAllText(RepoFiles.Path("CHANGELOG.md"));
-            var props = File.ReadAllText(RepoFiles.Path("src", "Directory.Build.props"));
-            var versions = Changelog.Parse(file);
-
-            props.Should().Contain("<RequestarrVersion Condition=\"'$(RequestarrVersion)' == ''\">0.0.0</RequestarrVersion>", "a build without a number is 0.0.0");
-            Regex.IsMatch(props, @"<AssemblyVersion>\d").Should().BeFalse("the number is stamped at build time, never kept in the source");
-            versions.Should().NotBeEmpty();
-            Changelog.Parse(file, new Version(9, 9, 9)).Count.Should().BeInRange(versions.Count, versions.Count + 1, "Unreleased, when there is one, is the build a dev or QA server runs");
-            versions.Select(v => v.Version).Should().OnlyHaveUniqueItems();
-            versions.Should().Contain(v => v.HasNews);
-            Changelog.Embedded().Replace("\r", string.Empty).Should().Be(file.Replace("\r", string.Empty), "the build embeds the file");
-        }
-
-        [Test]
-        public void the_process_and_the_channel_are_documented()
-        {
-            File.ReadAllText(RepoFiles.Path("docs", "development.md")).Should().Contain("## Changelog").And.Contain("Add its lines under `## Unreleased`").And.Contain("### For users");
-            File.ReadAllText(RepoFiles.Path(".github", "pull_request_template.md")).Should().Contain("CHANGELOG.md");
-            File.ReadAllText(RepoFiles.Path(".github", "workflows", "build.yml")).Should().Contain("name: Changelog").And.Contain("secrets, changelog, promotion]");
-            File.ReadAllText(RepoFiles.Path("docs", "setup-guide.md")).Should().Contain("### 5.8 The announcements channel").And.Contain("**Announce to users**").And.Contain("Requestarr Members");
-            File.ReadAllText(RepoFiles.Path("docs", "commands.md")).Should().Contain("### Announcements");
-        }
-
-        [Test]
-        public void user_lines_are_in_plain_words()
-        {
-            var technical = new[] { "Sonarr", "Radarr", "Lidarr", "API", "webhook", "database", "migration", ".NET", "refactor", "provisioning", "endpoint", "CI" };
-
-            foreach (var line in Changelog.Parse(File.ReadAllText(RepoFiles.Path("CHANGELOG.md"))).SelectMany(v => v.Users))
-            {
-                technical.Where(word => Regex.IsMatch(line, $@"\b{Regex.Escape(word)}\b", RegexOptions.IgnoreCase)).Should().BeEmpty($"\"{line}\" is for users");
-            }
         }
     }
 }

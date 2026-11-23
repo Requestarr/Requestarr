@@ -6,11 +6,12 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.Polish
+namespace Requestarr.Core.Test.Welcome
 {
-    // Item 6: one message is the welcome panel; it shows real access and buttons, no how-to text.
+    // The panel that welcomes a member in their private channel: the one message there, showing their real access and
+    // buttons, with no how-to text.
     [TestFixture]
-    public class Item6WelcomeFixture : RequestCardScenario
+    public class MemberPanelFixture : RequestCardScenario
     {
         private string Panel => PanelIn(ChannelFor(Alice)).Content;
 

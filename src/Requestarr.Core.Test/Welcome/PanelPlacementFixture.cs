@@ -5,13 +5,14 @@ using NUnit.Framework;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Welcome
 {
-    // Task 4e item 6: every panel is the newest message in its channel. When the bot posts something else there, the
-    // panel is posted again below it (quietly: no ping, no notification) and the old one removed. Panels aren't pinned.
+    // Every panel is the newest message in its channel. When the bot posts something else there, the panel is posted
+    // again below it (quietly: no ping, no notification) and the old one removed. Panels aren't pinned.
     [TestFixture]
-    public class Item6PanelsLastFixture : WelcomeScenario
+    public class PanelPlacementFixture : WelcomeScenario
     {
         private IPanelService Panels => Mocker.Resolve<IPanelService>();
 
@@ -45,28 +46,46 @@ namespace Requestarr.Core.Test.Welcome
         }
 
         [Test]
-        public async Task a_panel_already_last_stays_put()
+        public async Task the_welcome_and_blocked_messages_stay_last_too()
         {
-            var ids = AdminRoom.MessageIds.ToList();
+            await Discord.SendMessageAsync(WelcomeChannel, new InteractionReply { Content = "something" });
+            await Discord.SendMessageAsync(BlockedChannel, new InteractionReply { Content = "something" });
 
-            await Panels.KeepLastAsync(AdminChannel);
             await Panels.KeepLastAsync(WelcomeChannel);
+            await Panels.KeepLastAsync(BlockedChannel);
 
-            AdminRoom.MessageIds.Should().Equal(ids);
+            Discord.Channels[WelcomeChannel].MessageIds.Last().ToString().Should().Be(Config.WelcomeMessageId);
+            Discord.Channels[BlockedChannel].MessageIds.Last().ToString().Should().Be(Config.BlockedMessageId);
         }
 
         [Test]
-        public async Task moving_a_panel_edits_nothing_so_no_message_is_marked_edited()
+        public async Task moving_a_panel_edits_nothing_and_a_panel_already_last_stays_put()
         {
             await Discord.SendMessageAsync(AdminChannel, new InteractionReply { Content = "an approval card" });
             AdminRoom.Edited.Clear();
 
-            // The move, then the notice of the bot's own new panel: it's already last, so it's left alone.
             await Panels.KeepLastAsync(AdminChannel);
+            var moved = AdminRoom.MessageIds.ToList();
+
+            // The notice of the bot's own new panel: it's already last, so it's left alone.
             await Panels.KeepLastAsync(AdminChannel);
 
-            AdminRoom.Edited.Should().BeEmpty();
+            AdminRoom.MessageIds.Should().Equal(moved, "a panel already last stays put");
+            AdminRoom.Edited.Should().BeEmpty("no message is marked edited");
             AdminRoom.MessageIds.Last().ToString().Should().Be(Config.AdminPanelMessageId);
+        }
+
+        [Test]
+        public async Task moving_a_panel_never_undoes_a_change_made_meanwhile()
+        {
+            await AddUser(Alice);
+            await Discord.SendMessageAsync(ChannelOf(Alice), new InteractionReply { Content = "a request message" });
+            var stale = UserFor(Alice);
+
+            await Harness.SendAsync(AdminCommand("user suspend", Alice));
+            await Panels.KeepLastAsync(ulong.Parse(stale.PrivateChannelId));
+
+            UserFor(Alice).Status.Should().Be(UserStatus.Suspended);
         }
 
         [Test]
@@ -86,19 +105,6 @@ namespace Requestarr.Core.Test.Welcome
             AdminRoom.Edited.Should().BeEmpty("the admin panel already shows what it should");
             welcome.Edited.Should().Equal(ulong.Parse(Config.WelcomeMessageId));
             welcome.Messages[index].Cards[0].Text.Should().Be(current.Cards[0].Text);
-        }
-
-        [Test]
-        public async Task the_welcome_and_blocked_messages_stay_last_too()
-        {
-            await Discord.SendMessageAsync(WelcomeChannel, new InteractionReply { Content = "something" });
-            await Discord.SendMessageAsync(BlockedChannel, new InteractionReply { Content = "something" });
-
-            await Panels.KeepLastAsync(WelcomeChannel);
-            await Panels.KeepLastAsync(BlockedChannel);
-
-            Discord.Channels[WelcomeChannel].MessageIds.Last().ToString().Should().Be(Config.WelcomeMessageId);
-            Discord.Channels[BlockedChannel].MessageIds.Last().ToString().Should().Be(Config.BlockedMessageId);
         }
 
         [Test]

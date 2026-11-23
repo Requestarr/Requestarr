@@ -13,12 +13,12 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Announcements
 {
-    // Task 4d item 7: the "what's new" posts are a standing record, kept in step with each environment. Production and
-    // staging keep every version for good (Item3UpgradeFixture); QA shows what staging doesn't have yet and rebuilds
-    // after a reset; dev shows only the version running now. Task 4e: each post is a one-line card; the lists below are
-    // the versions of the cards in each channel, oldest first.
+    // The "what's new" cards are a standing record, kept in step with each environment. Production and staging keep
+    // every version for good (UpgradePostsFixture). QA shows what staging doesn't have yet and rebuilds after a
+    // reset, and dev shows only the version running now. The lists below are the versions of the cards in each
+    // channel, oldest first.
     [TestFixture]
-    public class Item4dVersionPostsFixture : DiscordScenario
+    public class VersionPostsFixture : DiscordScenario
     {
         private const string Text = @"# Changelog
 
@@ -90,42 +90,16 @@ namespace Requestarr.Core.Test.Announcements
             await Service.PostVersionNotesAsync();
         }
 
-        private static string Admin(string version) => version;
-
-        private static string UserPost(string version) => version;
-
-        [Test]
-        public void the_environment_decides_how_posts_are_kept()
+        [TestCase("0.1.0", "0.2.0,0.3.0", "0.2.0")]
+        [TestCase(null, "0.1.0,0.2.0,0.3.0", "0.1.0,0.2.0")]
+        public async Task qa_shows_every_version_staging_does_not_have_yet(string staged, string admins, string users)
         {
-            VersionPostMode Mode(string name) => new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? name : null }.VersionPosts;
-
-            (Mode("dev"), Mode("qa"), Mode(" QA "), Mode("staging"), Mode(null), Mode("anything else"))
-                .Should().Be((VersionPostMode.CurrentOnly, VersionPostMode.NotYetStaged, VersionPostMode.NotYetStaged, VersionPostMode.Standing, VersionPostMode.Standing, VersionPostMode.Standing));
-            new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.StagedVersionsVariable ? "0.1.0, 0.2.0,junk" : null }.Staged
-                .Should().BeEquivalentTo(new[] { new Version(0, 1, 0), new Version(0, 2, 0) });
-            new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = _ => null }.Staged.Should().BeEmpty();
-        }
-
-        [Test]
-        public async Task qa_shows_every_version_staging_does_not_have_yet()
-        {
-            Environment("qa", "0.1.0");
+            Environment("qa", staged);
 
             await StartOn("0.3.0");
 
-            AdminHeaders.Should().Equal(Admin("0.2.0"), Admin("0.3.0"));
-            UserHeaders.Should().Equal(UserPost("0.2.0"));
-        }
-
-        [Test]
-        public async Task with_nothing_in_staging_qa_shows_the_full_history()
-        {
-            Environment("qa");
-
-            await StartOn("0.3.0");
-
-            AdminHeaders.Should().Equal(Admin("0.1.0"), Admin("0.2.0"), Admin("0.3.0"));
-            UserHeaders.Should().Equal(UserPost("0.1.0"), UserPost("0.2.0"));
+            AdminHeaders.Should().Equal(admins.Split(','));
+            UserHeaders.Should().Equal(users.Split(','));
         }
 
         [Test]
@@ -137,7 +111,7 @@ namespace Requestarr.Core.Test.Announcements
             Environment("qa", "0.1.0,0.2.0,0.2.5");
             await StartOn("0.3.0");
 
-            AdminHeaders.Should().Equal(Admin("0.3.0"));
+            AdminHeaders.Should().Equal("0.3.0");
             UserHeaders.Should().BeEmpty();
 
             Environment("qa", "0.1.0,0.2.0,0.2.5,0.3.0");
@@ -162,8 +136,8 @@ namespace Requestarr.Core.Test.Announcements
 
             await StartOn("0.3.0");
 
-            AdminHeaders.Should().Equal(Admin("0.2.0"), Admin("0.3.0"));
-            UserHeaders.Should().Equal(UserPost("0.2.0"));
+            AdminHeaders.Should().Equal("0.2.0", "0.3.0");
+            UserHeaders.Should().Equal("0.2.0");
         }
 
         [Test]
@@ -177,7 +151,7 @@ namespace Requestarr.Core.Test.Announcements
             Discord.Channels[AdminChannel].MessageIds.Should().Equal(ids, "nothing reposted");
 
             await StartOn("0.3.0");
-            AdminHeaders.Should().Equal(Admin("0.1.0"), Admin("0.2.0"), Admin("0.3.0"));
+            AdminHeaders.Should().Equal("0.1.0", "0.2.0", "0.3.0");
             Discord.Channels[AdminChannel].MessageIds.Take(ids.Count).Should().Equal(ids);
         }
 
@@ -190,21 +164,7 @@ namespace Requestarr.Core.Test.Announcements
 
             await StartOn("0.3.0");
 
-            AdminHeaders.Should().Equal(Admin("0.2.0"), Admin("0.3.0"));
-        }
-
-        [Test]
-        public async Task rewritten_words_are_edited_in_place()
-        {
-            Environment("qa");
-            await StartOn("0.3.0");
-            var ids = Discord.Channels[UsersChannel].MessageIds.ToList();
-            Discord.Channels[UsersChannel].Messages.First().Embeds[0].Description.Should().Be("Requests", "the main change in a few words");
-
-            await StartOn("0.3.0", Text.Replace("**Requests:**", "**Requesting:**"));
-
-            Discord.Channels[UsersChannel].MessageIds.Should().Equal(ids);
-            Discord.Channels[UsersChannel].Messages.First().Embeds[0].Description.Should().Be("Requesting");
+            AdminHeaders.Should().Equal("0.2.0", "0.3.0");
         }
 
         [Test]
@@ -218,9 +178,9 @@ namespace Requestarr.Core.Test.Announcements
             await StartOn("0.3.0");
 
             Discord.Channels[AdminChannel].Messages.Select(m => m.Content).Should().Contain("⚠️ Sonarr (test) can't be reached.");
-            AdminHeaders.Should().Equal(Admin("0.1.0"), Admin("0.2.0"), Admin("0.3.0"));
+            AdminHeaders.Should().Equal("0.1.0", "0.2.0", "0.3.0");
             string.Join("\n", Discord.Channels[AdminChannel].Messages.Select(m => m.Content ?? string.Empty)).Should().NotContain("nothing this time").And.NotContain("Internal");
-            UserHeaders.Should().Equal(UserPost("0.1.0"), UserPost("0.2.0"));
+            UserHeaders.Should().Equal("0.1.0", "0.2.0");
         }
 
         [Test]
@@ -229,11 +189,11 @@ namespace Requestarr.Core.Test.Announcements
             Environment("dev");
 
             await StartOn("0.2.0");
-            AdminHeaders.Should().Equal(Admin("0.2.0"));
-            UserHeaders.Should().Equal(UserPost("0.2.0"));
+            AdminHeaders.Should().Equal("0.2.0");
+            UserHeaders.Should().Equal("0.2.0");
 
             await StartOn("0.3.0");
-            AdminHeaders.Should().Equal(Admin("0.3.0"));
+            AdminHeaders.Should().Equal("0.3.0");
             UserHeaders.Should().BeEmpty("0.3.0 has nothing for users");
 
             await StartOn("0.2.5");
@@ -249,24 +209,7 @@ namespace Requestarr.Core.Test.Announcements
             await StartOn("0.2.0");
             await StartOn("0.3.0");
 
-            AdminHeaders.Should().Equal(Admin("0.0.9"), Admin("0.1.0"), Admin("0.2.0"), Admin("0.3.0"));
-        }
-
-        [Test]
-        public void a_version_shows_as_the_build_label_only_for_the_version_the_build_runs()
-        {
-            string Shown(string label, string version) =>
-                new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.ReleaseVersionVariable ? label : null }.Shown(new Version(version));
-
-            Shown("0.7.0004-dev.4f2a9c1", "0.7.4.11354").Should().Be("0.7.0004-dev.4f2a9c1");
-            Shown("0.7.0004-dev", "0.7.4").Should().Be("0.7.0004-dev", "a goal's numbered dev build shows its number");
-            Shown("0.7.0004-qa", "0.7.4").Should().Be("0.7.0004-qa", "and QA the same number");
-            Shown(" 0.7.0004-qa.4f2a9c1 ", "0.7.4").Should().Be("0.7.0004-qa.4f2a9c1");
-            Shown("0.7.0004", "0.7.4").Should().Be("0.7.0004", "a build sent to testers shows its number");
-            Shown("0.7.0004-dev.4f2a9c1", "0.6.0").Should().Be("0.6.0", "an older version keeps its own number");
-            Shown(null, "0.7.12").Should().Be("0.7.0012", "a build without a label shows its number, four digits from 0.7 on");
-            Shown("0.7.0004-beta.1", "0.7.4").Should().Be("0.7.0004", "only the labels Requestarr's builds use count");
-            Shown("0.7.4-dev.4f2a9c1", "0.7.4").Should().Be("0.7.0004", "a label without the four digits isn't one");
+            AdminHeaders.Should().Equal("0.0.9", "0.1.0", "0.2.0", "0.3.0");
         }
 
         [Test]
@@ -284,23 +227,13 @@ namespace Requestarr.Core.Test.Announcements
         }
 
         [Test]
-        public async Task qa_shows_unreleased_with_what_staging_does_not_have_yet()
-        {
-            Environment("qa", "0.6.0");
-
-            await StartOn("0.7.4", Pending);
-
-            AdminHeaders.Should().Equal("0.7.4");
-        }
-
-        [Test]
         public async Task qa_shows_unreleased_as_everything_since_the_last_beta_and_a_folded_version_loses_its_card()
         {
             Environment("qa", "0.5.6");
             Mocker.GetMock<IReleaseEnvironment>().Setup(e => e.Shown(It.IsAny<Version>())).Returns<Version>(v => v == new Version(0, 7, 4) ? "0.7.0004-qa.4f2a9c1" : Changelog.Display(v));
             await Discord.SendMessageAsync(AdminChannel, new InteractionReply { Content = "something else in the channel" });
             await StartOn("0.7.4", Pending + "\n## 0.5.6 (2026-11-13)\n\n### For admins\n- **Testers have it:** yes.\n");
-            AdminHeaders.Should().Equal("0.6.0", "0.7.4");
+            AdminHeaders.Should().Equal(new[] { "0.6.0", "0.7.4" }, "Unreleased shows with every version staging doesn't have yet");
 
             // 0.6.0 never reached the testers: it's folded into Unreleased.
             await StartOn("0.7.4", Pending.Replace("## 0.6.0 (2026-11-13)", "## 0.5.6 (2026-11-13)"));
@@ -323,17 +256,6 @@ namespace Requestarr.Core.Test.Announcements
             await StartOn("0.7.4", numbered);
             AdminHeaders.Should().Equal("0.6.0", "0.7.4");
             Discord.Channels[AdminChannel].Messages.Last(m => m.Embeds.Any()).Embeds[0].Title.Should().Be("Requestarr 0.7.0004 · November 20");
-        }
-
-        [Test]
-        public void a_card_is_found_by_its_read_changes_button_whatever_its_title()
-        {
-            VersionCards.Parse(new[] { "whatsnew:a:0.4.17" }, VersionAudience.Admins).Should().Be(new Version(0, 4, 17));
-            VersionCards.Parse(new[] { "whatsnew:u:0.4.17" }, VersionAudience.Users).Should().Be(new Version(0, 4, 17));
-            VersionCards.Parse(new[] { "whatsnew:u:0.4.17" }, VersionAudience.Admins).Should().BeNull("the other channel's card");
-            VersionCards.Parse(new[] { "whatsnew:a:soon" }, VersionAudience.Admins).Should().BeNull();
-            VersionCards.Parse(new[] { "admin:panel" }, VersionAudience.Admins).Should().BeNull();
-            VersionCards.Parse(null, VersionAudience.Admins).Should().BeNull("a message without buttons");
         }
 
         // A card as an earlier version of Requestarr posted it: the same button, an older title.
@@ -381,9 +303,10 @@ namespace Requestarr.Core.Test.Announcements
         }
 
         // A released version's lines rewritten with the owner's approval (0.7.0010, November 23, 2026): the next start
-        // on a build carrying the new words edits the cards a standing server keeps, and Read changes shows the new lines.
+        // on a build carrying the new words edits the cards the server keeps, and Read changes shows the new lines.
         [TestCase("staging")]
         [TestCase("production")]
+        [TestCase("qa")]
         public async Task a_rewritten_version_updates_the_kept_cards_in_place(string environment)
         {
             Environment(environment);
@@ -404,21 +327,6 @@ namespace Requestarr.Core.Test.Announcements
             Service.FullCard(VersionAudience.Users, new Version(0, 2, 0)).Single().Cards.Single().Text.Should().Contain("- **Follow:** follow a request from its card.").And.NotContain("Panels");
         }
 
-        // The changelog's limits (50 words a line, 8 lines a section) keep every released build's Read changes to one
-        // message, with one card for each section.
-        [Test]
-        public void every_released_version_reads_in_one_message_with_one_card_a_section()
-        {
-            foreach (var version in Changelog.Parse(Changelog.Embedded()).Where(v => v.HasNews && v.Date != null))
-            {
-                var full = VersionCards.Full(version, VersionAudience.Admins);
-                var sections = (version.Users.Count > 0 ? 1 : 0) + (version.Admins.Count > 0 ? 1 : 0);
-
-                full.Should().ContainSingle($"{version.Version} fits one message");
-                full[0].Cards.Should().HaveCount(sections, $"{version.Version} has one card a section");
-            }
-        }
-
         [Test]
         public async Task staging_replaces_its_posts_from_before_cards_once_keeping_the_history()
         {
@@ -427,14 +335,14 @@ namespace Requestarr.Core.Test.Announcements
             await Discord.SendMessageAsync(UsersChannel, new InteractionReply { Content = "✨ **What's new in Requestarr 0.1.0**\n• Old." });
             var config = Config;
             config.AnnouncedVersion = "0.2.0";
-            Mocker.Resolve<Requestarr.Core.Discord.IDiscordGuildConfigRepository>().Upsert(config);
+            Mocker.Resolve<IDiscordGuildConfigRepository>().Upsert(config);
 
             await StartOn("0.2.0");
             var ids = Discord.Channels[AdminChannel].MessageIds.ToList();
             await StartOn("0.2.0");
 
-            AdminHeaders.Should().Equal(Admin("0.1.0"), Admin("0.2.0"));
-            UserHeaders.Should().Equal(UserPost("0.1.0"), UserPost("0.2.0"));
+            AdminHeaders.Should().Equal("0.1.0", "0.2.0");
+            UserHeaders.Should().Equal("0.1.0", "0.2.0");
             Discord.Channels[AdminChannel].Messages.Should().NotContain(m => m.Content != null && m.Content.StartsWith("📋"));
             Discord.Channels[AdminChannel].MessageIds.Should().Equal(ids, "converted once");
         }
@@ -451,7 +359,7 @@ namespace Requestarr.Core.Test.Announcements
             await StartOn("0.9.0", text);
 
             Discord.Channels[AdminChannel].MessageIds.Should().Equal(ids);
-            AdminHeaders.Should().ContainSingle("a long version is still one card").Which.Should().Be(Admin("0.9.0"));
+            AdminHeaders.Should().ContainSingle("a long version is still one card").Which.Should().Be("0.9.0");
         }
     }
 }

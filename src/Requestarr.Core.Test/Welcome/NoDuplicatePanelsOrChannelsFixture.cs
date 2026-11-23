@@ -11,12 +11,11 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Welcome
 {
-    // Task 4e, from the owner watching the dev server: the bot recognises its own panels, groups and channels by what
-    // they are, not only by the IDs in its database, so a restart with a new database or a reset never makes a second
-    // one; a member who returns gets their one channel back; loose channels go back into their group; one block notice
-    // per person; and moving a panel never undoes a change to the member made meanwhile.
+    // The bot recognises its own panels, groups and channels by what they are, not only by the IDs in its database, so
+    // a restart with a new database or a reset never makes a second one; a member who returns gets their one channel
+    // back, and loose channels go back into their group.
     [TestFixture]
-    public class Item10NoDuplicatesFixture : WelcomeScenario
+    public class NoDuplicatePanelsOrChannelsFixture : WelcomeScenario
     {
         private int Panels(ulong channel, string route) => PanelsIn(Discord.Channels[channel], route);
 
@@ -147,39 +146,6 @@ namespace Requestarr.Core.Test.Welcome
             Discord.ChannelNamed("requests-alice").CategoryId.Should().Be(users, "known by name even with a new database");
             Discord.Channels[loose].CategoryId.Should().Be(users);
             Discord.Channels[AdminChannel].CategoryId.Should().Be(ulong.Parse(Config.AdminCategoryId));
-        }
-
-        [Test]
-        public async Task a_second_block_replaces_the_first_notice_and_unblocking_closes_it()
-        {
-            await AskForAccess(Carol, null, "movie");
-
-            for (var round = 0; round < 2; round++)
-            {
-                for (var i = 0; i < 15; i++)
-                {
-                    await Press(Carol);
-                }
-
-                AdminRoom.Messages.Count(m => m.Content != null && m.Content.StartsWith("🚫") && m.Content.Contains($"<@{Carol}>")).Should().Be(1, "one notice per person");
-                await Harness.SendAsync(AsAdmin(FakeInteraction.Button($"{AccessRoutes.Unblock}:{Carol}")));
-            }
-
-            AdminRoom.Messages.Should().ContainSingle(m => m.Content == DiscordText.Unblocked(Carol), "the notice now says it was lifted");
-            AdminRoom.Messages.Should().NotContain(m => m.Buttons.Any(b => b.CustomId == $"{AccessRoutes.Unblock}:{Carol}"));
-        }
-
-        [Test]
-        public async Task moving_a_panel_never_undoes_a_change_made_meanwhile()
-        {
-            await AddUser(Alice);
-            await Discord.SendMessageAsync(ChannelOf(Alice), new InteractionReply { Content = "a request message" });
-            var stale = UserFor(Alice);
-
-            await Harness.SendAsync(AdminCommand("user suspend", Alice));
-            await Mocker.Resolve<IPanelService>().KeepLastAsync(ulong.Parse(stale.PrivateChannelId));
-
-            UserFor(Alice).Status.Should().Be(UserStatus.Suspended);
         }
     }
 }
