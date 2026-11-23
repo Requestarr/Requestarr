@@ -380,6 +380,45 @@ namespace Requestarr.Core.Test.Announcements
             admin.Messages.Should().OnlyContain(m => !m.Embeds[0].Title.Contains("change"));
         }
 
+        // A released version's lines rewritten with the owner's approval (0.7.0010, November 23, 2026): the next start
+        // on a build carrying the new words edits the cards a standing server keeps, and Read changes shows the new lines.
+        [TestCase("staging")]
+        [TestCase("production")]
+        public async Task a_rewritten_version_updates_the_kept_cards_in_place(string environment)
+        {
+            Environment(environment);
+            var longer = Text.Replace("- **Follow:** follow a request from its card.", "- **Follow:** follow a request from its card, in a long paragraph.\n- **Panels:** your panel, again.");
+            await StartOn("0.3.0", longer);
+            var admin = Discord.Channels[AdminChannel];
+            var users = Discord.Channels[UsersChannel];
+            var adminIds = admin.MessageIds.ToList();
+            var userIds = users.MessageIds.ToList();
+            var before = users.Messages.Select(m => m.Embeds[0].Description).ToList();
+
+            await StartOn("0.3.0");
+
+            admin.MessageIds.Should().Equal(adminIds, "the cards are edited, not posted again");
+            users.MessageIds.Should().Equal(userIds);
+            users.Messages.Select(m => m.Embeds[0].Description).Should().NotEqual(before);
+            users.Messages[1].Embeds[0].Description.Should().Be(VersionCards.Collapsed(Changelog.Parse(Text).Single(v => v.Version == new Version(0, 2, 0)), VersionAudience.Users, DateTime.UtcNow.Year).Description);
+            Service.FullCard(VersionAudience.Users, new Version(0, 2, 0)).Single().Cards.Single().Text.Should().Contain("- **Follow:** follow a request from its card.").And.NotContain("Panels");
+        }
+
+        // The changelog's limits (50 words a line, 8 lines a section) keep every released build's Read changes to one
+        // message, with one card for each section.
+        [Test]
+        public void every_released_version_reads_in_one_message_with_one_card_a_section()
+        {
+            foreach (var version in Changelog.Parse(Changelog.Embedded()).Where(v => v.HasNews && v.Date != null))
+            {
+                var full = VersionCards.Full(version, VersionAudience.Admins);
+                var sections = (version.Users.Count > 0 ? 1 : 0) + (version.Admins.Count > 0 ? 1 : 0);
+
+                full.Should().ContainSingle($"{version.Version} fits one message");
+                full[0].Cards.Should().HaveCount(sections, $"{version.Version} has one card a section");
+            }
+        }
+
         [Test]
         public async Task staging_replaces_its_posts_from_before_cards_once_keeping_the_history()
         {
