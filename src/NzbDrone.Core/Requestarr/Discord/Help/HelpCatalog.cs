@@ -99,7 +99,7 @@ namespace Requestarr.Core.Discord.Help
                 Summary = "Pick dubbed or subtitled anime",
                 Visible = v => v.Types.Contains(ContentType.Tv),
                 Intro = _ => $"For anime, the card asks **{DiscordText.Label(Requests.AnimeLanguage.Dub)}** (English audio) or **{DiscordText.Label(Requests.AnimeLanguage.Sub)}** (original audio with subtitles) before seasons.\n" +
-                             "A series is one language on the server. The card says which it's set to and the server's rule: dub wins, sub wins, or the first request decides. " +
+                             "A series is one language on the server. The card says which it's set to and the server's rule when two people want different versions: keep the English dub, keep the subtitled version, or whoever asked first. " +
                              "Asking for the language that wins switches the series (episodes already downloaded stay; new and missing ones come in the new language). Asking for the other one makes you a follower."
             },
             new HelpTopic

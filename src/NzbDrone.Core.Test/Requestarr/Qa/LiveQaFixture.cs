@@ -103,6 +103,8 @@ namespace Requestarr.Core.Test.Qa
                 new Lazy<IPanelService>(() => panels),
                 new Lazy<IRequestFeed>(() => Mocker.GetMock<IRequestFeed>().Object),
                 new Lazy<IAccessRequestService>(() => null),
+                new Lazy<Requestarr.Core.Settings.IDiscordServerChoice>(() => null),
+                new Lazy<IDiscordAdmins>(() => null),
                 Mocker.Resolve<IEventAggregator>(),
                 LogManager.GetLogger("LiveDiscord"));
 

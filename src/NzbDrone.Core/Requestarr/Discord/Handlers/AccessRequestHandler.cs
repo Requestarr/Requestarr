@@ -145,7 +145,7 @@ namespace Requestarr.Core.Discord.Handlers
             {
                 CustomId = $"{AccessRoutes.Level}:{request.Id}:{encoded}:{Key(type)}",
                 Placeholder = DiscordText.AccessSelectPlaceholder(type),
-                Options = new[] { AccessState.Off, AccessState.NeedsApproval, AccessState.AutoApprove }
+                Options = AccessStates.Shown
                     .Select(state => new InteractionSelectOption($"{DiscordText.Label(type)}: {DiscordText.LevelLabel(state)}", LevelKey(state), null, levels[type] == state)).ToList()
             }).ToList();
 

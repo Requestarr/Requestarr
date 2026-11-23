@@ -3,21 +3,22 @@ import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
+import FieldSet from 'Components/FieldSet';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import BotStatus from '../BotStatus';
 import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
-import { CONNECTION_OPTIONS, DISCORD_SECTIONS } from '../settingsPages';
-import SettingsSections from '../SettingsSections';
-import useRequestarrApi from '../useRequestarrApi';
+import SettingField from '../SettingField';
 import useSettingsForm, { SettingsForm } from '../useSettingsForm';
-import { discordLabels, TestOutcome } from './connectionLabels';
-import { MediaServersSection, SettingsCardSection } from './ConnectionSections';
-import ConnectionsToolbar, { useShowAdvanced } from './ConnectionsToolbar';
+import useSetupStatus from '../useSetupStatus';
+import { TestOutcome } from './connectionLabels';
+import { MediaServersSection } from './ConnectionSections';
+import ConnectionsToolbar from './ConnectionsToolbar';
+import DiscordSection from './Discord/DiscordSection';
 import MediaManagersSection from './MediaManagers/MediaManagersSection';
+import WebhookAddressField from './WebhookAddressField';
 import styles from './Connections.css';
 
 // What Test All Connections found: each failure on its own line, that everything passed, or that nothing was turned
@@ -70,7 +71,6 @@ interface ConnectionCardsProps {
   setup?: SetupStatus;
   outcomes?: TestOutcome[];
   options: SettingsForm;
-  showAdvanced: boolean;
   onSaved: () => void;
 }
 
@@ -81,34 +81,26 @@ function ConnectionCards({
   setup,
   outcomes,
   options,
-  showAdvanced,
   onSaved,
 }: ConnectionCardsProps) {
-  const cards = { settings, showAdvanced, onSaved };
-
   return (
     <>
-      <SettingsCardSection
-        id="discord"
-        legend={translate('SettingsDiscord')}
-        name={translate('ConnectionDiscordBot')}
-        type={translate('Discord')}
-        labels={discordLabels(setup, settings)}
-        sections={DISCORD_SECTIONS}
-        {...cards}
-      >
-        {setup && <BotStatus setup={setup} showReadOnlyInvite={true} />}
-      </SettingsCardSection>
+      {setup && (
+        <DiscordSection setup={setup} settings={settings} onSaved={onSaved} />
+      )}
 
       <MediaManagersSection settings={settings} outcomes={outcomes} />
 
       <MediaServersSection />
 
-      <SettingsSections
-        sections={[CONNECTION_OPTIONS]}
-        form={options}
-        showAdvanced={showAdvanced}
-      />
+      <FieldSet legend={translate('Options')}>
+        <WebhookAddressField form={options} />
+        <SettingField
+          name="availabilityPollMinutes"
+          input="number"
+          form={options}
+        />
+      </FieldSet>
     </>
   );
 }
@@ -135,8 +127,7 @@ function useTestAllOutcomes(): TestOutcome[] | undefined {
 // sets it (dev and QA).
 function ConnectionsSettings() {
   const options = useSettingsForm();
-  const setup = useRequestarrApi<SetupStatus>('setup');
-  const showAdvanced = useShowAdvanced();
+  const setup = useSetupStatus();
   const outcomes = useTestAllOutcomes();
   const { settings, reload } = options;
   const { reload: reloadSetup } = setup;
@@ -175,7 +166,6 @@ function ConnectionsSettings() {
             setup={setup.data}
             outcomes={outcomes}
             options={options}
-            showAdvanced={showAdvanced}
             onSaved={onSaved}
           />
         )}

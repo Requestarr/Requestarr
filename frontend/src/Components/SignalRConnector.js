@@ -193,6 +193,11 @@ class SignalRConnector extends Component {
     this.props.dispatchFetchMediaManagers();
   };
 
+  // The bot connected, or joined or left a server: the setup and Connections pages read the setup again.
+  handleSetup = () => {
+    this.props.dispatchSetAppValue({ setupChanged: Date.now() });
+  };
+
   handleTag = (body) => {
     if (body.action === 'sync') {
       this.props.dispatchFetchTags();

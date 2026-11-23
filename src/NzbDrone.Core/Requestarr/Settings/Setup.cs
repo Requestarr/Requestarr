@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NzbDrone.Core.Authentication;
 using NzbDrone.Core.Configuration;
+using Requestarr.Core.Announcements;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
@@ -13,10 +14,21 @@ namespace Requestarr.Core.Settings
     // A new install without a provisioning file starts with nothing set. Needed: some step isn't done yet, so the web
     // app opens the first-run setup: the admin's sign-in (the sign-in dialog every fresh install shows), the Discord
     // bot, and at least one Sonarr or Radarr unless the admin skipped that step (InstanceSkipped: they add them later on
-    // the Connections page). InviteUrl adds the bot to a server, once its application ID is known, and
-    // the read-only one adds it to another server only to read there, for an import from Requestrr.
+    // the Connections page). Discord is done once the bot has a server: the token is all the admin types, and the bot
+    // reads its application and server from Discord. InviteUrl adds the bot to Requestarr's server, offered while it
+    // isn't in one (none chosen yet, or removed from it); the read-only one adds it to another server only to read
+    // there, for an import from Requestrr.
+    // PickServer: the bot is in several servers and none is Requestarr's yet. BetaFromImage: the beta image says this
+    // is beta, shown read-only.
     public record SetupStatus(bool Needed, bool AdminAccount, bool Discord, bool Instance, bool InstanceSkipped, DiscordBotState BotState, string BotProblem,
-                              string InviteUrl, string ReadOnlyInviteUrl);
+                              string InviteUrl, string ReadOnlyInviteUrl)
+    {
+        public DiscordBotIdentity Bot { get; init; }
+        public IReadOnlyList<DiscordServer> Servers { get; init; } = new List<DiscordServer>();
+        public bool PickServer { get; init; }
+        public bool BetaFromImage { get; init; }
+        public bool Provisioned { get; init; }
+    }
 
     public interface ISetupService
     {
@@ -47,6 +59,7 @@ namespace Requestarr.Core.Settings
         private readonly IDiscordClientHost _discordHost;
         private readonly IInstanceSettingsService _instances;
         private readonly IAuditRepository _audit;
+        private readonly IReleaseEnvironment _environment;
 
         public SetupService(IProvisioningService provisioning,
                             IConfigFileProvider configFile,
@@ -54,7 +67,8 @@ namespace Requestarr.Core.Settings
                             IDiscordSettingsStore discord,
                             IDiscordClientHost discordHost,
                             IInstanceSettingsService instances,
-                            IAuditRepository audit)
+                            IAuditRepository audit,
+                            IReleaseEnvironment environment)
         {
             _provisioning = provisioning;
             _configFile = configFile;
@@ -63,6 +77,7 @@ namespace Requestarr.Core.Settings
             _discordHost = discordHost;
             _instances = instances;
             _audit = audit;
+            _environment = environment;
         }
 
         public SetupStatus Status()
@@ -72,12 +87,22 @@ namespace Requestarr.Core.Settings
             var instance = _instances.All().Any(i => i.Settings.Enabled);
             var skipped = _config.SetupInstanceSkipped;
             var applicationId = _discord.Current.ApplicationId;
-            var invite = InviteUrl(applicationId, InvitePermissions, InviteScope);
+            var servers = _discordHost.Servers;
+            var hasServer = _discord.Current.GuildId != 0;
+            var inServer = servers.Any(s => s.IsOurs && s.Reachable);
+            var invite = inServer ? null : InviteUrl(applicationId, InvitePermissions, InviteScope);
             var readOnlyInvite = InviteUrl(applicationId, ReadOnlyInvitePermissions, ReadOnlyInviteScope);
 
             var needed = !_provisioning.UsesFile && !(adminAccount && discord && (instance || skipped));
 
-            return new SetupStatus(needed, adminAccount, discord, instance, skipped, _discordHost.State, _discordHost.LastError, invite, readOnlyInvite);
+            return new SetupStatus(needed, adminAccount, discord, instance, skipped, _discordHost.State, _discordHost.LastError, invite, readOnlyInvite)
+            {
+                Bot = _discordHost.Bot,
+                Servers = servers,
+                PickServer = !hasServer && servers.Count > 1,
+                BetaFromImage = _environment.BetaFromImage,
+                Provisioned = _provisioning.UsesFile
+            };
         }
 
         public SetupStatus SkipInstance()

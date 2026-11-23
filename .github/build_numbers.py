@@ -251,8 +251,9 @@ def release_of(numbered, sha):
 
 
 def image_plan(event, branch, sha, changelog, tags, upcoming, test_tag="", built_from=same_commit):
-    """What the Image workflow does: {"mode": "build" or "retag", "number", "label", "tags", "source", "record"}, or
-    {"error": why}. Staging builds the image for the number on top of its changelog: the number the goal's dev commit
+    """What the Image workflow does: {"mode": "build" or "retag", "number", "label", "tags", "source", "record", "beta"}, or
+    {"error": why}. Beta: staging's beta tag, which goes on the built image plus one layer that says it's beta (the one
+    deliberate difference from the image production ships). Staging builds the image for the number on top of its changelog: the number the goal's dev commit
     was given (the release commit sits right on top of it), or a staging fix's new number (whose tag it records). Main
     never builds: it adds the release tags to the image staging published. built_from(numbered, sha): whether sha is
     the numbered commit or its release commit."""
@@ -270,8 +271,8 @@ def image_plan(event, branch, sha, changelog, tags, upcoming, test_tag="", built
         if top not in tagged and tagged and top < max(tagged):
             return {"error": "%s is below %s, already published: numbers only go up" % (text(top), text(max(tagged)))}
         number = text(top)
-        return {"mode": "build", "number": number, "label": number, "source": "",
-                "tags": "%s:beta,%s:%s" % (IMAGE, IMAGE, number), "record": "" if top in tagged else "v" + number}
+        return {"mode": "build", "number": number, "label": number, "source": "", "beta": "%s:beta" % IMAGE,
+                "tags": "%s:%s" % (IMAGE, number), "record": "" if top in tagged else "v" + number}
     if event == "push" and branch == "main":
         if top is None or top not in tagged or not built_from(tagged[top], sha):
             return {"error": "main is only ever a build staging published (v<number> on this commit or before it): "
@@ -650,7 +651,7 @@ def self_test():
     rerun = image_plan("push", "staging", "abc1234", released["CHANGELOG.md"], {"v0.7.0004": "abc1234"}, (0, 7, 5))
     ship = image_plan("push", "main", "abc1234", released["CHANGELOG.md"], {"v0.7.0004": "abc1234"}, (0, 8, 5))
     cases += [
-        (staging.get("tags") == IMAGE + ":beta," + IMAGE + ":0.7.0004" and staging["record"] == "v0.7.0004"
+        (staging.get("tags") == IMAGE + ":0.7.0004" and staging.get("beta") == IMAGE + ":beta" and staging["record"] == "v0.7.0004"
          and staging["label"] == "0.7.0004", "staging publishes the number and records its tag"),
         (rerun.get("mode") == "build" and rerun["record"] == "", "a re-run of a staging publish keeps its number"),
         ("error" in image_plan("push", "staging", "abc1234", change["CHANGELOG.md"], {}, first), "staging never builds Unreleased"),

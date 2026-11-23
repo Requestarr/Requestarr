@@ -10,7 +10,7 @@ import translate from 'Utilities/String/translate';
 
 interface ImportToolbarProps {
   columns: Column[];
-  inviteUrl?: string;
+  canInvite: boolean;
   canImport: boolean;
   isImporting: boolean;
   onImportPress: () => void;
@@ -19,8 +19,8 @@ interface ImportToolbarProps {
 }
 
 // The page's toolbar, as Sonarr's Wanted, then Missing puts its actions on the left and Table Options on the right:
-// Import writes what the list shows, and Invite bot adds the bot to the server the old channels are in, only to read.
-// Both stay in reach above the list.
+// Import writes what the list shows, and Invite bot opens the servers' Add modal with Import only on, to add the bot
+// to the server the old channels are in, only to read. Both stay in reach above the list.
 function ImportToolbar(props: ImportToolbarProps) {
   return (
     <PageToolbar>
@@ -34,12 +34,12 @@ function ImportToolbar(props: ImportToolbarProps) {
         />
 
         {/* PageToolbarSection counts its children for the overflow menu, so no fragment around these two. */}
-        {props.inviteUrl ? <PageToolbarSeparator /> : null}
+        {props.canInvite ? <PageToolbarSeparator /> : null}
 
-        {props.inviteUrl ? (
+        {props.canInvite ? (
           <PageToolbarButton
             label={translate('ImportInviteBot')}
-            iconName={icons.EXTERNAL_LINK}
+            iconName={icons.ADD}
             onPress={props.onInvitePress}
           />
         ) : null}

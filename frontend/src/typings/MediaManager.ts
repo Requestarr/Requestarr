@@ -1,4 +1,5 @@
 import ModelBase from 'App/ModelBase';
+import { InstanceUpdates } from 'Settings/Requestarr/Connections/MediaManagers/mediaManagerSettings';
 
 // One of a provider's settings as Servarr's schema sends it (Requestarr.Http/ClientSchema/Field.cs).
 export interface ProviderField {
@@ -27,6 +28,8 @@ interface MediaManager extends ModelBase {
   tags: number[];
   connected: boolean;
   problem?: string;
+  // How it reports downloads (InstanceUpdates on the server); none until it's saved.
+  updates?: InstanceUpdates | null;
 }
 
 // What Test All found for one instance: its validation failures, none when it passed.

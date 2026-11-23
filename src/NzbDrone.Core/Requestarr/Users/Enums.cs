@@ -28,17 +28,24 @@ namespace Requestarr.Core.Users
         Book = 5
     }
 
-    // The labels are a media manager's default access choices, in the member card's words.
+    // The labels are a media manager's default access choices, in the member card's words. Listed most open first,
+    // everywhere the three are offered (AccessStates.Shown); the stored numbers stay as they were.
     public enum AccessState
     {
-        [FieldOption("Off", Hint = "")]
-        Off = 0,
+        [FieldOption("Approved automatically", Hint = "")]
+        AutoApprove = 2,
 
         [FieldOption("Needs approval", Hint = "")]
         NeedsApproval = 1,
 
-        [FieldOption("Approved automatically", Hint = "")]
-        AutoApprove = 2
+        [FieldOption("Off", Hint = "")]
+        Off = 0
+    }
+
+    public static class AccessStates
+    {
+        // The order every list of the three choices uses: the web app's, the member card's and Discord's.
+        public static readonly AccessState[] Shown = { AccessState.AutoApprove, AccessState.NeedsApproval, AccessState.Off };
     }
 
     public static class ContentTypes

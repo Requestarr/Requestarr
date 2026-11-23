@@ -27,6 +27,7 @@ namespace Requestarr.Core.Backends
 
     public interface IBackendService
     {
+        // Every instance that isn't deleted (BackendRepository keeps deleted ones for history).
         List<BackendInstance> All();
         BackendInstance Find(int id);
         BackendInstance FindByName(string name);
@@ -251,7 +252,7 @@ namespace Requestarr.Core.Backends
         public bool EverConnected(ContentType type)
         {
             var implementation = BackendImplementations.ForContentType(type);
-            return implementation != null && _repository.All().Any(b => b.Enable && b.Implementation == implementation && b.FirstConnected.HasValue);
+            return implementation != null && All().Any(b => b.Enable && b.Implementation == implementation && b.FirstConnected.HasValue);
         }
 
         public static NamedItem ResolveProfile(IReadOnlyList<NamedItem> profiles, string wanted)

@@ -19,9 +19,9 @@ interface ConnectionsToolbarProps {
   options: SettingsForm;
 }
 
-// Servarr's settings toolbar (Show Advanced, Save for the Options below the cards, and the prompt when leaving with
-// changes unsaved), with Test All Connections after it, as Prowlarr's Applications settings add Test All Apps. Each
-// card saves from its own modal.
+// Servarr's settings toolbar (Save for the Options below the cards, and the prompt when leaving with changes unsaved),
+// with Test All Connections after it, as Prowlarr's Applications settings add Test All Apps. Each card saves from its
+// own modal, whose footer has Show Advanced; the Options have no advanced fields, so the page has none.
 function ConnectionsToolbar({ options }: ConnectionsToolbarProps) {
   const dispatch = useDispatch();
   const isTestingAll = useSelector(
@@ -38,6 +38,7 @@ function ConnectionsToolbar({ options }: ConnectionsToolbarProps) {
     <SettingsToolbar
       hasPendingChanges={hasChanges}
       isSaving={isSaving}
+      showAdvancedSettings={false}
       additionalButtons={
         <>
           <PageToolbarSeparator />

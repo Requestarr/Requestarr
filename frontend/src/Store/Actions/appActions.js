@@ -42,6 +42,9 @@ export const defaultState = {
   isReconnecting: false,
   isDisconnected: false,
   isRestarting: false,
+
+  // When the server last said the bot or its servers changed (SignalRConnector handleSetup); 0 until it does.
+  setupChanged: 0,
   isSidebarVisible: !getDimensions(window.innerWidth, window.innerHeight).isSmallScreen,
   translations: {
     isFetching: true,

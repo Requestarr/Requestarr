@@ -13,6 +13,7 @@ import translate from 'Utilities/String/translate';
 function PendingChangesModal(props) {
   const {
     isOpen,
+    message,
     onConfirm,
     onCancel,
     bindShortcut,
@@ -36,7 +37,7 @@ function PendingChangesModal(props) {
         <ModalHeader>{translate('UnsavedChanges')}</ModalHeader>
 
         <ModalBody>
-          {translate('PendingChangesMessage')}
+          {message || translate('PendingChangesMessage')}
         </ModalBody>
 
         <ModalFooter>
@@ -63,6 +64,8 @@ function PendingChangesModal(props) {
 PendingChangesModal.propTypes = {
   className: PropTypes.string,
   isOpen: PropTypes.bool.isRequired,
+  // Requestarr: what is lost, in the form's own words ("Your Sonarr details will be lost."); Servarr's words otherwise.
+  message: PropTypes.string,
   kind: PropTypes.oneOf(kinds.all),
   onConfirm: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,

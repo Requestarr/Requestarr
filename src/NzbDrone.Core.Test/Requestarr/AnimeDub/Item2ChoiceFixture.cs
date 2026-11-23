@@ -16,7 +16,7 @@ namespace Requestarr.Core.Test.AnimeDub
         {
             var card = (await Harness.SendAsync(Search(Alice, "tv", $"tvdb:{OnePiece}"))).LastReply;
 
-            card.Content.Should().Contain(DiscordText.AnimeIntro).And.Contain("dub wins");
+            card.Content.Should().Contain(DiscordText.AnimeIntro).And.Contain("the English dub is kept");
             card.Buttons.Select(b => (b.Label, b.CustomId)).Should().StartWith(new[] { ("Dub", $"req-tv-lang:{OnePiece}:d"), ("Sub", $"req-tv-lang:{OnePiece}:s") });
             card.Buttons.Should().NotContain(b => b.CustomId.StartsWith("req-tv-all"));
         }
@@ -78,7 +78,7 @@ namespace Requestarr.Core.Test.AnimeDub
 
             var card = (await Harness.SendAsync(Search(Alice, "tv", $"tvdb:{OnePiece}"))).LastReply;
 
-            card.Content.Should().Contain(DiscordText.CurrentlySetTo(AnimeLanguage.Sub)).And.Contain("dub wins");
+            card.Content.Should().Contain(DiscordText.CurrentlySetTo(AnimeLanguage.Sub)).And.Contain("the English dub is kept");
             card.Buttons.Select(b => (b.Label, b.CustomId)).Should().Contain(("Switch to Dub", $"req-tv-lang:{OnePiece}:d"));
         }
 

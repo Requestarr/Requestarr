@@ -12,9 +12,24 @@
   font-size: 24px;
 }
 
+/* A Discord server's icon before its name, as Discord's server list shows it. */
+.icon {
+  margin-right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
 .type {
   margin-bottom: 15px;
   color: var(--helpTextColor);
+}
+
+.detail {
+  margin: -10px 0 10px;
+  color: var(--helpTextColor);
+  font-size: ;
 }
 
 .labels {

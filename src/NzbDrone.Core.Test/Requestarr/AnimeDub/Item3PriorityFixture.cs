@@ -49,7 +49,7 @@ namespace Requestarr.Core.Test.AnimeDub
             var run = await AskLanguage(Bob, "s");
 
             RequestFor().Language.Should().Be(AnimeLanguage.Dub);
-            run.LastReply.Content.Should().StartWith(DiscordText.FinalFollowing).And.Contain("stays **Dub** (dub wins here)");
+            run.LastReply.Content.Should().StartWith(DiscordText.FinalFollowing).And.Contain("stays **Dub** (the English dub is kept here)");
             Subscribers.ForRequest(RequestFor().Id).Should().ContainSingle();
         }
 
@@ -73,7 +73,7 @@ namespace Requestarr.Core.Test.AnimeDub
             var run = await AskLanguage(Bob, "d");
 
             RequestFor().Language.Should().Be(AnimeLanguage.Sub);
-            run.LastReply.Content.Should().Contain("stays **Sub** (the first request decides here)");
+            run.LastReply.Content.Should().Contain("stays **Sub** (whoever asked first decides here)");
         }
 
         [Test]
@@ -153,7 +153,7 @@ namespace Requestarr.Core.Test.AnimeDub
             var run = await AskLanguage(Bob, "s");
 
             Sonarr.SeriesTags[id].Should().Equal(tags.Dub);
-            run.LastReply.Content.Should().StartWith(DiscordText.FinalAvailable).And.Contain("set to **Dub** (dub wins here)");
+            run.LastReply.Content.Should().StartWith(DiscordText.FinalAvailable).And.Contain("set to **Dub** (the English dub is kept here)");
 
             Sonarr.Season(id, 1, aired: 3, withFiles: 0);
             (await AskLanguage(Bob, "s")).LastReply.Content.Should().StartWith(DiscordText.FinalSearching).And.Contain("nothing is downloaded yet, set to **Dub**");

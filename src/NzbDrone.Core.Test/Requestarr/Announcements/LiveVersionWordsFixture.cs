@@ -47,6 +47,8 @@ namespace Requestarr.Core.Test.Announcements
                 new Lazy<IPanelService>(() => Mock.Of<IPanelService>()),
                 new Lazy<IRequestFeed>(() => Mock.Of<IRequestFeed>()),
                 new Lazy<Requestarr.Core.Access.IAccessRequestService>(() => null),
+                new Lazy<Requestarr.Core.Settings.IDiscordServerChoice>(() => null),
+                new Lazy<IDiscordAdmins>(() => null),
                 Mock.Of<IEventAggregator>(),
                 LogManager.GetLogger("LiveDiscord"));
             var gateway = new DiscordNetGateway(host, settings);

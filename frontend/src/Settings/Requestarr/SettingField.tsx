@@ -18,6 +18,14 @@ const INPUT_TYPES: Record<SettingInput, string> = {
   select: inputTypes.SELECT,
 };
 
+// A saved secret shows as the server sends it, dots and its last characters, so the admin can tell which is saved; a
+// new one being typed over it is hidden as Servarr hides any password.
+function inputType(input: SettingInput, isTyped: boolean) {
+  return input === 'password' && !isTyped
+    ? inputTypes.TEXT
+    : INPUT_TYPES[input];
+}
+
 // A select's choices, in the shape the web app's select input takes, and its locked look; other inputs have none.
 function selectProps(name: string, input: SettingInput) {
   if (input !== 'select') {
@@ -45,35 +53,29 @@ function labelKey(name: string) {
   return `Setting${name[0].toUpperCase()}${name.slice(1)}`;
 }
 
-// The help under a field: where a provisioned setting is changed instead, and whether a secret is already saved.
-function helpText(name: string, input: SettingInput, settings: AppSettings) {
-  if (settings.provisioned) {
-    return translate('SetByProvisioningHelpText');
-  }
-
-  const help = translate(`${labelKey(name)}HelpText`);
-
-  return input === 'password' && settings.values[name]
-    ? `${help} ${translate('SettingSecretSaved')}`
-    : help;
+// The help under a field, or where a provisioned setting is changed instead.
+function helpText(name: string, settings: AppSettings) {
+  return settings.provisioned
+    ? translate('SetByProvisioningHelpText')
+    : translate(`${labelKey(name)}HelpText`);
 }
 
 // One of Requestarr's settings, by its name in the settings API: its label and help come from the translations.
 function SettingField({ name, input, form }: SettingFieldProps) {
   const settings = form.settings as AppSettings;
-  const saved = input === 'password' ? '' : settings.values[name];
-  const value = name in form.pending ? form.pending[name] : saved;
+  const isTyped = name in form.pending;
+  const value = isTyped ? form.pending[name] : settings.values[name];
 
   return (
     <FormGroup>
       <FormLabel>{translate(labelKey(name))}</FormLabel>
 
       <FormInputGroup
-        type={INPUT_TYPES[input]}
+        type={inputType(input, isTyped)}
         name={name}
         value={value}
         {...selectProps(name, input)}
-        helpText={helpText(name, input, settings)}
+        helpText={helpText(name, settings)}
         {...readOnlyProps(settings.provisioned)}
         onChange={form.onChange}
       />

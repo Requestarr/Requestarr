@@ -68,7 +68,7 @@ namespace Requestarr.Core.Portal
         public IReadOnlyList<PortalAuditEntry> Find(PortalAuditFilter filter)
         {
             var users = _users.All();
-            var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.All(), _audit.ForAction(RequestService.DeleteRecordAction));
+            var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.Known(), _audit.ForAction(RequestService.DeleteRecordAction));
             var names = users.ToDictionary(u => u.Id, u => u.DisplayName);
             var discordNames = PortalText.DiscordNames(_identities.All(), names);
 

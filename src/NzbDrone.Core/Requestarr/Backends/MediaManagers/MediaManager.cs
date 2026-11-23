@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using FluentValidation;
 using FluentValidation.Results;
 using NzbDrone.Core.ThingiProvider;
 using Requestarr.Core.Settings;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Backends.MediaManagers
 {
@@ -31,11 +33,12 @@ namespace Requestarr.Core.Backends.MediaManagers
     {
         private static readonly string[] SeriesTypeChoices = { "standard", "anime", "daily" };
 
+        // The same words as the bot's own (DiscordText.AnimePriority).
         private static readonly (string Value, string Name)[] AnimePriorityChoices =
         {
-            ("dub", "Dub"),
-            ("sub", "Sub"),
-            ("first", "Whoever asked first")
+            ("dub", Discord.DiscordText.AnimePriority(Anime.AnimePriority.Dub)),
+            ("sub", Discord.DiscordText.AnimePriority(Anime.AnimePriority.Sub)),
+            ("first", Discord.DiscordText.AnimePriority(Anime.AnimePriority.First))
         };
 
         private readonly IInstanceSettingsService _instances;
@@ -55,9 +58,8 @@ namespace Requestarr.Core.Backends.MediaManagers
 
         public ProviderDefinition Definition { get; set; }
 
-        // Its usual address on the same machine, as Prowlarr's applications start from theirs.
-        protected abstract string DefaultUrl { get; }
-
+        // No address to start from: inside Requestarr's container, localhost is Requestarr itself, so Prowlarr's usual
+        // localhost default could never work. A new one lets new members in without waiting for an admin.
         public IEnumerable<ProviderDefinition> DefaultDefinitions
         {
             get
@@ -65,7 +67,7 @@ namespace Requestarr.Core.Backends.MediaManagers
                 yield return new BackendInstance
                 {
                     Implementation = Name,
-                    Settings = new BackendSettings { Url = DefaultUrl }
+                    Settings = new BackendSettings { DefaultAccess = AccessState.AutoApprove }
                 };
             }
         }
@@ -81,10 +83,11 @@ namespace Requestarr.Core.Backends.MediaManagers
                 : new ValidationResult(new[] { new ValidationFailure(nameof(BackendSettings.Url), problem) });
         }
 
+        // A list that needs the instance and can't load says why, under its field, never an empty list.
         public object RequestAction(string stage, IDictionary<string, string> query) => stage switch
         {
-            MediaManagerActions.QualityProfiles => Options(Probe().QualityProfiles.Select(p => (p, p))),
-            MediaManagerActions.RootFolders => Options(Probe().RootFolders.Select(f => (f, f))),
+            MediaManagerActions.QualityProfiles => Options(Reached().QualityProfiles.Select(p => (p, p))),
+            MediaManagerActions.RootFolders => Options(Reached().RootFolders.Select(f => (f, f))),
             MediaManagerActions.SeriesTypes => Options(SeriesTypeChoices.Select(t => (t, char.ToUpperInvariant(t[0]) + t[1..]))),
             MediaManagerActions.AnimePriorities => Options(AnimePriorityChoices),
             _ => null
@@ -104,6 +107,13 @@ namespace Requestarr.Core.Backends.MediaManagers
             }
 
             return _instances.TestAsync(saved?.Id, input).GetAwaiter().GetResult();
+        }
+
+        private InstanceTestResult Reached()
+        {
+            var probe = Probe();
+
+            return probe.Problem == null ? probe : throw new ValidationException(new[] { new ValidationFailure(nameof(BackendSettings.Url), probe.Problem) });
         }
 
         // A select's choices in the shape Servarr's provider forms read.

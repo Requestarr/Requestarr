@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppState from 'App/State/AppState';
+import Alert from 'Components/Alert';
 import FieldSet from 'Components/FieldSet';
 import PageSectionContent from 'Components/Page/PageSectionContent';
+import { kinds } from 'Helpers/Props';
 import {
   fetchMediaManagers,
   fetchMediaManagerSchema,
@@ -16,6 +18,7 @@ import AddConnectionModal, { ChoiceGroup } from '../AddConnectionModal';
 import ConnectionCard, { AddConnectionCard } from '../ConnectionCard';
 import { mediaManagerLabels, TestOutcome } from '../connectionLabels';
 import EditMediaManagerModal from './EditMediaManagerModal';
+import { updatesText } from './MediaManagerExtras';
 import styles from '../Connections.css';
 
 interface MediaManagerCardProps {
@@ -38,6 +41,11 @@ function MediaManagerCard({
       name={item.name}
       type={item.implementationName}
       labels={mediaManagerLabels(item, settings, tested)}
+      detail={
+        item.enable && item.updates
+          ? updatesText(item.updates, item.implementation)
+          : undefined
+      }
       onPress={onPress}
     />
   );
@@ -87,6 +95,7 @@ function MediaManagersSection({
     [section.items]
   );
   const choices = useAddChoices(section.schema);
+  const [deleteNote, setDeleteNote] = useState<string>();
 
   useEffect(() => {
     dispatch(fetchMediaManagers());
@@ -114,6 +123,8 @@ function MediaManagersSection({
   return (
     <div id="media-managers">
       <FieldSet legend={translate('ConnectionsMediaManagers')}>
+        {deleteNote && <Alert kind={kinds.WARNING}>{deleteNote}</Alert>}
+
         <PageSectionContent
           errorMessage={translate('ConnectionLoadError')}
           isFetching={section.isFetching && !section.isPopulated}
@@ -149,6 +160,7 @@ function MediaManagersSection({
         id={editing?.id}
         isReadOnly={settings?.provisioned ?? true}
         onModalClose={onEditClose}
+        onDeleted={setDeleteNote}
       />
     </div>
   );

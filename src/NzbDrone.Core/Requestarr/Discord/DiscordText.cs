@@ -479,18 +479,26 @@ namespace Requestarr.Core.Discord
 
         public static string CurrentlySetTo(AnimeLanguage language) => $"Set to **{Label(language)}** here.";
 
+        // What happens when two people want different versions of the same show, as the Sonarr form offers it.
+        public static string AnimePriority(Anime.AnimePriority priority) => priority switch
+        {
+            Anime.AnimePriority.Dub => "Keep the English dub",
+            Anime.AnimePriority.Sub => "Keep the subtitled version",
+            _ => "Whoever asked first"
+        };
+
         public static string PriorityRule(Anime.AnimePriority priority, string instance) => priority switch
         {
-            Anime.AnimePriority.Dub => $"On {instance}, dub wins: a dub request switches a sub series to dub, and a sub request for a dub series follows it.",
-            Anime.AnimePriority.Sub => $"On {instance}, sub wins: a sub request switches a dub series to sub, and a dub request for a sub series follows it.",
-            _ => $"On {instance}, the first request decides: a series stays in the language it was first requested in."
+            Anime.AnimePriority.Dub => $"On {instance}, the English dub is kept: a dub request switches a subtitled series to the dub, and a request for subtitles follows the dub.",
+            Anime.AnimePriority.Sub => $"On {instance}, the subtitled version is kept: a request for subtitles switches a dubbed series to subtitles, and a dub request follows the subtitles.",
+            _ => $"On {instance}, whoever asked first decides: a series stays in the version it was first requested in."
         };
 
         private static string Keeps(Anime.AnimePriority priority) => priority switch
         {
-            Anime.AnimePriority.Dub => "dub wins here",
-            Anime.AnimePriority.Sub => "sub wins here",
-            _ => "the first request decides here"
+            Anime.AnimePriority.Dub => "the English dub is kept here",
+            Anime.AnimePriority.Sub => "the subtitled version is kept here",
+            _ => "whoever asked first decides here"
         };
 
         public static string AnimeStays(string label, AnimeLanguage existing, Anime.AnimePriority priority, string owner, int id) =>

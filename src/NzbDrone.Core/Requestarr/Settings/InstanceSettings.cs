@@ -37,8 +37,8 @@ namespace Requestarr.Core.Settings
         Task<InstanceSaveResult> SaveAsync(int? id, InstanceInput input, Actor actor);
     }
 
-    // Sonarr and Radarr instances for beta and production, where there is no provisioning file. An instance is never
-    // deleted, since requests keep their history with it: it's turned off instead.
+    // Sonarr and Radarr instances for beta and production, where there is no provisioning file. Deleting one keeps its
+    // history (InstanceDeletion); turning one off pauses it.
     public class InstanceSettingsService : IInstanceSettingsService
     {
         public const string AddAction = "instance.add";
@@ -75,6 +75,11 @@ namespace Requestarr.Core.Settings
             var saved = id is { } savedId ? _backends.Find(savedId)?.Config : null;
             var settings = Settings(input, saved?.Url == input.Url?.Trim() ? saved : null);
 
+            if (Missing(input, settings) is { } missing)
+            {
+                return new InstanceTestResult(missing, Array.Empty<string>(), Array.Empty<string>());
+            }
+
             try
             {
                 var probe = await _backends.ProbeAsync(input.Implementation, settings);
@@ -82,7 +87,7 @@ namespace Requestarr.Core.Settings
             }
             catch (Exception ex)
             {
-                return new InstanceTestResult($"Couldn't reach {input.Implementation} at {input.Url}: {ex.Message}", Array.Empty<string>(), Array.Empty<string>());
+                return new InstanceTestResult(ConnectionProblems.Explain(input.Implementation, input.Url, ex), Array.Empty<string>(), Array.Empty<string>());
             }
         }
 
@@ -115,6 +120,17 @@ namespace Requestarr.Core.Settings
             return new InstanceSaveResult(View(_backends.Find(instance.Id)), null);
         }
 
+        // What the form still needs before Requestarr can reach the instance.
+        private static string Missing(InstanceInput input, BackendSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(input.Url))
+            {
+                return ConnectionProblems.NoAddress;
+            }
+
+            return string.IsNullOrWhiteSpace(settings.ApiKey) ? ConnectionProblems.NoApiKey(input.Implementation) : null;
+        }
+
         private string Problem(int? id, BackendInstance existing, InstanceInput input)
         {
             if (_provisioning.UsesFile)
@@ -139,17 +155,17 @@ namespace Requestarr.Core.Settings
 
             if (!AppSettingsService.IsWebAddress(input.Url?.Trim()))
             {
-                return "The address starts with http:// or https://, for example http://sonarr:8989.";
+                return "The address starts with http:// or https://, for example http://192.168.1.10:8989.";
             }
 
             if (!string.IsNullOrWhiteSpace(input.BrowserUrl) && !AppSettingsService.IsWebAddress(input.BrowserUrl.Trim()))
             {
-                return "The address in your browser starts with http:// or https://, for example http://nas.local:8989.";
+                return "The address for links starts with http:// or https://, for example https://tv.example.com.";
             }
 
             if (!Enum.IsDefined(input.DefaultAccess))
             {
-                return "Choose Off, Needs approval or Approved automatically for new members.";
+                return "Choose Approved automatically, Needs approval or Off for new members.";
             }
 
             return existing == null && string.IsNullOrWhiteSpace(input.ApiKey) ? $"Paste the API key from {input.Implementation}'s Settings, General." : null;
@@ -202,13 +218,13 @@ namespace Requestarr.Core.Settings
             {
                 ("name", instance.Name),
                 ("address", settings.Url),
-                ("address in your browser", Shown(settings.BrowserUrl)),
+                ("address for links", Shown(settings.BrowserUrl)),
                 (ApiKeyLabel, settings.ApiKey),
                 ("quality profile", Shown(settings.QualityProfile)),
                 ("root folder", Shown(settings.RootFolder)),
                 ("series type", Shown(settings.SeriesType)),
                 ("default", OnOff(settings.IsDefault)),
-                ("turned on", OnOff(instance.Enable)),
+                ("in use", OnOff(instance.Enable)),
                 ("polling only", OnOff(settings.PollingOnly)),
                 ("default access for new members", DiscordText.Label(settings.DefaultAccess)),
                 ("anime sub or dub", OnOff(settings.AnimeEnabled)),

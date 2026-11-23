@@ -4,6 +4,8 @@ interface CssExports {
   'addConnection': string;
   'center': string;
   'connection': string;
+  'detail': string;
+  'icon': string;
   'labels': string;
   'name': string;
   'type': string;

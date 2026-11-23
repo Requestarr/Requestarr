@@ -1,13 +1,11 @@
 import React from 'react';
 import Alert from 'Components/Alert';
-import Button from 'Components/Link/Button';
 import Link from 'Components/Link/Link';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import { kinds } from 'Helpers/Props';
-import { SetupStatus } from 'Settings/Requestarr/RequestarrSettingsTypes';
-import useRequestarrApi from 'Settings/Requestarr/useRequestarrApi';
+import useSetupStatus from 'Settings/Requestarr/useSetupStatus';
 import translate from 'Utilities/String/translate';
 import DiscordStep from './DiscordStep';
 import InstanceStep from './InstanceStep';
@@ -15,10 +13,11 @@ import SetupStep from './SetupStep';
 import styles from './SetupPage.css';
 
 // The first-run setup of a new install without a provisioning file (beta and production): the admin's sign-in, the
-// Discord bot, and a first Sonarr or Radarr (which can be skipped and added later). Everything else has working defaults
-// and lives under Settings.
+// Discord bot, and a first Sonarr or Radarr (which can be skipped and added later), built from the Connections page's
+// parts. It follows the server's live updates, so a step done elsewhere (the bot joining a server) shows on its own.
+// Everything else has working defaults and lives under Settings.
 function SetupPage() {
-  const { data: setup, error, reload } = useRequestarrApi<SetupStatus>('setup');
+  const { data: setup, error, reload } = useSetupStatus();
   const isReady =
     setup &&
     setup.adminAccount &&
@@ -48,7 +47,7 @@ function SetupPage() {
 
             <InstanceStep setup={setup} onSaved={reload} />
 
-            {isReady ? (
+            {isReady && (
               <Alert kind={kinds.SUCCESS}>
                 {translate('SetupReady')}{' '}
                 <Link to="/settings">{translate('Settings')}</Link>.{' '}
@@ -56,8 +55,6 @@ function SetupPage() {
                   {translate('SetupImportFromRequestrr')}
                 </Link>
               </Alert>
-            ) : (
-              <Button onPress={reload}>{translate('SetupCheckAgain')}</Button>
             )}
           </>
         )}

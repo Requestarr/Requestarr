@@ -58,7 +58,7 @@ namespace Requestarr.Core.Test.AdminConsole
             var menus = new[] { card.SelectMenu }.Concat(card.MoreMenus).ToList();
             menus.Select(m => m.CustomId).Should().Equal($"adm-access:{Alice}:movie", $"adm-access:{Alice}:tv", $"adm-access:{Alice}:music", $"adm-more:{Alice}");
             menus.Take(3).Select(m => m.Placeholder).Should().Equal(DiscordText.AccessSelectPlaceholder(ContentType.Movie), DiscordText.AccessSelectPlaceholder(ContentType.Tv), DiscordText.AccessSelectPlaceholder(ContentType.Music));
-            menus[0].Options.Select(o => (o.Value, o.Default)).Should().Equal(("off", false), ("approval", true), ("auto", false));
+            menus[0].Options.Select(o => (o.Value, o.Default)).Should().Equal(("auto", false), ("approval", true), ("off", false));
             menus[2].Options.Single(o => o.Default).Value.Should().Be("off", "Music starts off, and every type is shown to the admin");
             menus[3].Options.Select(o => o.Value).Should().Equal("limit:movie", "limit:tv", "limit:music", $"instance:movie:{Instance("Radarr").Id}", $"instance:movie:{Instance("Radarr 4K").Id}", "requests");
             Labels(card).Should().Equal(DiscordText.AdminLinkPlexLabel, DiscordText.SuspendLabel, DiscordText.RemoveLabel);

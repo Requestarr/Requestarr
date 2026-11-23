@@ -1,17 +1,18 @@
 import { SettingsSection } from './RequestarrSettingsTypes';
 
 // Which of Requestarr's settings each settings page shows, in the order of the provisioning file they replace.
-export const THIS_SERVER: SettingsSection = {
-  legend: 'SettingsThisServer',
-  fields: [['serverRole', 'select']],
+
+// The bot's token is all an admin types: Requestarr reads its application and server from Discord.
+export const BOT_TOKEN: SettingsSection = {
+  legend: 'SettingsDiscordConnection',
+  fields: [['discordBotToken', 'password']],
 };
 
-export const DISCORD_CONNECTION: SettingsSection = {
+// Requestarr makes and uses its own admin role; a role the admin already has is for Show Advanced.
+const DISCORD_CONNECTION: SettingsSection = {
   legend: 'SettingsDiscordConnection',
   fields: [
     ['discordBotToken', 'password'],
-    ['discordApplicationId', 'text'],
-    ['discordGuildId', 'text'],
     ['discordAdminRoleId', 'text'],
     ['discordAdminRoleName', 'text'],
   ],
@@ -19,7 +20,6 @@ export const DISCORD_CONNECTION: SettingsSection = {
 };
 
 export const DISCORD_SECTIONS: SettingsSection[] = [
-  THIS_SERVER,
   DISCORD_CONNECTION,
   {
     legend: 'SettingsBotProfile',
@@ -62,10 +62,6 @@ export const REQUEST_SECTIONS: SettingsSection[] = [
 // The choices of each 'select' setting: the value the settings API takes, and the translation key of its words.
 export const SETTING_CHOICES: Record<string, [value: string, label: string][]> =
   {
-    serverRole: [
-      ['production', 'ServerRoleProduction'],
-      ['beta', 'ServerRoleBeta'],
-    ],
     auditLogKeepFor: [
       ['90 days', 'AuditLogKeep90Days'],
       ['6 months', 'AuditLogKeep6Months'],
@@ -74,12 +70,3 @@ export const SETTING_CHOICES: Record<string, [value: string, label: string][]> =
       ['forever', 'AuditLogKeepForever'],
     ],
   };
-
-// The Connections page's Options, under its cards: how Sonarr and Radarr reach Requestarr, and how often it looks.
-export const CONNECTION_OPTIONS: SettingsSection = {
-  legend: 'Options',
-  fields: [
-    ['availabilityWebhookUrl', 'text'],
-    ['availabilityPollMinutes', 'number'],
-  ],
-};

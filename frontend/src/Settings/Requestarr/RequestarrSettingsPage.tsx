@@ -34,6 +34,7 @@ function RequestarrSettingsPage({
       <SettingsToolbar
         hasPendingChanges={hasChanges}
         isSaving={isSaving}
+        showAdvancedSettings={sections.some((s) => s.advanced?.length)}
         onSavePress={onSave}
       />
 

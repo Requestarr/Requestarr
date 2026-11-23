@@ -9,7 +9,5 @@ namespace Requestarr.Core.Backends.MediaManagers
             : base(instances, repository)
         {
         }
-
-        protected override string DefaultUrl => "http://localhost:8989";
     }
 }

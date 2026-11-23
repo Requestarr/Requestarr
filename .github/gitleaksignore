@@ -6,3 +6,5 @@
 # hex digits of its wording), read by the scanner as an API key on PR #194. They are not secrets.
 8fe0be97f34149ebc14d82fb3e8c91238191c7a0:src/NzbDrone.Core.Test/Requestarr/Datastore/AutomationNamesMigrationFixture.cs:generic-api-key:27
 8fe0be97f34149ebc14d82fb3e8c91238191c7a0:src/NzbDrone.Core.Test/Requestarr/Datastore/AutomationNamesMigrationFixture.cs:generic-api-key:28
+# A made-up application ID in a settings test (AppSettingsFixture), not a real Discord client.
+e8cd1b87bc45d9d1a2abccf725f1c0fd5f7ee1c6:src/NzbDrone.Core.Test/Requestarr/Settings/AppSettingsFixture.cs:discord-client-id:155
