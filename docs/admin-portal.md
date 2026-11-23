@@ -24,7 +24,7 @@ Every entry is covered. Discord stays the place members act; the portal never re
 | The admin panel's **Members** (member picker) and `/admin user` | One member's card | The member's page | 5a |
 | Member card: **Add member** | Onboard someone new | Members: Onboard, a list of everyone in the Discord server who isn't onboarded (bots left out), to pick one or many and onboard together | 5c |
 | Member card: access per content type (off, needs approval, auto-approve) | What they can request | The member's page: Access, Save access | 5c |
-| Member card: **More** menu (limits, instance) | Requests per rolling window, which instance their requests go to | The member's page: Instance, Limit, Save access and Save limit | 5c |
+| Member card: **More** menu (limits) | Requests per rolling window | The member's page: Limit, Save access and Save limit | 5c |
 | Member card: **Suspend**, **Unsuspend**, **Remove** | Their status | The member's page: Suspend or Unsuspend, Remove member | 5c |
 | Member card: **Link Plex…** | Link their media server account | The member's page: Link Plex | 5c |
 | The admin panel's **Users** | Every member, with their card | Members | 5a |

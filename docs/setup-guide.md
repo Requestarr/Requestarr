@@ -262,7 +262,7 @@ Each purpose belongs to one instance per type. In the web app, choosing a purpos
 
 ### 4.5 What happens to a request
 
-1. The user types `/request` in their channel and picks a type. The type list only shows types they have access to. Then they enter a title, or an ID such as `tmdb:603` (movies) or `tvdb:12345` (TV). Results come from their instance's own search, so no extra API keys are needed.
+1. The user types `/request` in their channel and picks a type. The type list only shows types they have access to. Then they enter a title, or an ID such as `tmdb:603` (movies) or `tvdb:12345` (TV). Results come from the type's own Sonarr or Radarr search, so no extra API keys are needed.
    The whole request stays in **one message** that changes in place: results, details, seasons, confirmation, final status. Each request is its own message, so separate requests don't run together.
 2. Each result line shows the year, the network or studio, and either the top three cast (with The Movie Database key, see 4.6) or the genre. That helps tell apart titles with the same name.
 3. They pick a title and see its card: a large poster and everything Sonarr or Radarr knows about it. That covers genres, rating, age rating, runtime, network or studio, status, seasons, air or release dates, and the overview. The card also shows the top cast and episode count when The Movie Database key is set, and which instance it goes to. The card says if the title is:
@@ -562,7 +562,7 @@ Discord allows 250 roles per server, and every user needs one. Requestarr also u
 
 ### 5.6 The member card: access, limits and more
 
-`/admin user` (or **Users** or **Add or find a member** on the panel) opens a member's card, visible only to you. It shows their status, channel, access, limits, instance and media server account, and only the controls that apply to them now. Every change updates the card in place.
+`/admin user` (or **Users** or **Add or find a member** on the panel) opens a member's card, visible only to you. It shows their status, channel, access, limits and media server account, and only the controls that apply to them now. Every change updates the card in place.
 
 There are three access levels for each content type:
 
