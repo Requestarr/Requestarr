@@ -113,7 +113,7 @@ SUITE_FILTER = "Category!=ManualTest&Category!=IntegrationTest&Category!=Automat
 LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
         "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
         "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture", "LivePortalActionsFixture",
-        "LiveMemberRenamesFixture"]
+        "LiveMemberRenamesFixture", "LiveVersionWordsFixture"]
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 
