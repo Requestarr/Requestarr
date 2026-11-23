@@ -8,12 +8,12 @@ using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Test.Common;
 
-namespace Requestarr.Core.Test.CommandSurface
+namespace Requestarr.Core.Test.Discord
 {
-    // Item 6: without Pin Messages a health warning names the permission and no flow fails. Since task 4e panels
+    // Without Pin Messages a health warning names the permission and no flow fails. Panels
     // are never pinned (they're always the newest message); Pin Messages is for outage notices while they last.
     [TestFixture]
-    public class Item6PinPermissionFixture : RequestScenario
+    public class PinPermissionFixture : RequestScenario
     {
         private FakeDiscordGuild.FakeChannel AliceRoom => ChannelFor(Alice);
         private FakeDiscordGuild.FakeChannel AdminRoom => Discord.Channels[AdminChannel];

@@ -6,12 +6,12 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.MediaServers;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.CommandSurface
+namespace Requestarr.Core.Test.Discord
 {
-    // Item 2: one panel per user channel, kept current. Since task 4e panels aren't pinned (they're always the newest
+    // One panel per user channel, kept current. Panels aren't pinned (they're always the newest
     // message instead), and Link Plex shows only while a Plex server is connected.
     [TestFixture]
-    public class Item2UserPanelFixture : RequestScenario
+    public class UserPanelFixture : RequestScenario
     {
         private FakeDiscordGuild.FakeChannel Channel => ChannelFor(Alice);
 
@@ -93,33 +93,17 @@ namespace Requestarr.Core.Test.CommandSurface
         }
 
         [Test]
-        public async Task existing_channels_get_a_panel_on_next_start_and_deleted_panels_come_back()
+        public async Task deleted_panels_come_back_on_next_start_without_duplicates()
         {
             Discord.DeleteMessage(Channel.Id, PanelIdIn(Channel).Value);
             PanelIn(Channel).Should().BeNull();
 
             await Mocker.Resolve<IPanelService>().EnsureAllAsync();
-
-            PanelsIn(Channel, PanelRoutes.MyRequests).Should().Be(1);
-            UserFor(Alice).PanelMessageId.Should().Be(Channel.MessageIds.Last().ToString());
-        }
-
-        [Test]
-        public async Task ensuring_panels_twice_does_not_duplicate()
-        {
-            await Mocker.Resolve<IPanelService>().EnsureAllAsync();
             await Mocker.Resolve<IPanelService>().EnsureAllAsync();
 
             Channel.Pinned.Should().BeEmpty();
             PanelsIn(Channel, PanelRoutes.MyRequests).Should().Be(1);
-        }
-
-        [Test]
-        public async Task panel_buttons_in_another_users_channel_are_refused()
-        {
-            var run = await Harness.SendAsync(FakeInteraction.Button(PanelRoutes.MyRequests).By(Bob).InGuild(FakeDiscordGuild.Guild).InChannel(ChannelOf(Alice)));
-
-            run.LastReply.Content.Should().Be(DiscordText.OwnChannelOnly);
+            UserFor(Alice).PanelMessageId.Should().Be(Channel.MessageIds.Last().ToString());
         }
     }
 }

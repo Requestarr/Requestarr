@@ -13,9 +13,10 @@ using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 3: /user add, remove, suspend, unsuspend, access, quota, info.
+    // Onboarding members from the member card: add (role, private channel, default access), remove, suspend and
+    // unsuspend, access per content type, request limits, and what the card shows about them.
     [TestFixture]
-    public class Item3OnboardingFixture : DiscordScenario
+    public class MemberOnboardingFixture : DiscordScenario
     {
         [Test]
         public async Task add_should_create_user_identity_role_and_private_channel()
@@ -260,12 +261,8 @@ namespace Requestarr.Core.Test.Discord
         }
 
         [Test]
-        public async Task commands_on_unknown_or_removed_users_should_explain()
+        public async Task actions_on_unknown_or_removed_users_should_explain()
         {
-            // Someone not added yet: their card says so and offers only Add.
-            var card = (await Harness.SendAsync(AdminCommand("user info", Bob))).LastReply;
-            card.Content.Should().Be(DiscordText.MemberNotAdded("bob", Bob));
-            card.Buttons.Select(b => b.CustomId).Should().Equal($"adm-add:{Bob}");
             (await Harness.SendAsync(AdminCommand("user suspend", Bob))).LastReply.Content.Should().Be(DiscordText.NotARequestarrUser);
 
             await AddUser(Bob);

@@ -9,9 +9,9 @@ using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 9: all user-facing Discord text lives in DiscordText.
+    // All user-facing Discord text lives in DiscordText, within Discord's limits.
     [TestFixture]
-    public class Item9TextFixture : TestBase
+    public class DiscordTextFixture : TestBase
     {
         private static readonly string SourceRoot = Path.GetFullPath(Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "src", "NzbDrone.Core", "Requestarr"));
 

@@ -11,9 +11,10 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 1: bot online - provisioning, intents, health check, watchdog restart.
+    // The bot connection: its settings from provisioning, the gateway intents, the health check, and the watchdog that
+    // restarts Requestarr when the connection is lost for too long.
     [TestFixture]
-    public class Item1BotConnectionFixture : CoreTest
+    public class BotConnectionFixture : CoreTest
     {
         private DateTime _now;
         private List<string> _terminations;

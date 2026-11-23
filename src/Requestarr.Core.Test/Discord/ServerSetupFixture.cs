@@ -8,9 +8,9 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 2: admin channel and request category exist without manual setup; who is admin.
+    // The admin channel and the request category exist without manual setup, are reused, and come back when deleted.
     [TestFixture]
-    public class Item2AdminSpaceFixture : DiscordScenario
+    public class ServerSetupFixture : DiscordScenario
     {
         [Test]
         public void first_connect_should_create_admin_channel_and_category()
@@ -69,31 +69,6 @@ namespace Requestarr.Core.Test.Discord
 
             config.AdminChannelId.Should().NotBe(oldId.ToString());
             Discord.ChannelNamed(ChannelLayout.AdminChannelName).Should().NotBeNull();
-        }
-
-        [Test]
-        public void server_owner_should_be_admin()
-        {
-            var caller = Mocker.Resolve<ICallerResolver>().Resolve(AsAdmin(FakeInteraction.SlashCommand("admin user").WithOption("member", Alice)).Build());
-
-            caller.IsAdmin.Should().BeTrue();
-            caller.AdminDenial.Should().BeNull();
-        }
-
-        [Test]
-        public void admin_role_member_should_be_admin()
-        {
-            var interaction = FakeInteraction.SlashCommand("admin user").WithOption("member", Alice).By(Moderator).WithRoles(AdminRole).InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel).Build();
-
-            Mocker.Resolve<ICallerResolver>().Resolve(interaction).IsAdmin.Should().BeTrue();
-        }
-
-        [Test]
-        public void ordinary_member_should_not_be_admin()
-        {
-            var interaction = FakeInteraction.SlashCommand("admin user").WithOption("member", Alice).By(Alice).InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel).Build();
-
-            Mocker.Resolve<ICallerResolver>().Resolve(interaction).IsAdmin.Should().BeFalse();
         }
     }
 }

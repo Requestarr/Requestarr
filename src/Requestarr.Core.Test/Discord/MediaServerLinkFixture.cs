@@ -8,13 +8,14 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 7: admin links a Plex username; users request access; approval links (no invite yet).
+    // Media server linking: the admin links a Plex username; a user asks for a link and the admin approves or denies
+    // it from the admin channel (approving links the account; no invite is sent).
     [TestFixture]
-    public class Item7MediaServerFixture : DiscordScenario
+    public class MediaServerLinkFixture : DiscordScenario
     {
-        // These cover Link Plex, which shows only while a Plex server is connected (task 4e).
+        // Link Plex shows only while a Plex server is connected.
         [SetUp]
-        public void ConnectPlex() => ConnectedMediaServers.Servers.Add(Requestarr.Core.MediaServers.MediaServerProvider.Plex);
+        public void ConnectPlex() => ConnectedMediaServers.Servers.Add(MediaServerProvider.Plex);
 
         [SetUp]
         public async Task AddAlice()

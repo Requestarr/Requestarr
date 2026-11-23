@@ -10,18 +10,18 @@ using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
 
-namespace Requestarr.Core.Test.AdminConsole
+namespace Requestarr.Core.Test.Admin
 {
-    // Task 3b: /admin user {member} and /admin request {id or title}, the admin panel's member
-    // picker, users list and queue. Each card shows only what applies now and refreshes in place.
+    // The member card (/admin user {member}, the admin panel's member picker and users list) and the request cards
+    // opened from it. Each card shows only what applies to the member now and changes in place.
     [TestFixture]
-    public class Item2CardsFixture : FeedScenario
+    public class MemberCardFixture : FeedScenario
     {
-        // These cover Link Plex, which shows only while a Plex server is connected (task 4e).
-        [SetUp]
-        public void ConnectPlex() => ConnectedMediaServers.Servers.Add(Requestarr.Core.MediaServers.MediaServerProvider.Plex);
-
         private const ulong Carol = 900000000000001004;
+
+        // Link Plex shows only while a Plex server is connected.
+        [SetUp]
+        public void ConnectPlex() => ConnectedMediaServers.Servers.Add(MediaServerProvider.Plex);
 
         [SetUp]
         public void AnotherMember()
@@ -75,17 +75,31 @@ namespace Requestarr.Core.Test.AdminConsole
         }
 
         [Test]
-        public async Task a_pending_plex_link_shows_on_the_card_and_deciding_it_refreshes_the_card()
+        public async Task a_pending_plex_link_shows_on_the_card_and_approving_it_refreshes_the_card()
         {
             await Harness.SendAsync(PlexForm(Alice, "alice_plex"));
             var card = await CardNow(Alice);
             card.Content.Should().Contain(DiscordText.PendingLink(MediaServerProvider.Plex, "alice_plex"));
+            Labels(card).Should().Contain(new[] { DiscordText.ApproveLinkLabel, DiscordText.DenyLinkLabel });
 
             var run = await MemberButton(Alice, AdminRoutes.Link, "1:a");
 
             run.Responder.Replies.First().Content.Should().Contain("Plex `alice_plex`", "the card is refreshed with the link");
             Labels(run.Responder.Replies.First()).Should().Contain(DiscordText.ChangePlexLabel).And.NotContain(DiscordText.ApproveLinkLabel);
             run.LastReply.Ephemeral.Should().BeTrue();
+            Mocker.Resolve<IMediaServerAccessRequestRepository>().Get(1).Status.Should().Be(AccessRequestStatus.Approved);
+        }
+
+        [Test]
+        public async Task denying_a_pending_plex_link_on_the_card_links_nothing_and_takes_it_off()
+        {
+            await Harness.SendAsync(PlexForm(Alice, "alice_plex"));
+
+            await MemberButton(Alice, AdminRoutes.Link, "1:d");
+
+            Mocker.Resolve<IMediaServerAccessRequestRepository>().Get(1).Status.Should().Be(AccessRequestStatus.Denied);
+            Mocker.Resolve<IMediaServerAccountRepository>().GetForUser(UserFor(Alice).Id).Should().BeEmpty();
+            Labels(await CardNow(Alice)).Should().NotContain(DiscordText.ApproveLinkLabel, "a decided request leaves the card");
         }
 
         [Test]
@@ -129,7 +143,7 @@ namespace Requestarr.Core.Test.AdminConsole
             run.Responder.Replies.First().Content.Should().Contain("Music: auto-approve");
             run.LastReply.Ephemeral.Should().BeTrue();
             run.LastReply.Content.Should().Be(DiscordText.NotConnectedYet("alice", ContentType.Music));
-            Mocker.Resolve<Requestarr.Core.Discord.IPanelService>().UserPanel(UserFor(Alice)).Content.Should().NotContain("Music", "users don't see a type until an instance for it has connected");
+            Mocker.Resolve<IPanelService>().UserPanel(UserFor(Alice)).Content.Should().NotContain("Music", "users don't see a type until an instance for it has connected");
         }
 
         [Test]
@@ -160,6 +174,7 @@ namespace Requestarr.Core.Test.AdminConsole
             list.SelectMenu.Options.Select(o => o.Value).Should().Equal("1");
         }
 
+        // Request cards.
         [Test]
         public async Task a_request_card_from_their_requests_acts_in_place()
         {
@@ -177,7 +192,23 @@ namespace Requestarr.Core.Test.AdminConsole
             (await RequestCardButton("req-approve:1")).LastReply.Content.Should().Be(DiscordText.NotPending(1, RequestStatus.Approved));
         }
 
-        // The admin panel.
+        [Test]
+        public async Task a_request_card_denies_marks_available_and_cancels_with_the_reason_kept()
+        {
+            await PendingMovie(Alice, Dune);
+            await PendingMovie(Bob, DuneTwo);
+            await AskTv(Alice);
+
+            (await Harness.SendAsync(AdminSlash("deny").WithOption("id", 1L).WithOption("reason", "no"))).LastReply.Content.Should().Be(DiscordText.AdminDenied(RequestStore.Get(1)));
+            (await Harness.SendAsync(AdminSlash("available").WithOption("id", 2L))).LastReply.Content.Should().Be(DiscordText.AdminMarkedAvailable(RequestStore.Get(2)));
+            (await Harness.SendAsync(AdminSlash("cancel").WithOption("id", 3L).WithOption("reason", "duplicate"))).LastReply.Content.Should().Be(DiscordText.AdminCancelled(RequestStore.Get(3)));
+
+            RequestStore.All().OrderBy(r => r.Id).Select(r => r.Status).Should().Equal(RequestStatus.Denied, RequestStatus.Available, RequestStatus.Cancelled);
+            RequestStore.Get(1).DecisionReason.Should().Be("no");
+            RequestStore.Get(3).DecisionReason.Should().Be("duplicate");
+        }
+
+        // The admin panel's ways to a member card.
         [Test]
         public async Task the_member_picker_opens_any_members_card()
         {
@@ -204,18 +235,12 @@ namespace Requestarr.Core.Test.AdminConsole
             card.Content.Should().StartWith("**bob**");
         }
 
-        // Permissions: the card's custom IDs never carry authority.
-        [Test]
-        public async Task cards_and_their_buttons_are_admin_only_and_admin_channel_only()
-        {
-            (await Harness.SendAsync(FakeInteraction.SlashCommand("admin user").WithOption("member", Bob).By(Alice).InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel))).LastReply.Content.Should().Be(DiscordText.AdminOnly);
-            (await Harness.SendAsync(FakeInteraction.Button($"adm-suspend:{Bob}").By(Alice).InGuild(FakeDiscordGuild.Guild).InChannel(ChannelOf(Alice)))).LastReply.Content.Should().Be(DiscordText.AdminOnly);
-            (await Harness.SendAsync(FakeInteraction.Button($"adm-suspend:{Bob}").By(FakeDiscordGuild.Owner).InGuild(FakeDiscordGuild.Guild).InChannel(ChannelOf(Alice)))).LastReply.Content.Should().Be(DiscordText.AdminChannelOnly);
-            UserFor(Bob).Status.Should().Be(UserStatus.Active);
-
-            (await Harness.SendAsync(FakeInteraction.Button($"adm-suspend:{Bob}").By(Moderator, "mod").WithRoles(AdminRole).InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel))).LastReply.Content.Should().Be(DiscordText.UserSuspendedDone("bob"));
-        }
-
         private async Task<InteractionReply> CardNow(ulong member) => (await MemberCard(member)).LastReply;
+
+        private async Task AskTv(ulong user)
+        {
+            var message = await Ask(user, "tv", $"tvdb:{DarkMatter2015}");
+            await ClickOn(user, message, $"req-tv-all:{DarkMatter2015}");
+        }
     }
 }

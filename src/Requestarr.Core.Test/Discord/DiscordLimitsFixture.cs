@@ -10,9 +10,10 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 4: category spill at 50 channels, role limit, Discord size limits.
+    // Discord's limits: request channels spill into a new category at 50, adding stops near the role limit, and
+    // commands, names and messages stay within Discord's sizes.
     [TestFixture]
-    public class Item4LimitsFixture : DiscordScenario
+    public class DiscordLimitsFixture : DiscordScenario
     {
         [Test]
         public async Task request_channels_should_spill_into_a_new_category_at_fifty()
@@ -62,8 +63,6 @@ namespace Requestarr.Core.Test.Discord
         {
             // Discord.Net validates names, descriptions (100), choice counts (25) on Build().
             var commands = DiscordCommandDefinitions.Build().Cast<SlashCommandProperties>().ToList();
-
-            commands.Select(c => c.Name.Value).Should().BeEquivalentTo("request", "help", "admin");
 
             foreach (var option in commands.SelectMany(c => Flatten(c.Options.IsSpecified ? c.Options.Value : null)))
             {

@@ -24,7 +24,7 @@ using Requestarr.Core.Test.Framework;
 using Requestarr.Core.Users;
 using Requestarr.Test.Common.Categories;
 
-namespace Requestarr.Core.Test.AdminConsole
+namespace Requestarr.Core.Test.Admin
 {
     // Live: the real bot in the Discord test server with the dev stack's TEST Radarr. Reads back the
     // registered commands; onboards a member through the admin panel's member picker; changes their

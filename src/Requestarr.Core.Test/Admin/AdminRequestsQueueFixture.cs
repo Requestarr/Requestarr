@@ -11,16 +11,16 @@ using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
 
-namespace Requestarr.Core.Test.AdminRequests
+namespace Requestarr.Core.Test.Admin
 {
-    // Task 3c items 1-4: /admin requests walks everything waiting on the admin, one private card at a
+    // /admin requests (and the admin panel's Pending queue) walks everything waiting on the admin, one private card at a
     // time, oldest first; acting moves to the next; handled-elsewhere items are skipped.
     [TestFixture]
-    public class Item2WalkFixture : FeedScenario
+    public class AdminRequestsQueueFixture : FeedScenario
     {
-        // These cover Link Plex, which shows only while a Plex server is connected (task 4e).
+        // Plex link requests come only while a Plex server is connected.
         [SetUp]
-        public void ConnectPlex() => ConnectedMediaServers.Servers.Add(Requestarr.Core.MediaServers.MediaServerProvider.Plex);
+        public void ConnectPlex() => ConnectedMediaServers.Servers.Add(MediaServerProvider.Plex);
 
         private ConnectionMonitor Monitor => (ConnectionMonitor)Mocker.Resolve<IConnectionMonitor>();
 
