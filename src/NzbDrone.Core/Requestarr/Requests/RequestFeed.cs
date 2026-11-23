@@ -16,6 +16,9 @@ namespace Requestarr.Core.Requests
     {
         Task PostAsync(Request request, MediaLookupResult item = null);
 
+        // An imported request's card, marked Imported with the day it was asked for, silent; its message ID.
+        Task<ulong> PostImportedAsync(Request request);
+
         // A removal of a title with no request (never requested through Requestarr): its own card.
         Task PostRemovalAsync(Removals.RemovalProposal removal);
 
@@ -59,7 +62,23 @@ namespace Requestarr.Core.Requests
             _logger = logger;
         }
 
-        public InteractionReply CardFor(Request request)
+        public InteractionReply CardFor(Request request) => CardFor(request, false);
+
+        public async Task<ulong> PostImportedAsync(Request request)
+        {
+            if (!ulong.TryParse(Config()?.FeedChannelId, out var channel))
+            {
+                return 0;
+            }
+
+            var id = await _gateway.SendMessageAsync(channel, CardFor(request, true));
+            request.FeedMessageId = id.ToString();
+            _requests.SetFields(request, r => r.FeedMessageId);
+
+            return id;
+        }
+
+        private InteractionReply CardFor(Request request, bool imported)
         {
             var followers = _subscribers.ForRequest(request.Id).Select(s => _users.Find(s.UserId)?.DisplayName ?? $"user {s.UserId}").ToList();
             var owner = _users.Find(request.OwnerUserId)?.DisplayName ?? $"user {request.OwnerUserId}";
@@ -68,7 +87,7 @@ namespace Requestarr.Core.Requests
             var removal = all.Where(p => p.IsOpen).OrderByDescending(p => p.Id).FirstOrDefault() ?? all.OrderByDescending(p => p.Id).FirstOrDefault();
 
             var instance = _backends.Find(request.BackendId ?? 0);
-            var card = RequestCards.FeedCard(request, null, owner, instance?.Name, followers, removal, removal == null ? 0 : _flags.ForProposal(removal.Id).Count);
+            var card = RequestCards.FeedCard(request, null, owner, instance?.Name, followers, removal, removal == null ? 0 : _flags.ForProposal(removal.Id).Count, imported);
 
             // The feed is the admins' channel: the title's page in Sonarr or Radarr, where a browser can reach it.
             if (TitleLinks.Open(instance, request) is { } open)

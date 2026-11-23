@@ -274,6 +274,8 @@ namespace Requestarr.Core.Settings
             Number("removalRequesterTimeoutDays", "Days the requester has to answer a removal", () => _config.RemovalRequesterTimeoutDays, v => _config.RemovalRequesterTimeoutDays = v, 1),
             Number("removalReminderDay", "Day the requester is reminded", () => _config.RemovalReminderDay, v => _config.RemovalReminderDay = v, 0),
             Switch("removalDeleteFiles", "Delete files in media managers", () => _config.RemovalDeleteFiles, v => _config.RemovalDeleteFiles = v),
+            Switch("importPostChannels", "Post imported history in members' channels", () => _config.ImportPostChannels, v => _config.ImportPostChannels = v),
+            Switch("importPostFeed", "Post imported history in the admin feed", () => _config.ImportPostFeed, v => _config.ImportPostFeed = v),
             Number("accessDenialCooldownDays", "Days before asking again after a denial", () => _config.AccessDenialCooldownDays, v => _config.AccessDenialCooldownDays = v, 0),
             Number("accessSpamWindowMinutes", "Spam guard: minutes clicks count for", () => _config.AccessSpamWindowMinutes, v => _config.AccessSpamWindowMinutes = v, 1),
             Number("accessShortCooldownClicks", "Spam guard: clicks before a short wait", () => _config.AccessShortCooldownClicks, v => _config.AccessShortCooldownClicks = v, 1),

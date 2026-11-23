@@ -93,6 +93,20 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("RemovalRequesterTimeoutDays", value); }
         }
 
+        // Imported history posted in Discord (Imports.HistoryPosting): in members' own channels, and in the admin feed.
+        // On unless an admin turns them off on the Import page.
+        public bool ImportPostChannels
+        {
+            get { return GetValueBoolean("ImportPostChannels", true); }
+            set { SetValue("ImportPostChannels", value); }
+        }
+
+        public bool ImportPostFeed
+        {
+            get { return GetValueBoolean("ImportPostFeed", true); }
+            set { SetValue("ImportPostFeed", value); }
+        }
+
         // Off until an admin turns it on: a server sharing its Sonarr and Radarr must never lose files to a mistake.
         public bool RemovalDeleteFiles
         {

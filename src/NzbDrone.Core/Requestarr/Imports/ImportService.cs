@@ -86,6 +86,7 @@ namespace Requestarr.Core.Imports
         private readonly IRequestMediaService _media;
         private readonly IMemberNameService _names;
         private readonly IManageCommandQueue _commands;
+        private readonly IHistoryPosting _posting;
         private readonly Logger _logger;
 
         public ImportService(IChannelHistory history,
@@ -103,6 +104,7 @@ namespace Requestarr.Core.Imports
                              IRequestMediaService media,
                              IMemberNameService names,
                              IManageCommandQueue commands,
+                             IHistoryPosting posting,
                              Logger logger)
         {
             _history = history;
@@ -121,6 +123,7 @@ namespace Requestarr.Core.Imports
             _media = media;
             _names = names;
             _commands = commands;
+            _posting = posting;
             _logger = logger;
         }
 
@@ -217,7 +220,11 @@ namespace Requestarr.Core.Imports
                     _logger.ProgressInfo("Importing {0} Requestrr messages", job.Messages.Count);
                     var plan = ImportPlanner.Plan(job.Messages, Context(job.Library));
                     var members = await MembersAsync(plan);
+                    var lastBefore = _requests.All().Select(r => r.Id).DefaultIfEmpty().Max();
                     job.Done(plan, Write(plan, job.Channels, members, new Actor(message.ConfirmedBy, message.ConfirmedById)));
+
+                    // This import's new requests in Discord, slowly, as the Import page's switches say.
+                    _posting.QueueImport(lastBefore);
 
                     // A later import reads these channels afresh, for anything said in them since.
                     foreach (var read in job.Reads)
@@ -458,7 +465,8 @@ namespace Requestarr.Core.Imports
                 Seasons = planned.Type == ContentType.Tv ? seasons.ToList() : new List<int>(),
                 MonitorFutureSeasons = everySeason,
                 Status = RequestStatus.NotInLibrary,
-                Requested = planned.Requested
+                Requested = planned.Requested,
+                Imported = true
             };
 
             if (!planned.InLibrary)
