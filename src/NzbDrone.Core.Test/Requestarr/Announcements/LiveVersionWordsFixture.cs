@@ -96,12 +96,13 @@ namespace Requestarr.Core.Test.Announcements
                 full[0].Cards.Should().HaveCount(2);
                 var posted = await gateway.SendMessageAsync(admin, new InteractionReply { Cards = full[0].Cards });
                 var shown = await ((IMessageChannel)await host.Client.Rest.GetChannelAsync(admin)).GetMessageAsync(posted);
-                foreach (var text in Texts(shown))
+                var texts = Texts(shown);
+                foreach (var text in texts)
                 {
                     TestContext.Progress.WriteLine($"[read changes as Discord shows it]\n{text}");
                 }
 
-                Texts(shown).Should().HaveCount(2).And.OnlyContain(t => !t.Contains("Test card"));
+                texts.Should().HaveCount(2).And.OnlyContain(t => !t.Contains("Test card"));
             }
             finally
             {

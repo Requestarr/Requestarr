@@ -421,16 +421,22 @@ def first_line(section):
     return section.split("\n", 1)[0]
 
 
+def rewritten(old, version, section, allowed):
+    """An approved rewrite: the owner approved that version, and its heading is as it was."""
+    return version in allowed and version in old and first_line(old[version]) == first_line(section)
+
+
 def numbered_changes(name, base, head, tested, rewrites=frozenset()):
     """A numbered section never changes, except that one newer than every version testers have may be folded into
     Unreleased (removed): it never reached them, and Unreleased says what changed since the last build they got.
     A changelog section the owner approved rewriting (rewrites) may change its lines, never its heading."""
     old, new = parse(base)[2], parse(head)[2]
     allowed = rewrites if name == "CHANGELOG.md" else frozenset()
-    if any(old.get(v) != s and not (v in allowed and v in old and first_line(old[v]) == first_line(s)) for v, s in new.items()):
+    if any(old.get(v) != s and not rewritten(old, v, s, allowed) for v, s in new.items()):
         return ["%s: a numbered version changed; add lines under '## Unreleased' instead" % name]
-    if allowed - set(new):
-        return ["%s: an approved rewrite keeps its version: %s" % (name, ", ".join(map(text, sorted(allowed - set(new)))))]
+    dropped = sorted(allowed - set(new))
+    if dropped:
+        return ["%s: an approved rewrite keeps its version: %s" % (name, ", ".join(map(text, dropped)))]
     folded = set(old) - set(new)
     if folded and (tested is None or min(folded) <= max(tested, default=(0, 0, 0))):
         return ["%s: only versions testers never had can be folded into Unreleased; %s reached them" % (name, ", ".join(map(text, sorted(folded))))]
@@ -542,6 +548,7 @@ def self_test():
     folded = {"CHANGELOG.md": log("## Unreleased\n\n### For users\n- **Cards:** clearer, and numbered.\n\n## 0.5.6 (2026-11-13)\n"),
               "QA-CHECKLIST.md": ticks("## Unreleased\n- **Cards:** look. You should see them numbered.\n\n## 0.5.6 (2026-11-13)\n")}
     newer_dev = log("## Unreleased\n\n### For users\n- **Numbers:** builds have one.\n- **Later:** after QA.\n\n" + old)
+    reworded = {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("clearer", "better")}
     back = merge(newer_dev, released["CHANGELOG.md"])
     tags = ["v0.3.1", "v0.7.0004", "v0.7.0005", "test-org-move"]
     cases = [
@@ -561,10 +568,10 @@ def self_test():
         (bool(check("change", base, change, no_changelog=True)), "'No changelog' with lines fails"),
         (bool(check("change", base, {**change, "CHANGELOG.md": change["CHANGELOG.md"].replace("clearer", "better")})),
          "changing a numbered version fails"),
-        (check("change", base, {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("clearer", "better")}, no_changelog=True,
-               rewrites={(0, 6, 0)}) == [], "a rewrite the owner approved changes that version's lines"),
-        (bool(check("change", base, {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("clearer", "better")}, no_changelog=True,
-                    rewrites={(0, 5, 6)})), "an approved rewrite of one version doesn't open another"),
+        (check("change", base, reworded, no_changelog=True, rewrites={(0, 6, 0)}) == [],
+         "a rewrite the owner approved changes that version's lines"),
+        (bool(check("change", base, reworded, no_changelog=True, rewrites={(0, 5, 6)})),
+         "an approved rewrite of one version doesn't open another"),
         (bool(check("change", base, {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("(2026-11-13)\n\n### For users", "(2026-11-14)\n\n### For users")},
                     no_changelog=True, rewrites={(0, 6, 0)})), "an approved rewrite keeps the version's heading"),
         (bool(check("change", base, {**base, "QA-CHECKLIST.md": base["QA-CHECKLIST.md"].replace("look", "see")}, no_changelog=True,
