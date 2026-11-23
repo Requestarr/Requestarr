@@ -363,9 +363,10 @@ namespace Requestarr.Core.Portal
             _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider).GroupBy(i => i.UserId)
                 .ToDictionary(g => g.Key, g => g.FirstOrDefault(i => i.AvatarUrl != null) ?? g.First());
 
-        private Dictionary<int, string> Instances() => _backends.All().ToDictionary(b => b.Id, b => b.Name);
+        // Deleted ones too, named so, since requests keep showing where they went.
+        private Dictionary<int, string> Instances() => _backends.Known().ToDictionary(b => b.Id, b => b.ShownName);
 
-        private Dictionary<int, BackendInstance> Backends() => _backends.All().ToDictionary(b => b.Id);
+        private Dictionary<int, BackendInstance> Backends() => _backends.Known().ToDictionary(b => b.Id);
 
         // A request as a row: its requester and followers by name, its instance, and what the title is.
         private sealed class Rows
@@ -401,7 +402,7 @@ namespace Requestarr.Core.Portal
                     Person(request.OwnerUserId),
                     followers,
                     request.BackendId,
-                    instance?.Name,
+                    instance?.ShownName,
                     request.Seasons ?? new List<int>(),
                     request.Requested,
                     request.Decided,

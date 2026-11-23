@@ -12,8 +12,8 @@ import selectProviderSchema from 'Utilities/State/selectProviderSchema';
 import { set } from '../baseActions';
 
 // Requestarr's Sonarr and Radarr instances, as Prowlarr's Store/Actions/Settings/applications.js keeps its
-// applications: Servarr's provider handlers at /mediamanager. An instance is never deleted (it's turned off instead)
-// and has no tags, so there's no delete or bulk edit.
+// applications: Servarr's provider handlers at /mediamanager. Deleting one (its edit modal's Delete) asks the server
+// what it would do first and keeps its history; instances have no tags, so there's no bulk edit or bulk delete.
 
 //
 // Variables

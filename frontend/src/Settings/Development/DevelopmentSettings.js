@@ -39,6 +39,7 @@ class DevelopmentSettings extends Component {
       <PageContent title={translate('DevelopmentSettings')}>
         <SettingsToolbarConnector
           {...otherProps}
+          showAdvancedSettings={false}
           onSavePress={onSavePress}
         />
 

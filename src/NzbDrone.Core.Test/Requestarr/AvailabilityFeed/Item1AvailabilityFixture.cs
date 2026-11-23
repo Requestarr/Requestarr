@@ -292,12 +292,58 @@ namespace Requestarr.Core.Test.AvailabilityFeed
             var sonarr = Instance("Sonarr");
             sonarr.Config.PollingOnly = true;
             Mocker.Resolve<IBackendRepository>().Update(sonarr);
+            Mocker.GetMock<Requestarr.Core.Provisioning.IProvisioningService>().SetupGet(p => p.UsesFile).Returns(true);
             await Availability.SetUpWebhooksAsync();
-            Sonarr.Webhooks.Should().BeEmpty("switching an instance to polling only removes Requestarr's webhook");
+            Sonarr.Webhooks.Should().BeEmpty("a provisioning file's polling only removes Requestarr's webhook");
+            Availability.UpdatesFor(Instance("Sonarr")).Reason.Should().Be(UpdatesReasons.SetByFile);
 
             Mocker.Resolve<IAvailabilitySettingsStore>().Set(null, null);
             await Availability.SetUpWebhooksAsync();
             Radarr.Webhooks.Should().BeEmpty();
+        }
+
+        [Test]
+        public async Task an_instance_saved_as_timer_only_switches_to_right_away_once_its_connect_test_reaches_requestarr()
+        {
+            Mocker.Resolve<IAvailabilitySettingsStore>().Set("http://requestarr:9797", 10);
+            var sonarr = Instance("Sonarr");
+            sonarr.Config.PollingOnly = true;
+            Mocker.Resolve<IBackendRepository>().Update(sonarr);
+            Sonarr.WebhookUnreachable = true;
+
+            await Availability.SetUpWebhooksAsync();
+
+            Sonarr.Webhooks.Should().BeEmpty("it can't reach Requestarr yet, so it stays on the timer");
+            Instance("Sonarr").Config.PollingOnly.Should().BeTrue();
+
+            Sonarr.WebhookUnreachable = false;
+            await Availability.SetUpWebhooksAsync();
+
+            Instance("Sonarr").Config.PollingOnly.Should().BeFalse("its own Connect test got through");
+            Sonarr.Webhooks.Should().ContainKey("http://sonarr-test:8989");
+            Availability.UpdatesFor(Instance("Sonarr")).Should().Be(new InstanceUpdates(true, UpdatesReasons.RightAway, 10));
+        }
+
+        [Test]
+        public async Task each_instance_says_how_its_downloads_are_reported_and_an_address_is_tested_before_saving()
+        {
+            Mocker.Resolve<IAvailabilitySettingsStore>().Set(null, 10);
+            Availability.UpdatesFor(Instance("Radarr")).Reason.Should().Be(UpdatesReasons.NoAddress);
+
+            Mocker.Resolve<IAvailabilitySettingsStore>().Set("http://requestarr:9797", 10);
+            Availability.UpdatesFor(Instance("Radarr")).Reason.Should().Be(UpdatesReasons.NotChecked);
+
+            Radarr.WebhookUnreachable = true;
+            await Availability.SetUpWebhooksAsync();
+            Availability.UpdatesFor(Instance("Radarr")).Should().Be(new InstanceUpdates(false, UpdatesReasons.Unreachable, 10));
+            Availability.UpdatesFor(Instance("Sonarr")).Reason.Should().Be(UpdatesReasons.RightAway);
+
+            var reached = await Availability.TestAddressAsync("http://192.168.1.10:9797");
+
+            reached.Where(r => r.Problem == null).Select(r => r.Name).Should().Equal("Sonarr");
+            reached.Where(r => r.Problem != null).Select(r => r.Name).Should().BeEquivalentTo("Radarr", "Radarr 4K");
+            reached.Single(r => r.Name == "Radarr").Problem.Should().Contain("192.168.1.10:9797");
+            ExceptionVerification.ExpectedWarns(2);
         }
 
         [Test]

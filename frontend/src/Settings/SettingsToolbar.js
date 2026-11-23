@@ -40,6 +40,7 @@ class SettingsToolbar extends Component {
   render() {
     const {
       advancedSettings,
+      showAdvancedSettings,
       showSave,
       isSaving,
       hasPendingChanges,
@@ -54,10 +55,13 @@ class SettingsToolbar extends Component {
     return (
       <PageToolbar>
         <PageToolbarSection>
-          <AdvancedSettingsButton
-            advancedSettings={advancedSettings}
-            onAdvancedSettingsPress={onAdvancedSettingsPress}
-          />
+          {
+            showAdvancedSettings &&
+              <AdvancedSettingsButton
+                advancedSettings={advancedSettings}
+                onAdvancedSettingsPress={onAdvancedSettingsPress}
+              />
+          }
 
           {
             showSave &&
@@ -87,6 +91,8 @@ class SettingsToolbar extends Component {
 
 SettingsToolbar.propTypes = {
   advancedSettings: PropTypes.bool.isRequired,
+  // Requestarr: off on a page with no advanced fields of its own (its connections' modals have their own switch).
+  showAdvancedSettings: PropTypes.bool.isRequired,
   showSave: PropTypes.bool.isRequired,
   isSaving: PropTypes.bool,
   hasPendingLocation: PropTypes.bool.isRequired,
@@ -100,6 +106,7 @@ SettingsToolbar.propTypes = {
 };
 
 SettingsToolbar.defaultProps = {
+  showAdvancedSettings: true,
   showSave: true
 };
 

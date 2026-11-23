@@ -22,6 +22,23 @@ export type BotState =
   | 'disconnected'
   | 'failed';
 
+// A Discord server the bot is in. Ours: the one Requestarr runs in; any other it only reads, for an import. Its ID
+// is text: it's too long for a browser's numbers.
+export interface DiscordServer {
+  id: string;
+  name?: string;
+  iconUrl?: string;
+  isOurs: boolean;
+  reachable: boolean;
+}
+
+interface DiscordBot {
+  name: string;
+  avatarUrl?: string;
+}
+
+// InviteUrl: the full invite, offered only while Requestarr has no server. PickServer: the bot is in several and none
+// is Requestarr's yet. BetaFromImage: the beta image says this is beta.
 export interface SetupStatus {
   needed: boolean;
   adminAccount: boolean;
@@ -32,4 +49,19 @@ export interface SetupStatus {
   botProblem?: string;
   inviteUrl?: string;
   readOnlyInviteUrl?: string;
+  bot?: DiscordBot;
+  servers: DiscordServer[];
+  pickServer: boolean;
+  betaFromImage: boolean;
+  provisioned: boolean;
+}
+
+// Someone in Requestarr's server, for picking admins.
+export interface AdminCandidate {
+  discordId: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  isAdmin: boolean;
+  isOwner: boolean;
 }

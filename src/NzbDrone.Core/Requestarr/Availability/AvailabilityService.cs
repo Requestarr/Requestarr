@@ -43,6 +43,23 @@ namespace Requestarr.Core.Availability
     {
     }
 
+    // Why an instance tells Requestarr about downloads the way it does: right away through its webhook, or on the
+    // timer because Requestarr's address is empty, the instance can't reach it, the provisioning file says so, or the
+    // webhook hasn't been tested yet.
+    public static class UpdatesReasons
+    {
+        public const string RightAway = "rightAway";
+        public const string NoAddress = "noAddress";
+        public const string Unreachable = "unreachable";
+        public const string SetByFile = "setByFile";
+        public const string NotChecked = "notChecked";
+    }
+
+    public record InstanceUpdates(bool RightAway, string Reason, int PollMinutes);
+
+    // One instance's Connect test of an address for Requestarr: the problem it reported, or none when it got through.
+    public record WebhookReach(int Id, string Name, string Implementation, string Problem);
+
     public interface IAvailabilityService
     {
         // A call from an instance's webhook. The payload only says which title to look at: the
@@ -57,6 +74,12 @@ namespace Requestarr.Core.Availability
 
         // Instance name -> why its webhook can't be used (polling still covers it).
         IReadOnlyDictionary<string, string> WebhookProblems { get; }
+
+        InstanceUpdates UpdatesFor(BackendInstance instance);
+
+        // Each Sonarr and Radarr that's turned on runs its own Connect test of a webhook to this address, saving
+        // nothing, so the admin sees which ones reach it before saving it.
+        Task<IReadOnlyList<WebhookReach>> TestAddressAsync(string baseUrl);
     }
 
     public class AvailabilityService : IAvailabilityService, IExecute<AvailabilityCheckCommand>, IHandleAsync<BackendsCheckedEvent>
@@ -74,11 +97,16 @@ namespace Requestarr.Core.Availability
         private readonly IDiscordGuildGateway _gateway;
         private readonly IEventAggregator _events;
         private readonly Announcements.IReleaseEnvironment _environment;
+        private readonly IBackendRepository _repository;
+        private readonly Provisioning.IProvisioningService _provisioning;
         private readonly Logger _logger;
 
         // One check at a time, so a webhook and the poll arriving together report a change once.
         private readonly SemaphoreSlim _lock = new(1, 1);
         private readonly ConcurrentDictionary<string, string> _problems = new();
+
+        // Instance ID -> whether its webhook's last test got through.
+        private readonly ConcurrentDictionary<int, bool> _reached = new();
         private DateTime _lastPoll = DateTime.MinValue;
 
         public AvailabilityService(IRequestRepository requests,
@@ -91,6 +119,8 @@ namespace Requestarr.Core.Availability
                                    IDiscordGuildGateway gateway,
                                    IEventAggregator events,
                                    Announcements.IReleaseEnvironment environment,
+                                   IBackendRepository repository,
+                                   Provisioning.IProvisioningService provisioning,
                                    Logger logger)
         {
             _requests = requests;
@@ -103,12 +133,67 @@ namespace Requestarr.Core.Availability
             _gateway = gateway;
             _events = events;
             _environment = environment;
+            _repository = repository;
+            _provisioning = provisioning;
             _logger = logger;
         }
 
         public Func<DateTime> Clock { get; set; } = () => DateTime.UtcNow;
 
         public IReadOnlyDictionary<string, string> WebhookProblems => _problems;
+
+        public InstanceUpdates UpdatesFor(BackendInstance instance)
+        {
+            var reason = UpdatesReason(instance);
+
+            return new InstanceUpdates(reason == UpdatesReasons.RightAway, reason, _settings.PollMinutes);
+        }
+
+        private string UpdatesReason(BackendInstance instance)
+        {
+            if (_settings.WebhookUrl == null)
+            {
+                return UpdatesReasons.NoAddress;
+            }
+
+            if (instance.Config.PollingOnly && _provisioning.UsesFile)
+            {
+                return UpdatesReasons.SetByFile;
+            }
+
+            if (!_reached.TryGetValue(instance.Id, out var reached))
+            {
+                return UpdatesReasons.NotChecked;
+            }
+
+            return reached ? UpdatesReasons.RightAway : UpdatesReasons.Unreachable;
+        }
+
+        public async Task<IReadOnlyList<WebhookReach>> TestAddressAsync(string baseUrl)
+        {
+            var results = new List<WebhookReach>();
+
+            foreach (var instance in WebhookInstances())
+            {
+                string problem;
+
+                try
+                {
+                    problem = await _backends.ApiFor(instance).TestWebhookAtAsync(instance.Config, WebhookName, WebhookTokens.Url(baseUrl, _config.ApiKey, instance.Id));
+                }
+                catch (BackendException ex)
+                {
+                    problem = ex.Message;
+                }
+
+                results.Add(new WebhookReach(instance.Id, instance.Name, instance.Implementation, problem == null ? null : CleanseLogMessage.Cleanse(problem)));
+            }
+
+            return results;
+        }
+
+        private IEnumerable<BackendInstance> WebhookInstances() =>
+            _backends.All().Where(b => b.Enable && b.Implementation is BackendImplementations.Sonarr or BackendImplementations.Radarr);
 
         public async Task<WebhookOutcome> HandleWebhookAsync(int backendId, string token, string eventType, int? tvdbId, int? tmdbId)
         {
@@ -281,7 +366,7 @@ namespace Requestarr.Core.Availability
         {
             var baseUrl = _settings.WebhookUrl;
 
-            foreach (var instance in _backends.All().Where(b => b.Enable && b.Implementation is BackendImplementations.Sonarr or BackendImplementations.Radarr))
+            foreach (var instance in WebhookInstances())
             {
                 try
                 {
@@ -309,9 +394,10 @@ namespace Requestarr.Core.Availability
         {
             var api = _backends.ApiFor(instance);
 
-            if (baseUrl == null || instance.Config.PollingOnly)
+            if (baseUrl == null || (instance.Config.PollingOnly && !await LeavesPollingAsync(instance, api, baseUrl)))
             {
                 _problems.TryRemove(instance.Name, out _);
+                _reached.TryRemove(instance.Id, out _);
 
                 if (await api.RemoveWebhookAsync(instance.Config, WebhookTokens.For(_config.ApiKey, instance.Id)))
                 {
@@ -329,6 +415,7 @@ namespace Requestarr.Core.Availability
             }
 
             var error = await api.TestWebhookAsync(instance.Config, WebhookTokens.For(_config.ApiKey, instance.Id));
+            _reached[instance.Id] = error == null;
 
             if (error == null)
             {
@@ -338,6 +425,22 @@ namespace Requestarr.Core.Availability
 
             _problems[instance.Name] = Requestarr.Core.Discord.DiscordText.WebhookUnreachable(baseUrl, CleanseLogMessage.Cleanse(error), _settings.PollMinutes);
             _logger.Warn("{0} can't reach Requestarr at {1}; polling every {2} minutes covers it", instance.Name, baseUrl, _settings.PollMinutes);
+        }
+
+        // An instance saved with "check on a timer only" before Requestarr chose that itself: once its own Connect test
+        // reaches Requestarr, it's switched to updates right away. A provisioning file's choice (dev and QA) stays.
+        private async Task<bool> LeavesPollingAsync(BackendInstance instance, IBackendApi api, string baseUrl)
+        {
+            if (_provisioning.UsesFile || await api.TestWebhookAtAsync(instance.Config, WebhookName, WebhookTokens.Url(baseUrl, _config.ApiKey, instance.Id)) != null)
+            {
+                return false;
+            }
+
+            instance.Config.PollingOnly = false;
+            _repository.Update(instance);
+            _logger.Info("{0} reaches Requestarr now: its downloads are reported right away", instance.Name);
+
+            return true;
         }
 
         public void HandleAsync(BackendsCheckedEvent message) => SetUpWebhooksAsync().GetAwaiter().GetResult();

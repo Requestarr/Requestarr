@@ -9,6 +9,7 @@ export interface ImportAccess {
 export interface ImportChannel {
   id: string;
   server?: string;
+  serverId?: string;
   name?: string;
   canRead: boolean;
   problem?: string;

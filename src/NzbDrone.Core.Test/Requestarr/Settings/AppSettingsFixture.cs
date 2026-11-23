@@ -5,7 +5,6 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Test.Framework;
-using Requestarr.Core.Announcements;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
@@ -110,7 +109,7 @@ namespace Requestarr.Core.Test.Settings
             await Subject.SaveAsync(new Dictionary<string, string> { ["discordBotToken"] = "token", ["discordApplicationId"] = "123456789012345678", ["discordGuildId"] = "223456789012345678" }, Admin);
 
             Mocker.Resolve<IDiscordSettingsStore>().Current.IsConfigured.Should().BeTrue();
-            Subject.Get().Values["discordBotToken"].Should().Be(true);
+            Subject.Get().Values["discordBotToken"].Should().Be("••••••••••••en", "a saved token shows only its last characters");
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "discordBotToken", "Bot token: set"), Times.Once());
             Mocker.GetMock<IDiscordClientHost>().Verify(h => h.RestartAsync(), Times.Once());
         }
@@ -134,27 +133,16 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
-        public async Task should_rename_the_webhooks_and_reconnect_the_bot_when_the_servers_role_changes()
+        public async Task should_keep_the_saved_token_when_its_masked_form_comes_back()
         {
-            Mocker.GetMock<IConfigService>().Object.ServerRole = ReleaseEnvironment.Production;
+            await Save("discordBotToken", "abcdefghijklmnop");
+            var shown = AppSettingsService.Masked("abcdefghijklmnop");
 
-            (await Save("serverRole", ReleaseEnvironment.Beta)).Saved.Should().BeTrue();
+            shown.Should().Be("••••••••••••mnop");
+            (await Save("discordBotToken", shown)).Saved.Should().BeTrue();
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "discordBotToken", It.IsAny<string>()), Times.Once());
 
-            Mocker.GetMock<IConfigService>().Object.ServerRole.Should().Be(ReleaseEnvironment.Beta);
-            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "serverRole", "This server is: from production to beta"), Times.Once());
-            Mocker.GetMock<IBackendService>().Verify(b => b.CheckAllAsync(), Times.Once());
-            Mocker.GetMock<IDiscordClientHost>().Verify(h => h.RestartAsync(), Times.Once());
-        }
-
-        [Test]
-        public async Task should_leave_the_role_to_the_stack_on_dev_and_qa()
-        {
-            Mocker.GetMock<IReleaseEnvironment>().SetupGet(e => e.SetByStack).Returns(true);
-
-            var result = await Save("serverRole", ReleaseEnvironment.Beta);
-
-            result.Saved.Should().BeFalse();
-            result.Problem.Should().Contain("stack says which server it is");
+            Mocker.GetMock<IConfigService>().Object.DiscordBotToken.Should().Be("abcdefghijklmnop");
         }
 
         [Test]

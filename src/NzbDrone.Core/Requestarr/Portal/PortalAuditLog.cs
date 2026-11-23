@@ -68,7 +68,7 @@ namespace Requestarr.Core.Portal
         public IReadOnlyList<PortalAuditEntry> Find(PortalAuditFilter filter)
         {
             var users = _users.All();
-            var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.All(), _audit.ForAction(RequestService.DeleteRecordAction));
+            var about = new Subjects(_requests.All(), users, _removals.All(), _accessRequests.All(), _backends.Known(), _audit.ForAction(RequestService.DeleteRecordAction));
             var names = users.ToDictionary(u => u.Id, u => u.DisplayName);
             var discordNames = PortalText.DiscordNames(_identities.All(), names);
 
@@ -153,7 +153,7 @@ namespace Requestarr.Core.Portal
                 "user" when id.HasValue && _users.TryGetValue(id.Value, out var user) => (user.DisplayName, null, user.Id),
                 "access-request" when id.HasValue && _accessRequests.TryGetValue(id.Value, out var asked) => (asked.DisplayName ?? asked.Username, null, null),
                 "member" => (_askedAs.GetValueOrDefault(raw, raw), null, null),
-                "instance" when id.HasValue && _instances.TryGetValue(id.Value, out var instance) => (instance.Name, null, null),
+                "instance" when id.HasValue && _instances.TryGetValue(id.Value, out var instance) => (instance.ShownName, null, null),
                 "settings" => ("Settings", null, null),
                 _ => (raw, null, null)
             };

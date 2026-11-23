@@ -14,6 +14,20 @@ versions after it, 0.4.0 to 0.6.0, never reached the testers and are folded into
 finished goal's build takes the next number, the beta and the release carry the number of the build promoted to them,
 and a beta heading names the goals' builds it includes.
 
+## Unreleased
+
+### For users
+- **Anime versions in plain words:** the bot now says "English dub" or "subtitled version", and when two people want different versions it says which one is kept.
+
+### For admins
+- **Simpler bot setup:** you paste only the bot's token. Requestarr notices when the bot joins your server, makes its admin role, and lets you pick admins in the web app.
+- **Servers as cards:** each server the bot is in has a card, and the + card adds the bot to another server, for example only to import from Requestrr. A saved token shows only its last four characters.
+- **Beta knows it's beta:** the beta image says so, so there's no Production or Beta to choose any more.
+- **Clearer Sonarr and Radarr forms:** they open in their card's window, with plainer wording. New ones start with Standard series, the Any profile and new members approved automatically.
+- **Test shows its result:** Test shows a green check or a red mark, with the reason where you're looking. Leaving with unsaved changes asks first.
+- **Delete, with history kept:** a Sonarr or Radarr can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.
+- **Download updates sort themselves out:** Requestarr fills in its own address from your browser and tests it. Each card says whether downloads are reported right away or on a timer, and why.
+
 ## 0.7.0010 (2026-11-22), with 0.7.0004 to 0.7.0010
 
 ### For users

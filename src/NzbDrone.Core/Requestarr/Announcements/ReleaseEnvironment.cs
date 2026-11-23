@@ -27,12 +27,15 @@ namespace Requestarr.Core.Announcements
         // QA: the versions staging already has, which QA no longer shows.
         IReadOnlySet<Version> Staged { get; }
 
-        // The web app's icons and logo for this environment: "dev", "qa", "beta" (staging) or "production". The same
-        // published image runs on staging and production, so this follows where it runs, not how it was built.
+        // The web app's icons and logo for this environment: "dev", "qa", "beta" (staging) or "production".
         string IconSet { get; }
 
-        // Whether the stack it runs in says which server this is (dev and QA), so the role setting has no say.
+        // Whether the stack or the image says which server this is (dev, QA, and beta's image), so a role saved by
+        // hand has no say.
         bool SetByStack { get; }
+
+        // Beta, because it was installed from the beta image (docs/development.md#release-flow, images).
+        bool BetaFromImage { get; }
 
         // How a version is shown: the version this build runs as its build label (0.7.0005; 0.7.0005-dev or -qa for a
         // goal's numbered build; 0.7.0006-dev.4f2a9c1 for a dev build between goals, docs/development.md#versions),
@@ -42,7 +45,9 @@ namespace Requestarr.Core.Announcements
 
     public class ReleaseEnvironment : IReleaseEnvironment
     {
-        // dev, qa or staging: set by the local stacks. Optional: unset, the server's role decides (ServerRole).
+        // dev, qa or staging: set by the local stacks, and staging by the beta image (the tested image plus this one
+        // variable, the one deliberate difference from production's). Unset, a role saved by hand before the beta image
+        // had it decides (ServerRole), and an install that sets nothing is production.
         public const string EnvironmentVariable = "REQUESTARR_ENVIRONMENT";
 
         // QA only: staging's versions ("0.1.0,0.2.0,..."), from the staging branch's changelog when the QA stack starts.
@@ -63,13 +68,16 @@ namespace Requestarr.Core.Announcements
 
         public Func<string, string> Variable { get; set; } = Environment.GetEnvironmentVariable;
 
-        // The stack's variable when it sets one (dev and QA); otherwise the role chosen for this server, beta running
-        // as staging. One published image runs on beta and production, so nothing in the image can say which it is.
+        // The stack's or image's variable when it sets one; otherwise a role saved by hand, beta running as staging.
         private string Name => SetByStack ? Variable(EnvironmentVariable) : RoleName;
 
-        private string RoleName => _config.ServerRole == Beta ? "staging" : null;
+        private string RoleName => _config.ServerRole == Beta ? Staging : null;
 
         public bool SetByStack => !string.IsNullOrWhiteSpace(Variable(EnvironmentVariable));
+
+        public bool BetaFromImage => string.Equals(Variable(EnvironmentVariable)?.Trim(), Staging, StringComparison.OrdinalIgnoreCase);
+
+        public const string Staging = "staging";
 
         public VersionPostMode VersionPosts => (Name ?? string.Empty).Trim().ToLowerInvariant() switch
         {
@@ -80,10 +88,9 @@ namespace Requestarr.Core.Announcements
 
         public string IconSet => IconSetFor(Name);
 
-        // The roles an admin chooses between in the first-run setup (Settings, then Connections, Discord: This server is).
+        // The roles an install could save by hand before the beta image said which it is.
         public const string Production = "production";
         public const string Beta = "beta";
-        public static readonly IReadOnlyList<string> Roles = new[] { Production, Beta };
 
         // Anything that isn't dev, QA or staging gets production's icons.
         public static string IconSetFor(string environment) => (environment ?? string.Empty).Trim().ToLowerInvariant() switch

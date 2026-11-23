@@ -53,6 +53,14 @@ namespace Requestarr.Core.Backends
         public string DownAnnounceMessageId { get; set; }
 
         public bool EverConnected => FirstConnected.HasValue;
+
+        // Deleted by an admin: gone from every list and picker, kept so its requests still show where they went.
+        public DateTime? Deleted { get; set; }
+
+        public bool IsDeleted => Deleted.HasValue;
+
+        // Its name where its history shows it: "Sonarr (deleted)" once it's deleted.
+        public string ShownName => IsDeleted ? $"{Name} (deleted)" : Name;
     }
 
     // A Sonarr or Radarr connection's settings, as Servarr provider settings: each field's label and help are its
@@ -63,7 +71,8 @@ namespace Requestarr.Core.Backends
         [FieldDefinition(0, Label = "BackendUrl", HelpText = "BackendUrlHelpText", Type = FieldType.Url)]
         public string Url { get; set; }
 
-        // Where an admin's browser reaches the instance, when Url only works from Requestarr (a container name, say).
+        // Where the admin opens it themselves (a domain behind a proxy, say), for the links on requests; empty when it's
+        // the same as Url.
         [FieldDefinition(1, Label = "BackendBrowserUrl", HelpText = "BackendBrowserUrlHelpText", Type = FieldType.Url, Advanced = true)]
         public string BrowserUrl { get; set; }
 
@@ -76,17 +85,31 @@ namespace Requestarr.Core.Backends
         [FieldDefinition(4, Label = "BackendRootFolder", HelpText = "BackendRootFolderHelpText", Type = FieldType.Select, SelectOptionsProviderAction = MediaManagerActions.RootFolders)]
         public string RootFolder { get; set; }
 
-        [FieldDefinition(5, Label = "BackendSeriesType", HelpText = "BackendSeriesTypeHelpText", Type = FieldType.Select, SelectOptionsProviderAction = MediaManagerActions.SeriesTypes, Section = MediaManagerActions.SonarrSection)]
-        public string SeriesType { get; set; }
+        // Sonarr only. Standard unless the admin chooses otherwise; an instance saved without one reads as Standard.
+        [FieldDefinition(5, Label = "BackendSeriesType", HelpText = "BackendSeriesTypeHelpText", Type = FieldType.Select, SelectOptionsProviderAction = MediaManagerActions.SeriesTypes, Section = MediaManagerActions.SonarrSection, Advanced = true)]
+        public string SeriesType
+        {
+            get => _seriesType ?? StandardSeries;
+            set => _seriesType = value;
+        }
 
-        [FieldDefinition(6, Label = "BackendIsDefault", HelpText = "BackendIsDefaultHelpText", Type = FieldType.Checkbox)]
+        public const string StandardSeries = "standard";
+
+        private string _seriesType;
+
+        // The type's main instance, until routing by content replaces it. Kept, not shown.
+        [FieldDefinition(6, Label = "BackendIsDefault", Type = FieldType.Checkbox, Hidden = HiddenType.Hidden)]
         public bool IsDefault { get; set; }
 
-        [FieldDefinition(7, Label = "BackendPollingOnly", HelpText = "BackendPollingOnlyHelpText", Type = FieldType.Checkbox, Advanced = true)]
+        // Kept from before Requestarr chose for itself: Sonarr and Radarr report downloads right away once their own
+        // Connect test reaches Requestarr, and on the timer otherwise (AvailabilityService). A provisioning file may still
+        // set it (dev and QA).
+        [FieldDefinition(7, Label = "BackendPollingOnly", Type = FieldType.Checkbox, Hidden = HiddenType.Hidden)]
         public bool PollingOnly { get; set; }
 
         // What a new member gets for this instance's type until an admin changes it. An instance saved before this
-        // setting existed reads as Needs approval, what every new member got then.
+        // setting existed reads as Needs approval, what every new member got then; a new one starts on Approved
+        // automatically (MediaManagerBase.DefaultDefinitions).
         public AccessState DefaultAccess { get; set; } = AccessState.NeedsApproval;
 
         // The default access as Servarr's provider form picks it: by number, as all of Servarr's choices are. It isn't
@@ -122,9 +145,12 @@ namespace Requestarr.Core.Backends
         public NzbDroneValidationResult Validate() => new();
     }
 
+    // All: every instance that isn't deleted, so a deleted one is gone from every list and picker. Known: deleted ones
+    // too, for history (where each request went). Find and Get by ID find deleted ones too.
     public interface IBackendRepository : IProviderRepository<BackendInstance>
     {
         BackendInstance FindByName(string name);
+        IEnumerable<BackendInstance> Known();
     }
 
     public class BackendRepository : ProviderRepository<BackendInstance>, IBackendRepository
@@ -134,6 +160,11 @@ namespace Requestarr.Core.Backends
         {
         }
 
+        public override IEnumerable<BackendInstance> All() => base.All().Where(b => !b.IsDeleted);
+
+        public IEnumerable<BackendInstance> Known() => base.All();
+
+        // A deleted instance's name is free for a new one.
         public BackendInstance FindByName(string name)
         {
             return All().FirstOrDefault(b => string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase));

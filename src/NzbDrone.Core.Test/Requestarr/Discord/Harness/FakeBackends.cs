@@ -67,6 +67,9 @@ namespace Requestarr.Core.Test.Discord.Harness
         public Task<string> TestWebhookAsync(BackendSettings settings, string name) =>
             Run(() => WebhookUnreachable ? $"Unable to send test message: Connection refused ({Webhooks.GetValueOrDefault(settings.Url)})" : null);
 
+        public Task<string> TestWebhookAtAsync(BackendSettings settings, string name, string url) =>
+            Run(() => WebhookUnreachable ? $"Unable to send test message: Connection refused ({url})" : null);
+
         public Task SetMonitoredAsync(BackendSettings settings, int itemId, bool monitored) => Run(() =>
         {
             if (FailMonitor)

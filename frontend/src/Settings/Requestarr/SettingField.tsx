@@ -10,11 +10,13 @@ import { SETTING_CHOICES } from './settingsPages';
 import { SettingsForm } from './useSettingsForm';
 import styles from './SettingField.css';
 
+// A secret is a text field: the server shows a saved one as dots and its last characters, so the admin can tell
+// which is saved, and typing over it replaces it.
 const INPUT_TYPES: Record<SettingInput, string> = {
   text: inputTypes.TEXT,
   number: inputTypes.NUMBER,
   check: inputTypes.CHECK,
-  password: inputTypes.PASSWORD,
+  password: inputTypes.TEXT,
   select: inputTypes.SELECT,
 };
 
@@ -45,24 +47,18 @@ function labelKey(name: string) {
   return `Setting${name[0].toUpperCase()}${name.slice(1)}`;
 }
 
-// The help under a field: where a provisioned setting is changed instead, and whether a secret is already saved.
-function helpText(name: string, input: SettingInput, settings: AppSettings) {
-  if (settings.provisioned) {
-    return translate('SetByProvisioningHelpText');
-  }
-
-  const help = translate(`${labelKey(name)}HelpText`);
-
-  return input === 'password' && settings.values[name]
-    ? `${help} ${translate('SettingSecretSaved')}`
-    : help;
+// The help under a field, or where a provisioned setting is changed instead.
+function helpText(name: string, settings: AppSettings) {
+  return settings.provisioned
+    ? translate('SetByProvisioningHelpText')
+    : translate(`${labelKey(name)}HelpText`);
 }
 
 // One of Requestarr's settings, by its name in the settings API: its label and help come from the translations.
 function SettingField({ name, input, form }: SettingFieldProps) {
   const settings = form.settings as AppSettings;
-  const saved = input === 'password' ? '' : settings.values[name];
-  const value = name in form.pending ? form.pending[name] : saved;
+  const value =
+    name in form.pending ? form.pending[name] : settings.values[name];
 
   return (
     <FormGroup>
@@ -73,7 +69,7 @@ function SettingField({ name, input, form }: SettingFieldProps) {
         name={name}
         value={value}
         {...selectProps(name, input)}
-        helpText={helpText(name, input, settings)}
+        helpText={helpText(name, settings)}
         {...readOnlyProps(settings.provisioned)}
         onChange={form.onChange}
       />

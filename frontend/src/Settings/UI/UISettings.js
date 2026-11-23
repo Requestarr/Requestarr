@@ -71,6 +71,7 @@ class UISettings extends Component {
       <PageContent title={translate('UISettings')}>
         <SettingsToolbarConnector
           {...otherProps}
+          showAdvancedSettings={false}
           onSavePress={onSavePress}
         />
 

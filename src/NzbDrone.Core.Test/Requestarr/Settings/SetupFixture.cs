@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.Authentication;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Test.Framework;
 using Requestarr.Core.Discord;
+using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Settings;
 
@@ -22,7 +24,11 @@ namespace Requestarr.Core.Test.Settings
             Mocker.SetConstant<IDiscordSettingsStore>(new DiscordSettingsStore());
             Mocker.Resolve<IDiscordSettingsStore>().Set(botConfigured ? new DiscordSettings { BotToken = "token", ApplicationId = 42, GuildId = 7 } : null);
             Mocker.GetMock<IInstanceSettingsService>().Setup(i => i.All()).Returns(new List<InstanceView>(instances));
+            GivenServers();
         }
+
+        private void GivenServers(params DiscordServer[] servers) =>
+            Mocker.GetMock<IDiscordClientHost>().SetupGet(h => h.Servers).Returns(servers);
 
         [Test]
         public void a_new_install_needs_every_step()
@@ -60,15 +66,49 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
-        public void an_install_with_a_sign_in_a_bot_and_an_instance_is_ready_with_both_invite_links()
+        public void an_install_with_a_sign_in_a_bot_and_an_instance_is_ready_with_only_the_read_only_invite()
         {
             Given(AuthenticationType.Forms, true, Instance(enabled: true));
 
             var status = Subject.Status();
 
             status.Needed.Should().BeFalse();
-            status.InviteUrl.Should().Contain("client_id=42").And.Contain($"permissions={SetupService.InvitePermissions}");
+            status.InviteUrl.Should().BeNull("Requestarr already has its server");
             status.ReadOnlyInviteUrl.Should().Contain("client_id=42").And.Contain($"permissions={SetupService.ReadOnlyInvitePermissions}");
+        }
+
+        [Test]
+        public void a_bot_with_only_its_token_offers_the_full_invite_until_it_has_a_server()
+        {
+            Given(AuthenticationType.Forms, false, Instance(enabled: true));
+            Mocker.Resolve<IDiscordSettingsStore>().Set(new DiscordSettings { BotToken = "token", ApplicationId = 42 });
+
+            var status = Subject.Status();
+
+            (status.Discord, status.PickServer).Should().Be((false, false));
+            status.InviteUrl.Should().Contain("client_id=42").And.Contain($"permissions={SetupService.InvitePermissions}");
+        }
+
+        [Test]
+        public void a_bot_in_several_servers_without_one_chosen_asks_the_admin_to_pick()
+        {
+            Given(AuthenticationType.Forms, false);
+            Mocker.Resolve<IDiscordSettingsStore>().Set(new DiscordSettings { BotToken = "token", ApplicationId = 42 });
+            GivenServers(new DiscordServer("1", "Home", null, false, true), new DiscordServer("2", "Old bot", null, false, true));
+
+            var status = Subject.Status();
+
+            status.PickServer.Should().BeTrue();
+            status.Servers.Select(s => s.Name).Should().Equal("Home", "Old bot");
+        }
+
+        [Test]
+        public void the_beta_image_shows_this_is_beta()
+        {
+            Given(AuthenticationType.Forms, true);
+            Mocker.GetMock<Requestarr.Core.Announcements.IReleaseEnvironment>().SetupGet(e => e.BetaFromImage).Returns(true);
+
+            Subject.Status().BetaFromImage.Should().BeTrue();
         }
 
         [Test]

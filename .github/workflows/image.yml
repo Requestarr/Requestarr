@@ -1,8 +1,9 @@
 name: Image
 
 # Publishes Requestarr's container image to GitHub's container registry (docs/development.md#published-images):
-#   push to staging (a promotion, or a fix into staging): builds the number on top of the changelog,
-#     ghcr.io/requestarr/requestarr:beta and :0.7.0004, and tags the commit v0.7.0004 (docs/development.md#versions)
+#   push to staging (a promotion, or a fix into staging): builds the number on top of the changelog as
+#     ghcr.io/requestarr/requestarr:0.7.0004, tags the commit v0.7.0004 (docs/development.md#versions), and publishes
+#     :beta as that same image plus one layer saying it's beta (docker/beta.Dockerfile), never rebuilt
 #   push to main (only on the owner's "ship it"): builds nothing; adds :0.7 and :latest to the image staging published
 #     from the same commit, so production runs the exact file the testers ran
 #   Run workflow on any branch with a tag starting "test-": that tag only, for trying the workflow (delete it after).
@@ -110,6 +111,25 @@ jobs:
             org.opencontainers.image.ref.name=${{ github.ref_name }}
           cache-from: type=gha,scope=image
           cache-to: type=gha,scope=image,mode=max
+
+      # Beta: the image just built, unchanged, plus one layer that says it's beta (REQUESTARR_ENVIRONMENT=staging).
+      # Production ships the number's image without it.
+      - name: Publish the beta variant
+        if: steps.tags.outputs.beta != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          file: docker/beta.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          tags: ${{ steps.tags.outputs.beta }}
+          build-args: |
+            BASE=${{ steps.tags.outputs.first }}
+          labels: |
+            org.opencontainers.image.title=Requestarr Beta
+            org.opencontainers.image.version=${{ steps.tags.outputs.label }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
       # The record every later number is counted from: a tag on the commit that was built (docs/development.md#versions).
       - name: Record the build number

@@ -16,7 +16,11 @@ namespace Requestarr.Core.Discord
         public ulong? AdminChannelId { get; init; }
         public ulong? RequestCategoryId { get; init; }
 
-        public bool IsConfigured => BotToken.IsNotNullOrWhiteSpace() && ApplicationId != 0 && GuildId != 0;
+        public bool IsConfigured => CanConnect && ApplicationId != 0 && GuildId != 0;
+
+        // The token is all the bot needs to connect: it reads its application from Discord, and its server is the one
+        // it joins (or the one the admin picks when it's in several).
+        public bool CanConnect => BotToken.IsNotNullOrWhiteSpace();
     }
 
     public interface IDiscordSettingsStore

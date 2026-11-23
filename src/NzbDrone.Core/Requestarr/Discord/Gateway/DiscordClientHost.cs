@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,8 +10,10 @@ using NLog;
 using NzbDrone.Common.Messaging;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
+using Requestarr.Core.Audit;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Provisioning;
+using Requestarr.Core.Settings;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Discord.Gateway
@@ -39,11 +42,30 @@ namespace Requestarr.Core.Discord.Gateway
         public GuildMember Member { get; }
     }
 
+    // A Discord server the bot is in, for the web app's server cards. Ours: the one Requestarr runs in; every other one
+    // it only reads (for an import from Requestrr). Not reachable: Discord says it's unavailable, or Requestarr's own
+    // server is one the bot isn't in any more. The ID is text, since JavaScript can't hold it as a number.
+    public record DiscordServer(string Id, string Name, string IconUrl, bool IsOurs, bool Reachable);
+
+    // The bot as Discord shows it, once it's connected.
+    public record DiscordBotIdentity(string Name, string AvatarUrl);
+
     public interface IDiscordClientHost
     {
         DiscordSocketClient Client { get; }
         DiscordBotState State { get; }
         string LastError { get; }
+
+        // Every server the bot is in, Requestarr's first; Requestarr's own server too when the bot isn't in it.
+        IReadOnlyList<DiscordServer> Servers { get; }
+        DiscordBotIdentity Bot { get; }
+
+        // Makes a server the bot is in Requestarr's, and sets it up there. False: the bot isn't in it, or a
+        // provisioning file says which server it is.
+        Task<bool> ChooseServerAsync(ulong guildId, Actor actor);
+
+        // The bot leaves a server it only reads; never Requestarr's own. False when it isn't in that server.
+        Task<bool> LeaveServerAsync(ulong guildId);
         Task StartAsync(DiscordSettings settings);
         Task StopAsync();
 
@@ -71,6 +93,8 @@ namespace Requestarr.Core.Discord.Gateway
         private readonly Lazy<IPanelService> _panels;
         private readonly Lazy<Requestarr.Core.Requests.IRequestFeed> _feed;
         private readonly Lazy<Requestarr.Core.Access.IAccessRequestService> _access;
+        private readonly Lazy<IDiscordServerChoice> _serverChoice;
+        private readonly Lazy<IDiscordAdmins> _admins;
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
         private readonly SemaphoreSlim _startLock = new(1, 1);
@@ -86,6 +110,8 @@ namespace Requestarr.Core.Discord.Gateway
                                  Lazy<IPanelService> panels,
                                  Lazy<Requestarr.Core.Requests.IRequestFeed> feed,
                                  Lazy<Requestarr.Core.Access.IAccessRequestService> access,
+                                 Lazy<IDiscordServerChoice> serverChoice,
+                                 Lazy<IDiscordAdmins> admins,
                                  IEventAggregator eventAggregator,
                                  Logger logger)
         {
@@ -96,6 +122,8 @@ namespace Requestarr.Core.Discord.Gateway
             _panels = panels;
             _feed = feed;
             _access = access;
+            _serverChoice = serverChoice;
+            _admins = admins;
             _eventAggregator = eventAggregator;
             _logger = logger;
         }
@@ -103,6 +131,28 @@ namespace Requestarr.Core.Discord.Gateway
         public DiscordSocketClient Client { get; private set; }
         public DiscordBotState State { get; private set; } = DiscordBotState.NotConfigured;
         public string LastError { get; private set; }
+
+        public IReadOnlyList<DiscordServer> Servers
+        {
+            get
+            {
+                var ours = _settings.Current.GuildId;
+                var guilds = Client?.Guilds.ToList() ?? new List<SocketGuild>();
+                var servers = guilds
+                    .Select(g => new DiscordServer(Text(g.Id), g.Name, g.IconUrl, g.Id == ours, g.IsConnected))
+                    .OrderByDescending(s => s.IsOurs).ThenBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+
+                if (ours != 0 && State == DiscordBotState.Connected && guilds.All(g => g.Id != ours))
+                {
+                    servers.Insert(0, new DiscordServer(Text(ours), null, null, true, false));
+                }
+
+                return servers;
+            }
+        }
+
+        public DiscordBotIdentity Bot => Client?.CurrentUser is { } bot ? new DiscordBotIdentity(bot.GlobalName ?? bot.Username, bot.GetDisplayAvatarUrl()) : null;
 
         // Replaceable in tests; the real one ends the process so Docker restarts it.
         public Action<string> Terminate { get; set; } = reason =>
@@ -127,7 +177,7 @@ namespace Requestarr.Core.Discord.Gateway
         {
             var settings = _settings.Current;
 
-            if (!settings.IsConfigured)
+            if (!settings.CanConnect)
             {
                 SetState(DiscordBotState.NotConfigured, null);
                 return;
@@ -171,6 +221,10 @@ namespace Requestarr.Core.Discord.Gateway
                 };
                 Client.Ready += OnReady;
                 Client.InteractionCreated += OnInteraction;
+                Client.JoinedGuild += OnJoinedServer;
+                Client.LeftGuild += OnServersChanged;
+                Client.GuildAvailable += OnServersChanged;
+                Client.GuildUnavailable += OnServersChanged;
                 Client.UserJoined += OnUserJoined;
                 Client.UserLeft += OnUserLeft;
                 Client.GuildMemberUpdated += OnMemberUpdated;
@@ -254,32 +308,15 @@ namespace Requestarr.Core.Discord.Gateway
         {
             try
             {
-                var guild = Client.GetGuild(_settings.Current.GuildId);
+                await LearnApplicationAsync();
 
-                if (guild == null)
+                if (_settings.Current.GuildId == 0)
                 {
-                    SetState(DiscordBotState.Failed, $"The bot is not a member of server {_settings.Current.GuildId}. Invite it with the link from the setup guide.");
+                    await ChooseOnlyServerAsync();
                     return;
                 }
 
-                await _guildSetup.Value.EnsureAsync();
-
-                // Replaces every registered command, so commands from older versions disappear.
-                await guild.BulkOverwriteApplicationCommandAsync(DiscordCommandDefinitions.Build().ToArray());
-                await _panels.Value.EnsureAllAsync();
-                await _feed.Value.SeedAsync();
-
-                // Blocked roles removed by hand while the bot was away count as unblocking.
-                if (_access.Value != null)
-                {
-                    await _access.Value.ReconcileBlocksAsync();
-                }
-
-                // Members role sync and what's new on upgrade (AnnouncementService).
-                _eventAggregator.PublishEvent(new Announcements.DiscordReadyEvent());
-
-                _logger.Info("Discord bot ready in server '{0}'", guild.Name);
-                _ready.TrySetResult();
+                await SetUpServerAsync();
             }
             catch (Exception ex)
             {
@@ -287,6 +324,135 @@ namespace Requestarr.Core.Discord.Gateway
                 SetState(DiscordBotState.Failed, ex.Message);
             }
         }
+
+        // The application the token belongs to, so the invite links work without the admin copying its ID.
+        private async Task LearnApplicationAsync()
+        {
+            if (_settings.Current.ApplicationId != 0)
+            {
+                return;
+            }
+
+            var application = await Client.GetApplicationInfoAsync();
+            _serverChoice.Value.SaveApplication(application.Id);
+        }
+
+        // No server chosen yet: one the bot is alone in is Requestarr's; in several, the admin picks in the web app.
+        private async Task ChooseOnlyServerAsync()
+        {
+            if (Client.Guilds.Count == 1)
+            {
+                await ChooseServerAsync(Client.Guilds.First().Id, Actor.System);
+                return;
+            }
+
+            ServersChanged();
+        }
+
+        // Requestarr's channels, roles, commands and panels in its server.
+        private async Task SetUpServerAsync()
+        {
+            var guild = Client.GetGuild(_settings.Current.GuildId);
+
+            if (guild == null)
+            {
+                SetState(DiscordBotState.Failed, $"The bot is not a member of server {_settings.Current.GuildId}. Add it again from Settings, then Connections.");
+                return;
+            }
+
+            await _guildSetup.Value.EnsureAsync();
+
+            if (_admins.Value != null)
+            {
+                await _admins.Value.EnsureOwnerAsync();
+            }
+
+            // Replaces every registered command, so commands from older versions disappear.
+            await guild.BulkOverwriteApplicationCommandAsync(DiscordCommandDefinitions.Build().ToArray());
+            await _panels.Value.EnsureAllAsync();
+            await _feed.Value.SeedAsync();
+
+            // Blocked roles removed by hand while the bot was away count as unblocking.
+            if (_access.Value != null)
+            {
+                await _access.Value.ReconcileBlocksAsync();
+            }
+
+            // Members role sync and what's new on upgrade (AnnouncementService).
+            _eventAggregator.PublishEvent(new Announcements.DiscordReadyEvent());
+
+            _logger.Info("Discord bot ready in server '{0}'", guild.Name);
+            _ready.TrySetResult();
+            ServersChanged();
+        }
+
+        public async Task<bool> ChooseServerAsync(ulong guildId, Actor actor)
+        {
+            if (Client?.GetGuild(guildId) == null || !_serverChoice.Value.SaveServer(guildId, actor))
+            {
+                return false;
+            }
+
+            try
+            {
+                await SetUpServerAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Discord server setup failed");
+                SetState(DiscordBotState.Failed, ex.Message);
+            }
+
+            return true;
+        }
+
+        public async Task<bool> LeaveServerAsync(ulong guildId)
+        {
+            var guild = Client?.GetGuild(guildId);
+
+            if (guild == null || guildId == _settings.Current.GuildId)
+            {
+                return false;
+            }
+
+            await guild.LeaveAsync();
+            return true;
+        }
+
+        // The bot was added to a server: with none chosen yet, the only one it's in becomes Requestarr's; any other
+        // shows as a card that only reads.
+        private Task OnJoinedServer(SocketGuild guild)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (_settings.Current.GuildId == 0)
+                    {
+                        await ChooseOnlyServerAsync();
+                        return;
+                    }
+
+                    ServersChanged();
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Handling the bot joining server {0} failed", guild.Id);
+                }
+            });
+
+            return Task.CompletedTask;
+        }
+
+        private Task OnServersChanged(SocketGuild guild)
+        {
+            ServersChanged();
+            return Task.CompletedTask;
+        }
+
+        private void ServersChanged() => _eventAggregator.PublishEvent(new DiscordStatusChangedEvent());
+
+        private static string Text(ulong id) => id.ToString(CultureInfo.InvariantCulture);
 
         // A press or command from another server the bot is in (one it was invited to only for an import) is ignored.
         private Task OnInteraction(SocketInteraction interaction)

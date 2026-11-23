@@ -30,8 +30,13 @@ namespace Requestarr.Core.Test.Discord
         // Every Discord event the bot listens to. A new one fails here until its handler checks the server.
         private static readonly string[] Events =
         {
-            "Log", "Connected", "Disconnected", "LatencyUpdated", "Ready", "InteractionCreated", "UserJoined", "UserLeft", "GuildMemberUpdated", "UserUpdated", "MessageReceived"
+            "Log", "Connected", "Disconnected", "LatencyUpdated", "Ready", "InteractionCreated", "JoinedGuild", "LeftGuild", "GuildAvailable", "GuildUnavailable",
+            "UserJoined", "UserLeft", "GuildMemberUpdated", "UserUpdated", "MessageReceived"
         };
+
+        // The handlers for the bot joining, leaving or losing a server: they only refresh the web app's server cards,
+        // and the join makes a server Requestarr's only while it has none.
+        private static readonly string[] ServerListHandlers = { "OnJoinedServer", "OnServersChanged" };
 
         // The handlers for events that come from a server, and the member check they share.
         private static readonly string[] ServerHandlers = { "OnInteraction", "OnUserJoined", "OnUserLeft", "OnMessage", "OnMemberUpdated", "Seen" };
@@ -74,8 +79,16 @@ namespace Requestarr.Core.Test.Discord
                 Body(host, handler).Should().Contain("ServerScope.", $"{handler} must ignore other servers");
             }
 
+            foreach (var handler in ServerListHandlers)
+            {
+                Write.IsMatch(Body(host, handler)).Should().BeFalse($"{handler} changes nothing in Discord");
+            }
+
+            Body(host, "OnJoinedServer").Should().Contain("_settings.Current.GuildId == 0", "a server joined becomes Requestarr's only while it has none");
+            Body(host, "LeaveServerAsync").Should().Contain("guildId == _settings.Current.GuildId", "the bot never leaves Requestarr's own server");
+
             // Setup, its channels and roles, and the commands: only in the configured server.
-            var ready = Body(host, "OnReady");
+            var ready = Body(host, "SetUpServerAsync");
             ready.Should().Contain("Client.GetGuild(_settings.Current.GuildId)");
             Regex.Matches(ready, @"(\w+)\.BulkOverwrite\w*Async").Select(m => m.Groups[1].Value).Should().OnlyContain(g => g == "guild");
             Regex.IsMatch(Source(SourceRoot, "*.cs"), @"Global\w*Command\w*Async").Should().BeFalse("commands are registered only in the configured server");

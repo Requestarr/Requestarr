@@ -1,0 +1,5 @@
+/* A link under a field, lined up with its help text. */
+.extra {
+  margin-top: 5px;
+  font-size: $smallFontSize;
+}

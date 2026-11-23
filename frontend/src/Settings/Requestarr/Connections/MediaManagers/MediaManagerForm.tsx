@@ -1,10 +1,11 @@
-import React, { ComponentType, useCallback, useMemo } from 'react';
+import React, { ComponentType, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppState from 'App/State/AppState';
 import FieldSet from 'Components/FieldSet';
 import Form from 'Components/Form/Form';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
+import FormInputHelpText from 'Components/Form/FormInputHelpText';
 import FormLabel from 'Components/Form/FormLabel';
 import ProviderFieldFormGroup from 'Components/Form/ProviderFieldFormGroup';
 import { inputTypes } from 'Helpers/Props';
@@ -12,61 +13,35 @@ import {
   setMediaManagerFieldValue,
   setMediaManagerValue,
 } from 'Store/Actions/settingsActions';
-import createProviderSettingsSelector from 'Store/Selectors/createProviderSettingsSelector';
-import { ProviderField } from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
 import readOnlyProps from '../../readOnlyProps';
+import {
+  LinkPreview,
+  LoadProblem,
+  PageLink,
+  updatesText,
+} from './MediaManagerExtras';
+import {
+  MEDIA_MANAGERS_SECTION,
+  MediaManagerItem,
+  MediaManagerSettings,
+  portOf,
+} from './mediaManagerSettings';
+import useChoices from './useChoices';
+
+export {
+  MEDIA_MANAGERS_SECTION,
+  useMediaManagerSettings,
+} from './mediaManagerSettings';
 
 // The schema's sections (MediaManagerActions on the server): Sonarr's own fields and the anime ones.
 const SONARR_SECTION = 'sonarr';
 const ANIME_SECTION = 'anime';
 const SONARR = 'Sonarr';
 
-// The media managers' provider section in the store (Store/Actions/Settings/mediaManagers.js).
-export const MEDIA_MANAGERS_SECTION = 'settings.mediaManagers';
-
 interface SettingChange {
   name: string;
   value: unknown;
-}
-
-// A setting as Servarr's selectSettings gives it: its value, with what validation found.
-interface Setting<T> {
-  value: T;
-  errors: object[];
-  warnings: object[];
-}
-
-export interface MediaManagerSettings {
-  isFetching: boolean;
-  error?: object;
-  isSaving: boolean;
-  saveError?: object;
-  isTesting: boolean;
-  validationErrors: object[];
-  validationWarnings: object[];
-  item: {
-    id?: Setting<number>;
-    name: Setting<string>;
-    enable: Setting<boolean>;
-    implementation: Setting<string>;
-    implementationName: string;
-    fields: (ProviderField & { errors: object[]; pending: boolean })[];
-  };
-}
-
-// The instance being edited, or the new one picked from the schema (no id), with its changes, as Servarr's provider
-// modals read it (createProviderSettingsSelector).
-export function useMediaManagerSettings(id?: number): MediaManagerSettings {
-  const selector = useMemo(
-    () => createProviderSettingsSelector('mediaManagers'),
-    []
-  );
-
-  return useSelector(
-    (state: AppState) =>
-      selector(state, { id }) as unknown as MediaManagerSettings
-  );
 }
 
 // Servarr's provider field, typed loosely: it hands any other prop to its input.
@@ -82,22 +57,156 @@ const setFieldValue = setMediaManagerFieldValue as unknown as (
   change: SettingChange
 ) => { type: string };
 
+type Field = MediaManagerItem['fields'][number];
+type Choices = ReturnType<typeof useChoices>;
+
+interface TwoLineCheckProps {
+  label: string;
+  lines: string[];
+  name: string;
+  value: unknown;
+  locked: object;
+  onChange: (change: SettingChange) => void;
+}
+
+// A checkbox whose help is two lines under it: what On and what Off mean.
+function TwoLineCheck(props: TwoLineCheckProps) {
+  return (
+    <FormGroup>
+      <FormLabel>{props.label}</FormLabel>
+      <div>
+        <FormInputGroup
+          type={inputTypes.CHECK}
+          name={props.name}
+          value={props.value}
+          {...props.locked}
+          onChange={props.onChange}
+        />
+        {props.lines.map((line) => (
+          <FormInputHelpText key={line} text={line} />
+        ))}
+      </div>
+    </FormGroup>
+  );
+}
+
+// The words a field takes from this instance's type (its port, its own name), which the shared schema can't.
+function fieldWords(field: Field, app: string): Record<string, unknown> {
+  switch (field.name) {
+    case 'url':
+      return {
+        placeholder: translate('InstanceUrlPlaceholder', { port: portOf(app) }),
+        helpText: translate('InstanceUrlHelpText', { port: portOf(app) }),
+      };
+    case 'apiKey':
+      return { helpText: translate('InstanceApiKeyHelpText', { app }) };
+    case 'animePriority':
+      return { helpText: translate('InstanceAnimePriorityHelpText', { app }) };
+    default:
+      return {};
+  }
+}
+
+interface FieldExtrasProps {
+  name: string;
+  item: MediaManagerItem;
+  app: string;
+  choices: Choices;
+}
+
+// What a field shows under it: why its list couldn't load and a link to the instance's page the list comes from,
+// or the link a request's Open button will make.
+function FieldExtras({ name, item, app, choices }: FieldExtrasProps) {
+  switch (name) {
+    case 'qualityProfile':
+      return (
+        <>
+          <LoadProblem list={choices.profiles} />
+          <PageLink
+            item={item}
+            path="settings/profiles"
+            label={translate('InstanceOpenProfiles', { app })}
+          />
+        </>
+      );
+    case 'rootFolder':
+      return (
+        <>
+          <LoadProblem list={choices.folders} />
+          <PageLink
+            item={item}
+            path="settings/mediamanagement"
+            label={translate('InstanceOpenMediaManagement', { app })}
+          />
+        </>
+      );
+    case 'browserUrl':
+      return <LinkPreview item={item} app={app} />;
+    default:
+      return null;
+  }
+}
+
+interface FieldProps extends FieldExtrasProps {
+  field: Field;
+  locked: object;
+  onChange: (change: SettingChange) => void;
+}
+
+// One provider field from the schema (ProviderFieldFormGroup), with this type's words and what it shows under it.
+function MediaManagerField({ field, locked, onChange, ...extras }: FieldProps) {
+  const advancedSettings = useSelector(
+    (state: AppState) => state.settings.advancedSettings
+  );
+
+  if (field.name === 'animeEnabled') {
+    return (
+      <TwoLineCheck
+        label={field.label ?? ''}
+        lines={[
+          translate('InstanceAnimeOn', { app: extras.app }),
+          translate('InstanceAnimeOff'),
+        ]}
+        name={field.name}
+        value={field.value}
+        locked={locked}
+        onChange={onChange}
+      />
+    );
+  }
+
+  return (
+    <>
+      <ProviderFieldGroup
+        advancedSettings={advancedSettings}
+        provider="mediamanager"
+        providerData={extras.item}
+        section={MEDIA_MANAGERS_SECTION}
+        {...field}
+        {...fieldWords(field, extras.app)}
+        {...locked}
+        onChange={onChange}
+      />
+      <FieldExtras {...extras} />
+    </>
+  );
+}
+
 interface MediaManagerFormProps {
   settings: MediaManagerSettings;
   isReadOnly: boolean;
 }
 
-// A Sonarr or Radarr's settings, as Prowlarr's application modal shows them: its name, whether it's turned on, then
-// its provider fields from the schema (ProviderFieldFormGroup), Sonarr's own and its anime settings only for Sonarr.
-// Problems saving or testing show at the top, as Servarr's forms show them.
+// A Sonarr or Radarr's settings, as Prowlarr's application modal shows them: how its downloads reach Requestarr, its
+// name, whether it's in use (a saved one only: a new one is), then its provider fields from the schema, Sonarr's own
+// and its anime settings only for Sonarr. Advanced fields stay in their place, shown by Show Advanced in the footer.
 function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
   const dispatch = useDispatch();
-  const advancedSettings = useSelector(
-    (state: AppState) => state.settings.advancedSettings
-  );
   const { item, validationErrors, validationWarnings } = settings;
-  const isSonarr = item.implementation.value === SONARR;
+  const app = item.implementation.value;
   const locked = readOnlyProps(isReadOnly);
+  const choices = useChoices(item);
+  const updates = item.updates?.value;
 
   const onInputChange = useCallback(
     (change: SettingChange) => dispatch(setValue(change)),
@@ -112,14 +221,14 @@ function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
     item.fields
       .filter((field) => field.section === section)
       .map((field) => (
-        <ProviderFieldGroup
+        <MediaManagerField
           key={field.name}
-          advancedSettings={advancedSettings}
-          provider="mediamanager"
-          providerData={item}
-          section={MEDIA_MANAGERS_SECTION}
-          {...field}
-          {...locked}
+          field={field}
+          name={field.name}
+          item={item}
+          app={app}
+          choices={choices}
+          locked={locked}
           onChange={onFieldChange}
         />
       ));
@@ -129,6 +238,8 @@ function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
       validationErrors={validationErrors}
       validationWarnings={validationWarnings}
     >
+      {updates && <FormInputHelpText text={updatesText(updates, app)} />}
+
       <FormGroup>
         <FormLabel>{translate('BackendName')}</FormLabel>
         <FormInputGroup
@@ -141,22 +252,21 @@ function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
         />
       </FormGroup>
 
-      <FormGroup>
-        <FormLabel>{translate('BackendEnabled')}</FormLabel>
-        <FormInputGroup
-          type={inputTypes.CHECK}
+      {!!item.id?.value && (
+        <TwoLineCheck
+          label={translate('InstanceUse', { app })}
+          lines={[translate('InstanceUseOn'), translate('InstanceUseOff')]}
           name="enable"
-          helpText={translate('BackendEnabledHelpText')}
-          {...item.enable}
-          {...locked}
+          value={item.enable.value}
+          locked={locked}
           onChange={onInputChange}
         />
-      </FormGroup>
+      )}
 
       {fieldsIn(undefined)}
-      {isSonarr && fieldsIn(SONARR_SECTION)}
+      {app === SONARR && fieldsIn(SONARR_SECTION)}
 
-      {isSonarr && (
+      {app === SONARR && (
         <FieldSet legend={translate('InstanceAnime')}>
           {fieldsIn(ANIME_SECTION)}
         </FieldSet>

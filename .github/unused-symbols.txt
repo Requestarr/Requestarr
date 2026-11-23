@@ -49,3 +49,18 @@ Requestarr.Http.Portal.BulkAnswer.Total  # in the bulk addresses' answer, which 
 Requestarr.Http.Portal.BulkFailure.Id  # in the bulk addresses' answer, which the web app reads
 Requestarr.Http.Portal.BulkFailure.Message  # in the bulk addresses' answer, which the web app reads
 Requestarr.Http.Portal.PortalBroadcaster  # created by the event wiring: it handles the change events to tell open pages
+Requestarr.Core.Availability.InstanceUpdates.PollMinutes  # sent in the media managers' answer, which the web app shows
+Requestarr.Core.Availability.InstanceUpdates.RightAway  # sent in the media managers' answer, which the web app shows
+Requestarr.Core.Availability.WebhookReach.Id  # sent in the address test's answer, which the web app shows
+Requestarr.Core.Availability.WebhookReach.Implementation  # sent in the address test's answer, which the web app shows
+Requestarr.Core.Discord.DiscordAdminCandidate.Avatar  # sent in the admins' answer, which the web app shows
+Requestarr.Core.Discord.DiscordAdminCandidate.Username  # sent in the admins' answer, which the web app shows
+Requestarr.Core.Discord.Gateway.DiscordBotIdentity.AvatarUrl  # sent in the first-run setup's answer, which the web app shows
+Requestarr.Core.Discord.Gateway.DiscordBotIdentity.Name  # sent in the first-run setup's answer, which the web app shows
+Requestarr.Core.Discord.Gateway.DiscordServer.IconUrl  # sent in the first-run setup's answer, which the web app shows
+Requestarr.Core.Discord.Gateway.DiscordServer.Id  # sent in the first-run setup's answer, which the web app shows
+Requestarr.Core.Discord.Gateway.DiscordServer.Reachable  # sent in the first-run setup's answer, which the web app shows
+Requestarr.Core.Settings.InstanceChoice.Id  # sent in the delete confirm's answer, which the web app shows
+Requestarr.Core.Settings.InstanceDeletionPreview.Implementation  # sent in the delete confirm's answer, which the web app shows
+Requestarr.Http.Settings.SetupBroadcaster  # created by the event wiring: it handles the bot's status events to tell open setup pages
+Requestarr.Core.Settings.InstanceDeleteResult.OpenRequests  # sent in the delete's answer, which the web app shows

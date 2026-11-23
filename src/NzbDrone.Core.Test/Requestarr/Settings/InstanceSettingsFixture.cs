@@ -77,16 +77,16 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
-        public async Task should_keep_and_record_the_address_in_your_browser_and_refuse_one_that_isnt_a_web_address()
+        public async Task should_keep_and_record_the_address_for_links_and_refuse_one_that_isnt_a_web_address()
         {
             var bad = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { BrowserUrl = "nas.local:8989" }, Admin);
-            bad.Problem.Should().Contain("address in your browser");
+            bad.Problem.Should().Contain("address for links");
 
             await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { BrowserUrl = " http://nas.local:8989 " }, Admin);
 
             _instances[0].Config.BrowserUrl.Should().Be("http://nas.local:8989");
             Subject.All().Single(i => i.Id == 1).Settings.BrowserUrl.Should().Be("http://nas.local:8989");
-            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", It.Is<string>(d => d.Contains("address in your browser from none to http://nas.local:8989"))), Times.Once());
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", It.Is<string>(d => d.Contains("address for links from none to http://nas.local:8989"))), Times.Once());
         }
 
         [Test]
@@ -106,7 +106,21 @@ namespace Requestarr.Core.Test.Settings
             await Subject.TestAsync(1, Input("Sonarr", "http://elsewhere:8989"));
 
             Mocker.GetMock<IBackendService>().Verify(b => b.ProbeAsync(BackendImplementations.Sonarr, It.Is<BackendSettings>(s => s.Url == "http://sonarr:8989" && s.ApiKey == "old")), Times.Once());
-            Mocker.GetMock<IBackendService>().Verify(b => b.ProbeAsync(BackendImplementations.Sonarr, It.Is<BackendSettings>(s => s.Url == "http://elsewhere:8989" && s.ApiKey == null)), Times.Once());
+            Mocker.GetMock<IBackendService>().Verify(b => b.ProbeAsync(BackendImplementations.Sonarr, It.Is<BackendSettings>(s => s.Url == "http://elsewhere:8989")), Times.Never());
+            (await Subject.TestAsync(1, Input("Sonarr", "http://elsewhere:8989"))).Problem.Should().Be(ConnectionProblems.NoApiKey("Sonarr"), "a new address needs its key typed again");
+        }
+
+        [TestCase("http://localhost:8989", "inside Requestarr's container, localhost means Requestarr itself")]
+        [TestCase("http://127.0.0.1:8989", "inside Requestarr's container, 127.0.0.1 means Requestarr itself")]
+        [TestCase("http://nas-name:8989", "Couldn't find a server named nas-name. Inside Requestarr's container, a computer's network name may not work; use its IP address instead.")]
+        public async Task should_say_in_plain_words_why_it_cant_reach_an_instance(string url, string expected)
+        {
+            var notFound = new System.Net.Http.HttpRequestException("No such host is known.", new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.HostNotFound));
+            Mocker.GetMock<IBackendService>().Setup(b => b.ProbeAsync(It.IsAny<string>(), It.IsAny<BackendSettings>())).ThrowsAsync(new BackendException($"{url}: No such host is known.", notFound));
+
+            var result = await Subject.TestAsync(null, Input("Sonarr", url, "key"));
+
+            result.Problem.Should().Contain(expected);
         }
 
         [TestCase("Sonarr", "http://sonarr2:8989", "key")]

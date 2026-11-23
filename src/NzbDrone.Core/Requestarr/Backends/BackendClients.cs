@@ -136,6 +136,10 @@ namespace Requestarr.Core.Backends
         Task<bool> RemoveWebhookAsync(BackendSettings settings, string token);
         Task<string> TestWebhookAsync(BackendSettings settings, string token);
 
+        // Sonarr's or Radarr's own Connect test of a webhook to this address, saving nothing: the problem it reports,
+        // or null when it got through.
+        Task<string> TestWebhookAtAsync(BackendSettings settings, string name, string url);
+
         // Stops (or resumes) searching for a library item. Nothing is deleted.
         Task SetMonitoredAsync(BackendSettings settings, int itemId, bool monitored);
 
@@ -254,7 +258,7 @@ namespace Requestarr.Core.Backends
 
             if (webhooks.Any(n => n != ours && (string)n["name"] == name))
             {
-                throw new WebhookNameTakenException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, choose Beta under Settings, then Connections, Discord: This server is.");
+                throw new WebhookNameTakenException($"{settings.Url}: another Requestarr's connection is already named \"{name}\" there. If this Requestarr is the beta, install it from the beta image.");
             }
 
             var body = ours ?? (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification/schema"))?.FirstOrDefault(n => (string)n["implementation"] == "Webhook")
@@ -314,6 +318,28 @@ namespace Requestarr.Core.Backends
             try
             {
                 await PostAsync(settings, "notification/test", ours);
+                return null;
+            }
+            catch (BackendException ex)
+            {
+                return ex.Message;
+            }
+        }
+
+        public async Task<string> TestWebhookAtAsync(BackendSettings settings, string name, string url)
+        {
+            var body = (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, "notification/schema"))?.FirstOrDefault(n => (string)n["implementation"] == "Webhook")
+                       ?? throw new BackendException($"{settings.Url}: no Webhook connection type");
+
+            body.Remove("id");
+            body["name"] = name;
+            body["tags"] = new Newtonsoft.Json.Linq.JArray();
+            SetField(body, "url", url);
+            SetField(body, "method", 1);
+
+            try
+            {
+                await PostAsync(settings, "notification/test", body);
                 return null;
             }
             catch (BackendException ex)

@@ -1,0 +1,6 @@
+/* Prowlarr's EditApplicationModalContent: Delete keeps to the left, everything else to the right. */
+.deleteButton {
+  composes: button from '~Components/Link/Button.css';
+
+  margin-right: auto;
+}

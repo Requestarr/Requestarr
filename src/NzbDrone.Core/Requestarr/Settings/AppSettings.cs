@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NzbDrone.Core.Configuration;
-using Requestarr.Core.Announcements;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
@@ -63,10 +62,13 @@ namespace Requestarr.Core.Settings
         // enough that no time Requestarr works out from it overflows.
         public const int MaxNumber = 10000;
 
+        public const char MaskCharacter = '•';
+        private const int MaskLength = 12;
+        private const int MaskShown = 4;
+
         public const string ProvisionedProblem = "These settings come from the provisioning file on this server; change them there.";
 
         private const string WebhookAddress = "availabilityWebhookUrl";
-        private const string ServerRoleKey = "serverRole";
 
         private static readonly Regex DiscordId = new(@"^\d{15,21}$");
 
@@ -80,7 +82,6 @@ namespace Requestarr.Core.Settings
         private readonly IAvailabilitySettingsStore _availability;
         private readonly IAuditSettings _auditLog;
         private readonly IBackendService _backends;
-        private readonly IReleaseEnvironment _environment;
         private readonly IAuditService _audit;
 
         public AppSettingsService(IConfigService config,
@@ -91,7 +92,6 @@ namespace Requestarr.Core.Settings
                                   IAvailabilitySettingsStore availability,
                                   IAuditSettings auditLog,
                                   IBackendService backends,
-                                  IReleaseEnvironment environment,
                                   IAuditService audit)
         {
             _config = config;
@@ -102,7 +102,6 @@ namespace Requestarr.Core.Settings
             _availability = availability;
             _auditLog = auditLog;
             _backends = backends;
-            _environment = environment;
             _audit = audit;
         }
 
@@ -117,6 +116,10 @@ namespace Requestarr.Core.Settings
 
             var definitions = Definitions().ToDictionary(d => d.Key);
 
+            // A secret sent back as the page showed it (masked) is the saved one, not a new one.
+            changes = changes.Where(c => !(definitions.TryGetValue(c.Key, out var d) && d.Kind == SettingKind.Secret && c.Value.Contains(MaskCharacter)))
+                .ToDictionary(c => c.Key, c => c.Value);
+
             if (changes.Select(c => Problem(definitions, c.Key, c.Value)).FirstOrDefault(p => p != null) is { } problem)
             {
                 return SettingsSaveResult.Refused(problem);
@@ -129,15 +132,13 @@ namespace Requestarr.Core.Settings
                 _stored.Load();
             }
 
-            // The bot's banner follows the server's role too, so a role change reconnects it.
-            if (changed.Any(DiscordConnection.Contains) || changed.Contains(ServerRoleKey))
+            if (changed.Any(DiscordConnection.Contains))
             {
                 await _discordHost.RestartAsync();
             }
 
-            // Sonarr's and Radarr's webhooks follow the address, and their name the server's role: checking the instances
-            // adds, moves, renames or removes them.
-            if (changed.Contains(WebhookAddress) || changed.Contains(ServerRoleKey))
+            // Sonarr's and Radarr's webhooks follow the address: checking the instances adds, moves or removes them.
+            if (changed.Contains(WebhookAddress))
             {
                 await _backends.CheckAllAsync();
             }
@@ -155,8 +156,9 @@ namespace Requestarr.Core.Settings
             return SaveAsync(changes, actor);
         }
 
+        // Left as shown (its masked last characters, or whether one is set) or emptied: the saved one stays.
         private static bool IsUnchangedSecret(SettingDefinition definition, string value) =>
-            definition.Kind == SettingKind.Secret && (string.IsNullOrEmpty(value) || bool.TryParse(value, out _));
+            definition.Kind == SettingKind.Secret && (string.IsNullOrEmpty(value) || bool.TryParse(value, out _) || value.Contains(MaskCharacter));
 
         // Writes the value and records the change; false when it was already that.
         private bool Apply(SettingDefinition definition, string value, Actor actor)
@@ -206,10 +208,15 @@ namespace Requestarr.Core.Settings
             {
                 SettingKind.Number => int.Parse(value, CultureInfo.InvariantCulture),
                 SettingKind.Switch => value == "true",
-                SettingKind.Secret => value.Length > 0,
+                SettingKind.Secret => Masked(value),
                 _ => value
             };
         }
+
+        // A saved secret as the settings pages show it: dots and its last few characters, so the admin can tell which
+        // one is saved without it ever leaving the server. Nothing saved: empty.
+        public static string Masked(string secret) =>
+            secret.Length == 0 ? string.Empty : new string(MaskCharacter, MaskLength) + secret[^Math.Min(MaskShown, secret.Length / 2)..];
 
         // "Vote length (days): from 7 to 5"; a secret only says that it changed.
         private static string Described(SettingDefinition definition, string before, string after)
@@ -241,7 +248,6 @@ namespace Requestarr.Core.Settings
 
         private IEnumerable<SettingDefinition> DiscordDefinitions() => new[]
         {
-            new SettingDefinition(ServerRoleKey, "This server is", SettingKind.Text, () => _config.ServerRole, v => _config.ServerRole = v, Check: ServerRoleProblem),
             new SettingDefinition("discordBotToken", "Bot token", SettingKind.Secret, () => _discord.Current.BotToken, v => _config.DiscordBotToken = v),
             new SettingDefinition("discordApplicationId", "Application ID", SettingKind.Text, () => Id(_discord.Current.ApplicationId), v => _config.DiscordApplicationId = v, Check: v => IdProblem("Application ID", v)),
             new SettingDefinition("discordGuildId", "Server ID", SettingKind.Text, () => Id(_discord.Current.GuildId), v => _config.DiscordGuildId = v, Check: v => IdProblem("Server ID", v)),
@@ -285,20 +291,10 @@ namespace Requestarr.Core.Settings
         private static string IdProblem(string label, string value) =>
             value.Length == 0 || DiscordId.IsMatch(value) ? null : $"{label} is the long number Discord shows with Developer Mode on (Copy ID).";
 
-        internal static bool IsWebAddress(string value) =>
+        public static bool IsWebAddress(string value) =>
             Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 
         private static string UrlProblem(string value) =>
             value.Length == 0 || IsWebAddress(value) ? null : "The address starts with http:// or https://, for example http://requestarr:9797.";
-
-        private string ServerRoleProblem(string value)
-        {
-            if (!ReleaseEnvironment.Roles.Contains(value))
-            {
-                return "This server is production or beta.";
-            }
-
-            return _environment.SetByStack ? "This server's stack says which server it is (dev or QA), so the role can't be changed here." : null;
-        }
     }
 }

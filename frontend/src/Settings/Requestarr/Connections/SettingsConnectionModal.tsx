@@ -10,11 +10,11 @@ import { SettingsSection } from '../RequestarrSettingsTypes';
 import SettingsSections from '../SettingsSections';
 import useSettingsForm from '../useSettingsForm';
 import ConnectionModalFooter from './ConnectionModalFooter';
+import { useShowAdvanced } from './ConnectionsToolbar';
 
 interface ContentProps {
   title: string;
   sections: SettingsSection[];
-  showAdvanced: boolean;
   children?: ReactNode;
   onSaved: () => void;
   onClose: () => void;
@@ -23,14 +23,15 @@ interface ContentProps {
 function SettingsConnectionContent({
   title,
   sections,
-  showAdvanced,
   children,
   onSaved,
   onClose,
 }: ContentProps) {
   const form = useSettingsForm(onSaved);
+  const showAdvanced = useShowAdvanced();
   const { settings, saveError } = form;
   const isReadOnly = settings?.provisioned ?? true;
+  const hasAdvanced = sections.some((section) => section.advanced?.length);
 
   return (
     <ModalContent onModalClose={onClose}>
@@ -58,8 +59,9 @@ function SettingsConnectionContent({
 
       <ConnectionModalFooter
         isReadOnly={isReadOnly}
-        isBusy={form.isSaving}
+        isSaving={form.isSaving}
         canSave={form.hasChanges}
+        hasAdvanced={hasAdvanced}
         onCancel={onClose}
         onSave={form.onSave}
       />

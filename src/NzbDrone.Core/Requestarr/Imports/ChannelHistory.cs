@@ -15,7 +15,9 @@ namespace Requestarr.Core.Imports
 {
     // A channel an admin names for an import, as the bot sees it. Problem: why it can't be read, in words, or null.
     // HasSourceReplies: the old bot (Requestrr) answered there, going by the channel's newest messages.
-    public record ImportChannel([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong Id, string Server, string Name, bool CanRead, string Problem, bool HasSourceReplies = false);
+    // ServerId: the server's ID as text, so the Import page can show one server's channels (from its server card).
+    public record ImportChannel([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong Id, string Server, string Name, bool CanRead, string Problem, bool HasSourceReplies = false,
+                                string ServerId = null);
 
     // What the Import page shows above the channels: the link that adds the bot to another server only to read it,
     // whether the bot may read other bots' messages (unknown while it isn't connected), and the Developer Portal page
@@ -89,6 +91,8 @@ namespace Requestarr.Core.Imports
         // Discord's most per request.
         public const int PageSize = 100;
 
+        private static string Text(ulong id) => id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         private readonly IDiscordClientHost _host;
         private DiscordSocketClient _intentClient;
         private MessageContentIntent _messageContent;
@@ -134,7 +138,7 @@ namespace Requestarr.Core.Imports
 
             var problem = await ProblemAsync(channel);
 
-            return new ImportChannel(channelId, channel.Guild.Name, channel.Name, problem == null, problem);
+            return new ImportChannel(channelId, channel.Guild.Name, channel.Name, problem == null, problem, ServerId: Text(channel.Guild.Id));
         }
 
         // Why the bot can't read the channel's history and its messages' content, or null.
@@ -165,7 +169,7 @@ namespace Requestarr.Core.Imports
             return _host.Client.Guilds.SelectMany(g => g.TextChannels)
                 .Where(c => c.Guild.CurrentUser.GetPermissions(c) is { ViewChannel: true, ReadMessageHistory: true })
                 .OrderBy(c => c.Guild.Name).ThenBy(c => c.Position)
-                .Select(c => new ImportChannel(c.Id, c.Guild.Name, c.Name, true, null))
+                .Select(c => new ImportChannel(c.Id, c.Guild.Name, c.Name, true, null, ServerId: Text(c.Guild.Id)))
                 .ToList();
         }
 

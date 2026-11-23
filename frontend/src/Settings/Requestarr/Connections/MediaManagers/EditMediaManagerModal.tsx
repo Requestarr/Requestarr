@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
@@ -8,6 +8,7 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import { kinds, sizes } from 'Helpers/Props';
+import PendingChangesModal from 'Settings/PendingChangesModal';
 import { clearPendingChanges } from 'Store/Actions/baseActions';
 import {
   cancelSaveMediaManager,
@@ -17,28 +18,63 @@ import {
 } from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
 import ConnectionModalFooter from '../ConnectionModalFooter';
+import useLeaveWarning from '../useLeaveWarning';
+import DeleteMediaManagerModal from './DeleteMediaManagerModal';
 import MediaManagerForm, {
   MEDIA_MANAGERS_SECTION,
   useMediaManagerSettings,
 } from './MediaManagerForm';
 
+interface FailedRequest {
+  responseJSON?: { errorMessage?: string }[] | { message?: string };
+}
+
+// Why the last test or save failed, in the server's words.
+function failureOf(error?: object | null) {
+  const answer = (error as FailedRequest | undefined)?.responseJSON;
+
+  return Array.isArray(answer)
+    ? answer.map((failure) => failure.errorMessage).join(' ')
+    : answer?.message;
+}
+
+// Why the last Test or Save failed, just above the footer and scrolled to, so it shows where the admin is looking
+// instead of only at the top of a long form.
+function Failure({ error }: { error?: object | null }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const failure = failureOf(error);
+
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: 'nearest' });
+  }, [failure]);
+
+  return failure ? (
+    <div ref={ref}>
+      <Alert kind={kinds.DANGER}>{failure}</Alert>
+    </div>
+  ) : null;
+}
+
 interface EditMediaManagerModalContentProps {
   id?: number;
   isReadOnly: boolean;
   onModalClose: () => void;
+  onDeleted: (problem?: string) => void;
 }
 
-// Prowlarr's EditApplicationModalContent with its connector, as hooks: the form, then Test, Cancel and Save; closed
-// once a save goes through. No Delete: an instance is turned off instead, since its requests keep their history.
-function EditMediaManagerModalContent({
-  id,
-  isReadOnly,
-  onModalClose,
-}: EditMediaManagerModalContentProps) {
+// Prowlarr's EditApplicationModalContent with its connector, as hooks: the form, then Delete, Show Advanced, Test,
+// Cancel and Save; closed once a save goes through. Leaving with changes unsaved asks first.
+function EditMediaManagerModalContent(
+  props: EditMediaManagerModalContentProps
+) {
+  const { id, isReadOnly, onModalClose, onDeleted } = props;
   const dispatch = useDispatch();
   const settings = useMediaManagerSettings(id);
   const { isFetching, error, isSaving, saveError, isTesting, item } = settings;
   const wasSaving = usePrevious(isSaving);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const leave = useLeaveWarning(settings.hasPendingChanges, onModalClose);
+  const app = item.implementation.value;
 
   useEffect(() => {
     if (wasSaving && !isSaving && !saveError) {
@@ -54,13 +90,15 @@ function EditMediaManagerModalContent({
     () => dispatch(testMediaManager({ id })),
     [dispatch, id]
   );
+  const onDeletePress = useCallback(() => setIsDeleting(true), []);
+  const onDeleteCancel = useCallback(() => setIsDeleting(false), []);
 
   const title = id
     ? translate('InstanceEditTitle', { name: item.name.value })
     : translate('InstanceAddTitle', { type: item.implementationName });
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent onModalClose={leave.onClose}>
       <ModalHeader>{title}</ModalHeader>
 
       <ModalBody>
@@ -79,16 +117,38 @@ function EditMediaManagerModalContent({
         {!isFetching && !error && (
           <MediaManagerForm settings={settings} isReadOnly={isReadOnly} />
         )}
+
+        <Failure error={saveError} />
       </ModalBody>
 
       <ConnectionModalFooter
         isReadOnly={isReadOnly}
-        isBusy={isSaving || isTesting}
+        isSaving={isSaving}
+        isTesting={isTesting}
+        testError={saveError}
         canSave={true}
+        hasAdvanced={true}
+        onDelete={id ? onDeletePress : undefined}
         onTest={onTestPress}
-        onCancel={onModalClose}
+        onCancel={leave.onClose}
         onSave={onSavePress}
       />
+
+      <PendingChangesModal
+        isOpen={leave.isAsking}
+        message={translate('InstanceUnsavedChanges', { app })}
+        onConfirm={leave.onConfirm}
+        onCancel={leave.onCancel}
+      />
+
+      {id && (
+        <DeleteMediaManagerModal
+          id={id}
+          isOpen={isDeleting}
+          onDeleted={onDeleted}
+          onCancel={onDeleteCancel}
+        />
+      )}
     </ModalContent>
   );
 }
@@ -98,6 +158,7 @@ interface EditMediaManagerModalProps {
   id?: number;
   isReadOnly: boolean;
   onModalClose: () => void;
+  onDeleted?: (problem?: string) => void;
 }
 
 // Adds a Sonarr or Radarr, or changes a saved one, as Prowlarr's EditApplicationModal(Connector): closing it drops the
@@ -107,6 +168,7 @@ function EditMediaManagerModal({
   id,
   isReadOnly,
   onModalClose,
+  onDeleted,
 }: EditMediaManagerModalProps) {
   const dispatch = useDispatch();
 
@@ -117,6 +179,14 @@ function EditMediaManagerModal({
     onModalClose();
   }, [dispatch, onModalClose]);
 
+  const onDeletedClose = useCallback(
+    (problem?: string) => {
+      onClose();
+      onDeleted?.(problem);
+    },
+    [onClose, onDeleted]
+  );
+
   return (
     <Modal isOpen={isOpen} size={sizes.LARGE} onModalClose={onClose}>
       {isOpen && (
@@ -124,6 +194,7 @@ function EditMediaManagerModal({
           id={id}
           isReadOnly={isReadOnly}
           onModalClose={onClose}
+          onDeleted={onDeletedClose}
         />
       )}
     </Modal>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 import { SelectProvider, useSelect } from 'App/SelectContext';
 import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
@@ -12,10 +13,14 @@ import { icons, kinds, tooltipPositions } from 'Helpers/Props';
 import { setImportPreviewTableOption } from 'Store/Actions/importPreviewActions';
 import translate from 'Utilities/String/translate';
 import getSelectedIds from 'Utilities/Table/getSelectedIds';
+import AddServerModal from '../Connections/Discord/AddServerModal';
+import { SetupStatus } from '../RequestarrSettingsTypes';
 import useRequestarrApi from '../useRequestarrApi';
+import useSetupStatus from '../useSetupStatus';
 import ImportAccessNotes from './ImportAccessNotes';
 import ImportChannels, { PickableChannel } from './ImportChannels';
 import ImportPreview from './ImportPreview';
+import ImportServers from './ImportServers';
 import ImportToolbar from './ImportToolbar';
 import {
   ImportAccess,
@@ -62,12 +67,16 @@ function ChannelsLegend() {
   );
 }
 
-// The channels the bot can read, numbered from 1 for the SelectProvider (its shift-click range treats 0 as none).
-function usePickable(readable?: ImportChannel[]): PickableChannel[] {
+// The channels the bot can read (one server's, when its card was pressed), numbered from 1 for the SelectProvider
+// (its shift-click range treats 0 as none).
+function usePickable(
+  readable?: ImportChannel[],
+  server?: string
+): PickableChannel[] {
   return useMemo(
     () =>
       (readable ?? [])
-        .filter((c) => c.canRead)
+        .filter((c) => c.canRead && (!server || c.serverId === server))
         .map((c, index) => ({
           id: index + 1,
           channelId: c.id,
@@ -75,7 +84,7 @@ function usePickable(readable?: ImportChannel[]): PickableChannel[] {
           name: c.name ?? c.id,
           hasSourceReplies: !!c.hasSourceReplies,
         })),
-    [readable]
+    [readable, server]
   );
 }
 
@@ -145,6 +154,8 @@ function useTableOptions() {
 
 interface ImportContentProps {
   access?: ImportAccess;
+  setup?: SetupStatus;
+  server?: string;
   channels: PickableChannel[];
   isLoading: boolean;
 }
@@ -152,23 +163,22 @@ interface ImportContentProps {
 // Pick the old Requestrr channels; the list of what an import would bring in follows the picks, then Import in the
 // toolbar writes it (a task in System, then Tasks). Discord is only read; nothing is posted, edited or reacted to
 // there.
-function ImportContent({ access, channels, isLoading }: ImportContentProps) {
+function ImportContent(props: ImportContentProps) {
+  const { access, setup, channels, isLoading } = props;
   const { job, error, isBusy, isConfirming, isChanged, confirm } =
     usePickedPreview(channels);
   const progress = useProgress(job);
   const { columns, onTableOptionChange } = useTableOptions();
   const isImporting = job?.state === 'importing';
-  const inviteUrl = access?.readInviteUrl;
-  const onInvitePress = useCallback(
-    () => window.open(inviteUrl, '_blank', 'noopener'),
-    [inviteUrl]
-  );
+  const [isAdding, setIsAdding] = useState(false);
+  const onInvitePress = useCallback(() => setIsAdding(true), []);
+  const onAddClose = useCallback(() => setIsAdding(false), []);
 
   return (
     <PageContent title={translate('ImportFromRequestrr')}>
       <ImportToolbar
         columns={columns}
-        inviteUrl={inviteUrl}
+        canInvite={!!access?.readInviteUrl}
         canImport={!isBusy && !isChanged && job?.state === 'ready'}
         isImporting={isImporting}
         onImportPress={confirm}
@@ -178,6 +188,12 @@ function ImportContent({ access, channels, isLoading }: ImportContentProps) {
 
       <PageContentBody>
         <ImportAccessNotes access={access} />
+
+        <ImportServers
+          setup={setup}
+          shown={props.server}
+          onAdd={onInvitePress}
+        />
 
         <FieldSet legend={<ChannelsLegend />}>
           <ImportChannels
@@ -194,20 +210,37 @@ function ImportContent({ access, channels, isLoading }: ImportContentProps) {
         {job?.warning && <Alert kind={kinds.WARNING}>{job.warning}</Alert>}
         {job?.plan && <ImportPreview plan={job.plan} />}
       </PageContentBody>
+
+      {setup && (
+        <AddServerModal
+          isOpen={isAdding}
+          setup={setup}
+          importOnly={true}
+          onClose={onAddClose}
+        />
+      )}
     </PageContent>
   );
 }
 
+// The channels follow the bot's servers live: a server it joins for the import shows its channels without a refresh.
 function ImportPage() {
   const { data: access } = useRequestarrApi<ImportAccess>('import/access');
-  const { data: readable } =
+  const { data: readable, reload } =
     useRequestarrApi<ImportChannel[]>('import/channels');
-  const channels = usePickable(readable);
+  const { data: setup } = useSetupStatus();
+  const query = new URLSearchParams(useLocation().search);
+  const server = query.get('server') ?? undefined;
+  const channels = usePickable(readable, server);
+
+  useEffect(reload, [setup, reload]);
 
   return (
     <SelectProvider items={channels}>
       <ImportContent
         access={access}
+        setup={setup}
+        server={server}
         channels={channels}
         isLoading={!readable}
       />

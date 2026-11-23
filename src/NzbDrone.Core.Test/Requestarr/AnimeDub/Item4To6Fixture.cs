@@ -115,7 +115,7 @@ namespace Requestarr.Core.Test.AnimeDub
             help.LastReply.SelectMenu.Options.Select(o => o.Value).Should().Contain("anime");
 
             var topic = await Harness.SendAsync(FakeInteraction.SelectMenu("help:user", "anime").By(Alice).InGuild(FakeDiscordGuild.Guild).InChannel(ChannelOf(Alice)));
-            topic.LastReply.Content.Should().StartWith("**Anime: sub or dub**").And.Contain("dub wins, sub wins, or the first request decides").And.Contain("episodes already downloaded stay");
+            topic.LastReply.Content.Should().StartWith("**Anime: sub or dub**").And.Contain("keep the English dub, keep the subtitled version, or whoever asked first").And.Contain("episodes already downloaded stay");
 
             await SetAccess(Alice, "tv", "off");
             (await Harness.SendAsync(UserCommand("help", Alice))).LastReply.SelectMenu.Options.Select(o => o.Value).Should().NotContain("anime");

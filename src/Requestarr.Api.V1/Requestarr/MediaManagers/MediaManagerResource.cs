@@ -1,4 +1,5 @@
 using System.Linq;
+using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 
 namespace Requestarr.Api.V1.MediaManagers
@@ -12,15 +13,20 @@ namespace Requestarr.Api.V1.MediaManagers
         // The last connection check: connected, or why not. Neither until the first check.
         public bool Connected { get; set; }
         public string Problem { get; set; }
+
+        // How it tells Requestarr about downloads: right away, or on the timer and why.
+        public InstanceUpdates Updates { get; set; }
     }
 
     public class MediaManagerResourceMapper : ProviderResourceMapper<MediaManagerResource, BackendInstance>
     {
         private readonly IBackendService _backends;
+        private readonly IAvailabilityService _availability;
 
-        public MediaManagerResourceMapper(IBackendService backends)
+        public MediaManagerResourceMapper(IBackendService backends, IAvailabilityService availability)
         {
             _backends = backends;
+            _availability = availability;
         }
 
         public override MediaManagerResource ToResource(BackendInstance definition)
@@ -31,6 +37,7 @@ namespace Requestarr.Api.V1.MediaManagers
             resource.Enable = definition.Enable;
             resource.Connected = check?.Ok == true;
             resource.Problem = check?.Error;
+            resource.Updates = definition.Id > 0 ? _availability.UpdatesFor(definition) : null;
 
             return resource;
         }
