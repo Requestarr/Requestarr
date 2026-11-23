@@ -16,7 +16,9 @@ Versions up to 0.6.0 kept their x.y.z numbers, one per pull request; three of th
 
 CHANGELOG.md and QA-CHECKLIST.md: pull requests add their lines under "## Unreleased"; the staging promotion turns
 it into "## 0.7.0011 (YYYY-MM-DD)", the changelog's heading naming the goals' builds it includes ("## 0.7.0011
-(YYYY-MM-DD), with 0.7.0005 to 0.7.0011"). Numbered sections never change after that.
+(YYYY-MM-DD), with 0.7.0005 to 0.7.0011"). Numbered sections never change after that, unless the owner approves
+rewriting one changelog section, recorded in the pull request's description (check --rewrite; release.sh reads the
+"Rewrite of a numbered version:" line). Its heading stays; the QA checklist's numbered sections never change.
 
   python3 .github/build_numbers.py next [--major] [--changelog <file>] [--shipped <x.y.zzzz>] [--before <commit>]
         the number the next build sent to testers takes (from 1.0, a major when that changelog's Unreleased has a
@@ -38,7 +40,8 @@ it into "## 0.7.0011 (YYYY-MM-DD)", the changelog's heading naming the goals' bu
         a merge-back of both files: every numbered section of both, highest first; Unreleased keeps the lines of both
         that no numbered section has yet
   python3 .github/build_numbers.py check <change|release|staging-fix|merge-back> <base dir> <head dir> [<upper dir>]
-        [--number <x.y.zzzz>] [--no-changelog]   a pull request's two files against the rules; exit 1 with the reasons
+        [--number <x.y.zzzz>] [--no-changelog] [--rewrite <x.y.zzzz>]   a pull request's two files against the rules;
+        exit 1 with the reasons (--rewrite: the owner approved rewriting that changelog section's lines)
   python3 .github/build_numbers.py --self-test
 
 next reads the tags with `git ls-remote --tags origin` (no login) and which builds shipped from origin/main.
@@ -58,6 +61,12 @@ FILES = ("CHANGELOG.md", "QA-CHECKLIST.md")
 # Builds sent to testers before numbers were kept: the three staging image publishes of October 24, 2026 (0.3.1 at
 # 00239c8, 0.3.3 at bd92a1e, 0.3.4 at 1bc61b8). The counter starts after them, on the first minor not already used.
 EARLIER_BUILDS = 3
+
+# Released changelog sections the owner approved rewriting, each also recorded in its pull request's description. A
+# merge-back keeps the lower branch's words for these until the promotions carry the rewrite up.
+APPROVED_REWRITES = {
+    (0, 7, 10): 'owner, 2026-11-23: "every note should be like 1-3 sentences not a bible"',
+}
 FIRST_NUMBERED = (0, 7)
 
 SECTION_ORDER = ("", "For users", "For admins")
@@ -372,10 +381,22 @@ def release(document, number, day, extra_admin_line=None, included_from=None):
     return render(preamble, None, sections)
 
 
+def first_line(section):
+    return section.split("\n", 1)[0]
+
+
+def rewrite_on_lower(version, lower, upper):
+    """A changelog section the owner approved rewriting (APPROVED_REWRITES), reading differently under the same
+    heading on two branches. Rewrites go into dev, so until the promotions carry the new words up, a merge-back keeps
+    the lower branch's."""
+    return version in APPROVED_REWRITES and lower != upper and first_line(lower) == first_line(upper)
+
+
 def merge(ours, theirs, base=None):
-    """Every numbered section of both, highest first (one both have must read the same); Unreleased keeps the lines of
-    both, ours first, except those the other side has since released (an older build with the same words doesn't
-    count) and, given their common base, those one side rewrote or removed since it."""
+    """Every numbered section of both, highest first (one both have must read the same, or be an approved rewrite,
+    which keeps ours); Unreleased keeps the lines of both, ours first, except those the other side has since released
+    (an older build with the same words doesn't count) and, given their common base, those one side rewrote or removed
+    since it. Ours is the branch merged into, the lower one."""
     preamble, mine, own = parse(ours)
     _, other, others = parse(theirs)
     gone = set()
@@ -383,7 +404,7 @@ def merge(ours, theirs, base=None):
         mine_rows, other_rows = lines_of(mine), lines_of(other)
         gone = {row for row in lines_of(parse(base)[1]) if row not in mine_rows or row not in other_rows}
     for version in own.keys() & others.keys():
-        if own[version].rstrip() != others[version].rstrip():
+        if own[version].rstrip() != others[version].rstrip() and not rewrite_on_lower(version, own[version], others[version]):
             raise ValueError("%s reads differently on the two branches: merge it by hand" % text(version))
     sections = {**others, **own}
     unreleased = {}
@@ -414,12 +435,22 @@ def tested_versions():
     return set(parse(shown.stdout)[2]) if shown.returncode == 0 else None
 
 
-def numbered_changes(name, base, head, tested):
+def rewritten(old, version, section, allowed):
+    """An approved rewrite: the owner approved that version, and its heading is as it was."""
+    return version in allowed and version in old and first_line(old[version]) == first_line(section)
+
+
+def numbered_changes(name, base, head, tested, rewrites=frozenset()):
     """A numbered section never changes, except that one newer than every version testers have may be folded into
-    Unreleased (removed): it never reached them, and Unreleased says what changed since the last build they got."""
+    Unreleased (removed): it never reached them, and Unreleased says what changed since the last build they got.
+    A changelog section the owner approved rewriting (rewrites) may change its lines, never its heading."""
     old, new = parse(base)[2], parse(head)[2]
-    if any(old.get(v) != s for v, s in new.items()):
+    allowed = rewrites if name == "CHANGELOG.md" else frozenset()
+    if any(old.get(v) != s and not rewritten(old, v, s, allowed) for v, s in new.items()):
         return ["%s: a numbered version changed; add lines under '## Unreleased' instead" % name]
+    dropped = sorted(allowed - set(new))
+    if dropped:
+        return ["%s: an approved rewrite keeps its version: %s" % (name, ", ".join(map(text, dropped)))]
     folded = set(old) - set(new)
     if folded and (tested is None or min(folded) <= max(tested, default=(0, 0, 0))):
         return ["%s: only versions testers never had can be folded into Unreleased; %s reached them" % (name, ", ".join(map(text, sorted(folded))))]
@@ -436,12 +467,13 @@ def repeated_leads(unreleased):
     return problems
 
 
-def check_change(base, head, no_changelog, tested=None):
+def check_change(base, head, no_changelog, tested=None, rewrites=frozenset()):
     """Into dev, or a fix into qa: numbered sections untouched (a version testers never had may be folded into
-    Unreleased); the changelog gains Unreleased lines, one per thing, or the pull request says it has none."""
+    Unreleased; a changelog section the owner approved rewriting may change); the changelog gains Unreleased lines,
+    one per thing, or the pull request says it has none."""
     problems = []
     for name in FILES:
-        problems += numbered_changes(name, base[name], head[name], tested)
+        problems += numbered_changes(name, base[name], head[name], tested, rewrites)
     problems += repeated_leads(parse(head["CHANGELOG.md"])[1])
     added = lines_of(parse(head["CHANGELOG.md"])[1]) - lines_of(parse(base["CHANGELOG.md"])[1])
     if no_changelog and added:
@@ -489,13 +521,16 @@ def check_release_body(base, head, number):
 
 
 def check_merge_back(base, upper, head):
-    """Nothing lost: every numbered section of both branches, as it reads there; Unreleased only lines from either."""
+    """Nothing lost: every numbered section of both branches, as it reads there (an approved rewrite as the lower
+    branch has it); Unreleased only lines from either."""
     problems = []
     for name in FILES:
         _, unreleased, sections = parse(head[name])
+        lower = parse(base[name])[2]
         for side in (base, upper):
             for version, section in parse(side[name])[2].items():
-                if sections.get(version) != section:
+                rewritten_below = version in lower and rewrite_on_lower(version, lower[version], section)
+                if sections.get(version) != (lower[version] if rewritten_below else section):
                     problems.append("%s: %s is missing or changed; a merge-back keeps every version" % (name, text(version)))
         known = lines_of(parse(base[name])[1]) | lines_of(parse(upper[name])[1])
         if lines_of(unreleased) - known or lines_of(unreleased) & released_lines(newly_released(parse(base[name])[2], sections)):
@@ -503,9 +538,9 @@ def check_merge_back(base, upper, head):
     return sorted(set(problems))
 
 
-def check(kind, base, head, upper=None, number=None, no_changelog=False, tested=None):
+def check(kind, base, head, upper=None, number=None, no_changelog=False, tested=None, rewrites=frozenset()):
     if kind == "change":
-        return check_change(base, head, no_changelog, tested)
+        return check_change(base, head, no_changelog, tested, rewrites)
     if kind in ("release", "staging-fix"):
         return check_numbered(base, head, number, no_changelog, kind == "release")
     if kind == "merge-back":
@@ -530,7 +565,10 @@ def self_test():
     folded = {"CHANGELOG.md": log("## Unreleased\n\n### For users\n- **Cards:** clearer, and numbered.\n\n## 0.5.6 (2026-11-13)\n"),
               "QA-CHECKLIST.md": ticks("## Unreleased\n- **Cards:** look. You should see them numbered.\n\n## 0.5.6 (2026-11-13)\n")}
     newer_dev = log("## Unreleased\n\n### For users\n- **Numbers:** builds have one.\n- **Later:** after QA.\n\n" + old)
+    reworded = {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("clearer", "better")}
     back = merge(newer_dev, released["CHANGELOG.md"])
+    approved = {name: document.replace("0.7.0004", "0.7.0010") for name, document in released.items()}
+    rewritten_dev = {**approved, "CHANGELOG.md": approved["CHANGELOG.md"].replace("builds have one", "every build has one")}
     tags = ["v0.3.1", "v0.7.0004", "v0.7.0005", "test-org-move"]
     cases = [
         (next_number(set(), set()) == (0, 7, 4), "the first build under build numbers is 0.7.0004 (three were sent before)"),
@@ -549,6 +587,18 @@ def self_test():
         (bool(check("change", base, change, no_changelog=True)), "'No changelog' with lines fails"),
         (bool(check("change", base, {**change, "CHANGELOG.md": change["CHANGELOG.md"].replace("clearer", "better")})),
          "changing a numbered version fails"),
+        (check("change", base, reworded, no_changelog=True, rewrites={(0, 6, 0)}) == [],
+         "a rewrite the owner approved changes that version's lines"),
+        (bool(check("change", base, reworded, no_changelog=True, rewrites={(0, 5, 6)})),
+         "an approved rewrite of one version doesn't open another"),
+        (bool(check("change", base, {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("(2026-11-13)\n\n### For users", "(2026-11-14)\n\n### For users")},
+                    no_changelog=True, rewrites={(0, 6, 0)})), "an approved rewrite keeps the version's heading"),
+        ("every build has one" in merge(rewritten_dev["CHANGELOG.md"], approved["CHANGELOG.md"]),
+         "a merge-back keeps the lower branch's words for a rewrite the owner approved"),
+        (check("merge-back", rewritten_dev, rewritten_dev, approved) == [], "and its check passes"),
+        (bool(check("merge-back", rewritten_dev, approved, approved)), "a merge-back that loses the rewrite fails"),
+        (bool(check("change", base, {**base, "QA-CHECKLIST.md": base["QA-CHECKLIST.md"].replace("look", "see")}, no_changelog=True,
+                    rewrites={(0, 6, 0)})), "nor does it open the QA checklist's numbered version"),
         (check("change", change, {**change, "CHANGELOG.md": newer_dev}) == [], "a fix into QA adds to QA's Unreleased"),
         (check("change", base, folded, tested={(0, 5, 6)}) == [], "a version testers never had folds into Unreleased"),
         (bool(check("change", base, folded, tested={(0, 6, 0)})), "a version testers have can't be folded"),
@@ -729,7 +779,9 @@ def main(argv):
         upper = read_dir(flags.pop(0)) if flags and not flags[0].startswith("--") else None
         number = parse_version(flags[flags.index("--number") + 1]) if "--number" in flags else None
         tested = tested_versions() if args[1] == "change" else None
-        problems = check(args[1], read_dir(args[2]), read_dir(args[3]), upper, number, "--no-changelog" in flags, tested)
+        rewrites = frozenset(parse_version(flags[i + 1]) for i, flag in enumerate(flags) if flag == "--rewrite")
+        problems = check(args[1], read_dir(args[2]), read_dir(args[3]), upper, number, "--no-changelog" in flags, tested,
+                         rewrites)
         for problem in problems:
             print(("::error::" if os.environ.get("GITHUB_ACTIONS") else "") + problem)
         return 1 if problems else 0
