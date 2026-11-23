@@ -28,14 +28,14 @@ function purposeOf(instance: { fields: { name: string; value: unknown }[] }) {
     ?.value as number | undefined;
 }
 
-// The card's label for what an instance is for, once its type has more than one.
-export function purposeLabel(item: MediaManager, siblings: MediaManager[]) {
+// The card label's words for what an instance is for, once its type has more than one.
+export function purposeLabelKey(item: MediaManager, siblings: MediaManager[]) {
   const sameType = siblings.filter(
     (other) => other.implementation === item.implementation
   );
 
   return sameType.length > 1
-    ? translate(PURPOSE_WORDS[purposeOf(item) ?? EVERYTHING])
+    ? PURPOSE_WORDS[purposeOf(item) ?? EVERYTHING]
     : undefined;
 }
 

@@ -3,7 +3,7 @@ import MediaManager from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
 import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
 import { CardLabel } from './ConnectionCard';
-import { purposeLabel } from './MediaManagers/purpose';
+import { purposeLabelKey } from './MediaManagers/purpose';
 
 // What testing one instance found: why it failed, or no problem when it passed.
 export interface TestOutcome {
@@ -80,11 +80,11 @@ export function mediaManagerLabels(
   siblings: MediaManager[],
   tested?: TestOutcome
 ): CardLabel[] {
-  const purpose = purposeLabel(item, siblings);
+  const purpose = purposeLabelKey(item, siblings);
 
   return [
     mediaManagerStatus(item, tested),
-    ...(purpose ? [{ text: purpose, kind: kinds.DISABLED }] : []),
+    ...(purpose ? [grey(purpose)] : []),
     ...provisioned(settings),
   ];
 }
