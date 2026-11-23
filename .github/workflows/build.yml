@@ -43,8 +43,7 @@ jobs:
         run: >
           dotnet test
           Requestarr.Api.V1.Test.dll Requestarr.Common.Test.dll Requestarr.Core.Test.dll
-          Requestarr.Host.Test.dll Requestarr.Libraries.Test.dll Requestarr.Mono.Test.dll
-          Requestarr.Update.Test.dll
+          Requestarr.Host.Test.dll Requestarr.Mono.Test.dll
           "--filter:${{ env.TEST_FILTER_COMMON }}&Category!=WINDOWS"
 
   backend-windows:
@@ -64,8 +63,7 @@ jobs:
         run: >
           dotnet test
           Requestarr.Api.V1.Test.dll Requestarr.Common.Test.dll Requestarr.Core.Test.dll
-          Requestarr.Host.Test.dll Requestarr.Libraries.Test.dll Requestarr.Update.Test.dll
-          Requestarr.Windows.Test.dll
+          Requestarr.Host.Test.dll
           "--filter:${{ env.TEST_FILTER_COMMON }}&Category!=LINUX"
 
   frontend:

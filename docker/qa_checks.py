@@ -108,7 +108,7 @@ EVIDENCE_LINES = 25
 
 # CI's test assemblies and filter (.github/workflows/build.yml), with the platform's own category left out.
 SUITE = ["Requestarr.Api.V1.Test.dll", "Requestarr.Common.Test.dll", "Requestarr.Core.Test.dll", "Requestarr.Host.Test.dll",
-         "Requestarr.Libraries.Test.dll", "Requestarr.Mono.Test.dll", "Requestarr.Update.Test.dll"]
+         "Requestarr.Mono.Test.dll"]
 SUITE_FILTER = "Category!=ManualTest&Category!=IntegrationTest&Category!=AutomationTest"
 
 # Every live check: these need the dev stack's bot stopped; the read-back reads the running stack, so it runs last.

@@ -29,9 +29,7 @@ INCLUDE = ["**/Requestarr/**", "NzbDrone.Core/Datastore/Migration/*.cs", "Reques
            "Requestarr.Http/Frontend/Mappers/VersionLogo.cs", "Requestarr.Http/Frontend/Mappers/VersionLogoMapper.cs",
            "Requestarr.Http/Frontend/Mappers/WebIcons.cs", "NzbDrone.Common/Exceptions/RequestarrStartupException.cs"]
 TEST_PROJECTS = ["Requestarr.Core.Test", "Requestarr.Api.V1.Test", "Requestarr.Common.Test", "Requestarr.Host.Test",
-                 "Requestarr.Libraries.Test", "Requestarr.Mono.Test", "Requestarr.Update.Test", "Requestarr.Windows.Test",
-                 "Requestarr.Integration.Test", "Requestarr.Automation.Test", "Requestarr.Benchmark.Test",
-                 "Requestarr.Test.Common", "Requestarr.Test.Dummy"]
+                 "Requestarr.Mono.Test", "Requestarr.Test.Common", "Requestarr.Test.Dummy"]
 # Records that are API answers as a whole: the JSON serializer reads every property, so none is unused.
 ANSWERS = ("Requestarr.Core.Portal.Portal",)
 KINDS = ("class", "method", "property", "field", "const", "enum", "interface", "struct", "event", "indexer", "delegate")

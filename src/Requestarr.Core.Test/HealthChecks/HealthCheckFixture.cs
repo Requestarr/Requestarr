@@ -1,0 +1,23 @@
+using FluentAssertions;
+using NUnit.Framework;
+using NzbDrone.Core.HealthCheck;
+using Requestarr.Core.Test.Framework;
+
+namespace Requestarr.Core.Test.HealthChecks
+{
+    [TestFixture]
+    public class HealthCheckFixture : CoreTest
+    {
+        private const string WikiRoot = "https://github.com/Requestarr/Requestarr/wiki/";
+
+        [TestCase("I blew up because of some weird user mistake", null, WikiRoot + "Health-Checks#i-blew-up-because-of-some-weird-user-mistake")]
+        [TestCase("I blew up because of some weird user mistake", "#my-health-check", WikiRoot + "Health-Checks#my-health-check")]
+        [TestCase("I blew up because of some weird user mistake", "custom-page#my-health-check", WikiRoot + "custom-page#my-health-check")]
+        public void should_format_wiki_url(string message, string wikiFragment, string expectedUrl)
+        {
+            var subject = new NzbDrone.Core.HealthCheck.HealthCheck(typeof(HealthCheckBase), HealthCheckResult.Warning, HealthCheckReason.ServerNotification, message, wikiFragment);
+
+            subject.WikiUrl.Should().Be(expectedUrl);
+        }
+    }
+}
