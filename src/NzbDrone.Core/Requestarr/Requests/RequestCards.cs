@@ -190,7 +190,7 @@ namespace Requestarr.Core.Requests
                 if (type == ContentType.Tv && state.Anime != null)
                 {
                     lines.Add(DiscordText.AnimeIntro);
-                    lines.Add(DiscordText.PriorityRule(state.Anime.Priority, state.Instance?.Name));
+                    lines.Add(DiscordText.PriorityRule(state.Anime.Priority));
                     buttons.Add(new InteractionButton { CustomId = $"{RequestRoutes.TvLanguage}:{externalId}:d", Label = DiscordText.Label(AnimeLanguage.Dub), Style = ButtonStyle.Primary });
                     buttons.Add(new InteractionButton { CustomId = $"{RequestRoutes.TvLanguage}:{externalId}:s", Label = DiscordText.Label(AnimeLanguage.Sub), Style = ButtonStyle.Primary });
                 }
@@ -209,7 +209,7 @@ namespace Requestarr.Core.Requests
             {
                 var language = state.Language.Value;
                 lines.Add(DiscordText.CurrentlySetTo(language));
-                lines.Add(DiscordText.PriorityRule(state.Anime.Priority, state.Instance?.Name));
+                lines.Add(DiscordText.PriorityRule(state.Anime.Priority));
                 var winner = AnimeDefaults.Winner(state.Anime.Priority, language);
 
                 if (winner != language)
@@ -228,7 +228,7 @@ namespace Requestarr.Core.Requests
             return new InteractionReply
             {
                 Content = string.Join("\n", lines),
-                Embeds = new List<InteractionEmbed> { Card(type, item, state.Instance?.Name, DetailColor) },
+                Embeds = new List<InteractionEmbed> { Card(type, item, DetailColor) },
                 Buttons = buttons
             };
         }
@@ -255,7 +255,7 @@ namespace Requestarr.Core.Requests
             return new InteractionReply
             {
                 Content = DiscordText.BlockHeader(ContentType.Tv, DiscordText.StepSeasons) + "\n" + DiscordText.LanguageLine(language),
-                Embeds = new List<InteractionEmbed> { Card(ContentType.Tv, state.Item, state.Instance?.Name, DetailColor) },
+                Embeds = new List<InteractionEmbed> { Card(ContentType.Tv, state.Item, DetailColor) },
                 Buttons = new List<InteractionButton>
                 {
                     new() { CustomId = $"{RequestRoutes.TvAll}:{tvdbId}:{key}", Label = DiscordText.AllSeasons, Style = ButtonStyle.Success },
@@ -332,7 +332,7 @@ namespace Requestarr.Core.Requests
             return new InteractionReply
             {
                 Content = string.Join("\n", lines),
-                Embeds = new List<InteractionEmbed> { Card(ContentType.Tv, item, state.Instance?.Name, DetailColor) },
+                Embeds = new List<InteractionEmbed> { Card(ContentType.Tv, item, DetailColor) },
                 SelectMenu = onPage.Any() ? menu : null,
                 Buttons = buttons
             };
@@ -367,7 +367,7 @@ namespace Requestarr.Core.Requests
             return new InteractionReply
             {
                 Content = DiscordText.BlockHeader(ContentType.Tv, DiscordText.StepConfirm) + languageLine + "\n" + DiscordText.YouChose(DiscordText.SeasonChoiceText(choice, state.Item.Seasons)),
-                Embeds = new List<InteractionEmbed> { Card(ContentType.Tv, state.Item, state.Instance?.Name, DetailColor) },
+                Embeds = new List<InteractionEmbed> { Card(ContentType.Tv, state.Item, DetailColor) },
                 Buttons = new List<InteractionButton>
                 {
                     new() { CustomId = $"{RequestRoutes.TvConfirm}:{tvdbId}:{EncodeSeasons(choice)}{Lang(language)}", Label = DiscordText.RequestLabel, Style = ButtonStyle.Success },
@@ -404,7 +404,7 @@ namespace Requestarr.Core.Requests
             var reply = new InteractionReply
             {
                 Content = DiscordLimits.Truncate(string.Join("\n", lines), DiscordLimits.MessageLength),
-                Embeds = result.Item == null ? new List<InteractionEmbed>() : new List<InteractionEmbed> { Card(type, result.Item, null, color) }
+                Embeds = result.Item == null ? new List<InteractionEmbed>() : new List<InteractionEmbed> { Card(type, result.Item, color) }
             };
 
             if (result.Outcome == RequestOutcome.Pending && result.Request != null)
@@ -423,9 +423,10 @@ namespace Requestarr.Core.Requests
         // A request message showing the request's real state; Cancel only while it is pending.
         // mention: the person the message is for (a reposted message pings them); note: an extra line
         // (for example a sub/dub switch); followerOf: the owner's name when the message is a follower's.
-        public static InteractionReply Status(Request request, MediaLookupResult item, string instance, string mention, string note, string followerOf)
+        // A member's request message: it never says which server takes the request.
+        public static InteractionReply Status(Request request, MediaLookupResult item, string mention, string note, string followerOf)
         {
-            var (status, color, message) = Headline(request, instance);
+            var (status, color, message) = Headline(request);
             var lines = new List<string> { $"{(mention != null ? mention + " " : string.Empty)}{status}{DiscordText.Dot}{message}" };
 
             if (followerOf != null)
@@ -456,7 +457,7 @@ namespace Requestarr.Core.Requests
             var reply = new InteractionReply
             {
                 Content = DiscordLimits.Truncate(string.Join("\n", lines), DiscordLimits.MessageLength),
-                Embeds = item == null ? new List<InteractionEmbed>() : new List<InteractionEmbed> { Card(request.ContentType, item, instance, color) },
+                Embeds = item == null ? new List<InteractionEmbed>() : new List<InteractionEmbed> { Card(request.ContentType, item, color) },
                 KeepEmbeds = item == null
             };
 
@@ -476,16 +477,16 @@ namespace Requestarr.Core.Requests
         }
 
         // The request message's first line (its status and what it means) and the card's color.
-        private static (string Status, uint Color, string Message) Headline(Request request, string instance) => request.Status switch
+        private static (string Status, uint Color, string Message) Headline(Request request) => request.Status switch
         {
             RequestStatus.Pending => (DiscordText.FinalPending, PendingColor, DiscordText.RequestPending(request.Label, request.Id)),
             RequestStatus.Approved => request.Progress switch
             {
-                DownloadProgress.Downloading => (DiscordText.FinalDownloading, SentColor, DiscordText.RequestDownloadingStatus(request, instance)),
-                DownloadProgress.Stalled => (DiscordText.FinalStalled, PendingColor, DiscordText.RequestStalledStatus(request, instance)),
-                DownloadProgress.Failed => (DiscordText.FinalDownloadFailed, PendingColor, DiscordText.RequestDownloadFailedStatus(request, instance)),
-                _ when request.AvailableSeasons?.Any() == true => (DiscordText.FinalPartlyAvailable, SentColor, DiscordText.RequestSearchingStatus(request, instance)),
-                _ => (DiscordText.FinalApproved, SentColor, DiscordText.RequestApprovedStatus(request.Label, request.Id, instance))
+                DownloadProgress.Downloading => (DiscordText.FinalDownloading, SentColor, DiscordText.RequestDownloadingStatus(request)),
+                DownloadProgress.Stalled => (DiscordText.FinalStalled, PendingColor, DiscordText.RequestStalledStatus(request)),
+                DownloadProgress.Failed => (DiscordText.FinalDownloadFailed, PendingColor, DiscordText.RequestDownloadFailedStatus(request)),
+                _ when request.AvailableSeasons?.Any() == true => (DiscordText.FinalPartlyAvailable, SentColor, DiscordText.RequestSearchingStatus(request)),
+                _ => (DiscordText.FinalApproved, SentColor, DiscordText.RequestApprovedStatus(request.Label, request.Id))
             },
             RequestStatus.Available when request.Progress == DownloadProgress.Imported => (DiscordText.FinalReady, SentColor, DiscordText.RequestReadyStatus(request)),
             RequestStatus.Available => (DiscordText.FinalAvailable, SentColor, DiscordText.RequestAlreadyAvailableStatus(request.Label, request.Id)),
@@ -828,7 +829,7 @@ namespace Requestarr.Core.Requests
             return new InteractionReply
             {
                 Content = DiscordText.ApprovalCard(request, ownerName, instanceName),
-                Embeds = item == null ? new List<InteractionEmbed>() : new List<InteractionEmbed> { Card(request.ContentType, item, null, PendingColor, compact: true) },
+                Embeds = item == null ? new List<InteractionEmbed>() : new List<InteractionEmbed> { Card(request.ContentType, item, PendingColor, compact: true) },
                 Buttons = new List<InteractionButton>
                 {
                     new() { CustomId = $"{RequestRoutes.Approve}:{request.Id}", Label = DiscordText.ApproveLabel, Style = ButtonStyle.Success },
@@ -878,7 +879,7 @@ namespace Requestarr.Core.Requests
             new() { CustomId = $"{RequestRoutes.TvBack}:{tvdbId}", Label = DiscordText.BackLabel, Style = ButtonStyle.Secondary };
 
         // The detail card: large poster, every field the backend returns, cast when available.
-        public static InteractionEmbed Card(ContentType type, MediaLookupResult item, string instance, uint color, bool compact = false)
+        public static InteractionEmbed Card(ContentType type, MediaLookupResult item, uint color, bool compact = false)
         {
             var fields = new List<KeyValuePair<string, string>>();
 
@@ -911,7 +912,6 @@ namespace Requestarr.Core.Requests
             }
 
             Add(DiscordText.FieldCast, item.Cast.Any() ? string.Join(", ", item.Cast) : null);
-            Add(DiscordText.FieldGoesTo, instance);
 
             return new InteractionEmbed
             {

@@ -30,8 +30,8 @@ namespace Requestarr.Core.Test.Portal
 
         private static readonly List<OnboardAccess> MoviesOnly = new()
         {
-            new OnboardAccess(ContentType.Movie, AccessState.AutoApprove, 3, 7, null),
-            new OnboardAccess(ContentType.Tv, AccessState.Off, null, null, null)
+            new OnboardAccess(ContentType.Movie, AccessState.AutoApprove, 3, 7),
+            new OnboardAccess(ContentType.Tv, AccessState.Off, null, null)
         };
 
         // The onboarding with no pause between people, its queued command run straight away, as the command queue would.
@@ -81,27 +81,13 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
-        public async Task someone_added_whose_instance_cant_be_set_is_added_and_says_what_wasnt_set()
-        {
-            var onboarding = Onboarding();
-            var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.NeedsApproval, null, null, 999) };
-
-            var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, Admin);
-            await onboarding.WhenDoneAsync(started.Id);
-            var alice = onboarding.Find(started.Id).People.Single();
-
-            alice.State.Should().Be(OnboardState.Added);
-            alice.Message.Should().Contain("Not set for Movie").And.Contain("That instance no longer exists");
-        }
-
-        [Test]
         public async Task a_type_the_web_app_leaves_out_gets_the_default_access_of_its_instance()
         {
             var sonarr = Mocker.Resolve<IBackendRepository>().FindByName("Sonarr");
             sonarr.Config.DefaultAccess = AccessState.AutoApprove;
             Mocker.Resolve<IBackendRepository>().Update(sonarr);
             var onboarding = Onboarding();
-            var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.Off, null, null, null) };
+            var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.Off, null, null) };
 
             var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, Admin);
             await onboarding.WhenDoneAsync(started.Id);

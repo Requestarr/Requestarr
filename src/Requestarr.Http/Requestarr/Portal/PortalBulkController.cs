@@ -69,7 +69,7 @@ namespace Requestarr.Http.Portal
         {
             foreach (var change in changes)
             {
-                var result = _members.SetAccess(id, change.ContentType, change.State, null, admin);
+                var result = _members.SetAccess(id, change.ContentType, change.State, admin);
 
                 if (!result.Success)
                 {

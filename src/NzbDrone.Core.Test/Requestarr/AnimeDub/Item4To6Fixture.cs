@@ -7,7 +7,6 @@ using NUnit.Framework;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Help;
 using Requestarr.Core.Provisioning;
-using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.AnimeDub
@@ -44,17 +43,35 @@ namespace Requestarr.Core.Test.AnimeDub
 
         // Item 4
         [Test]
-        public async Task separate_sub_and_dub_instances_each_get_their_own_series()
+        public async Task anime_goes_to_the_anime_sonarr_whoever_asks()
         {
             TwoSonarrs();
-            await SetAccess(Bob, "tv", "auto", "Sonarr Sub");
+            var repo = Mocker.Resolve<IBackendRepository>();
+            var anime = repo.FindByName("Sonarr Sub");
+            anime.Config.Purpose = InstancePurpose.Anime;
+            repo.Update(anime);
 
             await RequestAnime(Alice, "d");
-            await RequestAnime(Bob, "s");
 
-            Sonarr.Adds.Select(a => (a.Url, a.RootFolder)).Should().BeEquivalentTo(new[] { ("http://sonarr-test:8989", "/data/media"), ("http://sonarr-sub:8989", "/data/anime-sub") });
-            RequestStore.All().Select(r => r.Language).Should().BeEquivalentTo(new AnimeLanguage?[] { AnimeLanguage.Dub, AnimeLanguage.Sub });
-            Instance("Sonarr Sub").Config.AnimePriority.Should().Be("sub");
+            Sonarr.Adds.Select(a => (a.Url, a.RootFolder)).Should().Equal(("http://sonarr-sub:8989", "/data/anime-sub"));
+            RequestStore.All().Single().BackendId.Should().Be(anime.Id, "the title is anime, so the Anime Sonarr takes it, not the member");
+        }
+
+        [Test]
+        public async Task anime_sent_before_an_anime_sonarr_existed_stays_where_it_went()
+        {
+            TwoSonarrs();
+            await RequestAnime(Alice, "d");
+            var repo = Mocker.Resolve<IBackendRepository>();
+            var anime = repo.FindByName("Sonarr Sub");
+            anime.Config.Purpose = InstancePurpose.Anime;
+            repo.Update(anime);
+
+            await RequestAnime(Bob, "d");
+
+            RequestStore.All().Should().ContainSingle("Bob follows Alice's request instead of adding the show again")
+                .Which.BackendId.Should().Be(repo.FindByName("Sonarr").Id);
+            Sonarr.Adds.Should().ContainSingle();
         }
 
         [Test]

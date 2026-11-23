@@ -13,11 +13,7 @@ import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import TextConfirmModal from '../Components/TextConfirmModal';
 import { isImported } from '../portalText';
-import {
-  ContentType,
-  PortalInstance,
-  PortalMemberDetail,
-} from '../PortalTypes';
+import { ContentType, PortalMemberDetail } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
 import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';
@@ -49,7 +45,6 @@ function EditAccessModal({
   isOpen,
   onModalClose,
 }: EditAccessModalProps) {
-  const { data: instances } = usePortal<PortalInstance[]>('instances');
   const { data: offered } = usePortal<ContentType[]>('types');
   const { member } = detail;
 
@@ -64,9 +59,6 @@ function EditAccessModal({
               memberId={member.id}
               type={type}
               access={member.access.find((a) => a.contentType === type)}
-              instances={(instances ?? []).filter(
-                (i) => i.contentType === type
-              )}
               action={action}
             />
           ))}

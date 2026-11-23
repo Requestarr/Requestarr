@@ -22,6 +22,7 @@ import {
   MediaManagerSettings,
   portOf,
 } from './mediaManagerSettings';
+import { PURPOSE_FIELD, purposeChoices, usePurpose } from './purpose';
 import useChoices, { problemOf } from './useChoices';
 
 export {
@@ -106,6 +107,7 @@ interface FieldExtrasProps {
   item: MediaManagerItem;
   app: string;
   choices: Choices;
+  purpose: ReturnType<typeof usePurpose>;
 }
 
 // Why a list couldn't load, as one of its field's errors; nothing before there's an address to try.
@@ -163,6 +165,10 @@ function MediaManagerField({ field, locked, onChange, ...extras }: FieldProps) {
     (state: AppState) => state.settings.advancedSettings
   );
 
+  if (field.name === PURPOSE_FIELD && !extras.purpose.isShown) {
+    return null;
+  }
+
   if (field.name === 'animeEnabled') {
     return (
       <TwoLineCheck
@@ -188,6 +194,13 @@ function MediaManagerField({ field, locked, onChange, ...extras }: FieldProps) {
       {...field}
       {...fieldWords(field, extras.app)}
       {...fieldExtras(field, extras)}
+      {...(field.name === PURPOSE_FIELD && {
+        ...extras.purpose.words,
+        selectOptions: purposeChoices(
+          field.selectOptions,
+          extras.purpose.allowsAnime
+        ),
+      })}
       {...locked}
       onChange={onChange}
     />
@@ -208,6 +221,7 @@ function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
   const app = item.implementation.value;
   const locked = readOnlyProps(isReadOnly);
   const choices = useChoices(item);
+  const purpose = usePurpose(item, app);
   const updates = item.updates?.value;
 
   const onInputChange = useCallback(
@@ -229,6 +243,7 @@ function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
           item={item}
           app={app}
           choices={choices}
+          purpose={purpose}
           locked={locked}
           onChange={onFieldChange}
         />

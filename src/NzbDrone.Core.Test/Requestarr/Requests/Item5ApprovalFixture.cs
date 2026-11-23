@@ -48,7 +48,7 @@ namespace Requestarr.Core.Test.Requests
             run.LastReply.Buttons.Should().BeEmpty();
             LastRequest.Status.Should().Be(RequestStatus.Approved);
             Radarr.Adds.Should().ContainSingle();
-            LastMessageIn(Alice).Should().Be(DiscordText.RequestApprovedNotice("Dune (2021)", 1, "Radarr"));
+            LastMessageIn(Alice).Should().Be(DiscordText.RequestApprovedNotice("Dune (2021)", 1));
         }
 
         [Test]
@@ -77,7 +77,7 @@ namespace Requestarr.Core.Test.Requests
 
             var run = await RequestMovie(Alice, Dune);
 
-            run.LastReply.Content.Should().Contain(DiscordText.RequestSent("Dune (2021)", 1, "Radarr"));
+            run.LastReply.Content.Should().Contain(DiscordText.RequestAdded("Dune (2021)", 1));
             LastRequest.Status.Should().Be(RequestStatus.Approved);
             Discord.Channels[AdminChannel].Messages.Should().NotContain(m => m.Content.Contains("Request #1"));
         }

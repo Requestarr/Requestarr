@@ -249,7 +249,7 @@ namespace Requestarr.Core.Test.AdminRequests
 
                 var paused = await Send(dispatcher, FakeInteraction.SlashCommand("request").WithOption("type", "tv").WithOption("query", "severance").By(one.Id).InGuild(guild.Id).InChannel(channelOne));
                 Log($"[outage] {one.Username}'s /request tv severance: {paused.LastReply.Content.Replace("\n", " | ")}");
-                paused.LastReply.Content.Should().Contain(DiscordText.RequestsPaused(ContentType.Tv, "Sonarr (test)"));
+                paused.LastReply.Content.Should().Contain(DiscordText.RequestsPaused(ContentType.Tv));
                 panelOne = await restOne.GetMessageAsync(ulong.Parse(users.FindByDiscordId(one.Id).PanelMessageId));
                 Log($"[outage] {one.Username}'s panel still lists TV: {panelOne.Content.Contains("TV")}; access TV={Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(users.FindByDiscordId(one.Id).Id).Single(a => a.ContentType == ContentType.Tv).State}");
                 var walkDown = await Send(dispatcher, AsOwner(FakeInteraction.SlashCommand("admin requests")));

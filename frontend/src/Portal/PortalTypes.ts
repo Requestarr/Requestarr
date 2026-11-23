@@ -117,7 +117,6 @@ export interface PortalAccess {
   state: AccessState;
   quotaLimit: number | null;
   quotaDays: number | null;
-  instance: string | null;
 }
 
 export interface PortalMember {
@@ -174,10 +173,10 @@ export interface PortalInstance {
   contentType: ContentType;
   enabled: boolean;
 
-  // The instance its type uses for a member without one of their own.
-  isDefault: boolean;
+  // What it's for: requests go by what is asked for, never by member.
+  purpose: 'everything' | 'anime' | 'nothing';
 
-  // What a new member gets for the type when this is the instance they use.
+  // What a new member gets for the type, read from its instance for everything.
   defaultAccess: AccessState;
 }
 
@@ -241,13 +240,12 @@ export interface PortalServerMember {
   importedRequests: number;
 }
 
-// What everyone picked gets, per content type; limit, days and instance null keep the server's.
+// What everyone picked gets, per content type; limit and days null keep the server's.
 export interface OnboardAccess {
   contentType: ContentType;
   state: AccessState;
   limit: number | null;
   days: number | null;
-  instanceId: number | null;
 }
 
 export type OnboardState = 'waiting' | 'adding' | 'added' | 'failed';

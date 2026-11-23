@@ -195,7 +195,7 @@ backends:
       apiKey: ${RADARR_API_KEY}
       qualityProfile: HD-1080p      # profile name (or ID) in that Radarr
       rootFolder: /movies           # must already exist as a root folder in that Radarr
-      default: true                 # used for users without an assigned instance
+      purpose: everything           # everything | anime | nothing: what this instance is for
   sonarr:
     - name: Sonarr
       url: http://sonarr:8989
@@ -203,22 +203,22 @@ backends:
       qualityProfile: HD-1080p
       rootFolder: /tv
       seriesType: standard          # standard | anime | daily
-      default: true
+      purpose: everything
 ```
 
 | Setting | Required | Notes |
 |---|---|---|
 | `name` | yes | Unique across all instances. |
 | `url` | yes | Base URL, without `/api`. |
-| `browserUrl` | no | Where your browser opens the instance, when `url` only works from Requestarr (a container name). Requests link to their title's page there (**Open in Sonarr**, **Open in Radarr**); without it, `url` is used when a browser can reach it, and otherwise there's no link. On a server set up in the web app, it's **Address in your browser** on the instance. |
+| `browserUrl` | no | Where your browser opens the instance, when `url` only works from Requestarr (a container name). Requests link to their title's page there (**Open in Sonarr**, **Open in Radarr**); without it, `url` is used when a browser can reach it, and otherwise there's no link. On a server set up in the web app, it's **Address for links** on the instance. |
 | `apiKey` | yes | Use a `${VAR}` reference to `secrets.env`. |
 | `qualityProfile` | no | Defaults to the instance's first profile. |
 | `rootFolder` | no | Defaults to the instance's first root folder. |
 | `seriesType` | no | Sonarr only. Applied to every series this instance gets from Requestarr. |
-| `default` | no | One per type. Without it, the first listed instance is the default. |
+| `purpose` | no | What the instance is for (section 4.4): `everything` (the type's main one, which takes whatever no other claims), `anime` (Sonarr only: anime shows) or `nothing` (an extra no new request goes to). One instance per purpose per type. The older `default: true` still reads as `everything`. On a server set up in the web app, it's **What this Sonarr is for** (or Radarr) on the instance, shown once a type has more than one. |
 | `enabled` | no | `false` keeps the instance but stops using it. |
 | `pollingOnly` | no | `true`: no webhook on this instance; downloads are found by the backup poll only (section 4.8). |
-| `defaultAccess` | no | What a new member gets for the type when this is their instance: `off`, `approval` or `auto` (section 5.5). Defaults to `approval`. On a server set up in the web app, it's **Default access for new members** on the instance. |
+| `defaultAccess` | no | What a new member gets for the type, read from the type's `everything` instance: `off`, `approval` or `auto` (section 5.5). Defaults to `approval`. On a server set up in the web app, it's **Default access for new members** on the instance. |
 
 On every start, Requestarr checks each instance:
 
@@ -235,15 +235,15 @@ The file is the source of truth. An instance removed from the file is disabled, 
 
 List as many instances per type as you need. Common setups:
 
-- a separate Radarr for 4K
-- a separate Sonarr for anime, or separate sub and dub anime instances (see 4.7)
+- a separate Sonarr for anime (see 4.4 and 4.7)
+- a separate Radarr for 4K, kept for when 4K access arrives
 
 ```yaml
   radarr:
     - name: Radarr
       url: http://radarr:7878
       apiKey: ${RADARR_API_KEY}
-      default: true
+      purpose: everything
     - name: Radarr 4K
       url: http://radarr4k:7878
       apiKey: ${RADARR_4K_API_KEY}
@@ -251,17 +251,18 @@ List as many instances per type as you need. Common setups:
       rootFolder: /movies-4k
 ```
 
-### 4.4 Which instance a user's requests go to
+### 4.4 Which instance a request goes to
 
-Users never pick an instance. By default every user's movie requests go to the default Radarr, and TV requests to the default Sonarr.
+A request goes to the Sonarr or Radarr whose purpose matches what is asked for, never by who asks. Members never pick an instance or see which one takes their request; admins see it on the admin feed and in the web app.
 
-To send one user's requests elsewhere, open their card (`/admin user`, or **Users** on the admin panel) and pick the instance in its **Limits, instance, their requests…** menu, for example "Movies: Radarr 4K". The menu only appears when a type has more than one instance.
+- **Anime** (the title's own genres say so) goes to the Sonarr whose purpose is `anime`, when one is turned on, and otherwise to the `everything` Sonarr.
+- **Everything else** goes to the type's `everything` instance.
 
-The assignment is per user and per content type, and the card shows it.
+Each purpose belongs to one instance per type. In the web app, choosing a purpose another instance has moves it here, and the instance for everything keeps it until another takes it over. A member's access (their roles and limits) says what they may request, not where it goes.
 
 ### 4.5 What happens to a request
 
-1. The user types `/request` in their channel and picks a type. The type list only shows types they have access to. Then they enter a title, or an ID such as `tmdb:603` (movies) or `tvdb:12345` (TV). Results come from their instance's own search, so no extra API keys are needed.
+1. The user types `/request` in their channel and picks a type. The type list only shows types they have access to. Then they enter a title, or an ID such as `tmdb:603` (movies) or `tvdb:12345` (TV). Results come from the type's own Sonarr or Radarr search, so no extra API keys are needed.
    The whole request stays in **one message** that changes in place: results, details, seasons, confirmation, final status. Each request is its own message, so separate requests don't run together.
 2. Each result line shows the year, the network or studio, and either the top three cast (with The Movie Database key, see 4.6) or the genre. That helps tell apart titles with the same name.
 3. They pick a title and see its card: a large poster and everything Sonarr or Radarr knows about it. That covers genres, rating, age rating, runtime, network or studio, status, seasons, air or release dates, and the overview. The card also shows the top cast and episode count when The Movie Database key is set, and which instance it goes to. The card says if the title is:
@@ -379,7 +380,7 @@ A request for the losing language doesn't create a second request; the user foll
 
 **Series type.** Anime is always added as Sonarr's **Anime** series type (absolute episode numbering), whatever `seriesType` the instance has; other shows use the instance's `seriesType`. If a series numbers better as Standard, switch it in Sonarr (**Edit → Series Type**). Requestarr never switches it back.
 
-**Separate sub and dub instances.** If you'd rather keep dubbed and subtitled anime apart, run two Sonarr instances. Give one `priority: dub` and the other `priority: sub`, and point users at one with `/admin user access ... type:TV instance:{name}`. Then the same show can exist in both languages, once per instance. Two warnings:
+**A separate Sonarr for anime.** If you'd rather keep anime apart, run a second Sonarr with `purpose: anime` (in the web app, **What this Sonarr is for: Anime**): every anime request goes there, whoever asks. Each show still exists once on it, its language set by the tags above. Two warnings:
 
 - The instances need **different root folders**. Two Sonarrs sharing a folder fight over the same files.
 - Point your media server at them as **separate libraries**. In one library, the show appears twice.
@@ -553,7 +554,7 @@ Requestarr then:
 
    The panel updates itself when you change their access or link their account. Existing channels get the new panel in place on the next start.
 
-By default, a new user gets, for each type, the **Default access for new members** of the media manager their requests go to: its default instance's (4.4), or the one you choose for them. Each Sonarr and Radarr has it in its edit window under **Settings → Connections**: off, needs approval or auto-approve (Approved automatically). Instances you had before the setting existed give **needs approval**, as before, and so does an instance in a provisioning file without `defaultAccess` (4.2). A type with no instance turned on is off, and so is music until Lidarr arrives.
+By default, a new user gets, for each type, the **Default access for new members** of the type's instance for everything (4.4). Each Sonarr and Radarr has it in its edit window under **Settings → Connections**: Approved automatically, Needs approval or Off. Instances you had before the setting existed give **needs approval**, as before, and so does an instance in a provisioning file without `defaultAccess` (4.2). A type with no instance turned on is off, and so is music until Lidarr arrives.
 
 The card then shows their access, ready to change (5.6).
 
@@ -561,7 +562,7 @@ Discord allows 250 roles per server, and every user needs one. Requestarr also u
 
 ### 5.6 The member card: access, limits and more
 
-`/admin user` (or **Users** or **Add or find a member** on the panel) opens a member's card, visible only to you. It shows their status, channel, access, limits, instance and media server account, and only the controls that apply to them now. Every change updates the card in place.
+`/admin user` (or **Users** or **Add or find a member** on the panel) opens a member's card, visible only to you. It shows their status, channel, access, limits and media server account, and only the controls that apply to them now. Every change updates the card in place.
 
 There are three access levels for each content type:
 
@@ -574,7 +575,7 @@ There are three access levels for each content type:
 | On the card | What it does |
 |---|---|
 | **Movies access**, **TV access**, **Music access** | One menu per type, set to the current level. Pick another level and the card changes; nothing else is posted. Every type is shown to you, even one with nothing connected yet; granting such a type tells you privately that the member won't see it until an instance for it connects (5.7). |
-| **Limits, instance, their requests…** | One menu for the rest: a type's limit (enter how many requests and per how many days, 7 if left empty; 0 removes the limit; following someone else's request never counts), which instance their requests go to (only when a type has several Sonarr or Radarr instances, 4.4), and **Their requests**. |
+| **Limits, their requests…** | One menu for the rest: a type's limit (enter how many requests and per how many days, 7 if left empty; 0 removes the limit; following someone else's request never counts), and **Their requests**. Where requests go follows what is asked for (4.4), never the member. |
 | **Link Plex…** / **Change Plex link…** | Links their Plex account directly. |
 | **Approve Plex link** / **Deny Plex link** | Only while they've asked for Plex access themselves. |
 | **Suspend** / **Unsuspend** | Suspend locks their channel: they can read it but can't post or request. Unsuspend unlocks it and gives their role back if they rejoined. |

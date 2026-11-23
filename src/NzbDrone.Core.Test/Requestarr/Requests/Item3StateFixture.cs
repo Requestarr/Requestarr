@@ -68,15 +68,5 @@ namespace Requestarr.Core.Test.Requests
 
             (await RequestMovie(Bob, Dune)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Dune (2021)", 2));
         }
-
-        [Test]
-        public async Task requests_on_different_instances_are_separate()
-        {
-            await SetAccess(Bob, "movie", "approval", "Radarr 4K");
-            await RequestMovie(Alice, Dune);
-
-            (await RequestMovie(Bob, Dune)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Dune (2021)", 2));
-            RequestStore.All().Select(r => r.BackendId).Distinct().Should().HaveCount(2);
-        }
     }
 }

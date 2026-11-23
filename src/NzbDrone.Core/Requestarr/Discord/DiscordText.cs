@@ -63,8 +63,8 @@ namespace Requestarr.Core.Discord
         public const string ChannelRestoredNotice = "Your Requestarr access is restored. Welcome back!";
         public const string MemberLeftNotice = "This member left the server. Their access is suspended and the channel is locked.";
 
-        public static string AccessChanged(string name, ContentType type, AccessState state, string instance = null) =>
-            $"{name}: {Label(type)} is now {Label(state)}{(instance != null ? $", using {instance}" : string.Empty)}.";
+        public static string AccessChanged(string name, ContentType type, AccessState state) =>
+            $"{name}: {Label(type)} is now {Label(state)}.";
 
         public static string QuotaChanged(string name, ContentType type, int? limit, int days) =>
             limit.HasValue ? $"{name}: {Label(type)} quota is now {limit} per {Plural(days, "day")}." : $"{name}: {Label(type)} quota removed.";
@@ -156,7 +156,7 @@ namespace Requestarr.Core.Discord
 
         public static string RequestState(Request request) => $"Request #{request.Id} for {request.Label} is {Label(request.Status)}.";
 
-        public static string RequestApprovedStatus(string label, int id, string instance) => $"Request #{id} for {label} was approved and added to {instance ?? "the server"}. A search has started.";
+        public static string RequestApprovedStatus(string label, int id) => $"Request #{id} for {label} was approved. A search has started.";
 
         public const string AlreadyAvailableLabel = "Already available";
 
@@ -227,7 +227,6 @@ namespace Requestarr.Core.Discord
         public const string FieldAired = "Aired";
         public const string FieldReleased = "Released";
         public const string FieldCast = "Cast";
-        public const string FieldGoesTo = "Goes to";
 
         public static string BlockHeader(ContentType type, string step) => $"{(type == ContentType.Tv ? "📺" : "🎬")} **{Label(type)} request**{Dot}{step}";
 
@@ -400,7 +399,7 @@ namespace Requestarr.Core.Discord
 
         public static string NoBackend(ContentType type) => $"No {(type == ContentType.Tv ? "Sonarr" : "Radarr")} is set up for {Label(type).ToLowerInvariant()} yet. Ask the admin.";
 
-        public static string BackendUnavailable(string instance) => $"{instance} isn't reachable right now. Try again later.";
+        public const string BackendUnavailable = "The app that downloads it isn't reachable right now. Try again later.";
 
         public static string SearchResults(ContentType type, string query, int count) =>
             BlockHeader(type, $"{Plural(count, "result")} for \"{query}\"") + "\nPick one to see the details.";
@@ -420,9 +419,13 @@ namespace Requestarr.Core.Discord
 
         public static string RequestPending(string label, int id) => $"Request #{id} for {label} is waiting for the admin's approval.";
 
+        // For admins, who may see where a request went.
         public static string RequestSent(string label, int id, string instance) => $"Request #{id} for {label} was added to {instance} and a search has started.";
 
-        public static string RequestApprovedNotice(string label, int id, string instance) => $"Your request #{id} for {label} was approved and added to {instance}. A search has started.";
+        // For members, who never see which server takes a request.
+        public static string RequestAdded(string label, int id) => $"Request #{id} for {label} was added and a search has started.";
+
+        public static string RequestApprovedNotice(string label, int id) => $"Your request #{id} for {label} was approved. A search has started.";
 
         public static string RequestDeniedNotice(string label, int id, string reason) => $"Your request #{id} for {label} was denied: {reason ?? NoReason}.";
 
@@ -487,11 +490,11 @@ namespace Requestarr.Core.Discord
             _ => "Whoever asked first"
         };
 
-        public static string PriorityRule(Anime.AnimePriority priority, string instance) => priority switch
+        public static string PriorityRule(Anime.AnimePriority priority) => priority switch
         {
-            Anime.AnimePriority.Dub => $"On {instance}, the English dub is kept: a dub request switches a subtitled series to the dub, and a request for subtitles follows the dub.",
-            Anime.AnimePriority.Sub => $"On {instance}, the subtitled version is kept: a request for subtitles switches a dubbed series to subtitles, and a dub request follows the subtitles.",
-            _ => $"On {instance}, whoever asked first decides: a series stays in the version it was first requested in."
+            Anime.AnimePriority.Dub => "Here, the English dub is kept: a dub request switches a subtitled series to the dub, and a request for subtitles follows the dub.",
+            Anime.AnimePriority.Sub => "Here, the subtitled version is kept: a request for subtitles switches a dubbed series to subtitles, and a dub request follows the subtitles.",
+            _ => "Here, whoever asked first decides: a series stays in the version it was first requested in."
         };
 
         private static string Keeps(Anime.AnimePriority priority) => priority switch
@@ -548,8 +551,6 @@ namespace Requestarr.Core.Discord
         public static string FollowingOf(string owner) => $"You're following {owner}'s request.";
 
         public static string DiscordTimestamp(DateTime utc) => $"<t:{new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds()}:R>";
-
-        public static string InstanceNotFound(string name, ContentType type) => $"No enabled {(type == ContentType.Tv ? "Sonarr" : "Radarr")} instance named '{name}'.";
 
         // Panels and the single /request command
         public const string PanelMyRequests = "My requests";
@@ -650,17 +651,17 @@ namespace Requestarr.Core.Discord
             return parts.Any() ? string.Join(" and ", parts) : "nothing yet";
         }
 
-        public static string RequestSearchingStatus(Request request, string instance) =>
-            $"Request #{request.Id} for {request.Label} is in {instance ?? "the server"}, which is looking for a release.";
+        public static string RequestSearchingStatus(Request request) =>
+            $"Request #{request.Id} for {request.Label} is being searched for.";
 
-        public static string RequestDownloadingStatus(Request request, string instance) =>
-            $"Request #{request.Id} for {request.Label} is downloading in {instance ?? "the server"}.";
+        public static string RequestDownloadingStatus(Request request) =>
+            $"Request #{request.Id} for {request.Label} is downloading.";
 
-        public static string RequestStalledStatus(Request request, string instance) =>
-            $"Request #{request.Id} for {request.Label} stopped downloading in {instance ?? "the server"}{Because(request.ProgressDetail)}. The admin can see this too.";
+        public static string RequestStalledStatus(Request request) =>
+            $"Request #{request.Id} for {request.Label} stopped downloading{Because(request.ProgressDetail)}. The admin can see this too.";
 
-        public static string RequestDownloadFailedStatus(Request request, string instance) =>
-            $"The download for request #{request.Id} ({request.Label}) failed{Because(request.ProgressDetail)}. {instance ?? "The server"} usually tries another release by itself.";
+        public static string RequestDownloadFailedStatus(Request request) =>
+            $"The download for request #{request.Id} ({request.Label}) failed{Because(request.ProgressDetail)}. Another release is usually tried by itself.";
 
         public static string RequestReadyStatus(Request request) => request.ContentType == ContentType.Tv
             ? $"Good news: {request.Label} is ready to watch: {PlainSeasons(request.AvailableSeasons)}. Request #{request.Id} is complete."
@@ -671,14 +672,14 @@ namespace Requestarr.Core.Discord
         public static string RequestFulfilledNotice(string label, int id) => $"🎉 Good news! {label} (request #{id}) is ready to watch.";
 
         // Fallback notices, for people with no request message to repost.
-        public static string RequestProgressNotice(Request request, string instance) => request.Progress switch
+        public static string RequestProgressNotice(Request request) => request.Progress switch
         {
             DownloadProgress.Downloading when request.AvailableSeasons?.Any() == true => $"{request.Label} (request #{request.Id}): {PlainSeasons(request.AvailableSeasons)} available now; the rest is downloading.",
-            DownloadProgress.Downloading => $"{request.Label} (request #{request.Id}) is downloading in {instance ?? "the server"}.",
+            DownloadProgress.Downloading => $"{request.Label} (request #{request.Id}) is downloading.",
             DownloadProgress.Stalled => $"{request.Label} (request #{request.Id}) stopped downloading{Because(request.ProgressDetail)}.",
-            DownloadProgress.Failed => $"The download for {request.Label} (request #{request.Id}) failed{Because(request.ProgressDetail)}; {instance ?? "the server"} usually tries another release.",
+            DownloadProgress.Failed => $"The download for {request.Label} (request #{request.Id}) failed{Because(request.ProgressDetail)}; another release is usually tried.",
             _ when request.AvailableSeasons?.Any() == true => $"{request.Label} (request #{request.Id}): {PlainSeasons(request.AvailableSeasons)} available now.",
-            _ => $"{request.Label} (request #{request.Id}) is waiting for a release in {instance ?? "the server"}."
+            _ => $"{request.Label} (request #{request.Id}) is waiting for a release."
         };
 
         public static string NoProgressFor(int hours) => $"no progress for {hours} hours";
@@ -692,8 +693,8 @@ namespace Requestarr.Core.Discord
         public static string CannotCancelDownloading(int id) =>
             $"Request #{id} is already downloading or partly there, so it can't be cancelled any more. Removing titles comes with removal votes.";
 
-        public static string CancelNotStopped(Request request, string instance) =>
-            $"Request #{request.Id} wasn't cancelled: {instance ?? "the server"} couldn't be told to stop searching for it. Nothing changed; try again in a moment.";
+        public static string CancelNotStopped(Request request) =>
+            $"Request #{request.Id} wasn't cancelled: the search for it couldn't be stopped. Nothing changed; try again in a moment.";
 
         public static string AdminCancelledSent(Request request, string instance) =>
             $"Cancelled request #{request.Id} for {request.Label}. It stays in {instance} but is no longer monitored there, so nothing more is searched for or downloaded. Nothing was deleted.";
@@ -1046,10 +1047,6 @@ namespace Requestarr.Core.Discord
         public static string LimitOption(ContentType type, UserMediaAccess access) =>
             $"{Label(type)} limit (now {(access?.QuotaLimit is { } limit ? $"{limit} per {(int)(access.QuotaWindow ?? TimeSpan.FromDays(7)).TotalDays} days" : "none")})";
 
-        public static string InstanceOption(ContentType type, string instance) => $"{Label(type)}: {instance}";
-
-        public static string InstanceLine(ContentType type, string instance) => $"• {Label(type)} requests go to {instance}";
-
         public static string MemberRequestsHeader(string name, int count) => $"**{name}'s requests** · {count}";
 
         public static string UsersHeader(int count) => $"**Users** · {count}";
@@ -1079,8 +1076,8 @@ namespace Requestarr.Core.Discord
             _ => $"{span.TotalDays:0.#} days"
         };
 
-        public static string RequestsPaused(ContentType type, string instance) =>
-            $"{Label(type)} requests are paused right now: {instance} can't be reached. Requestarr keeps trying, and the admin is alerted if it stays down.";
+        public static string RequestsPaused(ContentType type) =>
+            $"{Label(type)} requests are paused right now: the app that downloads them can't be reached. Requestarr keeps trying, and the admin is alerted if it stays down.";
 
         public static string TypeNotAvailable(ContentType type) => $"{Label(type)} can't be requested here yet.";
 
@@ -1356,7 +1353,7 @@ namespace Requestarr.Core.Discord
 
         public static string LevelLabel(AccessState state) => Capitalize(Label(state));
 
-        public const string MorePlaceholder = "Limits, instance, their requests…";
+        public const string MorePlaceholder = "Limits, their requests…";
 
         public static string InstanceBackNow(string instance) => $"{instance} answers again.";
 

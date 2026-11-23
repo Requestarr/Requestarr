@@ -18,6 +18,7 @@ and a beta heading names the goals' builds it includes.
 
 ### For users
 - **Anime versions in plain words:** the bot now says "English dub" or "subtitled version", and when two people want different versions it says which one is kept.
+- **Request messages don't name servers:** your request goes where it belongs by what you asked for, so the bot no longer says which server took it.
 
 ### For admins
 - **Simpler bot setup:** you paste only the bot's token. Requestarr notices when the bot joins your server, makes its admin role, and lets you pick admins in the web app.
@@ -26,6 +27,7 @@ and a beta heading names the goals' builds it includes.
 - **Clearer Sonarr and Radarr forms:** they open in their card's window, with plainer wording. New ones start with Standard series, the Any profile and new members approved automatically.
 - **Test shows its result:** Test shows a green check or a red mark, with the reason where you're looking. Leaving with unsaved changes asks first.
 - **Delete, with history kept:** a Sonarr or Radarr can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.
+- **Requests go by what's asked for:** each Sonarr or Radarr says what it's for: everything, anime or nothing yet, and anime goes to the anime one. This replaces the Default tick box and members' own servers; any you set are dropped, their access and limits kept.
 - **Download updates sort themselves out:** Requestarr fills in its own address from your browser and tests it. Each card says whether downloads are reported right away or on a timer, and why.
 
 ## 0.7.0010 (2026-11-22), with 0.7.0004 to 0.7.0010

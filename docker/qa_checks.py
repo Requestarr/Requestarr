@@ -90,6 +90,7 @@ CHECKS = {
     "live carry-over": Check("live", "LiveQaFixture", "other", ("[promotion]",)),
     "live bug reports": Check("live", "LiveQaFixture", "other", ("[reports]", "[issues]")),
     "live report limit": Check("live", "LiveQaFixture", "other", ("[limit]",)),
+    "live routing by content": Check("live", "LiveRoutingFixture", "requests", ("[route]",)),
 }
 
 # An item (QA-CHECKLIST.md): "- **Name**", "  - Steps:" over "    1. ...", "  - Expect:" over "    - ...", then who checks it.
@@ -113,7 +114,7 @@ SUITE_FILTER = "Category!=ManualTest&Category!=IntegrationTest&Category!=Automat
 LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
         "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
         "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture", "LivePortalActionsFixture",
-        "LiveMemberRenamesFixture", "LiveVersionWordsFixture"]
+        "LiveMemberRenamesFixture", "LiveVersionWordsFixture", "LiveRoutingFixture"]
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 

@@ -83,14 +83,14 @@ backends:
       qualityProfile: HD-1080p
       rootFolder: /data/tv
       seriesType: standard
-      default: true
+      purpose: everything
   radarr:
     - name: Radarr (test)
       url: http://radarr-test:7878
       apiKey: ${RADARR_TEST_API_KEY}
       qualityProfile: HD-1080p
       rootFolder: /data/movies
-      default: true
+      purpose: everything
 
 mediaServers:
   plex: []

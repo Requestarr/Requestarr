@@ -22,7 +22,7 @@ namespace Requestarr.Core.Test.Polish
             embed.Title.Should().Be("Dune (2021)");
             embed.Url.Should().Be("https://www.imdb.com/title/tt1160419/");
             embed.Description.Should().Be("Paul Atreides...");
-            FieldNames(card).Should().Equal("Genres", "Rating", "Rated", "Runtime", "Studio", "Status", "Released", "Goes to");
+            FieldNames(card).Should().Equal("Genres", "Rating", "Rated", "Runtime", "Studio", "Status", "Released");
             Field(card, "Genres").Should().Be("Science Fiction, Adventure");
             Field(card, "Rating").Should().Be("IMDb 8.0 · TMDB 7.8 · Rotten Tomatoes 83%");
             Field(card, "Rated").Should().Be("PG-13");
@@ -30,7 +30,6 @@ namespace Requestarr.Core.Test.Polish
             Field(card, "Studio").Should().Be("Legendary Pictures");
             Field(card, "Status").Should().Be("Released");
             Field(card, "Released").Should().Be("In theaters 15 Sep 2021\nDigital 21 Oct 2021\nPhysical 22 Dec 2021");
-            Field(card, "Goes to").Should().Be("Radarr");
             embed.Footer.Should().BeNull();
         }
 
@@ -40,14 +39,13 @@ namespace Requestarr.Core.Test.Polish
             var card = (await Harness.SendAsync(Search(Alice, "tv", $"tvdb:{DarkMatter}"))).LastReply;
 
             card.Embeds.Single().ImageUrl.Should().Be("https://image.example/dark-matter-2024.jpg");
-            FieldNames(card).Should().Equal("Genres", "Rating", "Rated", "Runtime", "Network", "Status", "Seasons", "Aired", "Goes to");
+            FieldNames(card).Should().Equal("Genres", "Rating", "Rated", "Runtime", "Network", "Status", "Seasons", "Aired");
             Field(card, "Rating").Should().Be("7.6 (83,949 votes)");
             Field(card, "Runtime").Should().Be("54 min per episode");
             Field(card, "Network").Should().Be("Apple TV");
             Field(card, "Status").Should().Be("Continuing");
             Field(card, "Seasons").Should().Be("2 + specials");
             Field(card, "Aired").Should().Be("First 8 May 2024");
-            Field(card, "Goes to").Should().Be("Sonarr");
         }
 
         [Test]
@@ -78,7 +76,7 @@ namespace Requestarr.Core.Test.Polish
             var card = (await Harness.SendAsync(Search(Alice, "movie", $"tmdb:{DuneTwo}"))).LastReply;
 
             card.Embeds.Single().Title.Should().Be("Dune: Part Two (2024)");
-            FieldNames(card).Should().Equal("Goes to");
+            FieldNames(card).Should().BeEmpty("a member's card never says which server takes the request");
         }
 
         [Test]

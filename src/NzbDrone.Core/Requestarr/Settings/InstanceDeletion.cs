@@ -93,14 +93,14 @@ namespace Requestarr.Core.Settings
 
             if (heir != null && IsMain(instance))
             {
-                heir.Config.IsDefault = true;
+                heir.Config.Purpose = InstancePurpose.Everything;
                 _repository.Update(heir);
             }
 
             foreach (var request in open)
             {
                 request.Status = RequestStatus.Failed;
-                request.DecisionReason = NeedsNewHome(instance.Name);
+                request.DecisionReason = NeedsNewHome;
                 _requests.Update(request);
             }
 
@@ -108,7 +108,7 @@ namespace Requestarr.Core.Settings
             instance.Name = DeletedName(instance);
             instance.Deleted = Clock();
             instance.Enable = false;
-            instance.Config.IsDefault = false;
+            instance.Config.Purpose = InstancePurpose.Nothing;
             instance.DownSince = null;
             _repository.Update(instance);
 
@@ -118,7 +118,8 @@ namespace Requestarr.Core.Settings
             return new InstanceDeleteResult(true, null, webhookProblem, open.Count);
         }
 
-        public static string NeedsNewHome(string name) => $"Needs a new home: {name} was deleted. Retry sends it to its type's main instance.";
+        // On the member's own request message too, so it names no server.
+        public const string NeedsNewHome = "Needs a new home: where it was sent was deleted. Retry sends it where it belongs now.";
 
         // "Sonarr (deleted)", or "Sonarr (deleted 2)" when an earlier deleted Sonarr has that name already.
         private string DeletedName(BackendInstance instance)

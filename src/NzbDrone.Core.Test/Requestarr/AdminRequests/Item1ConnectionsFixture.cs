@@ -120,7 +120,7 @@ namespace Requestarr.Core.Test.AdminRequests
             Mocker.Resolve<IPanelService>().UserPanel(UserFor(Alice)).Content.Should().Contain("TV");
             var run = await Harness.SendAsync(Search(Alice, "tv", "severance"));
 
-            run.LastReply.Content.Should().Contain(DiscordText.RequestsPaused(ContentType.Tv, "Sonarr"));
+            run.LastReply.Content.Should().Contain(DiscordText.RequestsPaused(ContentType.Tv));
             Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(UserFor(Alice).Id).Single(a => a.ContentType == ContentType.Tv).State.Should().Be(AccessState.AutoApprove, "an outage never changes access");
             NzbDrone.Test.Common.ExceptionVerification.IgnoreWarns();
         }

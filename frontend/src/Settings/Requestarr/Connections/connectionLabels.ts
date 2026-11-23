@@ -3,6 +3,7 @@ import MediaManager from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
 import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
 import { CardLabel } from './ConnectionCard';
+import { purposeLabelKey } from './MediaManagers/purpose';
 
 // What testing one instance found: why it failed, or no problem when it passed.
 export interface TestOutcome {
@@ -72,18 +73,18 @@ function mediaManagerStatus(
   return item.problem ? failing() : grey('ConnectionNotChecked');
 }
 
-function isDefault(item: MediaManager) {
-  return item.fields.some(({ name, value }) => name === 'isDefault' && !!value);
-}
-
+// Siblings: every instance, for what this one is for once its type has more than one.
 export function mediaManagerLabels(
   item: MediaManager,
   settings: AppSettings | undefined,
+  siblings: MediaManager[],
   tested?: TestOutcome
 ): CardLabel[] {
+  const purpose = purposeLabelKey(item, siblings);
+
   return [
     mediaManagerStatus(item, tested),
-    ...(isDefault(item) ? [grey('Default')] : []),
+    ...(purpose ? [grey(purpose)] : []),
     ...provisioned(settings),
   ];
 }

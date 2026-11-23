@@ -282,7 +282,7 @@ namespace Requestarr.Core.Test.Qa
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
             unreleased.Where(i => !i.Checker.Automated).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Sonarr and Radarr wording");
+            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Sonarr and Radarr wording", "Handing over everything");
         }
 
         [Test]

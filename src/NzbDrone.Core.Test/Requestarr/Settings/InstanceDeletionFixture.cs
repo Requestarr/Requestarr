@@ -29,8 +29,8 @@ namespace Requestarr.Core.Test.Settings
         [SetUp]
         public void SetUp()
         {
-            _main = new BackendInstance { Id = 1, Name = "Sonarr", Implementation = BackendImplementations.Sonarr, Enable = true, Settings = new BackendSettings { Url = "http://sonarr:8989", IsDefault = true } };
-            _anime = new BackendInstance { Id = 2, Name = "Sonarr Anime", Implementation = BackendImplementations.Sonarr, Enable = true, Settings = new BackendSettings { Url = "http://anime:8989" } };
+            _main = new BackendInstance { Id = 1, Name = "Sonarr", Implementation = BackendImplementations.Sonarr, Enable = true, Settings = new BackendSettings { Url = "http://sonarr:8989", Purpose = InstancePurpose.Everything } };
+            _anime = new BackendInstance { Id = 2, Name = "Sonarr Anime", Implementation = BackendImplementations.Sonarr, Enable = true, Settings = new BackendSettings { Url = "http://anime:8989", Purpose = InstancePurpose.Anime } };
             _requests = new List<Request>
             {
                 new() { Id = 10, BackendId = 1, Status = RequestStatus.Pending, Title = "Waiting" },
@@ -67,11 +67,11 @@ namespace Requestarr.Core.Test.Settings
             var result = await Subject.DeleteAsync(1, 2, Admin);
 
             result.Should().Be(new InstanceDeleteResult(true, null, null, 2));
-            (_main.IsDeleted, _main.Enable, _main.Config.IsDefault).Should().Be((true, false, false));
+            (_main.IsDeleted, _main.Enable, _main.Config.Purpose).Should().Be((true, false, InstancePurpose.Nothing));
             _main.Name.Should().Be("Sonarr (deleted)", "its requests say where they went, and the name is free again");
-            _anime.Config.IsDefault.Should().BeTrue("it takes over");
+            _anime.Config.Purpose.Should().Be(InstancePurpose.Everything, "it takes over");
 
-            _requests.Where(r => r.Id != 12).Should().OnlyContain(r => r.Status == RequestStatus.Failed && r.BackendId == 1 && r.DecisionReason == InstanceDeletion.NeedsNewHome("Sonarr"),
+            _requests.Where(r => r.Id != 12).Should().OnlyContain(r => r.Status == RequestStatus.Failed && r.BackendId == 1 && r.DecisionReason == InstanceDeletion.NeedsNewHome,
                 "they keep where they went until Retry gives them a new home");
             _requests.Single(r => r.Id == 12).Should().Match<Request>(r => r.Status == RequestStatus.Available && r.BackendId == 1, "finished requests keep where they went");
 

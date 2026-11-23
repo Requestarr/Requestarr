@@ -186,7 +186,9 @@ namespace Requestarr.Core.Provisioning
         public string ApiKey { get; set; }
         public bool Enabled { get; set; } = true;
 
-        // The instance used for users without an explicit assignment; the first listed when none is marked.
+        // What it's for: everything | anime | nothing (InstancePurpose). Default: true is the older way to say everything,
+        // still read.
+        public string Purpose { get; set; }
         public bool Default { get; set; }
         public bool PollingOnly { get; set; }
 

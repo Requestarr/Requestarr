@@ -245,7 +245,7 @@ namespace Requestarr.Core.Requests
             catch (BackendException ex)
             {
                 _logger.Warn(ex, "Lookup on {0} failed", instance.Name);
-                return LookupOutcome<List<MediaLookupResult>>.Fail(DiscordText.RequestsPaused(type, instance.Name));
+                return LookupOutcome<List<MediaLookupResult>>.Fail(DiscordText.RequestsPaused(type));
             }
         }
 
@@ -263,11 +263,19 @@ namespace Requestarr.Core.Requests
             try
             {
                 item = await Lookup(instance, type, externalId);
+
+                // A title goes where it was sent before, else by what it is (anime to the Anime Sonarr), looked up
+                // again there as that library has it.
+                if (item != null && Home(type, externalId, item.IsAnime) is { } home && home.Id != instance.Id)
+                {
+                    instance = home;
+                    item = await Lookup(instance, type, externalId);
+                }
             }
             catch (BackendException ex)
             {
                 _logger.Warn(ex, "Lookup on {0} failed", instance.Name);
-                return LookupOutcome<TitleState>.Fail(DiscordText.RequestsPaused(type, instance.Name));
+                return LookupOutcome<TitleState>.Fail(DiscordText.RequestsPaused(type));
             }
 
             if (item == null)
@@ -300,6 +308,14 @@ namespace Requestarr.Core.Requests
                 Language = language
             });
         }
+
+        // Where a title's requests go: the instance it was last sent to while that one is still in use (its library has
+        // it, and anyone else asking follows that request), otherwise the instance for what it is.
+        private BackendInstance Home(ContentType type, int externalId, bool isAnime) =>
+            _requests.ForTitle(type, externalId).Newest()
+                .Select(r => _backends.Find(r.BackendId ?? 0))
+                .FirstOrDefault(b => b is { IsDeleted: false, Enable: true })
+            ?? _backends.ForRequest(type, isAnime);
 
         public async Task<RequestResult> RequestAsync(RequestCaller caller, ContentType type, int externalId, SeasonChoice seasons = null, AnimeLanguage? language = null)
         {
@@ -495,7 +511,7 @@ namespace Requestarr.Core.Requests
             }
 
             return sent
-                ? new RequestResult(true, DiscordText.RequestSent(request.Label, request.Id, state.Instance.Name), request, RequestOutcome.Sent)
+                ? new RequestResult(true, DiscordText.RequestAdded(request.Label, request.Id), request, RequestOutcome.Sent)
                 : new RequestResult(false, DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason), request, RequestOutcome.Failed);
         }
 
@@ -539,7 +555,7 @@ namespace Requestarr.Core.Requests
             }
 
             await RefreshOrNotify(request, item, sent
-                ? DiscordText.RequestApprovedNotice(request.Label, request.Id, instance.Name)
+                ? DiscordText.RequestApprovedNotice(request.Label, request.Id)
                 : DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason));
 
             return sent
@@ -599,7 +615,7 @@ namespace Requestarr.Core.Requests
 
             if (wasSent && !await TryUnmonitorAsync(request, instance))
             {
-                return ServiceResult.Fail(DiscordText.CancelNotStopped(request, instance?.Name));
+                return ServiceResult.Fail(DiscordText.CancelNotStopped(request));
             }
 
             if (!wasSent && await TryLookup(instance, request) is { LibraryId: not null } available)
@@ -720,7 +736,6 @@ namespace Requestarr.Core.Requests
                 return false;
             }
 
-            var instance = _backends.Find(request.BackendId ?? 0);
             request.AvailableSeasons = seasons;
             request.ProgressDetail = detail;
 
@@ -739,7 +754,7 @@ namespace Requestarr.Core.Requests
             request.Progress = snapshot.Progress;
             _requests.Update(request);
             _audit.Record(Actor.System, "request.progress", "request", request.Id.ToString(), $"{snapshot.Progress}{(seasons.Any() ? $", {DiscordText.PlainSeasons(seasons)} available" : string.Empty)}{(detail != null ? ": " + detail : string.Empty)}");
-            await RefreshOrNotify(request, null, DiscordText.RequestProgressNotice(request, instance?.Name));
+            await RefreshOrNotify(request, null, DiscordText.RequestProgressNotice(request));
 
             return true;
         }
@@ -813,7 +828,7 @@ namespace Requestarr.Core.Requests
             catch (BackendException ex)
             {
                 _logger.Warn(ex, "Adding seasons to request {0} on {1} failed", request.Id, instance.Name);
-                return ServiceResult.Fail(DiscordText.BackendUnavailable(instance.Name));
+                return ServiceResult.Fail(DiscordText.BackendUnavailable);
             }
         }
 
@@ -840,7 +855,7 @@ namespace Requestarr.Core.Requests
             catch (Exception ex) when (ex is BackendException || ex is NullReferenceException)
             {
                 _logger.Warn(ex, "Request {0}: search on {1} failed", request.Id, instance?.Name);
-                return ServiceResult.Fail(DiscordText.RequestsPaused(request.ContentType, instance?.Name ?? DiscordText.Label(request.ContentType)));
+                return ServiceResult.Fail(DiscordText.RequestsPaused(request.ContentType));
             }
 
             _audit.Record(admin, "request.search", "request", request.Id.ToString(), instance.Name);
@@ -873,7 +888,7 @@ namespace Requestarr.Core.Requests
             var (sent, item) = await SendAsync(request, instance, null, admin);
 
             await RefreshOrNotify(request, item, sent
-                ? DiscordText.RequestApprovedNotice(request.Label, request.Id, instance.Name)
+                ? DiscordText.RequestApprovedNotice(request.Label, request.Id)
                 : DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason));
 
             return sent || request.Status == RequestStatus.Available
@@ -881,10 +896,11 @@ namespace Requestarr.Core.Requests
                 : ServiceResult.Fail(DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason));
         }
 
-        // A request whose instance was deleted goes to its type's main instance on Retry, as a new title there.
+        // A request whose instance was deleted goes where its kind goes on Retry (anime, which has a language, to the
+        // Anime Sonarr), as a new title there.
         private BackendInstance NewHomeIfDeleted(Request request)
         {
-            if (_backends.Find(request.BackendId ?? 0) is not { IsDeleted: true } || _backends.Default(request.ContentType) is not { } home)
+            if (_backends.Find(request.BackendId ?? 0) is not { IsDeleted: true } || _backends.ForRequest(request.ContentType, request.Language.HasValue) is not { } home)
             {
                 return null;
             }
@@ -996,7 +1012,7 @@ namespace Requestarr.Core.Requests
             catch (BackendException ex)
             {
                 _logger.Warn(ex, "Switching {0} to {1} on {2} failed", label, language, state.Instance.Name);
-                return RequestResult.Refused(DiscordText.BackendUnavailable(state.Instance.Name));
+                return RequestResult.Refused(DiscordText.BackendUnavailable);
             }
 
             _audit.Record(caller.Actor, "anime.switch", "title", $"tv:{item.TvdbId}", $"{label} on {state.Instance.Name} now {DiscordText.Label(language)}");
@@ -1176,7 +1192,7 @@ namespace Requestarr.Core.Requests
 
             try
             {
-                var reply = RequestCards.Status(request, null, _backends.Find(request.BackendId ?? 0)?.Name, Mention(request.OwnerUserId), null, null);
+                var reply = RequestCards.Status(request, null, Mention(request.OwnerUserId), null, null);
                 await _gateway.EditMessageAsync(channel, message, WithRemoval(reply, request));
             }
             catch (Exception ex)
@@ -1214,7 +1230,7 @@ namespace Requestarr.Core.Requests
         {
             var instance = _backends.Find(request.BackendId ?? 0);
             item ??= await TryLookup(instance, request);
-            var reply = RequestCards.Status(request, item, instance?.Name, mention, note, followerOf);
+            var reply = RequestCards.Status(request, item, mention, note, followerOf);
 
             return followerOf == null ? WithRemoval(reply, request) : reply;
         }
@@ -1305,9 +1321,9 @@ namespace Requestarr.Core.Requests
                          ?? throw new BackendException(DiscordText.TitleNotFound);
 
                 var profile = BackendService.ResolveProfile(await api.GetQualityProfilesAsync(instance.Config), instance.Config.QualityProfile)
-                              ?? throw new BackendException($"quality profile '{instance.Config.QualityProfile}' not found on {instance.Name}");
+                              ?? throw new BackendException($"its quality profile '{instance.Config.QualityProfile}' isn't there any more");
                 var root = instance.Config.RootFolder ?? (await api.GetRootFoldersAsync(instance.Config)).FirstOrDefault()
-                           ?? throw new BackendException($"no root folder on {instance.Name}");
+                           ?? throw new BackendException("there's no root folder to add it to");
 
                 // Anime always goes in as Sonarr's Anime type (absolute numbering, scene mapping). With
                 // sub/dub on, it's tagged with its language so the matching release profile applies.
@@ -1385,7 +1401,7 @@ namespace Requestarr.Core.Requests
             {
                 try
                 {
-                    var reply = WithRemoval(RequestCards.Status(request, item, instance?.Name, ownerRepost ? Mention(request.OwnerUserId) : null, note, null), request);
+                    var reply = WithRemoval(RequestCards.Status(request, item, ownerRepost ? Mention(request.OwnerUserId) : null, note, null), request);
 
                     if (ownerRepost)
                     {
@@ -1408,7 +1424,7 @@ namespace Requestarr.Core.Requests
                 handled = true;
             }
 
-            await RefreshFollowers(request, item, instance, note, skipUserId, notice);
+            await RefreshFollowers(request, item, note, skipUserId, notice);
             await _feed.PostAsync(request, item);
             _events.PublishEvent(new AdminQueueChangedEvent());
 
@@ -1428,7 +1444,7 @@ namespace Requestarr.Core.Requests
             return handled;
         }
 
-        private async Task RefreshFollowers(Request request, MediaLookupResult item, BackendInstance instance, string note, int? skipUserId, string notice)
+        private async Task RefreshFollowers(Request request, MediaLookupResult item, string note, int? skipUserId, string notice)
         {
             var owner = OwnerName(request);
 
@@ -1438,7 +1454,7 @@ namespace Requestarr.Core.Requests
                 {
                     try
                     {
-                        var reply = RequestCards.Status(request, item, instance?.Name, Mention(follower.UserId), note, owner);
+                        var reply = RequestCards.Status(request, item, Mention(follower.UserId), note, owner);
                         follower.MessageId = (await Repost(channel, message, reply)).ToString();
                         _subscribers.Update(follower);
                         continue;
@@ -1582,7 +1598,8 @@ namespace Requestarr.Core.Requests
                 return (null, DiscordText.TypeNotAvailable(type));
             }
 
-            var instance = caller.AsAdmin ? _backends.Default(type) : _backends.ForUser(AccessFor(caller.User, type), type);
+            // Where a request goes follows what is asked for (DetailAsync routes anime), never who asks.
+            var instance = _backends.Default(type);
 
             return instance == null ? (null, DiscordText.NoBackend(type)) : (instance, null);
         }
