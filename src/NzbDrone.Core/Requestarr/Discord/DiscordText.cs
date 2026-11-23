@@ -63,8 +63,8 @@ namespace Requestarr.Core.Discord
         public const string ChannelRestoredNotice = "Your Requestarr access is restored. Welcome back!";
         public const string MemberLeftNotice = "This member left the server. Their access is suspended and the channel is locked.";
 
-        public static string AccessChanged(string name, ContentType type, AccessState state, string instance = null) =>
-            $"{name}: {Label(type)} is now {Label(state)}{(instance != null ? $", using {instance}" : string.Empty)}.";
+        public static string AccessChanged(string name, ContentType type, AccessState state) =>
+            $"{name}: {Label(type)} is now {Label(state)}.";
 
         public static string QuotaChanged(string name, ContentType type, int? limit, int days) =>
             limit.HasValue ? $"{name}: {Label(type)} quota is now {limit} per {Plural(days, "day")}." : $"{name}: {Label(type)} quota removed.";
@@ -549,7 +549,6 @@ namespace Requestarr.Core.Discord
 
         public static string DiscordTimestamp(DateTime utc) => $"<t:{new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds()}:R>";
 
-        public static string InstanceNotFound(string name, ContentType type) => $"No enabled {(type == ContentType.Tv ? "Sonarr" : "Radarr")} instance named '{name}'.";
 
         // Panels and the single /request command
         public const string PanelMyRequests = "My requests";
@@ -1046,9 +1045,7 @@ namespace Requestarr.Core.Discord
         public static string LimitOption(ContentType type, UserMediaAccess access) =>
             $"{Label(type)} limit (now {(access?.QuotaLimit is { } limit ? $"{limit} per {(int)(access.QuotaWindow ?? TimeSpan.FromDays(7)).TotalDays} days" : "none")})";
 
-        public static string InstanceOption(ContentType type, string instance) => $"{Label(type)}: {instance}";
 
-        public static string InstanceLine(ContentType type, string instance) => $"• {Label(type)} requests go to {instance}";
 
         public static string MemberRequestsHeader(string name, int count) => $"**{name}'s requests** · {count}";
 

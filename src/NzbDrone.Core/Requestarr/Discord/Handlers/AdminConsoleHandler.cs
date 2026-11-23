@@ -20,8 +20,7 @@ namespace Requestarr.Core.Discord.Handlers
         public const string Member = "adm-member";          // picker / users list: open a member card
         public const string Add = "adm-add";                // adm-add:{d}
         public const string Access = "adm-access";          // adm-access:{d}:{type}, value level (one menu per type)
-        public const string More = "adm-more";              // adm-more:{d}: limit:{type}, instance:{type}:{id}, requests
-        public const string Instance = "adm-instance";      // adm-instance:{d}, value type:backendId
+        public const string More = "adm-more";              // adm-more:{d}: limit:{type}, requests
         public const string Limit = "adm-limit";            // adm-limit:{d}, value type -> form
         public const string LimitForm = "adm-limit-form";   // adm-limit-form:{d}:{type}
         public const string Plex = "adm-plex";              // adm-plex:{d} -> form
@@ -92,7 +91,6 @@ namespace Requestarr.Core.Discord.Handlers
             (InteractionKind.Button, AdminRoutes.Add),
             (InteractionKind.SelectMenu, AdminRoutes.Access),
             (InteractionKind.SelectMenu, AdminRoutes.More),
-            (InteractionKind.SelectMenu, AdminRoutes.Instance),
             (InteractionKind.SelectMenu, AdminRoutes.Limit),
             (InteractionKind.ModalSubmit, AdminRoutes.LimitForm),
             (InteractionKind.Button, AdminRoutes.Plex),
@@ -137,7 +135,7 @@ namespace Requestarr.Core.Discord.Handlers
                 AdminRoutes.Plex => responder.ShowModalAsync(PlexForm(member)),
                 AdminRoutes.Access => ChangeAccessAsync(interaction, responder, member, actor),
                 AdminRoutes.More => HandleMoreAsync(interaction, responder, member, actor),
-                AdminRoutes.Instance or AdminRoutes.LimitForm or AdminRoutes.PlexForm => SaveFormAsync(interaction, responder, member, actor),
+                AdminRoutes.LimitForm or AdminRoutes.PlexForm => SaveFormAsync(interaction, responder, member, actor),
                 AdminRoutes.Add or AdminRoutes.Suspend or AdminRoutes.Unsuspend or AdminRoutes.RemoveConfirm or AdminRoutes.Link => ChangeMembershipAsync(interaction, responder, member, actor),
                 _ => Task.CompletedTask
             });
@@ -212,19 +210,6 @@ namespace Requestarr.Core.Discord.Handlers
                     await responder.ShowModalAsync(LimitForm(member, limitType));
                     return;
 
-                case "instance":
-                {
-                    var result = SetInstance(interaction, member, actor);
-                    await responder.UpdateMessageAsync(await MemberCard(member));
-
-                    if (!result.Success)
-                    {
-                        await responder.FollowupAsync(Private(result));
-                    }
-
-                    return;
-                }
-
                 default:
                     await ShowRequestsAsync(responder, member);
                     return;
@@ -236,7 +221,6 @@ namespace Requestarr.Core.Discord.Handlers
         {
             var result = interaction.Route switch
             {
-                AdminRoutes.Instance => SetInstance(interaction, member, actor),
                 AdminRoutes.LimitForm => SetLimit(interaction, member, actor),
                 _ => LinkPlex(interaction, member, actor)
             };
@@ -267,26 +251,6 @@ namespace Requestarr.Core.Discord.Handlers
             var (type, level) = AccessChoice(interaction);
 
             return type == null || level == null ? ServiceResult.Fail(DiscordText.TypeNotOffered) : _users.SetAccess(member, type.Value, level.Value, actor);
-        }
-
-        private ServiceResult SetInstance(DiscordInteraction interaction, ulong member, Actor actor)
-        {
-            // Instance menu: "type:id"; the More menu: "instance:type:id".
-            var parts = First(interaction.Values)?.Split(':').SkipWhile(p => p == "instance").ToArray();
-            var type = HandlerSupport.ParseType(parts?.ElementAtOrDefault(0));
-            var wanted = parts?.ElementAtOrDefault(1);
-            var instance = int.TryParse(wanted, out var id) ? _backends.Find(id) : _backends.FindByName(wanted ?? string.Empty);
-
-            if (type == null)
-            {
-                return ServiceResult.Fail(DiscordText.TypeNotOffered);
-            }
-
-            // The service checks the instance (enabled, right type) and refuses it by name. Someone without this type's
-            // access yet starts from the chosen instance's default.
-            var state = AccessFor(member, type.Value)?.State ?? instance?.Config.DefaultAccess ?? _backends.DefaultAccess(type.Value);
-
-            return _users.SetAccess(member, type.Value, state, actor, instance?.Name ?? wanted);
         }
 
         private ServiceResult SetLimit(DiscordInteraction interaction, ulong member, Actor actor)
@@ -390,18 +354,6 @@ namespace Requestarr.Core.Discord.Handlers
             }
 
             var access = _access.GetForUser(user.Id);
-            var instances = _backends.All().Where(b => b.Enable).ToList();
-
-            foreach (var type in ContentTypes.Offered)
-            {
-                var row = access.FirstOrDefault(a => a.ContentType == type);
-                var assigned = row?.BackendId is { } id ? instances.FirstOrDefault(i => i.Id == id)?.Name : null;
-
-                if (assigned != null)
-                {
-                    lines.Add(DiscordText.InstanceLine(type, assigned));
-                }
-            }
 
             var pending = _accessRequests.GetPendingForUser(user.Id);
 
@@ -425,7 +377,7 @@ namespace Requestarr.Core.Discord.Handlers
                 };
             }
 
-            var menus = CardMenus(member, access, instances);
+            var menus = CardMenus(member, access);
 
             return new InteractionReply
             {
@@ -453,9 +405,9 @@ namespace Requestarr.Core.Discord.Handlers
             return new InteractionReply { Content = blockedLine + intro + DiscordText.MemberNotAdded(name, member), Buttons = buttons };
         }
 
-        // Discord allows five rows: one access menu per type (3), a "More…" menu (limits, instance,
-        // their requests), and one row of buttons.
-        private List<InteractionSelectMenu> CardMenus(ulong member, List<UserMediaAccess> access, List<BackendInstance> instances)
+        // Discord allows five rows: one access menu per type (3), a "More…" menu (limits, their requests), and one row
+        // of buttons. Which Sonarr or Radarr takes a request follows what is asked for, never the member.
+        private List<InteractionSelectMenu> CardMenus(ulong member, List<UserMediaAccess> access)
         {
             var menus = ContentTypes.Offered.Select(type =>
             {
@@ -471,10 +423,6 @@ namespace Requestarr.Core.Discord.Handlers
             }).ToList();
 
             var more = ContentTypes.Offered.Select(type => new InteractionSelectOption(DiscordText.LimitOption(type, access.FirstOrDefault(a => a.ContentType == type)), $"limit:{Key(type)}")).ToList();
-            more.AddRange(ContentTypes.Offered
-                .SelectMany(type => instances.Where(i => i.Implementation == BackendImplementations.ForContentType(type)).Select(i => (type, i)))
-                .GroupBy(x => x.type).Where(g => g.Count() > 1).SelectMany(g => g)
-                .Select(x => new InteractionSelectOption(DiscordText.InstanceOption(x.type, x.i.Name), $"instance:{Key(x.type)}:{x.i.Id}", x.i.Config.IsDefault ? "default" : null)));
             more.Add(new InteractionSelectOption(DiscordText.TheirRequestsLabel, "requests"));
             menus.Add(new InteractionSelectMenu { CustomId = $"{AdminRoutes.More}:{member}", Placeholder = DiscordText.MorePlaceholder, Options = more });
 

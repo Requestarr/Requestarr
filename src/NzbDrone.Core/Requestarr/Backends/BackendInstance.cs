@@ -27,6 +27,21 @@ namespace Requestarr.Core.Backends
         };
     }
 
+    // What a Sonarr or Radarr is for: a request goes to the instance whose purpose matches what is asked for
+    // (BackendService.ForRequest), never by member. Everything: the type's main one, which takes whatever no other purpose
+    // claims; one per type. Anime: Sonarr only, anime shows. Nothing: an extra instance no new request goes to.
+    public enum InstancePurpose
+    {
+        [FieldOption("Everything", Hint = "")]
+        Everything = 0,
+
+        [FieldOption("Anime", Hint = "")]
+        Anime = 1,
+
+        [FieldOption("Nothing yet", Hint = "")]
+        Nothing = 2
+    }
+
     // One configured Sonarr / Radarr / Lidarr instance (row in Backends), any number per type: a Servarr provider
     // (MediaManagers), as Prowlarr's applications are, its settings a BackendSettings.
     public class BackendInstance : ProviderDefinition
@@ -95,9 +110,17 @@ namespace Requestarr.Core.Backends
 
         private string _seriesType;
 
-        // The type's main instance, until routing by content replaces it. Kept, not shown.
-        [FieldDefinition(6, Label = "BackendIsDefault", Type = FieldType.Checkbox, Hidden = HiddenType.Hidden)]
-        public bool IsDefault { get; set; }
+        // What it's for (InstancePurpose), Everything unless set: with one instance of a type, it takes everything.
+        public InstancePurpose Purpose { get; set; } = InstancePurpose.Everything;
+
+        // The purpose as Servarr's provider form picks it: by number. It isn't saved, so the stored settings keep it by name.
+        [FieldDefinition(6, Label = "BackendPurpose", HelpText = "BackendPurposeHelpText", Type = FieldType.Select, SelectOptions = typeof(InstancePurpose))]
+        [JsonIgnore]
+        public int PurposeChoice
+        {
+            get => (int)Purpose;
+            set => Purpose = (InstancePurpose)value;
+        }
 
         // Kept from before Requestarr chose for itself: Sonarr and Radarr report downloads right away once their own
         // Connect test reaches Requestarr, and on the timer otherwise (AvailabilityService). A provisioning file may still

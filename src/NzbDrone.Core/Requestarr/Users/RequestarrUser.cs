@@ -42,7 +42,6 @@ namespace Requestarr.Core.Users
         public int UserId { get; set; }
         public ContentType ContentType { get; set; }
         public AccessState State { get; set; }
-        public int? BackendId { get; set; }
         public int? QuotaLimit { get; set; }
 
         // TimeSpan as stored by Servarr's TimeSpanConverter; null means no quota window.

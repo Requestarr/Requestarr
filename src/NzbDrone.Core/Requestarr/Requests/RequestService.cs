@@ -263,6 +263,13 @@ namespace Requestarr.Core.Requests
             try
             {
                 item = await Lookup(instance, type, externalId);
+
+                // Anime goes to the Anime Sonarr when one is turned on, looked up again there as that library has it.
+                if (item != null && _backends.ForRequest(type, item.IsAnime) is { } routed && routed.Id != instance.Id)
+                {
+                    instance = routed;
+                    item = await Lookup(instance, type, externalId);
+                }
             }
             catch (BackendException ex)
             {
@@ -1582,7 +1589,8 @@ namespace Requestarr.Core.Requests
                 return (null, DiscordText.TypeNotAvailable(type));
             }
 
-            var instance = caller.AsAdmin ? _backends.Default(type) : _backends.ForUser(AccessFor(caller.User, type), type);
+            // Where a request goes follows what is asked for (DetailAsync routes anime), never who asks.
+            var instance = _backends.Default(type);
 
             return instance == null ? (null, DiscordText.NoBackend(type)) : (instance, null);
         }

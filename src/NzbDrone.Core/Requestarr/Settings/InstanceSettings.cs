@@ -13,10 +13,10 @@ namespace Requestarr.Core.Settings
 {
     // A Sonarr or Radarr as the settings pages edit it. ApiKey left empty on a change keeps the saved one; the anime
     // terms are comma-separated, empty for Requestarr's defaults. BrowserUrl: optional, where an admin's browser reaches
-    // it, for links to its pages. DefaultAccess: what a new member gets for its type when this is the instance they use
-    // (Needs approval when left out, as before the setting existed).
+    // it, for links to its pages. Purpose: what it's for (InstancePurpose). DefaultAccess: what a new member gets for its
+    // type (Needs approval when left out, as before the setting existed).
     public record InstanceInput(string Implementation, string Name, string Url, string ApiKey, string QualityProfile, string RootFolder, string SeriesType,
-                                bool IsDefault, bool Enabled, bool PollingOnly, bool AnimeEnabled, string AnimePriority,
+                                InstancePurpose Purpose, bool Enabled, bool PollingOnly, bool AnimeEnabled, string AnimePriority,
                                 string DubRequired, string DubIgnored, string SubRequired, string SubIgnored, string BrowserUrl = null,
                                 AccessState DefaultAccess = AccessState.NeedsApproval);
 
@@ -100,19 +100,23 @@ namespace Requestarr.Core.Settings
                 return new InstanceSaveResult(null, problem);
             }
 
+            var others = Others(input.Implementation, id);
+            var purpose = others.Any() ? input.Purpose : InstancePurpose.Everything;
+
+            if (PurposeProblem(existing, input with { Purpose = purpose }, others) is { } purposeProblem)
+            {
+                return new InstanceSaveResult(null, purposeProblem);
+            }
+
             var instance = existing ?? new BackendInstance { Added = DateTime.UtcNow };
             var before = existing == null ? null : Described(existing);
 
             instance.Name = input.Name.Trim();
             instance.Implementation = input.Implementation;
             instance.Enable = input.Enabled;
-            instance.Settings = Settings(input, existing?.Config);
+            instance.Settings = Settings(input with { Purpose = purpose }, existing?.Config);
             _repository.Upsert(instance);
-
-            if (input.IsDefault && input.Enabled)
-            {
-                ClearOtherDefaults(instance);
-            }
+            TakePurpose(instance, others, actor);
 
             Record(actor, instance, before);
             await _backends.CheckAllAsync();
@@ -171,14 +175,50 @@ namespace Requestarr.Core.Settings
             return existing == null && string.IsNullOrWhiteSpace(input.ApiKey) ? $"Paste the API key from {input.Implementation}'s Settings, General." : null;
         }
 
-        private void ClearOtherDefaults(BackendInstance instance)
+        // The type's other instances that aren't deleted.
+        private List<BackendInstance> Others(string implementation, int? id) =>
+            _backends.All().Where(b => b.Implementation == implementation && b.Id != id).ToList();
+
+        // Anime is for Sonarr only, and a type always keeps an Everything instance: the one that has it gives it up only
+        // when another takes it over (choosing Everything there moves it), never by changing its own purpose or being
+        // turned off while others are still in use.
+        private static string PurposeProblem(BackendInstance existing, InstanceInput input, IReadOnlyList<BackendInstance> others)
         {
-            foreach (var other in _backends.All().Where(b => b.Id != instance.Id && b.Implementation == instance.Implementation && b.Config.IsDefault))
+            if (input.Purpose == InstancePurpose.Anime && input.Implementation != BackendImplementations.Sonarr)
             {
-                other.Config.IsDefault = false;
+                return "Anime is for Sonarr only.";
+            }
+
+            var wasEverything = existing is { Enable: true } && existing.Config.Purpose == InstancePurpose.Everything;
+            var givesUp = input.Purpose != InstancePurpose.Everything || !input.Enabled;
+
+            return wasEverything && givesUp && others.Any(o => o.Enable)
+                ? $"{existing.Name} takes everything no other {input.Implementation} is for. To change that, open the {input.Implementation} that should take over and choose Everything there."
+                : null;
+        }
+
+        // Each purpose belongs to one instance per type: saving it here moves it from the instance that had it.
+        private void TakePurpose(BackendInstance instance, IEnumerable<BackendInstance> others, Actor actor)
+        {
+            if (!instance.Enable || instance.Config.Purpose == InstancePurpose.Nothing)
+            {
+                return;
+            }
+
+            foreach (var other in others.Where(o => o.Config.Purpose == instance.Config.Purpose))
+            {
+                other.Config.Purpose = InstancePurpose.Nothing;
                 _repository.Update(other);
+                _audit.Record(actor, ChangeAction, "instance", other.Id.ToString(), $"{other.Name}: for {Words(instance.Config.Purpose)} moved to {instance.Name}");
             }
         }
+
+        public static string Words(InstancePurpose purpose) => purpose switch
+        {
+            InstancePurpose.Everything => "everything",
+            InstancePurpose.Anime => "anime",
+            _ => "nothing yet"
+        };
 
         private void Record(Actor actor, BackendInstance instance, IReadOnlyList<(string Label, string Value)> before)
         {
@@ -223,7 +263,7 @@ namespace Requestarr.Core.Settings
                 ("quality profile", Shown(settings.QualityProfile)),
                 ("root folder", Shown(settings.RootFolder)),
                 ("series type", Shown(settings.SeriesType)),
-                ("default", OnOff(settings.IsDefault)),
+                ("for", Words(settings.Purpose)),
                 ("in use", OnOff(instance.Enable)),
                 ("polling only", OnOff(settings.PollingOnly)),
                 ("default access for new members", DiscordText.Label(settings.DefaultAccess)),
@@ -246,7 +286,7 @@ namespace Requestarr.Core.Settings
                 QualityProfile = Blank(input.QualityProfile),
                 RootFolder = Blank(input.RootFolder),
                 SeriesType = sonarr ? Blank(input.SeriesType) : null,
-                IsDefault = input.IsDefault,
+                Purpose = input.Purpose,
                 PollingOnly = input.PollingOnly,
                 DefaultAccess = input.DefaultAccess,
                 AnimeEnabled = !sonarr || input.AnimeEnabled,
@@ -289,7 +329,7 @@ namespace Requestarr.Core.Settings
                 settings.QualityProfile,
                 settings.RootFolder,
                 settings.SeriesType,
-                settings.IsDefault,
+                settings.Purpose,
                 instance.Enable,
                 settings.PollingOnly,
                 settings.AnimeEnabled,

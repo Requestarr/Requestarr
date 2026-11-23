@@ -93,7 +93,7 @@ namespace Requestarr.Core.Settings
 
             if (heir != null && IsMain(instance))
             {
-                heir.Config.IsDefault = true;
+                heir.Config.Purpose = InstancePurpose.Everything;
                 _repository.Update(heir);
             }
 
@@ -108,7 +108,7 @@ namespace Requestarr.Core.Settings
             instance.Name = DeletedName(instance);
             instance.Deleted = Clock();
             instance.Enable = false;
-            instance.Config.IsDefault = false;
+            instance.Config.Purpose = InstancePurpose.Nothing;
             instance.DownSince = null;
             _repository.Update(instance);
 

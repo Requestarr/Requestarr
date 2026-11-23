@@ -26,7 +26,7 @@ namespace Requestarr.Core.Users
         Task<ServiceResult> RemoveAsync(ulong discordUserId, Actor actor);
         Task<ServiceResult> SuspendAsync(ulong discordUserId, Actor actor, string reason = null);
         Task<ServiceResult> UnsuspendAsync(ulong discordUserId, Actor actor);
-        ServiceResult SetAccess(ulong discordUserId, ContentType type, AccessState state, Actor actor, string instanceName = null);
+        ServiceResult SetAccess(ulong discordUserId, ContentType type, AccessState state, Actor actor);
         RequestarrUser EnsureAdminUser(ulong discordUserId, string username, string displayName);
 
         // A record without a role or channel, so something someone asks for has an owner before they're added.
@@ -302,7 +302,7 @@ namespace Requestarr.Core.Users
             return ServiceResult.Ok(DiscordText.UserUnsuspendedDone(user.DisplayName));
         }
 
-        public ServiceResult SetAccess(ulong discordUserId, ContentType type, AccessState state, Actor actor, string instanceName = null)
+        public ServiceResult SetAccess(ulong discordUserId, ContentType type, AccessState state, Actor actor)
         {
             if (!ContentTypes.IsOffered(type))
             {
@@ -316,33 +316,15 @@ namespace Requestarr.Core.Users
                 return ServiceResult.Fail(error);
             }
 
-            BackendInstance instance = null;
-
-            if (instanceName.IsNotNullOrWhiteSpace())
-            {
-                instance = _backends.FindByName(instanceName.Trim());
-
-                if (instance == null || !instance.Enable || instance.Implementation != BackendImplementations.ForContentType(type))
-                {
-                    return ServiceResult.Fail(DiscordText.InstanceNotFound(instanceName.Trim(), type));
-                }
-            }
-
             var row = GetOrCreateAccess(user.Id, type);
             var previous = row.State;
             row.State = state;
-
-            if (instance != null)
-            {
-                row.BackendId = instance.Id;
-            }
-
             _access.Upsert(row);
 
-            _audit.Record(actor, "user.access", "user", user.Id.ToString(), $"{type}: {previous} -> {state}{(instance != null ? $", instance {instance.Name}" : string.Empty)}");
+            _audit.Record(actor, "user.access", "user", user.Id.ToString(), $"{type}: {previous} -> {state}");
             _panels.RefreshUserPanelAsync(user).GetAwaiter().GetResult();
 
-            return ServiceResult.Ok(DiscordText.AccessChanged(user.DisplayName, type, state, instance?.Name));
+            return ServiceResult.Ok(DiscordText.AccessChanged(user.DisplayName, type, state));
         }
 
         // Admins may request from the admin channel without having been added; they get a
@@ -701,7 +683,7 @@ namespace Requestarr.Core.Users
 
                 row.State = ContentTypes.IsOffered(type) && requested != null && requested.TryGetValue(type, out var state)
                     ? state
-                    : _backends.ForUser(row, type)?.Config.DefaultAccess ?? AccessState.Off;
+                    : _backends.Default(type)?.Config.DefaultAccess ?? AccessState.Off;
 
                 _access.Upsert(row);
                 rows.Add(row);

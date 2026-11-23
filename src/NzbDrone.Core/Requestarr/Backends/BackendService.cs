@@ -32,7 +32,9 @@ namespace Requestarr.Core.Backends
         BackendInstance Find(int id);
         BackendInstance FindByName(string name);
         BackendInstance Default(ContentType type);
-        BackendInstance ForUser(UserMediaAccess access, ContentType type);
+        // Where a request goes, by what is asked for: anime to the Anime Sonarr when one is turned on, everything else
+        // (and anime without one) to the type's Everything instance.
+        BackendInstance ForRequest(ContentType type, bool isAnime);
 
         // What a member gets for a type until an admin sets it: the default access of the type's default instance, or
         // off when the type has no instance turned on.
@@ -90,23 +92,16 @@ namespace Requestarr.Core.Backends
             var implementation = BackendImplementations.ForContentType(type);
             var candidates = _repository.All().Where(b => b.Enable && b.Implementation == implementation).OrderBy(b => b.Id).ToList();
 
-            return candidates.FirstOrDefault(b => b.Config.IsDefault) ?? candidates.FirstOrDefault();
+            return candidates.FirstOrDefault(b => b.Config.Purpose == InstancePurpose.Everything) ?? candidates.FirstOrDefault();
         }
 
-        // The admin's per-user assignment wins; otherwise the type's default instance.
-        public BackendInstance ForUser(UserMediaAccess access, ContentType type)
+        public BackendInstance ForRequest(ContentType type, bool isAnime)
         {
-            if (access?.BackendId != null)
-            {
-                var assigned = _repository.Find(access.BackendId.Value);
+            var anime = type == ContentType.Tv && isAnime
+                ? _repository.All().Where(b => b.Enable && b.Implementation == BackendImplementations.Sonarr).OrderBy(b => b.Id).FirstOrDefault(b => b.Config.Purpose == InstancePurpose.Anime)
+                : null;
 
-                if (assigned != null && assigned.Enable && assigned.Implementation == BackendImplementations.ForContentType(type))
-                {
-                    return assigned;
-                }
-            }
-
-            return Default(type);
+            return anime ?? Default(type);
         }
 
         public AccessState DefaultAccess(ContentType type) => Default(type)?.Config.DefaultAccess ?? AccessState.Off;
@@ -143,7 +138,7 @@ namespace Requestarr.Core.Backends
                     QualityProfile = entry.QualityProfile,
                     RootFolder = entry.RootFolder,
                     SeriesType = entry.SeriesType,
-                    IsDefault = entry.Default,
+                    Purpose = ProvisionedPurpose(entry),
                     PollingOnly = entry.PollingOnly,
                     DefaultAccess = Discord.Handlers.HandlerSupport.ParseLevel(entry.DefaultAccess?.Trim()) ?? AccessState.NeedsApproval,
                     AnimeEnabled = entry.Anime?.Enabled ?? true,
@@ -254,6 +249,11 @@ namespace Requestarr.Core.Backends
             var implementation = BackendImplementations.ForContentType(type);
             return implementation != null && All().Any(b => b.Enable && b.Implementation == implementation && b.FirstConnected.HasValue);
         }
+
+        // A provisioning file's purpose: everything | anime | nothing. Files written before purposes said Default instead,
+        // which still reads as Everything (and its absence as Nothing).
+        private static InstancePurpose ProvisionedPurpose(BackendInstanceProvisioning entry) =>
+            Enum.TryParse<InstancePurpose>(entry.Purpose?.Trim(), true, out var purpose) ? purpose : entry.Default ? InstancePurpose.Everything : InstancePurpose.Nothing;
 
         public static NamedItem ResolveProfile(IReadOnlyList<NamedItem> profiles, string wanted)
         {
