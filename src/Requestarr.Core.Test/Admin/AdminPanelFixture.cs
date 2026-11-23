@@ -23,7 +23,7 @@ namespace Requestarr.Core.Test.Admin
         [Test]
         public async Task admin_channel_has_one_panel_with_queue_and_users_even_after_a_restart()
         {
-            await Mocker.Resolve<IPanelService>().EnsureAllAsync();
+            await Mocker.Resolve<IPanelService>().EnsureAdminPanelAsync();
 
             AdminRoom.Pinned.Should().BeEmpty();
             PanelsIn(AdminRoom, PanelRoutes.AdminQueue).Should().Be(1);
