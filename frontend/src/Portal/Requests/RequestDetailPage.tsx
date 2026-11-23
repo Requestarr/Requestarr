@@ -128,8 +128,8 @@ function RequestLabels({ request }: { request: PortalRequest }) {
   );
 }
 
-// What the header doesn't say: progress, the decision's reason, the seasons there, and when it was decided and
-// fulfilled; a row with nothing to show is left out.
+// What the header doesn't say: progress, the decision's reason, the series fix it was added with, the seasons there,
+// and when it was decided and fulfilled; a row with nothing to show is left out.
 function moreRows(
   detail: PortalRequestDetail,
   dateText: (date: string | null) => string
@@ -138,6 +138,7 @@ function moreRows(
   const rows: [string, ReactNode][] = [
     ['PortalProgress', detail.progressDetail],
     ['PortalReason', detail.decisionReason],
+    ['PortalSeriesFix', detail.appliedFix],
     ['PortalSeasonsThere', seasonsText(detail.availableSeasons)],
     ['PortalDecided', dateText(request.decided)],
     ['PortalFulfilled', dateText(request.fulfilled)],

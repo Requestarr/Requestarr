@@ -424,6 +424,20 @@ namespace Requestarr.Core.Requests
         // mention: the person the message is for (a reposted message pings them); note: an extra line
         // (for example a sub/dub switch); followerOf: the owner's name when the message is a follower's.
         // A member's request message: it never says which server takes the request.
+        // How the title was added: its anime language, and the series fix it went in with.
+        private static IEnumerable<string> HowItWasAdded(Request request)
+        {
+            if (request.Language.HasValue)
+            {
+                yield return DiscordText.LanguageLine(request.Language.Value);
+            }
+
+            if (request.AppliedFix != null)
+            {
+                yield return DiscordText.FixLine(request.AppliedFix);
+            }
+        }
+
         public static InteractionReply Status(Request request, MediaLookupResult item, string mention, string note, string followerOf)
         {
             var (status, color, message) = Headline(request);
@@ -444,15 +458,7 @@ namespace Requestarr.Core.Requests
                 }
             }
 
-            if (request.Language.HasValue)
-            {
-                lines.Add(DiscordText.LanguageLine(request.Language.Value));
-            }
-
-            if (request.AppliedFix != null)
-            {
-                lines.Add(DiscordText.FixLine(request.AppliedFix));
-            }
+            lines.AddRange(HowItWasAdded(request));
 
             if (note != null)
             {
@@ -528,15 +534,7 @@ namespace Requestarr.Core.Requests
                 }
             }
 
-            if (request.Language.HasValue)
-            {
-                lines.Add(DiscordText.LanguageLine(request.Language.Value));
-            }
-
-            if (request.AppliedFix != null)
-            {
-                lines.Add(DiscordText.FixLine(request.AppliedFix));
-            }
+            lines.AddRange(HowItWasAdded(request));
 
             if (followers.Any())
             {

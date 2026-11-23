@@ -110,6 +110,7 @@ export interface PortalRequestDetail {
   actions: string[];
   historyTrimmedAfter: string | null;
   followers: PortalFollower[];
+  appliedFix: string | null;
 }
 
 export interface PortalAccess {
