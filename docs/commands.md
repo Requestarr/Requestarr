@@ -136,7 +136,7 @@ Opens that member's card, visible only to you, with only what applies to them no
 | Member | The card offers |
 |---|---|
 | Not a Requestarr user (or removed) | **Add to Requestarr**: creates their role, private channel and panel. Movies and TV start as needs approval, Music off. |
-| Active | One access menu per type (**Movies access**, **TV access**, **Music access**: off, needs approval, auto-approve, set to the current level); **Limits, instance, their requests…** (a type's limit: requests per window and days, 0 removes it; which instance their requests go to, only when a type has several; **Their requests**); **Link Plex…**, **Suspend**, **Remove** (asks first). Granting a type with nothing connected yet says privately that they won't see it until an instance connects. |
+| Active | One access menu per type (**Movies access**, **TV access**, **Music access**: auto-approve, needs approval, off, set to the current level); **Limits, their requests…** (a type's limit: requests per window and days, 0 removes it; **Their requests**); **Link Plex…**, **Suspend**, **Remove** (asks first). Granting a type with nothing connected yet says privately that they won't see it until an instance connects. |
 | Suspended | The same, with **Unsuspend** instead of Suspend. Unsuspend gives their role back if they rejoined. |
 | Waiting for a Plex link they asked for | Also **Approve Plex link** and **Deny Plex link**. |
 
@@ -232,8 +232,8 @@ Clicks that can't do anything are answered privately; repeated ones make the per
 | Before | Now |
 |---|---|
 | `/admin user add` | **Add or find a member** on the panel, or `/admin user`: **Add to Requestarr**, then the access menus |
-| `/admin user access` | Member card: the type's access menu, and **Limits, instance, their requests…** for the instance |
-| `/admin user quota` | Member card: **Limits, instance, their requests…** |
+| `/admin user access` | Member card: the type's access menu (where requests go follows what is asked for, never the member) |
+| `/admin user quota` | Member card: **Limits, their requests…** |
 | `/admin user info` | `/admin user` (the card itself), or **Users** on the panel |
 | `/admin user suspend` / `unsuspend` | Member card: **Suspend** / **Unsuspend** |
 | `/admin user remove` | Member card: **Remove** (asks first) |

@@ -60,7 +60,7 @@ namespace Requestarr.Core.Test.AdminConsole
             menus.Take(3).Select(m => m.Placeholder).Should().Equal(DiscordText.AccessSelectPlaceholder(ContentType.Movie), DiscordText.AccessSelectPlaceholder(ContentType.Tv), DiscordText.AccessSelectPlaceholder(ContentType.Music));
             menus[0].Options.Select(o => (o.Value, o.Default)).Should().Equal(("auto", false), ("approval", true), ("off", false));
             menus[2].Options.Single(o => o.Default).Value.Should().Be("off", "Music starts off, and every type is shown to the admin");
-            menus[3].Options.Select(o => o.Value).Should().Equal("limit:movie", "limit:tv", "limit:music", $"instance:movie:{Instance("Radarr").Id}", $"instance:movie:{Instance("Radarr 4K").Id}", "requests");
+            menus[3].Options.Select(o => o.Value).Should().Equal("limit:movie", "limit:tv", "limit:music", "requests");
             Labels(card).Should().Equal(DiscordText.AdminLinkPlexLabel, DiscordText.SuspendLabel, DiscordText.RemoveLabel);
             (menus.Count + 1).Should().BeLessThanOrEqualTo(5, "Discord allows five rows");
         }
@@ -143,10 +143,6 @@ namespace Requestarr.Core.Test.AdminConsole
 
             var bad = await MemberForm($"adm-limit-form:{Alice}:movie", ("limit", "lots"));
             bad.LastReply.Content.Should().Be(DiscordText.InvalidLimit);
-
-            var instance = await MemberMenu(Alice, AdminRoutes.More, $"instance:movie:{Instance("Radarr 4K").Id}");
-            instance.Responder.Responses.Select(r => r.Kind).Should().Equal(ResponseKind.MessageUpdate);
-            instance.LastReply.Content.Should().Contain(DiscordText.InstanceLine(ContentType.Movie, "Radarr 4K"));
 
             var plex = await MemberButton(Alice, AdminRoutes.Plex);
             plex.Responder.LastModal.CustomId.Should().Be($"adm-plex-form:{Alice}");

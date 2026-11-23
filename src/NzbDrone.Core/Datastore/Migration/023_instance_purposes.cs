@@ -86,14 +86,15 @@ namespace NzbDrone.Core.Datastore.Migration
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = "SELECT a.\"UserId\", u.\"DisplayName\", a.\"ContentType\", b.\"Name\" FROM \"UserMediaAccess\" a " +
-                                  "LEFT JOIN \"Users\" u ON u.\"Id\" = a.\"UserId\" LEFT JOIN \"Backends\" b ON b.\"Id\" = a.\"BackendId\" WHERE a.\"BackendId\" IS NOT NULL";
+                                  "LEFT JOIN \"RequestarrUsers\" u ON u.\"Id\" = a.\"UserId\" LEFT JOIN \"Backends\" b ON b.\"Id\" = a.\"BackendId\" WHERE a.\"BackendId\" IS NOT NULL";
 
             using var reader = command.ExecuteReader();
 
             while (reader.Read())
             {
-                Logger.Info("Routing by content: member {0} ({1}) no longer has their own instance for type {2} ({3})",
-                    reader.GetInt32(0), reader.IsDBNull(1) ? "unknown" : reader.GetString(1), reader.GetInt32(2), reader.IsDBNull(3) ? "deleted" : reader.GetString(3));
+                var name = reader.IsDBNull(1) ? "unknown" : reader.GetString(1);
+                var instance = reader.IsDBNull(3) ? "deleted" : reader.GetString(3);
+                Logger.Info("Routing by content: member {0} ({1}) no longer has their own instance for type {2} ({3})", reader.GetInt32(0), name, reader.GetInt32(2), instance);
             }
         }
 

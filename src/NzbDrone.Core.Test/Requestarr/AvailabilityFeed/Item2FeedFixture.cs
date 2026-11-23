@@ -164,7 +164,7 @@ namespace Requestarr.Core.Test.AvailabilityFeed
             var run = await FeedCancel(request.Id);
 
             Reload(request.Id).Status.Should().Be(RequestStatus.Approved);
-            run.LastReply.Content.Should().Be(DiscordText.CancelNotStopped(Reload(request.Id), "Radarr"));
+            run.LastReply.Content.Should().Be(DiscordText.CancelNotStopped(Reload(request.Id)));
             NzbDrone.Test.Common.ExceptionVerification.IgnoreWarns();
         }
 

@@ -163,7 +163,7 @@ namespace Requestarr.Core.Removals
             catch (BackendException ex)
             {
                 _logger.Warn(ex, "Reading {0}'s library failed", instance.Name);
-                return LookupOutcome<RemovalTarget>.Fail(DiscordText.RequestsPaused(DiscordText.TypeOf(instance), instance.Name));
+                return LookupOutcome<RemovalTarget>.Fail(DiscordText.RequestsPaused(DiscordText.TypeOf(instance)));
             }
 
             var title = library.FirstOrDefault(t => t.Id == itemId);
@@ -937,7 +937,7 @@ namespace Requestarr.Core.Removals
 
             return item == null
                 ? new InteractionEmbed { Title = proposal.Label, ThumbnailUrl = proposal.PosterUrl, Color = RequestCards.CancelledColor }
-                : RequestCards.Card(proposal.ContentType, item, instance.Name, RequestCards.CancelledColor, compact: true);
+                : RequestCards.Card(proposal.ContentType, item, RequestCards.CancelledColor, compact: true);
         }
 
         private DateTime? ReminderAt(RemovalProposal proposal) =>

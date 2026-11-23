@@ -28,9 +28,9 @@ namespace Requestarr.Core.Portal
     // One version's changes, as its update card's Read changes has them; Version is its label (0.7.0004-dev.4f2a9c1).
     public record PortalVersion(string Version, DateTime? Date, IReadOnlyList<string> Users, IReadOnlyList<string> Admins);
 
-    // A Sonarr or Radarr a member's requests can go to. IsDefault: the one its type uses for a member without one of
-    // their own. DefaultAccess: what a new member gets for the type when this is the instance they use.
-    public record PortalInstance(int Id, string Name, ContentType ContentType, bool Enabled, bool IsDefault, AccessState DefaultAccess);
+    // A Sonarr or Radarr, for the web app's pickers: what it's for (requests go by what is asked for), and DefaultAccess,
+    // what a new member gets for its type when it's the type's Everything instance.
+    public record PortalInstance(int Id, string Name, ContentType ContentType, bool Enabled, InstancePurpose Purpose, AccessState DefaultAccess);
 
     public interface IPortalRecords
     {
@@ -107,7 +107,7 @@ namespace Requestarr.Core.Portal
         {
             var type = Discord.DiscordText.TypeOf(backend);
 
-            return new PortalInstance(backend.Id, backend.Name, type, backend.Enable, _backends.Default(type)?.Id == backend.Id, backend.Config.DefaultAccess);
+            return new PortalInstance(backend.Id, backend.Name, type, backend.Enable, backend.Config.Purpose, backend.Config.DefaultAccess);
         }
 
         // A paused person isn't a member: their name is the one they last asked to join with.

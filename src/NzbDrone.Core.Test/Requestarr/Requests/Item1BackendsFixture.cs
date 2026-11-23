@@ -7,7 +7,6 @@ using NUnit.Framework;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Test.Common;
 using Requestarr.Core.Backends;
-using Requestarr.Core.Discord;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
@@ -60,25 +59,15 @@ namespace Requestarr.Core.Test.Requests
         }
 
         [Test]
-        public async Task admin_assigns_instance_per_user_and_type()
+        public async Task every_members_requests_go_to_the_types_everything_instance()
         {
-            var run = await SetAccess(Alice, "movie", "auto", "Radarr 4K");
-
-            run.LastReply.Content.Should().Be(DiscordText.AccessChanged("alice", ContentType.Movie, AccessState.AutoApprove, "Radarr 4K"));
-
+            await SetAccess(Alice, "movie", "auto");
             await RequestMovie(Alice, Dune);
-            Radarr.Adds.Single().Url.Should().Be("http://radarr-4k:7878");
+            Radarr.Adds.Single().Url.Should().Be("http://radarr-test:7878", "Radarr is for Everything; Radarr 4K for nothing yet");
 
             await SetAccess(Bob, "movie", "auto");
             await RequestMovie(Bob, DuneTwo);
             Radarr.Adds.Last().Url.Should().Be("http://radarr-test:7878");
-        }
-
-        [Test]
-        public async Task assigning_an_unknown_or_wrong_type_instance_should_be_refused()
-        {
-            (await SetAccess(Alice, "movie", "auto", "Nope")).LastReply.Content.Should().Be(DiscordText.InstanceNotFound("Nope", ContentType.Movie));
-            (await SetAccess(Alice, "tv", "auto", "Radarr")).LastReply.Content.Should().Be(DiscordText.InstanceNotFound("Radarr", ContentType.Tv));
         }
 
         [Test]

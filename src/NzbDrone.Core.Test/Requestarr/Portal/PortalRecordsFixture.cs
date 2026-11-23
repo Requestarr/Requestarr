@@ -52,16 +52,16 @@ namespace Requestarr.Core.Test.Portal
         }
 
         [Test]
-        public void instances_say_which_one_their_type_uses_by_default_and_what_new_members_get_there()
+        public void instances_say_what_they_are_for_and_what_new_members_get_there()
         {
             var radarr = new BackendInstance { Id = 1, Name = "Radarr", Implementation = BackendImplementations.Radarr, Enable = true, Settings = new BackendSettings { DefaultAccess = AccessState.AutoApprove } };
-            var radarr4K = new BackendInstance { Id = 2, Name = "Radarr 4K", Implementation = BackendImplementations.Radarr, Enable = true, Settings = new BackendSettings() };
+            var radarr4K = new BackendInstance { Id = 2, Name = "Radarr 4K", Implementation = BackendImplementations.Radarr, Enable = true, Settings = new BackendSettings { Purpose = InstancePurpose.Nothing } };
             Mocker.GetMock<IBackendService>().Setup(b => b.All()).Returns(new List<BackendInstance> { radarr, radarr4K });
             Mocker.GetMock<IBackendService>().Setup(b => b.Default(ContentType.Movie)).Returns(radarr);
 
             Subject.Instances().Should().Equal(
-                new PortalInstance(1, "Radarr", ContentType.Movie, true, true, AccessState.AutoApprove),
-                new PortalInstance(2, "Radarr 4K", ContentType.Movie, true, false, AccessState.NeedsApproval));
+                new PortalInstance(1, "Radarr", ContentType.Movie, true, InstancePurpose.Everything, AccessState.AutoApprove),
+                new PortalInstance(2, "Radarr 4K", ContentType.Movie, true, InstancePurpose.Nothing, AccessState.NeedsApproval));
         }
 
         [Test]

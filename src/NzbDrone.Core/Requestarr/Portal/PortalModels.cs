@@ -46,7 +46,7 @@ namespace Requestarr.Core.Portal
                                       IReadOnlyList<PortalFollower> Followers);
 
     // A member's access to one content type: its level, their limit (requests per so many days) and their instance.
-    public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays, string Instance);
+    public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays);
 
     // Added: when they were added, or for someone known only from an import, their earliest imported request (their
     // earliest follow when they only followed; the import itself is just when Requestarr heard of it). FirstRequest and LastRequest: their own requests'; ByType: how

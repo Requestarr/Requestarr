@@ -134,7 +134,7 @@ namespace Requestarr.Core.Discord.Handlers
                 AdminRoutes.Limit => ShowLimitFormAsync(responder, member, HandlerSupport.ParseType(First(interaction.Values))),
                 AdminRoutes.Plex => responder.ShowModalAsync(PlexForm(member)),
                 AdminRoutes.Access => ChangeAccessAsync(interaction, responder, member, actor),
-                AdminRoutes.More => HandleMoreAsync(interaction, responder, member, actor),
+                AdminRoutes.More => HandleMoreAsync(interaction, responder, member),
                 AdminRoutes.LimitForm or AdminRoutes.PlexForm => SaveFormAsync(interaction, responder, member, actor),
                 AdminRoutes.Add or AdminRoutes.Suspend or AdminRoutes.Unsuspend or AdminRoutes.RemoveConfirm or AdminRoutes.Link => ChangeMembershipAsync(interaction, responder, member, actor),
                 _ => Task.CompletedTask
@@ -200,7 +200,7 @@ namespace Requestarr.Core.Discord.Handlers
             }
         }
 
-        private async Task HandleMoreAsync(DiscordInteraction interaction, IInteractionResponder responder, ulong member, Actor actor)
+        private async Task HandleMoreAsync(DiscordInteraction interaction, IInteractionResponder responder, ulong member)
         {
             var parts = First(interaction.Values)?.Split(':') ?? Array.Empty<string>();
 
@@ -502,12 +502,6 @@ namespace Requestarr.Core.Discord.Handlers
                     : null,
                 Buttons = new List<InteractionButton> { new() { CustomId = AdminRoutes.Pick, Label = DiscordText.PanelMembers, Style = ButtonStyle.Secondary } }
             };
-        }
-
-        private UserMediaAccess AccessFor(ulong member, ContentType type)
-        {
-            var user = _users.FindByDiscordId(member);
-            return user == null ? null : _access.GetForUser(user.Id).FirstOrDefault(a => a.ContentType == type);
         }
 
         private static InteractionReply Ephemeral(InteractionReply card) => new()

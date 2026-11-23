@@ -64,7 +64,7 @@ namespace Requestarr.Core.Test.Requests
         {
             var run = await Harness.SendAsync(FakeInteraction.Button($"req-make:movie:{DuneTwo}").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
 
-            run.LastReply.Content.Should().Contain(DiscordText.RequestSent("Dune: Part Two (2024)", 1, "Radarr"));
+            run.LastReply.Content.Should().Contain(DiscordText.RequestAdded("Dune: Part Two (2024)", 1));
             UserFor(FakeDiscordGuild.Owner).PrivateChannelId.Should().BeNull();
             LastRequest.OwnerUserId.Should().Be(UserFor(FakeDiscordGuild.Owner).Id);
         }

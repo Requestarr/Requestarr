@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Requestarr.Core.Access;
 using Requestarr.Core.Audit;
-using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.MediaServers;
 using Requestarr.Core.Requests;
@@ -23,8 +22,7 @@ namespace Requestarr.Core.Portal
         // isn't connected, since then nobody can be listed.
         Task<IReadOnlyList<PortalServerMember>> ServerMembersAsync();
 
-        // InstanceId: the member's own instance for the type; null leaves it as it is.
-        ServiceResult SetAccess(int memberId, ContentType type, AccessState state, int? instanceId, Actor admin);
+        ServiceResult SetAccess(int memberId, ContentType type, AccessState state, Actor admin);
 
         // Limit 0: no limit.
         ServiceResult SetLimit(int memberId, ContentType type, int limit, int days, Actor admin);
@@ -51,7 +49,6 @@ namespace Requestarr.Core.Portal
         private readonly IAccessRequestService _accessRequests;
         private readonly IUserIdentityRepository _identities;
         private readonly IRequestarrUserRepository _members;
-        private readonly IBackendRepository _backends;
         private readonly IRequestRepository _requests;
         private readonly IDiscordGuildGateway _gateway;
 
@@ -59,7 +56,6 @@ namespace Requestarr.Core.Portal
                                    IAccessRequestService accessRequests,
                                    IUserIdentityRepository identities,
                                    IRequestarrUserRepository members,
-                                   IBackendRepository backends,
                                    IRequestRepository requests,
                                    IDiscordGuildGateway gateway)
         {
@@ -67,7 +63,6 @@ namespace Requestarr.Core.Portal
             _accessRequests = accessRequests;
             _identities = identities;
             _members = members;
-            _backends = backends;
             _requests = requests;
             _gateway = gateway;
         }
@@ -103,17 +98,8 @@ namespace Requestarr.Core.Portal
                 .ToList();
         }
 
-        public ServiceResult SetAccess(int memberId, ContentType type, AccessState state, int? instanceId, Actor admin)
-        {
-            var instance = instanceId.HasValue ? _backends.Find(instanceId.Value) : null;
-
-            if (instanceId.HasValue && instance == null)
-            {
-                return ServiceResult.Fail("That instance no longer exists.");
-            }
-
-            return WithDiscord(memberId, id => _users.SetAccess(id, type, state, admin, instance?.Name));
-        }
+        public ServiceResult SetAccess(int memberId, ContentType type, AccessState state, Actor admin) =>
+            WithDiscord(memberId, id => _users.SetAccess(id, type, state, admin));
 
         public ServiceResult SetLimit(int memberId, ContentType type, int limit, int days, Actor admin) =>
             WithDiscord(memberId, id => _users.SetQuota(id, type, limit, days, admin));

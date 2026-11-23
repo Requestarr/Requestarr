@@ -95,7 +95,7 @@ namespace Requestarr.Core.Settings
         {
             var existing = id is { } saved ? _backends.Find(saved) : null;
 
-            if (Problem(id, existing, input) is { } problem)
+            if ((Problem(id, existing, input) ?? AnimeProblem(input)) is { } problem)
             {
                 return new InstanceSaveResult(null, problem);
             }
@@ -175,20 +175,18 @@ namespace Requestarr.Core.Settings
             return existing == null && string.IsNullOrWhiteSpace(input.ApiKey) ? $"Paste the API key from {input.Implementation}'s Settings, General." : null;
         }
 
+        private static string AnimeProblem(InstanceInput input) =>
+            input.Purpose == InstancePurpose.Anime && input.Implementation != BackendImplementations.Sonarr ? "Anime is for Sonarr only." : null;
+
         // The type's other instances that aren't deleted.
         private List<BackendInstance> Others(string implementation, int? id) =>
             _backends.All().Where(b => b.Implementation == implementation && b.Id != id).ToList();
 
-        // Anime is for Sonarr only, and a type always keeps an Everything instance: the one that has it gives it up only
+        // A type always keeps an Everything instance: the one that has it gives it up only
         // when another takes it over (choosing Everything there moves it), never by changing its own purpose or being
         // turned off while others are still in use.
         private static string PurposeProblem(BackendInstance existing, InstanceInput input, IReadOnlyList<BackendInstance> others)
         {
-            if (input.Purpose == InstancePurpose.Anime && input.Implementation != BackendImplementations.Sonarr)
-            {
-                return "Anime is for Sonarr only.";
-            }
-
             var wasEverything = existing is { Enable: true } && existing.Config.Purpose == InstancePurpose.Everything;
             var givesUp = input.Purpose != InstancePurpose.Everything || !input.Enabled;
 

@@ -7,14 +7,13 @@ using NLog;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
-using Requestarr.Core.Backends;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
     // What everyone picked gets, per content type: their access, a limit (requests per so many days; null or 0 keeps the
     // server's) and an instance (null keeps the server's).
-    public record OnboardAccess(ContentType ContentType, AccessState State, int? Limit, int? Days, int? InstanceId);
+    public record OnboardAccess(ContentType ContentType, AccessState State, int? Limit, int? Days);
 
     public record OnboardPerson(string DiscordId, string Name);
 
@@ -55,14 +54,12 @@ namespace Requestarr.Core.Portal
 
         private readonly ConcurrentDictionary<string, Run> _runs = new();
         private readonly IUserManagementService _users;
-        private readonly IBackendRepository _backends;
         private readonly IManageCommandQueue _commands;
         private readonly Logger _logger;
 
-        public PortalOnboarding(IUserManagementService users, IBackendRepository backends, IManageCommandQueue commands, Logger logger)
+        public PortalOnboarding(IUserManagementService users, IManageCommandQueue commands, Logger logger)
         {
             _users = users;
-            _backends = backends;
             _commands = commands;
             _logger = logger;
         }
@@ -144,20 +141,13 @@ namespace Requestarr.Core.Portal
             return (true, string.Join(" ", new[] { added.Message }.Concat(notSet)));
         }
 
-        // What didn't apply of this type's own instance and limit, in Requestarr's words.
+        // What didn't apply of this type's own limit, in Requestarr's words.
         private IEnumerable<string> SetOwn(ulong id, OnboardAccess typeAccess, Actor admin)
         {
             var results = new List<ServiceResult>();
 
             try
             {
-                if (typeAccess.InstanceId is { } instanceId)
-                {
-                    results.Add(_backends.Find(instanceId) is { } instance
-                        ? _users.SetAccess(id, typeAccess.ContentType, typeAccess.State, admin, instance.Name)
-                        : ServiceResult.Fail("That instance no longer exists."));
-                }
-
                 if (typeAccess.Limit is { } limit and > 0)
                 {
                     results.Add(_users.SetQuota(id, typeAccess.ContentType, limit, typeAccess.Days ?? DefaultDays, admin));

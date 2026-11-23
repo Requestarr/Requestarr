@@ -104,7 +104,7 @@ namespace Requestarr.Core.Test.AnimeDub
 
             await AdminButton("req-approve:1");
 
-            LastMessageIn(Alice).Should().Be(DiscordText.RequestApprovedNotice("Dune (2021)", 1, "Radarr"));
+            LastMessageIn(Alice).Should().Be(DiscordText.RequestApprovedNotice("Dune (2021)", 1));
         }
     }
 }

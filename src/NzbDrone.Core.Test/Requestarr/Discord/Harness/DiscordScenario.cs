@@ -239,12 +239,6 @@ namespace Requestarr.Core.Test.Discord.Harness
                     var type = old.Get<string>("type");
                     var run = await MemberMenu(member, AdminRoutes.Access, $"{type}:{old.Get<string>("level")}");
 
-                    if (old.Has("instance"))
-                    {
-                        var instance = Mocker.Resolve<IBackendService>().FindByName(old.Get<string>("instance"));
-                        run = await MemberMenu(member, AdminRoutes.Instance, $"{type}:{instance?.Id.ToString() ?? old.Get<string>("instance")}");
-                    }
-
                     return run;
                 }
 

@@ -27,7 +27,7 @@ namespace Requestarr.Core.Test.Settings
         {
             _instances = new List<BackendInstance>
             {
-                new() { Id = 1, Name = "Sonarr", Implementation = BackendImplementations.Sonarr, Settings = new BackendSettings { Url = "http://sonarr:8989", ApiKey = "old", IsDefault = true } }
+                new() { Id = 1, Name = "Sonarr", Implementation = BackendImplementations.Sonarr, Settings = new BackendSettings { Url = "http://sonarr:8989", ApiKey = "old", Purpose = InstancePurpose.Everything } }
             };
 
             Mocker.GetMock<IBackendService>().Setup(b => b.All()).Returns(() => _instances);
@@ -47,19 +47,43 @@ namespace Requestarr.Core.Test.Settings
         }
 
         private static InstanceInput Input(string name, string url, string apiKey = null, bool isDefault = false, string implementation = BackendImplementations.Sonarr) =>
-            new(implementation, name, url, apiKey, "HD-1080p", "/tv", "standard", isDefault, true, false, true, "dub", null, null, null, null);
+            new(implementation, name, url, apiKey, "HD-1080p", "/tv", "standard", isDefault ? InstancePurpose.Everything : InstancePurpose.Nothing, true, false, true, "dub", null, null, null, null);
 
         [Test]
-        public async Task should_add_an_instance_record_it_and_make_it_the_only_default()
+        public async Task should_add_an_instance_record_it_and_move_everything_to_it_when_chosen()
         {
             var result = await Subject.SaveAsync(null, Input("Sonarr 4K", "http://sonarr4k:8989", "key", isDefault: true), Admin);
 
             result.Problem.Should().BeNull();
             result.Instance.ApiKeySet.Should().BeTrue();
             result.Instance.Settings.ApiKey.Should().BeNull();
-            _instances[0].Config.IsDefault.Should().BeFalse();
+            _instances[0].Config.Purpose.Should().Be(InstancePurpose.Nothing, "each purpose belongs to one instance per type");
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", "Sonarr: for everything moved to Sonarr 4K"), Times.Once());
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.AddAction, "instance", "2", "Sonarr 4K: Sonarr at http://sonarr4k:8989"), Times.Once());
             Mocker.GetMock<IBackendService>().Verify(b => b.CheckAllAsync(), Times.Once());
+        }
+
+        [Test]
+        public async Task the_everything_instance_keeps_it_until_another_takes_over_and_anime_is_sonarrs_only()
+        {
+            await Subject.SaveAsync(null, Input("Sonarr Anime", "http://anime:8989", "key") with { Purpose = InstancePurpose.Anime }, Admin);
+
+            var givingUp = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989"), Admin);
+            givingUp.Problem.Should().Contain("To change that, open the Sonarr that should take over and choose Everything there");
+
+            var turnedOff = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { Enabled = false }, Admin);
+            turnedOff.Problem.Should().NotBeNull("there would be no Sonarr for everything");
+
+            var radarr = await Subject.SaveAsync(null, Input("Radarr Anime", "http://radarr:7878", "key", implementation: BackendImplementations.Radarr) with { Purpose = InstancePurpose.Anime }, Admin);
+            radarr.Problem.Should().Be("Anime is for Sonarr only.");
+        }
+
+        [Test]
+        public async Task an_instance_alone_in_its_type_is_for_everything()
+        {
+            var result = await Subject.SaveAsync(null, Input("Radarr", "http://radarr:7878", "key", implementation: BackendImplementations.Radarr), Admin);
+
+            result.Instance.Settings.Purpose.Should().Be(InstancePurpose.Everything);
         }
 
         [Test]

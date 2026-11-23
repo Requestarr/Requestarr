@@ -208,7 +208,7 @@ namespace Requestarr.Core.Test.AvailabilityFeed
             await Availability.CheckAllAsync();
 
             Reload(request.Id).Progress.Should().Be(DownloadProgress.Failed);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalDownloadFailed}").And.Contain("Unpacking failed").And.Contain("usually tries another release");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalDownloadFailed}").And.Contain("Unpacking failed").And.Contain("Another release is usually tried");
             Reload(request.Id).Status.Should().Be(RequestStatus.Approved, "Radarr keeps trying; the request stays open");
         }
 

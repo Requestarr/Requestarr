@@ -20,8 +20,7 @@ namespace Requestarr.Http.Portal
     // Add member: the people picked and what each of them gets.
     public record OnboardBody(List<OnboardPerson> People, List<OnboardAccess> Access);
 
-    // InstanceId: the member's own instance for the type; null leaves it.
-    public record AccessBody(ContentType ContentType, AccessState State, int? InstanceId);
+    public record AccessBody(ContentType ContentType, AccessState State);
 
     // Limit 0: no limit.
     public record LimitBody(ContentType ContentType, int Limit, int Days);
@@ -130,7 +129,7 @@ namespace Requestarr.Http.Portal
 
         [HttpPut("/api/v1/portal/members/{id:int}/access")]
         public Task<IActionResult> SetAccess(int id, [FromBody] AccessBody body) =>
-            body == null ? Missing() : Act(admin => Task.FromResult(_members.SetAccess(id, body.ContentType, body.State, body.InstanceId, admin)));
+            body == null ? Missing() : Act(admin => Task.FromResult(_members.SetAccess(id, body.ContentType, body.State, admin)));
 
         [HttpPut("/api/v1/portal/members/{id:int}/limit")]
         public Task<IActionResult> SetLimit(int id, [FromBody] LimitBody body) =>

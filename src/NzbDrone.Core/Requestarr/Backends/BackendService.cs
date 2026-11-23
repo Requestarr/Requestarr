@@ -32,6 +32,7 @@ namespace Requestarr.Core.Backends
         BackendInstance Find(int id);
         BackendInstance FindByName(string name);
         BackendInstance Default(ContentType type);
+
         // Where a request goes, by what is asked for: anime to the Anime Sonarr when one is turned on, everything else
         // (and anime without one) to the type's Everything instance.
         BackendInstance ForRequest(ContentType type, bool isAnime);
@@ -252,8 +253,15 @@ namespace Requestarr.Core.Backends
 
         // A provisioning file's purpose: everything | anime | nothing. Files written before purposes said Default instead,
         // which still reads as Everything (and its absence as Nothing).
-        private static InstancePurpose ProvisionedPurpose(BackendInstanceProvisioning entry) =>
-            Enum.TryParse<InstancePurpose>(entry.Purpose?.Trim(), true, out var purpose) ? purpose : entry.Default ? InstancePurpose.Everything : InstancePurpose.Nothing;
+        private static InstancePurpose ProvisionedPurpose(BackendInstanceProvisioning entry)
+        {
+            if (Enum.TryParse<InstancePurpose>(entry.Purpose?.Trim(), true, out var purpose))
+            {
+                return purpose;
+            }
+
+            return entry.Default ? InstancePurpose.Everything : InstancePurpose.Nothing;
+        }
 
         public static NamedItem ResolveProfile(IReadOnlyList<NamedItem> profiles, string wanted)
         {

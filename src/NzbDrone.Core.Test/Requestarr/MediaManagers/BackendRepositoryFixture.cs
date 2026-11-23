@@ -30,7 +30,7 @@ namespace Requestarr.Core.Test.MediaManagers
 
             instance.Enable.Should().BeTrue();
             instance.Config.Url.Should().Be("http://sonarr:8989");
-            instance.Config.IsDefault.Should().BeTrue();
+            instance.Config.Purpose.Should().Be(InstancePurpose.Everything, "default: true still reads as Everything");
             instance.Config.DefaultAccess.Should().Be(AccessState.AutoApprove);
             instance.Config.DubRequired.Should().Equal("dub");
             instance.Config.AnimeEnabled.Should().BeTrue();

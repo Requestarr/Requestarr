@@ -353,7 +353,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             if (title != null)
             {
-                reply.Embeds.Add(RequestCards.Card(request.ContentType, title, instance?.Name, waiting ? RequestCards.PendingColor : RequestCards.RefusedColor));
+                reply.Embeds.Add(RequestCards.Card(request.ContentType, title, waiting ? RequestCards.PendingColor : RequestCards.RefusedColor));
             }
 
             if (waiting)

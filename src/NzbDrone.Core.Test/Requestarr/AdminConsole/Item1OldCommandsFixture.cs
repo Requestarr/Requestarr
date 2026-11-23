@@ -59,16 +59,6 @@ namespace Requestarr.Core.Test.AdminConsole
         }
 
         [Test]
-        public async Task user_access_with_an_instance_is_the_cards_menus()
-        {
-            await Harness.SendAsync(AdminCommand("user access", Bob).WithOption("type", "movie").WithOption("level", "auto").WithOption("instance", "Radarr 4K"));
-
-            var row = Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(UserFor(Bob).Id).Single(a => a.ContentType == ContentType.Movie);
-            row.State.Should().Be(AccessState.AutoApprove);
-            row.BackendId.Should().Be(Instance("Radarr 4K").Id);
-        }
-
-        [Test]
         public async Task user_quota_is_the_cards_limit_form()
         {
             await Harness.SendAsync(AdminCommand("user quota", Bob).WithOption("type", "tv").WithOption("limit", 3L).WithOption("days", 14L));

@@ -156,13 +156,13 @@ namespace Requestarr.Core.Test.Portal
             Requested("Arrival", _alice, RequestStatus.Pending, 2);
             Requested("Tenet", _alice, RequestStatus.Denied, 3);
             Followed(Requested("Heat", _bob, RequestStatus.Available, 4), _alice);
-            Db.Insert(new UserMediaAccess { UserId = _alice.Id, ContentType = ContentType.Movie, State = AccessState.NeedsApproval, QuotaLimit = 3, QuotaWindow = TimeSpan.FromDays(7), BackendId = _radarr.Id });
+            Db.Insert(new UserMediaAccess { UserId = _alice.Id, ContentType = ContentType.Movie, State = AccessState.NeedsApproval, QuotaLimit = 3, QuotaWindow = TimeSpan.FromDays(7) });
             Db.Insert(new UserIdentity { UserId = _alice.Id, Provider = UserIdentity.DiscordProvider, ExternalId = "111", Username = "alice.d" });
 
             var alice = Subject.Members().Single(m => m.Id == _alice.Id);
 
             alice.Should().BeEquivalentTo(new { Name = "Alice", DiscordName = "alice.d", Requests = 3, Active = 2, Pending = 1, Following = 1 });
-            alice.Access.Should().Equal(new PortalAccess(ContentType.Movie, AccessState.NeedsApproval, 3, 7, "Radarr 4K"));
+            alice.Access.Should().Equal(new PortalAccess(ContentType.Movie, AccessState.NeedsApproval, 3, 7));
         }
 
         [Test]

@@ -123,12 +123,11 @@ namespace Requestarr.Core.Portal
 
             // Only follows of requests that still exist, as the member's own page lists them.
             var following = _subscribers.All().Where(s => ids.Contains(s.RequestId)).ToLookup(s => s.UserId);
-            var instances = Instances();
             var accounts = DiscordAccounts();
 
             return _users.All()
                 .OrderBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .Select(u => Member(u, requests[u.Id].ToList(), following[u.Id].ToList(), instances, accounts))
+                .Select(u => Member(u, requests[u.Id].ToList(), following[u.Id].ToList(), accounts))
                 .ToList();
         }
 
@@ -142,7 +141,6 @@ namespace Requestarr.Core.Portal
             }
 
             var names = Names();
-            var instances = Instances();
             var accounts = DiscordAccounts();
             var rows = new Rows(names, accounts, Backends(), _subscribers.All(), _proposals.All());
             var all = _requests.All().ToDictionary(r => r.Id);
@@ -156,7 +154,7 @@ namespace Requestarr.Core.Portal
             var importedFrom = user.IsImported ? user.ImportedFrom ?? Imports.RequestrrSource.SourceName : null;
 
             return new PortalMemberDetail(
-                Member(user, own, follows, instances, accounts),
+                Member(user, own, follows, accounts),
                 own.Select(rows.Of).ToList(),
                 following.Select(rows.Of).ToList(),
                 removals,
@@ -214,11 +212,10 @@ namespace Requestarr.Core.Portal
             RequestarrUser user,
             IReadOnlyCollection<Request> requests,
             IReadOnlyCollection<RequestSubscriber> follows,
-            Dictionary<int, string> instances,
             Dictionary<int, UserIdentity> accounts)
         {
             var discord = accounts.GetValueOrDefault(user.Id);
-            var access = _access.GetForUser(user.Id).OrderBy(a => a.ContentType).Select(a => Access(a, instances)).ToList();
+            var access = _access.GetForUser(user.Id).OrderBy(a => a.ContentType).Select(Access).ToList();
             var active = requests.Count(r => r.IsActive);
             var pending = requests.Count(r => r.Status == RequestStatus.Pending);
             var asked = requests.Select(r => r.Requested).ToList();
@@ -258,13 +255,11 @@ namespace Requestarr.Core.Portal
             return dates.Count > 0 ? dates.Min() : user.Added;
         }
 
-        private static PortalAccess Access(UserMediaAccess access, Dictionary<int, string> instances)
+        private static PortalAccess Access(UserMediaAccess access)
         {
             // A limit without its own window counts the last 7 days, as requests and the member card do.
             int? days = access.QuotaLimit.HasValue ? (int)(access.QuotaWindow ?? DefaultQuotaWindow).TotalDays : null;
-            var instance = access.BackendId.HasValue ? instances.GetValueOrDefault(access.BackendId.Value) : null;
-
-            return new PortalAccess(access.ContentType, access.State, access.QuotaLimit, days, instance);
+            return new PortalAccess(access.ContentType, access.State, access.QuotaLimit, days);
         }
 
         private string MediaServer(int userId)

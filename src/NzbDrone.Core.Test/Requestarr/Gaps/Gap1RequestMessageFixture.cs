@@ -33,7 +33,7 @@ namespace Requestarr.Core.Test.Gaps
             await AdminButton("req-approve:1");
 
             var edited = Latest(Alice);
-            edited.Content.Should().StartWith($"<@{Alice}> " + DiscordText.FinalApproved).And.Contain("added to Radarr");
+            edited.Content.Should().StartWith($"<@{Alice}> " + DiscordText.FinalApproved).And.Contain("was approved").And.NotContain("Radarr", "members never see which server");
             edited.Buttons.Should().BeEmpty();
             edited.Embeds.Single().Color.Should().Be(RequestCards.SentColor);
             ChannelFor(Alice).Messages.Count.Should().Be(before, "the edited message says it all; no separate notice repeats it");
@@ -153,7 +153,7 @@ namespace Requestarr.Core.Test.Gaps
             RequestStore.Get(1).MessageId.Should().BeNull();
 
             (await AdminButton("req-approve:1")).LastReply.Content.Should().Contain("approved");
-            LastMessageIn(Alice).Should().Be(DiscordText.RequestApprovedNotice("Dune (2021)", 1, "Radarr"));
+            LastMessageIn(Alice).Should().Be(DiscordText.RequestApprovedNotice("Dune (2021)", 1));
         }
 
         private void NowInLibrary(int tmdbId) => Radarr.Catalog.Single(c => c.TmdbId == tmdbId).LibraryId = 55;

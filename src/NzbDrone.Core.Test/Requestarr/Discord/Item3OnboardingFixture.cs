@@ -82,20 +82,20 @@ namespace Requestarr.Core.Test.Discord
         }
 
         [Test]
-        public async Task adding_someone_back_gives_the_default_access_of_the_instance_they_had()
+        public async Task adding_someone_back_gives_the_default_access_of_the_types_everything_instance()
         {
             var backends = Mocker.Resolve<IBackendRepository>();
-            var radarr4K = backends.FindByName("Radarr 4K");
-            radarr4K.Config.DefaultAccess = AccessState.AutoApprove;
-            backends.Update(radarr4K);
+            var radarr = backends.FindByName("Radarr");
+            radarr.Config.DefaultAccess = AccessState.AutoApprove;
+            backends.Update(radarr);
             await AddUser(Alice);
-            Users.SetAccess(Alice, ContentType.Movie, AccessState.Off, Requestarr.Core.Audit.Actor.Web("owner"), "Radarr 4K");
+            Users.SetAccess(Alice, ContentType.Movie, AccessState.Off, Requestarr.Core.Audit.Actor.Web("owner"));
             await Users.RemoveAsync(Alice, Requestarr.Core.Audit.Actor.Web("owner"));
 
             await AddUser(Alice);
 
             Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(UserFor(Alice).Id).Single(a => a.ContentType == ContentType.Movie).State
-                .Should().Be(AccessState.AutoApprove, "their requests still go to Radarr 4K");
+                .Should().Be(AccessState.AutoApprove, "Radarr is for Everything, so its default access is the type's");
         }
 
         [Test]
