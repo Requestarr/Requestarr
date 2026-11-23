@@ -19,15 +19,16 @@ and a beta heading names the goals' builds it includes.
 ### For users
 - **Anime versions in plain words:** the bot now says "English dub" or "subtitled version", and when two people want different versions it says which one is kept.
 - **Wording that fits your server:** removal votes and help talk about the library, not apps your server may not use.
+- **Your history comes with you:** requests you made with the old bot show in your channel, quietly, once you're set up.
 - **Series fixes shown:** when a show is added with a fix for a known mix-up, its request message says so and why.
 - **Request messages don't name servers:** your request goes where it belongs by what you asked for, so the bot no longer says which server took it.
 
 ### For admins
 - **Simpler bot setup:** you paste only the bot's token. Requestarr notices when the bot joins your server, makes its admin role, and lets you pick admins in the web app. The beta image says it's beta, so there's no Production or Beta to choose.
 - **Servers as cards:** each server the bot is in has a card, and the + card adds the bot to another server, for example only to import from Requestrr. A saved token shows only its last four characters.
-- **Clearer media manager forms:** they open in their card's window, with plainer wording. New ones start with Standard series, the Any profile and new members approved automatically.
+- **Clearer media manager forms:** they open in their card's window, with plainer wording. New ones start with Standard series, the Any profile and new members approved automatically. One can now be deleted: its requests keep their history, and any still waiting are flagged for a new home.
 - **Test shows its result:** Test shows a green check or a red mark, with the reason where you're looking. Test All says every connection passed, or names each one that failed. Leaving with unsaved changes asks first.
-- **Delete, with history kept:** a media manager can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.
+- **Imported history in Discord:** an import from Requestrr posts each member's old requests in their channel and every one in the admin feed, quietly and oldest first. The Import page shows how far it got, can pause or cancel, and has a switch for each.
 - **Requests go by what's asked for:** each media manager says what it's for: everything, anime or nothing yet, and anime goes to the anime one. This replaces the Default tick box and members' own servers; any you set are dropped, their access and limits kept.
 - **Series fixes:** a ready list of fixes for shows Sonarr grabs the wrong releases for, under Media managers. A fix is set up in Sonarr only when its show is requested, and the request says so. It comes with one: Pokémon (1997) never grabs Pokémon Horizons.
 - **Download updates sort themselves out:** Requestarr fills in its own address from your browser and tests it. Each card says whether downloads are reported right away or on a timer, and why.
