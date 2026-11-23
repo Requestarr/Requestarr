@@ -9,9 +9,10 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Requests
 {
-    // Item 7: rolling-window quotas count owned requests only; refusal says when a slot frees up.
+    // Rolling-window quotas count a member's own live requests only; a refusal says when a slot frees up, and each
+    // member sees their own usage.
     [TestFixture]
-    public class Item7QuotaFixture : RequestScenario
+    public class RequestQuotaFixture : RequestScenario
     {
         private DateTime _now;
 
@@ -65,21 +66,12 @@ namespace Requestarr.Core.Test.Requests
         }
 
         [Test]
-        public async Task quota_command_should_show_usage()
+        public async Task my_limits_shows_each_member_their_own_usage()
         {
             await RequestMovie(Alice, Dune);
 
-            var run = await Harness.SendAsync(PanelButton(Alice, PanelRoutes.MyLimits));
-
-            run.LastReply.Content.Should().Contain("Movies: needs approval, 1 of 2 used in the last 7 days").And.Contain("TV: needs approval, no limit");
-        }
-
-        [Test]
-        public async Task each_user_sees_only_their_own_limits()
-        {
-            await RequestMovie(Alice, Dune);
-
-            (await Harness.SendAsync(PanelButton(Alice, PanelRoutes.MyLimits))).LastReply.Content.Should().Contain("**alice**").And.Contain("1 of 2");
+            (await Harness.SendAsync(PanelButton(Alice, PanelRoutes.MyLimits))).LastReply.Content.Should().Contain("**alice**")
+                .And.Contain("Movies: needs approval, 1 of 2 used in the last 7 days").And.Contain("TV: needs approval, no limit");
             (await Harness.SendAsync(PanelButton(Bob, PanelRoutes.MyLimits))).LastReply.Content.Should().Contain("**bob**").And.Contain("no limit");
         }
     }

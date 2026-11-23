@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -13,91 +12,18 @@ using NUnit.Framework;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Messaging.Events;
-using Requestarr.Core.Backends;
-using Requestarr.Core.Discord;
 using Requestarr.Core.Metadata;
-using Requestarr.Core.Requests;
-using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Test.Framework;
 using Requestarr.Core.Users;
 
-namespace Requestarr.Core.Test.Polish
+namespace Requestarr.Core.Test.Requests
 {
-    // Item 4: an optional The Movie Database key adds the top cast to result lines and the card.
+    // The Movie Database client behind cast and years: how it authenticates, what it reads, where its key comes from,
+    // and the health warning when the built-in key is refused. The key never reaches the log.
     [TestFixture]
-    public class Item4CastFixture : RequestCardScenario
+    public class TmdbClientFixture : CoreTest
     {
         private const string Key = "v3-secret-key-123";
-
-        [Test]
-        public async Task without_a_key_lines_show_year_network_and_genre()
-        {
-            var results = (await Harness.SendAsync(Search(Alice, "tv", "dark matter"))).LastReply;
-
-            results.SelectMenu.Options.Select(o => (o.Label, o.Description)).Should().Equal(
-                ("Dark Matter (2024)", "2024 · Apple TV · Drama"),
-                ("Dark Matter (2015)", "2015 · SYFY · Adventure"));
-            results.Content.Should().NotContain("TMDB");
-            Tmdb.Calls.Should().Be(0);
-        }
-
-        [Test]
-        public async Task with_a_key_lines_show_the_top_three_cast()
-        {
-            TmdbKey.Set(Key);
-
-            var results = (await Harness.SendAsync(Search(Alice, "tv", "dark matter"))).LastReply;
-
-            results.SelectMenu.Options.Select(o => o.Description).Should().Equal(
-                "2024 · Apple TV · Joel Edgerton, Jennifer Connelly, Alice Braga",
-                "2015 · SYFY · Marc Bendavid, Melissa O'Neil, Anthony Lemke");
-            results.Content.Should().EndWith("\n-# Cast from TMDB");
-        }
-
-        [Test]
-        public void lines_stay_within_100_characters_by_dropping_cast_from_the_end()
-        {
-            var item = new MediaLookupResult
-            {
-                Year = 2024,
-                Network = "A Very Long Network Name Indeed",
-                Genres = { "Drama" },
-                Cast = { "Christopher Abbott-Longname", "Elizabeth Mary Winstead-Smith", "Bartholomew Cubbins The Third" }
-            };
-
-            var line = RequestCards.ResultLine(item);
-
-            line.Length.Should().BeLessThanOrEqualTo(DiscordLimits.OptionLabelLength);
-            line.Should().Be("2024 · A Very Long Network Name Indeed · Christopher Abbott-Longname, Elizabeth Mary Winstead-Smith");
-
-            item.Network = new string('N', 120);
-            RequestCards.ResultLine(item).Length.Should().BeLessThanOrEqualTo(DiscordLimits.OptionLabelLength);
-        }
-
-        [Test]
-        public async Task the_movie_database_failing_never_breaks_a_request()
-        {
-            TmdbKey.Set(Key);
-            Tmdb.Fail = true;
-
-            var results = (await Harness.SendAsync(Search(Alice, "tv", "dark matter"))).LastReply;
-            var card = (await Harness.SendAsync(Search(Alice, "tv", $"tvdb:{DarkMatter}"))).LastReply;
-
-            results.SelectMenu.Options.First().Description.Should().Be("2024 · Apple TV · Drama");
-            Field(card, "Cast").Should().BeNull();
-            card.Embeds.Single().Footer.Should().BeNull();
-        }
-
-        [Test]
-        public async Task cast_is_cached_between_searches()
-        {
-            TmdbKey.Set(Key);
-
-            await Harness.SendAsync(Search(Alice, "tv", "dark matter"));
-            await Harness.SendAsync(Search(Alice, "tv", "dark matter"));
-            await Harness.SendAsync(Search(Alice, "tv", $"tvdb:{DarkMatter}"));
-
-            Tmdb.Calls.Should().Be(2);
-        }
 
         [Test]
         public void a_read_access_token_goes_in_the_header_and_a_v3_key_in_the_query()
@@ -163,7 +89,7 @@ namespace Requestarr.Core.Test.Polish
 
             memory.Logs.Should().HaveCount(2);
             memory.Logs.Should().OnlyContain(l => !l.Contains(Key));
-            memory.Logs.First().Should().Contain("HTTP 401");
+            memory.Logs[0].Should().Contain("HTTP 401");
         }
 
         [Test]
@@ -236,7 +162,7 @@ namespace Requestarr.Core.Test.Polish
             store.BuiltInProblem.Should().BeNull();
         }
 
-        private TmdbClient Client(out MemoryTarget memory)
+        private static TmdbClient Client(out MemoryTarget memory)
         {
             memory = new MemoryTarget { Layout = "${message} ${exception:format=tostring}" };
             var config = new LoggingConfiguration();

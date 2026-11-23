@@ -22,7 +22,7 @@ using Requestarr.Core.Test.Framework;
 using Requestarr.Core.Users;
 using Requestarr.Test.Common.Categories;
 
-namespace Requestarr.Core.Test.Gaps
+namespace Requestarr.Core.Test.Requests
 {
     // Live: the real bot in the Discord test server and the dev stack's TEST Radarr. A request
     // made in a real message is approved (and another denied) from the admin side; the edited

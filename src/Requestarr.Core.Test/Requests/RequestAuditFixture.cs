@@ -7,9 +7,9 @@ using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Requests
 {
-    // Item 9: every requesting step is audited.
+    // Every requesting step leaves an audit entry: created, followed, approved, sent, denied, cancelled, refused, failed.
     [TestFixture]
-    public class Item9AuditFixture : RequestScenario
+    public class RequestAuditFixture : RequestScenario
     {
         [Test]
         public async Task requesting_steps_should_be_audited_in_order()

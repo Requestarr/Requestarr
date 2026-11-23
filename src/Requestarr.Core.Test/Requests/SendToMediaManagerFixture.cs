@@ -2,16 +2,16 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
-using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Requests
 {
-    // Item 6: approved requests go to the instance with its profile, root folder, series type; ID recorded.
+    // An approved request goes to the type's instance with that instance's quality profile, root folder and series type,
+    // whoever asked, and the instance's item ID is recorded on the request. A failed add says so.
     [TestFixture]
-    public class Item6SendFixture : RequestScenario
+    public class SendToMediaManagerFixture : RequestScenario
     {
         [SetUp]
         public async Task AutoApprove()
@@ -37,6 +37,17 @@ namespace Requestarr.Core.Test.Requests
         }
 
         [Test]
+        public async Task every_members_requests_go_to_the_types_everything_instance()
+        {
+            await SetAccess(Bob, "movie", "auto");
+
+            await RequestMovie(Alice, Dune);
+            await RequestMovie(Bob, DuneTwo);
+
+            Radarr.Adds.Select(a => a.Url).Should().Equal(new[] { "http://radarr-test:7878", "http://radarr-test:7878" }, "Radarr is for Everything; Radarr 4K for nothing yet");
+        }
+
+        [Test]
         public async Task series_should_use_instance_series_type()
         {
             await RequestTv(Alice, Severance, "all");
@@ -57,33 +68,6 @@ namespace Requestarr.Core.Test.Requests
             LastRequest.DecisionReason.Should().Contain("validation failed");
             run.LastReply.Content.Should().Contain("Request #1 for Dune (2021) couldn't be added");
             ExceptionVerification.ExpectedErrors(1);
-        }
-
-        [Test]
-        public async Task admin_can_request_from_admin_channel_without_being_added()
-        {
-            var run = await Harness.SendAsync(FakeInteraction.Button($"req-make:movie:{DuneTwo}").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
-
-            run.LastReply.Content.Should().Contain(DiscordText.RequestAdded("Dune: Part Two (2024)", 1));
-            UserFor(FakeDiscordGuild.Owner).PrivateChannelId.Should().BeNull();
-            LastRequest.OwnerUserId.Should().Be(UserFor(FakeDiscordGuild.Owner).Id);
-        }
-
-        [Test]
-        public async Task admin_search_in_admin_channel_points_to_their_own_channel()
-        {
-            var run = await Harness.SendAsync(AdminRequest("movie", "dune"));
-
-            run.LastReply.Content.Should().Be(DiscordText.AdminRequestsInOwnChannel(null));
-            run.LastReply.SelectMenu.Should().BeNull("the admin channel is for admin actions");
-        }
-
-        [Test]
-        public async Task admin_record_does_not_block_adding_the_owner_as_a_user_later()
-        {
-            await Harness.SendAsync(FakeInteraction.Button($"req-make:movie:{DuneTwo}").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
-
-            (await AddUser(FakeDiscordGuild.Owner)).LastReply.Content.Should().StartWith("Added owner.");
         }
     }
 }

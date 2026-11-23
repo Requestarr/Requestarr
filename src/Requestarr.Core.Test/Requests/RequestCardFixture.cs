@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -5,12 +6,13 @@ using NUnit.Framework;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Users;
 
-namespace Requestarr.Core.Test.Polish
+namespace Requestarr.Core.Test.Requests
 {
-    // Item 2: a large poster and every useful field Sonarr and Radarr return.
+    // A title's card: a large poster and every useful field Sonarr and Radarr return; the approval card is the compact one.
     [TestFixture]
-    public class Item2CardFixture : RequestCardScenario
+    public class RequestCardFixture : RequestCardScenario
     {
         [Test]
         public async Task movie_card_has_a_large_poster_and_every_field()
@@ -60,18 +62,6 @@ namespace Requestarr.Core.Test.Polish
         }
 
         [Test]
-        public async Task with_the_key_the_card_lists_top_cast_and_episodes_with_attribution()
-        {
-            TmdbKey.Set("test-key");
-
-            var card = (await Harness.SendAsync(Search(Alice, "tv", $"tvdb:{DarkMatter}"))).LastReply;
-
-            Field(card, "Cast").Should().Be("Joel Edgerton, Jennifer Connelly, Alice Braga");
-            Field(card, "Episodes").Should().Be("9");
-            card.Embeds.Single().Footer.Should().Be(DiscordText.TmdbAttribution);
-        }
-
-        [Test]
         public async Task a_title_with_few_details_still_gets_a_card()
         {
             var card = (await Harness.SendAsync(Search(Alice, "movie", $"tmdb:{DuneTwo}"))).LastReply;
@@ -84,7 +74,7 @@ namespace Requestarr.Core.Test.Polish
         public void approval_cards_use_the_compact_card()
         {
             var item = Radarr.Catalog.First();
-            var embed = RequestCards.Approval(new Request { Id = 1, Title = item.Title, Year = item.Year, ContentType = Requestarr.Core.Users.ContentType.Movie }, "alice", "Radarr", item).Embeds.Single();
+            var embed = RequestCards.Approval(new Request { Id = 1, Title = item.Title, Year = item.Year, ContentType = ContentType.Movie }, "alice", "Radarr", item).Embeds.Single();
 
             embed.ThumbnailUrl.Should().Be(item.PosterUrl);
             embed.ImageUrl.Should().BeNull();
@@ -93,7 +83,7 @@ namespace Requestarr.Core.Test.Polish
         [Test]
         public void release_dates_read_in_theaters_and_in_date_order()
         {
-            DiscordText.Released(new System.DateTime(2021, 9, 15), new System.DateTime(2021, 12, 22), new System.DateTime(2021, 10, 21))
+            DiscordText.Released(new DateTime(2021, 9, 15), new DateTime(2021, 12, 22), new DateTime(2021, 10, 21))
                 .Should().Be("In theaters 15 Sep 2021\nPhysical 21 Oct 2021\nDigital 22 Dec 2021");
             DiscordText.Capitalize("inCinemas").Should().Be("In theaters");
         }

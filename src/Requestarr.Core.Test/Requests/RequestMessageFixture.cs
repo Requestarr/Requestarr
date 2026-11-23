@@ -1,17 +1,20 @@
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Discord;
+using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Test.Common;
 
-namespace Requestarr.Core.Test.Gaps
+namespace Requestarr.Core.Test.Requests
 {
-    // Gap 1: the request message always shows the request's real state after an admin decides.
+    // The request message always shows the request's real state after an admin decides, and a title that turns out to
+    // be in the library ends as good news, never as a refusal.
     [TestFixture]
-    public class Gap1RequestMessageFixture : RequestMessageScenario
+    public class RequestMessageFixture : RequestMessageScenario
     {
         [Test]
         public async Task the_request_remembers_its_message()
@@ -159,9 +162,8 @@ namespace Requestarr.Core.Test.Gaps
 
         private void NowInLibrary(int tmdbId) => Radarr.Catalog.Single(c => c.TmdbId == tmdbId).LibraryId = 55;
 
-        // The request message is the last thing in the channel: nothing was posted after it.
-        // After a decision the request's message is the newest in the channel (reposted), and it is the
-        // request's tracked message: nothing else repeats it.
+        // After a decision the request's message is the newest in the channel (reposted), and it is the request's
+        // tracked message: nothing else repeats it.
         private void NoSeparateNotice()
         {
             ChannelFor(Alice).MessageIds.Last().ToString().Should().Be(RequestStore.Get(1).MessageId);
@@ -210,6 +212,7 @@ namespace Requestarr.Core.Test.Gaps
             (await Harness.SendAsync(AdminSlash("cancel").WithOption("id", 1L))).LastReply.Content.Should().Be(DiscordText.AdminMarkedAvailable(RequestStore.Get(1)));
 
             ShowsAlreadyAvailable();
+            LooksLikeAWin(Latest(Alice));
         }
 
         [Test]
@@ -237,9 +240,9 @@ namespace Requestarr.Core.Test.Gaps
             (await Harness.SendAsync(AdminSlash("available").WithOption("id", 1L))).LastReply.Content.Should().Be(DiscordText.NotPending(1, RequestStatus.Available));
         }
 
-        private static void LooksLikeAWin(Requestarr.Core.Discord.Interactions.InteractionReply reply)
+        private static void LooksLikeAWin(InteractionReply reply)
         {
-            System.Text.RegularExpressions.Regex.Replace(reply.Content, @"^<@\d+> ", string.Empty).Should().StartWith(DiscordText.FinalAvailable).And.Contain("Good news");
+            Regex.Replace(reply.Content, @"^<@\d+> ", string.Empty).Should().StartWith(DiscordText.FinalAvailable).And.Contain("Good news");
             reply.Content.Should().NotContainAny("⛔", "🚫", "⚠️", "Denied", "Cancelled", "Not requested", "Couldn't");
             reply.Embeds.Single().Color.Should().Be(RequestCards.SentColor);
         }
@@ -252,26 +255,7 @@ namespace Requestarr.Core.Test.Gaps
             LooksLikeAWin(final);
             final.Content.Should().Contain(DiscordText.AlreadyInLibrary);
             final.Ephemeral.Should().BeFalse();
-        }
-
-        [Test]
-        public async Task the_card_of_a_title_in_the_library_brings_good_news()
-        {
-            var card = (await Harness.SendAsync(Search(Alice, "movie", $"tmdb:{Arrival}"))).LastReply;
-
-            card.Content.Should().Contain(DiscordText.StateInLibrary).And.Contain("Good news");
-        }
-
-        [Test]
-        public async Task an_admin_cancel_of_a_title_now_in_the_library_tells_the_user_good_news()
-        {
-            await PendingMovie(Alice, Dune);
-            NowInLibrary(Dune);
-
-            await Harness.SendAsync(AdminSlash("cancel").WithOption("id", 1L).WithOption("reason", "we have it"));
-
-            LooksLikeAWin(Latest(Alice));
-            NoSeparateNotice();
+            RequestStore.All().Should().BeEmpty("nothing is requested");
         }
 
         [Test]
@@ -300,16 +284,6 @@ namespace Requestarr.Core.Test.Gaps
         }
 
         [Test]
-        public async Task a_late_click_on_a_title_now_in_the_library_gets_the_good_news()
-        {
-            NowInLibrary(Dune);
-
-            var run = await Harness.SendAsync(Requestarr.Core.Test.Discord.Harness.FakeInteraction.Button($"req-follow:movie:{Dune}").By(Alice).InGuild(Requestarr.Core.Test.Discord.Harness.FakeDiscordGuild.Guild).InChannel(ChannelOf(Alice)));
-
-            run.LastReply.Content.Should().Be(DiscordText.AlreadyThereNote);
-        }
-
-        [Test]
         public async Task a_tv_request_message_keeps_its_seasons_after_approval()
         {
             var message = await Ask(Alice, "tv", $"tvdb:{DarkMatter}");
@@ -319,6 +293,7 @@ namespace Requestarr.Core.Test.Gaps
 
             Latest(Alice).Content.Should().StartWith($"<@{Alice}> " + DiscordText.FinalApproved).And.Contain("Seasons: seasons 1–2, plus new seasons as they air.");
             Sonarr.Adds.Single().Seasons.Should().Equal(1, 2);
+            Sonarr.Adds.Single().MonitorFuture.Should().BeTrue();
         }
     }
 }

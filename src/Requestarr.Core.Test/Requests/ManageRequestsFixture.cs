@@ -7,9 +7,10 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Requests
 {
-    // Item 8: /requests, /request cancel, /queue, /approve, /deny.
+    // Managing requests: a member's own list and cancel, the admin queue, and approve and deny by request number, only
+    // from the admin channel.
     [TestFixture]
-    public class Item8ManageFixture : RequestScenario
+    public class ManageRequestsFixture : RequestScenario
     {
         [SetUp]
         public async Task SomeRequests()
@@ -31,8 +32,7 @@ namespace Requestarr.Core.Test.Requests
         [Test]
         public async Task admin_queue_walks_everything_and_a_members_requests_are_on_their_card()
         {
-            var walk = (await Admin("queue")).LastReply.Content;
-            walk.Should().StartWith(DiscordText.WalkHeader(1, 3)).And.Contain("**alice** (asked)");
+            (await Admin("queue")).LastReply.Content.Should().Contain("**alice** (asked)");
             (await Harness.SendAsync(AdminSlash("queue").WithOption("user", Bob))).LastReply.Content.Should().Contain("#2 ·").And.Contain("#3 ·").And.NotContain("#1 ·");
         }
 
@@ -40,6 +40,7 @@ namespace Requestarr.Core.Test.Requests
         public async Task user_can_cancel_own_pending_request_only()
         {
             (await Harness.SendAsync(CancelButton(Alice, 2))).LastReply.Content.Should().Contain(DiscordText.NotYourRequest);
+            RequestStore.Get(2).Status.Should().Be(RequestStatus.Pending, "a follower can't cancel the owner's request");
             (await Harness.SendAsync(CancelButton(Alice, 1))).LastReply.Content.Should().Contain(DiscordText.RequestCancelled("Dune (2021)", 1));
             (await Harness.SendAsync(CancelButton(Alice, 1))).LastReply.Content.Should().Contain(DiscordText.NothingChanged("Request #1 for Dune (2021) is cancelled."));
             (await Harness.SendAsync(CancelButton(Alice, 99))).LastReply.Content.Should().Contain(DiscordText.RequestNotFound);

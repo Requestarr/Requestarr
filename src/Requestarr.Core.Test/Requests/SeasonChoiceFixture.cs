@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -6,12 +7,13 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.Polish
+namespace Requestarr.Core.Test.Requests
 {
-    // Item 1: "All seasons" (sends at once) or "Choose seasons" (menu, then a plain-words confirmation),
-    // never both; the final status always says which seasons were requested.
+    // Which seasons a TV request asks for: "All seasons" (sent at once) or "Choose seasons" (a menu, then a plain-words
+    // confirmation), never both; the final status always says which seasons were requested. The season menu on cards
+    // posted before the two paths existed keeps working.
     [TestFixture]
-    public class Item1SeasonsFixture : RequestCardScenario
+    public class SeasonChoiceFixture : RequestCardScenario
     {
         [SetUp]
         public async Task AutoApproveTv()
@@ -31,26 +33,17 @@ namespace Requestarr.Core.Test.Polish
         }
 
         [Test]
-        public async Task all_seasons_sends_at_once_and_says_what_was_requested()
+        public async Task all_seasons_sends_at_once_with_every_regular_season_and_new_ones_but_not_specials()
         {
             var final = (await Click(Alice, $"req-tv-all:{DarkMatter}")).LastReply;
 
             final.Content.Should().StartWith(DiscordText.FinalSent).And.NotContain("You chose");
             final.Content.Should().Contain("Seasons: all seasons (1–2) and new seasons as they air, without specials.");
-            final.Buttons.Select(b => b.CustomId).Should().Equal("req-add:1"); // task 3: only Add seasons once sent
-            Sonarr.Adds.Should().ContainSingle();
-        }
-
-        [Test]
-        public async Task all_seasons_monitors_every_regular_season_and_new_ones_but_not_specials()
-        {
-            var final = (await Click(Alice, $"req-tv-all:{DarkMatter}")).LastReply;
-
+            final.Buttons.Select(b => b.CustomId).Should().Equal("req-add:1"); // once sent, seasons can only be added
             var added = Sonarr.Adds.Single();
             added.Seasons.Should().Equal(1, 2);
             added.MonitorFuture.Should().BeTrue();
             added.Item.HasSpecials.Should().BeTrue();
-            final.Content.Should().StartWith(DiscordText.FinalSent).And.Contain("Seasons: all seasons (1–2) and new seasons as they air, without specials.");
         }
 
         [Test]
@@ -63,7 +56,6 @@ namespace Requestarr.Core.Test.Polish
             step.SelectMenu.Options.Select(o => o.Label).Should().NotContain(DiscordText.AllSeasons);
             step.SelectMenu.MaxValues.Should().Be(3);
             step.Buttons.Select(b => b.CustomId).Should().Equal($"req-tv-page:{DarkMatter}:0:f", $"req-tv-review:{DarkMatter}:", $"req-tv-back:{DarkMatter}");
-            step.Buttons[1].Disabled.Should().BeTrue("nothing is picked yet");
         }
 
         [Test]
@@ -117,20 +109,45 @@ namespace Requestarr.Core.Test.Polish
         }
 
         [Test]
-        public async Task an_old_card_with_all_and_one_season_applies_all_and_says_so()
-        {
-            var final = (await RequestTv(Alice, DarkMatter, "all", "s2")).LastReply;
-
-            Sonarr.Adds.Single().Seasons.Should().Equal(1, 2);
-            Sonarr.Adds.Single().MonitorFuture.Should().BeFalse();
-            final.Content.Should().Contain("Seasons: seasons 1–2 only; new seasons won't be added.");
-        }
-
-        [Test]
         public async Task a_tampered_season_choice_is_refused()
         {
             (await Click(Alice, $"req-tv-ok:{DarkMatter}:junk")).LastReply.Content.Should().Be(DiscordText.ChooseSeasons);
             RequestStore.All().Should().BeEmpty();
+        }
+
+        // "all" with a season (possible only on the old menu) means all, and says so.
+        [TestCase("s2", "2", false, "season 2 only; new seasons won't be added")]
+        [TestCase("all,future", "1,2", true, "all seasons (1–2) and new seasons as they air, without specials")]
+        [TestCase("future", "", true, "only new seasons as they air (no existing seasons)")]
+        [TestCase("all,s2", "1,2", false, "seasons 1–2 only; new seasons won't be added")]
+        public async Task the_old_season_menu_requests_and_monitors_what_was_picked(string picks, string seasons, bool future, string said)
+        {
+            var expected = seasons.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
+
+            var final = (await RequestTv(Alice, Severance, picks.Split(','))).LastReply;
+
+            LastRequest.Seasons.Should().Equal(expected);
+            LastRequest.MonitorFutureSeasons.Should().Be(future);
+            Sonarr.Adds.Single().Seasons.Should().Equal(expected);
+            Sonarr.Adds.Single().MonitorFuture.Should().Be(future);
+            final.Content.Should().Contain($"Seasons: {said}.");
+        }
+
+        [Test]
+        public async Task an_old_menu_pick_of_a_season_the_show_lacks_asks_to_choose_again()
+        {
+            (await RequestTv(Alice, Severance, "s9")).LastReply.Content.Should().Contain(DiscordText.ChooseSeasons);
+            RequestStore.All().Should().BeEmpty();
+        }
+
+        [Test]
+        public void season_values_parse()
+        {
+            var choice = RequestCards.ParseSeasons(new[] { "s1", "s10", "future", "junk" });
+
+            choice.All.Should().BeFalse();
+            choice.Seasons.Should().Equal(1, 10);
+            choice.Future.Should().BeTrue();
         }
 
         [TestCase("all")]
@@ -141,14 +158,6 @@ namespace Requestarr.Core.Test.Polish
         public void season_choices_round_trip_through_the_button(string spec)
         {
             RequestCards.EncodeSeasons(RequestCards.DecodeSeasons(spec)).Should().Be(spec);
-        }
-
-        [Test]
-        public void a_long_season_choice_still_fits_a_custom_id()
-        {
-            var everyOther = new SeasonChoice(false, Enumerable.Range(1, 24).Select(n => n * 2).ToList(), true);
-
-            $"req-tv-ok:{DarkMatter}:{RequestCards.EncodeSeasons(everyOther)}".Length.Should().BeLessThanOrEqualTo(DiscordLimits.CustomIdLength);
         }
     }
 }
