@@ -59,6 +59,7 @@ export function usePurpose(item: MediaManagerItem, app: string) {
   const dispatch = useDispatch();
   const others = useOthers(item);
   const chosen = purposeOf(item);
+  const allowsAnime = app === 'Sonarr';
   const isNew = !item.id?.value;
   const startsOnEverything =
     isNew && others.length > 0 && chosen === EVERYTHING;
@@ -80,7 +81,7 @@ export function usePurpose(item: MediaManagerItem, app: string) {
       label: translate('InstancePurpose', { app }),
       helpTexts: [
         translate('InstancePurposeEverythingHelp', { app }),
-        ...(app === 'Sonarr' ? [translate('InstancePurposeAnimeHelp')] : []),
+        ...(allowsAnime ? [translate('InstancePurposeAnimeHelp')] : []),
         translate('InstancePurposeNothingHelp'),
       ],
       helpTextWarning: holder
@@ -90,7 +91,7 @@ export function usePurpose(item: MediaManagerItem, app: string) {
           })
         : undefined,
     },
-    allowsAnime: app === 'Sonarr',
+    allowsAnime,
   };
 }
 

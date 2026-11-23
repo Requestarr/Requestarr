@@ -101,9 +101,9 @@ namespace Requestarr.Core.Settings
             }
 
             var others = Others(input.Implementation, id);
-            var purpose = others.Any() ? input.Purpose : InstancePurpose.Everything;
+            var resolved = input with { Purpose = others.Any() ? input.Purpose : InstancePurpose.Everything };
 
-            if (PurposeProblem(existing, input with { Purpose = purpose }, others) is { } purposeProblem)
+            if (PurposeProblem(existing, resolved, others) is { } purposeProblem)
             {
                 return new InstanceSaveResult(null, purposeProblem);
             }
@@ -114,7 +114,7 @@ namespace Requestarr.Core.Settings
             instance.Name = input.Name.Trim();
             instance.Implementation = input.Implementation;
             instance.Enable = input.Enabled;
-            instance.Settings = Settings(input with { Purpose = purpose }, existing?.Config);
+            instance.Settings = Settings(resolved, existing?.Config);
             _repository.Upsert(instance);
             TakePurpose(instance, others, actor);
 

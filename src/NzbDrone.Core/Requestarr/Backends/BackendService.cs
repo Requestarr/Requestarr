@@ -98,9 +98,15 @@ namespace Requestarr.Core.Backends
 
         public BackendInstance ForRequest(ContentType type, bool isAnime)
         {
-            var anime = type == ContentType.Tv && isAnime
-                ? _repository.All().Where(b => b.Enable && b.Implementation == BackendImplementations.Sonarr).OrderBy(b => b.Id).FirstOrDefault(b => b.Config.Purpose == InstancePurpose.Anime)
-                : null;
+            if (type != ContentType.Tv || !isAnime)
+            {
+                return Default(type);
+            }
+
+            var anime = _repository.All()
+                .Where(b => b.Enable && b.Implementation == BackendImplementations.Sonarr && b.Config.Purpose == InstancePurpose.Anime)
+                .OrderBy(b => b.Id)
+                .FirstOrDefault();
 
             return anime ?? Default(type);
         }

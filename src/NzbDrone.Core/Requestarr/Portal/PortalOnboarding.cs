@@ -11,8 +11,8 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
-    // What everyone picked gets, per content type: their access, a limit (requests per so many days; null or 0 keeps the
-    // server's) and an instance (null keeps the server's).
+    // What everyone picked gets, per content type: their access and a limit (requests per so many days; null or 0 keeps
+    // the server's).
     public record OnboardAccess(ContentType ContentType, AccessState State, int? Limit, int? Days);
 
     public record OnboardPerson(string DiscordId, string Name);
