@@ -164,7 +164,7 @@ interface ImportContentProps {
 // toolbar writes it (a task in System, then Tasks). Discord is only read; nothing is posted, edited or reacted to
 // there.
 function ImportContent(props: ImportContentProps) {
-  const { access, setup, channels, isLoading } = props;
+  const { access, setup, server, channels, isLoading } = props;
   const { job, error, isBusy, isConfirming, isChanged, confirm } =
     usePickedPreview(channels);
   const progress = useProgress(job);
@@ -189,11 +189,7 @@ function ImportContent(props: ImportContentProps) {
       <PageContentBody>
         <ImportAccessNotes access={access} />
 
-        <ImportServers
-          setup={setup}
-          shown={props.server}
-          onAdd={onInvitePress}
-        />
+        <ImportServers setup={setup} shown={server} onAdd={onInvitePress} />
 
         <FieldSet legend={<ChannelsLegend />}>
           <ImportChannels

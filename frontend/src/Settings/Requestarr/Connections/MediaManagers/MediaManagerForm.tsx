@@ -103,7 +103,6 @@ function fieldWords(field: Field, app: string): Record<string, unknown> {
 }
 
 interface FieldExtrasProps {
-  name: string;
   item: MediaManagerItem;
   app: string;
   choices: Choices;
@@ -227,7 +226,6 @@ function MediaManagerForm({ settings, isReadOnly }: MediaManagerFormProps) {
         <MediaManagerField
           key={field.name}
           field={field}
-          name={field.name}
           item={item}
           app={app}
           choices={choices}

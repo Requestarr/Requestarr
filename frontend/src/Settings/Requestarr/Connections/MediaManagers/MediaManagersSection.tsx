@@ -72,11 +72,9 @@ interface Editing {
   id?: number;
 }
 
-// Legend: the section's heading; setup's step has its own, so it shows none.
 interface MediaManagersSectionProps {
   settings?: AppSettings;
   outcomes?: TestOutcome[];
-  legend?: string;
 }
 
 // The Sonarr and Radarr instances, as Prowlarr's Applications settings: a card for each from the provider store, the
@@ -85,7 +83,6 @@ interface MediaManagersSectionProps {
 function MediaManagersSection({
   settings,
   outcomes,
-  legend = translate('ConnectionsMediaManagers'),
 }: MediaManagersSectionProps) {
   const dispatch = useDispatch();
   const section = useSelector(
@@ -125,7 +122,7 @@ function MediaManagersSection({
 
   return (
     <div id="media-managers">
-      <FieldSet legend={legend}>
+      <FieldSet legend={translate('ConnectionsMediaManagers')}>
         {deleteNote && <Alert kind={kinds.WARNING}>{deleteNote}</Alert>}
 
         <PageSectionContent

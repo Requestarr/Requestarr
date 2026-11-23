@@ -69,11 +69,12 @@ namespace Requestarr.Core.Test.Settings
         public void an_install_with_a_sign_in_a_bot_and_an_instance_is_ready_with_only_the_read_only_invite()
         {
             Given(AuthenticationType.Forms, true, Instance(enabled: true));
+            GivenServers(new DiscordServer("7", "Home", null, true, true));
 
             var status = Subject.Status();
 
             status.Needed.Should().BeFalse();
-            status.InviteUrl.Should().BeNull("Requestarr already has its server");
+            status.InviteUrl.Should().BeNull("the bot is in Requestarr's server");
             status.ReadOnlyInviteUrl.Should().Contain("client_id=42").And.Contain($"permissions={SetupService.ReadOnlyInvitePermissions}");
         }
 
@@ -100,6 +101,15 @@ namespace Requestarr.Core.Test.Settings
 
             status.PickServer.Should().BeTrue();
             status.Servers.Select(s => s.Name).Should().Equal("Home", "Old bot");
+        }
+
+        [Test]
+        public void a_bot_removed_from_requestarrs_server_offers_the_full_invite_again()
+        {
+            Given(AuthenticationType.Forms, true);
+            GivenServers(new DiscordServer("7", null, null, true, false));
+
+            Subject.Status().InviteUrl.Should().Contain($"permissions={SetupService.InvitePermissions}");
         }
 
         [Test]

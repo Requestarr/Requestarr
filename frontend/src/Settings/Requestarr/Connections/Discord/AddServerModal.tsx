@@ -29,7 +29,10 @@ function AddServerContent({
   importOnly,
   onClose,
 }: AddServerContentProps) {
-  const ours = setup.servers.find((server) => server.isOurs);
+  // Requestarr's server, while the bot is in it: then only a server to read can be added.
+  const ours = setup.servers.find(
+    (server) => server.isOurs && server.reachable
+  );
   const [isImportOnly, setIsImportOnly] = useState(importOnly || !!ours);
   const url = isImportOnly ? setup.readOnlyInviteUrl : setup.inviteUrl;
   const onChange = useCallback(

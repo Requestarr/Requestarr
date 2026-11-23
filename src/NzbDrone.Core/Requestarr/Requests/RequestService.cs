@@ -861,7 +861,7 @@ namespace Requestarr.Core.Requests
                 return ServiceResult.Fail(DiscordText.NothingToRetry(request));
             }
 
-            var instance = _backends.Find(request.BackendId ?? 0);
+            var instance = NewHomeIfDeleted(request) ?? _backends.Find(request.BackendId ?? 0);
 
             if (instance == null || !instance.Enable)
             {
@@ -879,6 +879,20 @@ namespace Requestarr.Core.Requests
             return sent || request.Status == RequestStatus.Available
                 ? ServiceResult.Ok(DiscordText.RequestSent(request.Label, request.Id, instance.Name))
                 : ServiceResult.Fail(DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason));
+        }
+
+        // A request whose instance was deleted goes to its type's main instance on Retry, as a new title there.
+        private BackendInstance NewHomeIfDeleted(Request request)
+        {
+            if (_backends.Find(request.BackendId ?? 0) is not { IsDeleted: true } || _backends.Default(request.ContentType) is not { } home)
+            {
+                return null;
+            }
+
+            request.BackendId = home.Id;
+            request.ExternalItemId = null;
+
+            return home;
         }
 
         public IReadOnlyList<string> PeopleOn(Request request)

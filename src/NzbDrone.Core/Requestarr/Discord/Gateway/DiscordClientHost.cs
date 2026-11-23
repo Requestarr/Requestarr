@@ -337,10 +337,11 @@ namespace Requestarr.Core.Discord.Gateway
             _serverChoice.Value.SaveApplication(application.Id);
         }
 
-        // No server chosen yet: one the bot is alone in is Requestarr's; in several, the admin picks in the web app.
+        // No server chosen yet: one the bot is alone in, added with the full invite, is Requestarr's; in several, the
+        // admin picks in the web app. A server it was added to only to read (for an import) never is.
         private async Task ChooseOnlyServerAsync()
         {
-            if (Client.Guilds.Count == 1)
+            if (Client.Guilds.Count == 1 && CanRunIn(Client.Guilds.First()))
             {
                 await ChooseServerAsync(Client.Guilds.First().Id, Actor.System);
                 return;
@@ -348,6 +349,8 @@ namespace Requestarr.Core.Discord.Gateway
 
             ServersChanged();
         }
+
+        private static bool CanRunIn(SocketGuild guild) => guild.CurrentUser?.GuildPermissions is { ManageChannels: true, ManageRoles: true };
 
         // Requestarr's channels, roles, commands and panels in its server.
         private async Task SetUpServerAsync()
@@ -419,8 +422,8 @@ namespace Requestarr.Core.Discord.Gateway
             return true;
         }
 
-        // The bot was added to a server: with none chosen yet, the only one it's in becomes Requestarr's; any other
-        // shows as a card that only reads.
+        // The bot was added to a server: with none chosen yet, the only one it's in becomes Requestarr's; Requestarr's
+        // own, added back, is set up again; any other shows as a card that only reads.
         private Task OnJoinedServer(SocketGuild guild)
         {
             _ = Task.Run(async () =>
@@ -430,6 +433,13 @@ namespace Requestarr.Core.Discord.Gateway
                     if (_settings.Current.GuildId == 0)
                     {
                         await ChooseOnlyServerAsync();
+                        return;
+                    }
+
+                    // Added back to Requestarr's own server (it had been removed): set up there again.
+                    if (guild.Id == _settings.Current.GuildId)
+                    {
+                        await SetUpServerAsync();
                         return;
                     }
 

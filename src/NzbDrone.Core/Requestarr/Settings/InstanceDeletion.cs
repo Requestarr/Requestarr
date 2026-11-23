@@ -101,23 +101,38 @@ namespace Requestarr.Core.Settings
             {
                 request.Status = RequestStatus.Failed;
                 request.DecisionReason = NeedsNewHome(instance.Name);
-                request.BackendId = (heir ?? Others(instance).FirstOrDefault())?.Id ?? request.BackendId;
                 _requests.Update(request);
             }
 
+            var described = Described(instance, heir, open.Count);
+            instance.Name = DeletedName(instance);
             instance.Deleted = Clock();
             instance.Enable = false;
             instance.Config.IsDefault = false;
             instance.DownSince = null;
             _repository.Update(instance);
 
-            _audit.Record(actor, DeleteAction, "instance", instance.Id.ToString(), Described(instance, heir, open.Count));
+            _audit.Record(actor, DeleteAction, "instance", instance.Id.ToString(), described);
             await _backends.CheckAllAsync();
 
             return new InstanceDeleteResult(true, null, webhookProblem, open.Count);
         }
 
-        public static string NeedsNewHome(string name) => $"Needs a new home: {name} was deleted.";
+        public static string NeedsNewHome(string name) => $"Needs a new home: {name} was deleted. Retry sends it to its type's main instance.";
+
+        // "Sonarr (deleted)", or "Sonarr (deleted 2)" when an earlier deleted Sonarr has that name already.
+        private string DeletedName(BackendInstance instance)
+        {
+            var taken = _repository.Known().Select(b => b.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var name = $"{instance.Name} (deleted)";
+
+            for (var n = 2; taken.Contains(name); n++)
+            {
+                name = $"{instance.Name} (deleted {n})";
+            }
+
+            return name;
+        }
 
         private string Problem(BackendInstance instance, int? takeOver)
         {

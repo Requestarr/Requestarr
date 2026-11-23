@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -91,7 +92,7 @@ namespace Requestarr.Core.Imports
         // Discord's most per request.
         public const int PageSize = 100;
 
-        private static string Text(ulong id) => id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        private static string Text(ulong id) => id.ToString(CultureInfo.InvariantCulture);
 
         private readonly IDiscordClientHost _host;
         private DiscordSocketClient _intentClient;

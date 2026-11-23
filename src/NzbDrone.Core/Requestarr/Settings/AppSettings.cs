@@ -69,6 +69,7 @@ namespace Requestarr.Core.Settings
         public const string ProvisionedProblem = "These settings come from the provisioning file on this server; change them there.";
 
         private const string WebhookAddress = "availabilityWebhookUrl";
+        private const string BotTokenKey = "discordBotToken";
 
         private static readonly Regex DiscordId = new(@"^\d{15,21}$");
 
@@ -117,7 +118,7 @@ namespace Requestarr.Core.Settings
             var definitions = Definitions().ToDictionary(d => d.Key);
 
             // A secret sent back as the page showed it (masked) is the saved one, not a new one.
-            changes = changes.Where(c => !(definitions.TryGetValue(c.Key, out var d) && d.Kind == SettingKind.Secret && c.Value.Contains(MaskCharacter)))
+            changes = changes.Where(c => !(definitions.TryGetValue(c.Key, out var d) && IsShownSecret(d, c.Value)))
                 .ToDictionary(c => c.Key, c => c.Value);
 
             if (changes.Select(c => Problem(definitions, c.Key, c.Value)).FirstOrDefault(p => p != null) is { } problem)
@@ -126,6 +127,12 @@ namespace Requestarr.Core.Settings
             }
 
             var changed = changes.Where(c => Apply(definitions[c.Key], c.Value, actor)).Select(c => c.Key).ToList();
+
+            // Another bot's token, without its application: that is read from Discord again.
+            if (changed.Contains(BotTokenKey) && !changes.ContainsKey("discordApplicationId"))
+            {
+                _config.DiscordApplicationId = string.Empty;
+            }
 
             if (changed.Any())
             {
@@ -158,7 +165,10 @@ namespace Requestarr.Core.Settings
 
         // Left as shown (its masked last characters, or whether one is set) or emptied: the saved one stays.
         private static bool IsUnchangedSecret(SettingDefinition definition, string value) =>
-            definition.Kind == SettingKind.Secret && (string.IsNullOrEmpty(value) || bool.TryParse(value, out _) || value.Contains(MaskCharacter));
+            definition.Kind == SettingKind.Secret && (string.IsNullOrEmpty(value) || bool.TryParse(value, out _) || IsShownSecret(definition, value));
+
+        private static bool IsShownSecret(SettingDefinition definition, string value) =>
+            definition.Kind == SettingKind.Secret && value == Masked(definition.Read() ?? string.Empty);
 
         // Writes the value and records the change; false when it was already that.
         private bool Apply(SettingDefinition definition, string value, Actor actor)
@@ -189,6 +199,7 @@ namespace Requestarr.Core.Settings
                 SettingKind.Number when !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number < definition.Min || number > MaxNumber =>
                     $"{definition.Label} must be a whole number from {definition.Min} to {MaxNumber}.",
                 SettingKind.Switch when !bool.TryParse(value, out _) => $"{definition.Label} is on or off.",
+                SettingKind.Secret when value.Contains(MaskCharacter) => $"{definition.Label}: paste the whole new one in place of the dots.",
                 _ => definition.Check?.Invoke(Normalized(definition.Kind, value))
             };
         }
@@ -248,7 +259,7 @@ namespace Requestarr.Core.Settings
 
         private IEnumerable<SettingDefinition> DiscordDefinitions() => new[]
         {
-            new SettingDefinition("discordBotToken", "Bot token", SettingKind.Secret, () => _discord.Current.BotToken, v => _config.DiscordBotToken = v),
+            new SettingDefinition(BotTokenKey, "Bot token", SettingKind.Secret, () => _discord.Current.BotToken, v => _config.DiscordBotToken = v),
             new SettingDefinition("discordApplicationId", "Application ID", SettingKind.Text, () => Id(_discord.Current.ApplicationId), v => _config.DiscordApplicationId = v, Check: v => IdProblem("Application ID", v)),
             new SettingDefinition("discordGuildId", "Server ID", SettingKind.Text, () => Id(_discord.Current.GuildId), v => _config.DiscordGuildId = v, Check: v => IdProblem("Server ID", v)),
             new SettingDefinition("discordAdminRoleId", "Admin role ID", SettingKind.Text, () => _discord.Current.AdminRoleId?.ToString(CultureInfo.InvariantCulture), v => _config.DiscordAdminRoleId = v, Check: v => IdProblem("Admin role ID", v)),

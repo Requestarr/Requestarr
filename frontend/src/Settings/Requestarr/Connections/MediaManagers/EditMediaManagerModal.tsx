@@ -55,26 +55,26 @@ function Failure({ error }: { error?: object | null }) {
   ) : null;
 }
 
+// OnModalClose closes it (after a save); onCancel asks first when there are changes not saved.
 interface EditMediaManagerModalContentProps {
   id?: number;
   isReadOnly: boolean;
   onModalClose: () => void;
+  onCancel: () => void;
   onDeleted: (problem?: string) => void;
 }
 
 // Prowlarr's EditApplicationModalContent with its connector, as hooks: the form, then Delete, Show Advanced, Test,
-// Cancel and Save; closed once a save goes through. Leaving with changes unsaved asks first.
+// Cancel and Save; closed once a save goes through.
 function EditMediaManagerModalContent(
   props: EditMediaManagerModalContentProps
 ) {
-  const { id, isReadOnly, onModalClose, onDeleted } = props;
+  const { id, isReadOnly, onModalClose, onCancel, onDeleted } = props;
   const dispatch = useDispatch();
   const settings = useMediaManagerSettings(id);
   const { isFetching, error, isSaving, saveError, isTesting, item } = settings;
   const wasSaving = usePrevious(isSaving);
   const [isDeleting, setIsDeleting] = useState(false);
-  const leave = useLeaveWarning(settings.hasPendingChanges, onModalClose);
-  const app = item.implementation.value;
 
   useEffect(() => {
     if (wasSaving && !isSaving && !saveError) {
@@ -98,7 +98,7 @@ function EditMediaManagerModalContent(
     : translate('InstanceAddTitle', { type: item.implementationName });
 
   return (
-    <ModalContent onModalClose={leave.onClose}>
+    <ModalContent onModalClose={onCancel}>
       <ModalHeader>{title}</ModalHeader>
 
       <ModalBody>
@@ -130,15 +130,8 @@ function EditMediaManagerModalContent(
         hasAdvanced={true}
         onDelete={id ? onDeletePress : undefined}
         onTest={onTestPress}
-        onCancel={leave.onClose}
+        onCancel={onCancel}
         onSave={onSavePress}
-      />
-
-      <PendingChangesModal
-        isOpen={leave.isAsking}
-        message={translate('InstanceUnsavedChanges', { app })}
-        onConfirm={leave.onConfirm}
-        onCancel={leave.onCancel}
       />
 
       {id && (
@@ -162,7 +155,8 @@ interface EditMediaManagerModalProps {
 }
 
 // Adds a Sonarr or Radarr, or changes a saved one, as Prowlarr's EditApplicationModal(Connector): closing it drops the
-// changes not saved and stops a save or test still running.
+// changes not saved and stops a save or test still running. Leaving with changes not saved (Cancel, the close button,
+// Escape or a click outside) asks first.
 function EditMediaManagerModal({
   isOpen,
   id,
@@ -171,6 +165,7 @@ function EditMediaManagerModal({
   onDeleted,
 }: EditMediaManagerModalProps) {
   const dispatch = useDispatch();
+  const { hasPendingChanges, item } = useMediaManagerSettings(id);
 
   const onClose = useCallback(() => {
     dispatch(clearPendingChanges({ section: MEDIA_MANAGERS_SECTION }));
@@ -178,6 +173,7 @@ function EditMediaManagerModal({
     dispatch(cancelSaveMediaManager({ section: MEDIA_MANAGERS_SECTION }));
     onModalClose();
   }, [dispatch, onModalClose]);
+  const leave = useLeaveWarning(isOpen && hasPendingChanges, onClose);
 
   const onDeletedClose = useCallback(
     (problem?: string) => {
@@ -188,15 +184,26 @@ function EditMediaManagerModal({
   );
 
   return (
-    <Modal isOpen={isOpen} size={sizes.LARGE} onModalClose={onClose}>
+    <Modal isOpen={isOpen} size={sizes.LARGE} onModalClose={leave.onClose}>
       {isOpen && (
         <EditMediaManagerModalContent
           id={id}
           isReadOnly={isReadOnly}
           onModalClose={onClose}
+          onCancel={leave.onClose}
           onDeleted={onDeletedClose}
         />
       )}
+
+      <PendingChangesModal
+        isOpen={leave.isAsking}
+        message={translate('InstanceUnsavedChanges', {
+          // Nothing picked yet (the modal is closed): no type to name.
+          app: item.implementation?.value ?? '',
+        })}
+        onConfirm={leave.onConfirm}
+        onCancel={leave.onCancel}
+      />
     </Modal>
   );
 }

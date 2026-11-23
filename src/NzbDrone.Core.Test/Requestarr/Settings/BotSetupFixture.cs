@@ -66,6 +66,19 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
+        public async Task a_role_change_discord_refuses_is_said_in_plain_words()
+        {
+            GivenServer(Member(Owner, "Owner", Role), Member(2, "Alex"));
+            Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.AddRoleToMemberAsync(2, Role)).ThrowsAsync(new System.InvalidOperationException("Missing Permissions"));
+
+            var result = await Subject.SetAsync(new ulong[] { 2 }, Admin);
+
+            result.Saved.Should().BeFalse();
+            result.Problem.Should().Contain("Move the bot's own role above it");
+            NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
         public async Task the_owner_gets_the_admin_role_when_the_server_is_set_up_but_not_where_a_file_names_the_admins()
         {
             GivenServer(Member(Owner, "Owner"));

@@ -79,14 +79,23 @@ namespace Requestarr.Core.Discord
             var added = members.Where(m => wanted.Contains(m.Id) && !m.RoleIds.Contains(role)).ToList();
             var removed = members.Where(m => !wanted.Contains(m.Id) && m.RoleIds.Contains(role)).ToList();
 
-            foreach (var member in added)
+            try
             {
-                await _gateway.AddRoleToMemberAsync(member.Id, role);
-            }
+                foreach (var member in added)
+                {
+                    await _gateway.AddRoleToMemberAsync(member.Id, role);
+                }
 
-            foreach (var member in removed)
+                foreach (var member in removed)
+                {
+                    await _gateway.RemoveRoleFromMemberAsync(member.Id, role);
+                }
+            }
+            catch (Exception ex)
             {
-                await _gateway.RemoveRoleFromMemberAsync(member.Id, role);
+                // An admin role chosen under Show Advanced that sits above the bot's own can't be given by the bot.
+                _logger.Warn(ex, "Couldn't change who holds the admin role");
+                return new DiscordAdminsResult(false, "Discord didn't let the bot change who holds the admin role. Move the bot's own role above it in Server Settings, then Roles, and save again.");
             }
 
             if (added.Any() || removed.Any())

@@ -397,7 +397,16 @@ namespace Requestarr.Core.Availability
             if (baseUrl == null || (instance.Config.PollingOnly && !await LeavesPollingAsync(instance, api, baseUrl)))
             {
                 _problems.TryRemove(instance.Name, out _);
-                _reached.TryRemove(instance.Id, out _);
+
+                // Saved as timer only and still can't reach Requestarr: that's why it's on the timer.
+                if (baseUrl != null && !_provisioning.UsesFile)
+                {
+                    _reached[instance.Id] = false;
+                }
+                else
+                {
+                    _reached.TryRemove(instance.Id, out _);
+                }
 
                 if (await api.RemoveWebhookAsync(instance.Config, WebhookTokens.For(_config.ApiKey, instance.Id)))
                 {

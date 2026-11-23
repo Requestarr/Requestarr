@@ -10,15 +10,21 @@ import { SETTING_CHOICES } from './settingsPages';
 import { SettingsForm } from './useSettingsForm';
 import styles from './SettingField.css';
 
-// A secret is a text field: the server shows a saved one as dots and its last characters, so the admin can tell
-// which is saved, and typing over it replaces it.
 const INPUT_TYPES: Record<SettingInput, string> = {
   text: inputTypes.TEXT,
   number: inputTypes.NUMBER,
   check: inputTypes.CHECK,
-  password: inputTypes.TEXT,
+  password: inputTypes.PASSWORD,
   select: inputTypes.SELECT,
 };
+
+// A saved secret shows as the server sends it, dots and its last characters, so the admin can tell which is saved; a
+// new one being typed over it is hidden as Servarr hides any password.
+function inputType(input: SettingInput, isTyped: boolean) {
+  return input === 'password' && !isTyped
+    ? inputTypes.TEXT
+    : INPUT_TYPES[input];
+}
 
 // A select's choices, in the shape the web app's select input takes, and its locked look; other inputs have none.
 function selectProps(name: string, input: SettingInput) {
@@ -57,15 +63,15 @@ function helpText(name: string, settings: AppSettings) {
 // One of Requestarr's settings, by its name in the settings API: its label and help come from the translations.
 function SettingField({ name, input, form }: SettingFieldProps) {
   const settings = form.settings as AppSettings;
-  const value =
-    name in form.pending ? form.pending[name] : settings.values[name];
+  const isTyped = name in form.pending;
+  const value = isTyped ? form.pending[name] : settings.values[name];
 
   return (
     <FormGroup>
       <FormLabel>{translate(labelKey(name))}</FormLabel>
 
       <FormInputGroup
-        type={INPUT_TYPES[input]}
+        type={inputType(input, isTyped)}
         name={name}
         value={value}
         {...selectProps(name, input)}

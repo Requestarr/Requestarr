@@ -54,13 +54,11 @@ namespace Requestarr.Core.Backends
 
         public bool EverConnected => FirstConnected.HasValue;
 
-        // Deleted by an admin: gone from every list and picker, kept so its requests still show where they went.
+        // Deleted by an admin: gone from every list and picker, kept so its requests still show where they went. Its name
+        // says so ("Sonarr (deleted)"), which frees the old name for a new instance.
         public DateTime? Deleted { get; set; }
 
         public bool IsDeleted => Deleted.HasValue;
-
-        // Its name where its history shows it: "Sonarr (deleted)" once it's deleted.
-        public string ShownName => IsDeleted ? $"{Name} (deleted)" : Name;
     }
 
     // A Sonarr or Radarr connection's settings, as Servarr provider settings: each field's label and help are its

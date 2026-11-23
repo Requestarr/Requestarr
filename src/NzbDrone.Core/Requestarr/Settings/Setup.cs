@@ -15,8 +15,9 @@ namespace Requestarr.Core.Settings
     // app opens the first-run setup: the admin's sign-in (the sign-in dialog every fresh install shows), the Discord
     // bot, and at least one Sonarr or Radarr unless the admin skipped that step (InstanceSkipped: they add them later on
     // the Connections page). Discord is done once the bot has a server: the token is all the admin types, and the bot
-    // reads its application and server from Discord. InviteUrl adds the bot to Requestarr's server, offered only while
-    // it has none; the read-only one adds it to another server only to read there, for an import from Requestrr.
+    // reads its application and server from Discord. InviteUrl adds the bot to Requestarr's server, offered while it
+    // isn't in one (none chosen yet, or removed from it); the read-only one adds it to another server only to read
+    // there, for an import from Requestrr.
     // PickServer: the bot is in several servers and none is Requestarr's yet. BetaFromImage: the beta image says this
     // is beta, shown read-only.
     public record SetupStatus(bool Needed, bool AdminAccount, bool Discord, bool Instance, bool InstanceSkipped, DiscordBotState BotState, string BotProblem,
@@ -88,7 +89,8 @@ namespace Requestarr.Core.Settings
             var applicationId = _discord.Current.ApplicationId;
             var servers = _discordHost.Servers;
             var hasServer = _discord.Current.GuildId != 0;
-            var invite = hasServer ? null : InviteUrl(applicationId, InvitePermissions, InviteScope);
+            var inServer = servers.Any(s => s.IsOurs && s.Reachable);
+            var invite = inServer ? null : InviteUrl(applicationId, InvitePermissions, InviteScope);
             var readOnlyInvite = InviteUrl(applicationId, ReadOnlyInvitePermissions, ReadOnlyInviteScope);
 
             var needed = !_provisioning.UsesFile && !(adminAccount && discord && (instance || skipped));

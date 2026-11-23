@@ -143,6 +143,20 @@ namespace Requestarr.Core.Test.Settings
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, AppSettingsService.ChangeAction, "settings", "discordBotToken", It.IsAny<string>()), Times.Once());
 
             Mocker.GetMock<IConfigService>().Object.DiscordBotToken.Should().Be("abcdefghijklmnop");
+
+            var edited = await Save("discordBotToken", "pasted-over" + shown);
+            edited.Saved.Should().BeFalse("a new token typed around the dots would be lost otherwise");
+            edited.Problem.Should().Contain("paste the whole new one");
+        }
+
+        [Test]
+        public async Task another_bots_token_has_its_application_read_from_discord_again()
+        {
+            Mocker.GetMock<IConfigService>().Object.DiscordApplicationId = "123456789012345678";
+
+            await Save("discordBotToken", "another-bot");
+
+            Mocker.GetMock<IConfigService>().Object.DiscordApplicationId.Should().BeEmpty();
         }
 
         [Test]

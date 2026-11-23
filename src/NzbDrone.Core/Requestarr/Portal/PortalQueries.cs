@@ -364,7 +364,7 @@ namespace Requestarr.Core.Portal
                 .ToDictionary(g => g.Key, g => g.FirstOrDefault(i => i.AvatarUrl != null) ?? g.First());
 
         // Deleted ones too, named so, since requests keep showing where they went.
-        private Dictionary<int, string> Instances() => _backends.Known().ToDictionary(b => b.Id, b => b.ShownName);
+        private Dictionary<int, string> Instances() => _backends.Known().ToDictionary(b => b.Id, b => b.Name);
 
         private Dictionary<int, BackendInstance> Backends() => _backends.Known().ToDictionary(b => b.Id);
 
@@ -402,7 +402,7 @@ namespace Requestarr.Core.Portal
                     Person(request.OwnerUserId),
                     followers,
                     request.BackendId,
-                    instance?.ShownName,
+                    instance?.Name,
                     request.Seasons ?? new List<int>(),
                     request.Requested,
                     request.Decided,

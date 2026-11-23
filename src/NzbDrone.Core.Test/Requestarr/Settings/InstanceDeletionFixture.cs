@@ -42,6 +42,7 @@ namespace Requestarr.Core.Test.Settings
             repository.Setup(r => r.Find(1)).Returns(_main);
             repository.Setup(r => r.Find(2)).Returns(_anime);
             repository.Setup(r => r.All()).Returns(() => new[] { _main, _anime }.Where(i => !i.IsDeleted));
+            repository.Setup(r => r.Known()).Returns(() => new[] { _main, _anime, new BackendInstance { Id = 9, Name = "Sonarr Anime (deleted)" } });
 
             _api = new Mock<IBackendApi>();
             var backends = Mocker.GetMock<IBackendService>();
@@ -61,16 +62,17 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
-        public async Task deleting_keeps_the_history_moves_the_waiting_requests_and_hands_over_the_main_role()
+        public async Task deleting_keeps_the_history_flags_the_waiting_requests_and_hands_over_the_main_role()
         {
             var result = await Subject.DeleteAsync(1, 2, Admin);
 
             result.Should().Be(new InstanceDeleteResult(true, null, null, 2));
             (_main.IsDeleted, _main.Enable, _main.Config.IsDefault).Should().Be((true, false, false));
-            _main.ShownName.Should().Be("Sonarr (deleted)");
+            _main.Name.Should().Be("Sonarr (deleted)", "its requests say where they went, and the name is free again");
             _anime.Config.IsDefault.Should().BeTrue("it takes over");
 
-            _requests.Where(r => r.Id != 12).Should().OnlyContain(r => r.Status == RequestStatus.Failed && r.BackendId == 2 && r.DecisionReason == InstanceDeletion.NeedsNewHome("Sonarr"));
+            _requests.Where(r => r.Id != 12).Should().OnlyContain(r => r.Status == RequestStatus.Failed && r.BackendId == 1 && r.DecisionReason == InstanceDeletion.NeedsNewHome("Sonarr"),
+                "they keep where they went until Retry gives them a new home");
             _requests.Single(r => r.Id == 12).Should().Match<Request>(r => r.Status == RequestStatus.Available && r.BackendId == 1, "finished requests keep where they went");
 
             _api.Verify(a => a.RemoveWebhookAsync(_main.Config, It.IsAny<string>()), Times.Once());
@@ -87,6 +89,7 @@ namespace Requestarr.Core.Test.Settings
             result.Deleted.Should().BeTrue();
             result.WebhookProblem.Should().Contain("remove \"Requestarr\" under Sonarr's Settings, then Connect, yourself");
             _anime.IsDeleted.Should().BeTrue();
+            _anime.Name.Should().Be("Sonarr Anime (deleted 2)", "an earlier deleted instance has the first name");
             NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
         }
 
