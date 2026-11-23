@@ -18,6 +18,7 @@ and a beta heading names the goals' builds it includes.
 
 ### For users
 - **Anime versions in plain words:** the bot now says "English dub" or "subtitled version", and when two people want different versions it says which one is kept.
+- **Wording that fits your server:** removal votes and help talk about the library, not apps your server may not use.
 - **Request messages don't name servers:** your request goes where it belongs by what you asked for, so the bot no longer says which server took it.
 
 ### For admins
@@ -25,7 +26,7 @@ and a beta heading names the goals' builds it includes.
 - **Servers as cards:** each server the bot is in has a card, and the + card adds the bot to another server, for example only to import from Requestrr. A saved token shows only its last four characters.
 - **Beta knows it's beta:** the beta image says so, so there's no Production or Beta to choose any more.
 - **Clearer media manager forms:** they open in their card's window, with plainer wording. New ones start with Standard series, the Any profile and new members approved automatically.
-- **Test shows its result:** Test shows a green check or a red mark, with the reason where you're looking. Leaving with unsaved changes asks first.
+- **Test shows its result:** Test shows a green check or a red mark, with the reason where you're looking. Test All says every connection passed, or names each one that failed. Leaving with unsaved changes asks first.
 - **Delete, with history kept:** a media manager can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.
 - **Requests go by what's asked for:** each media manager says what it's for: everything, anime or nothing yet, and anime goes to the anime one. This replaces the Default tick box and members' own servers; any you set are dropped, their access and limits kept.
 - **Download updates sort themselves out:** Requestarr fills in its own address from your browser and tests it. Each card says whether downloads are reported right away or on a timer, and why.
