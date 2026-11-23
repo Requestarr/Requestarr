@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Selenium.Support" Version="4.1.0" />
-    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="134.0.6998.16500" />
+    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="158.0.8127.3600" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NzbDrone.Test.Common\Requestarr.Test.Common.csproj" />
