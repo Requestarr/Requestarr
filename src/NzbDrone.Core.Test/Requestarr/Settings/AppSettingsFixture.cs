@@ -152,7 +152,7 @@ namespace Requestarr.Core.Test.Settings
         [Test]
         public async Task another_bots_token_has_its_application_read_from_discord_again()
         {
-            Mocker.GetMock<IConfigService>().Object.DiscordApplicationId = "123456789012345678";
+            Mocker.GetMock<IConfigService>().Object.DiscordApplicationId = "42";
 
             await Save("discordBotToken", "another-bot");
 

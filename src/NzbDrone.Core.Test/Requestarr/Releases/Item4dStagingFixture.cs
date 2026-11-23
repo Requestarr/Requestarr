@@ -123,7 +123,7 @@ namespace Requestarr.Core.Test.Releases
 
             // The registry route leads: Registry, Use, Download, then Image, Run with a name, a port, a folder and the time zone.
             section.Should().Contain("**Container Manager**").And.Contain("**Use**").And.Contain("**Download**").And.Contain("**Run**").And.Contain("Add from URL");
-            section.Should().Contain("`requestarr-beta`").And.Contain("**`19797`**").And.Contain("**`/config`**").And.Contain("**`TZ`**").And.Contain("**This server is:** choose **Beta**");
+            section.Should().Contain("`requestarr-beta`").And.Contain("**`19797`**").And.Contain("**`/config`**").And.Contain("**`TZ`**").And.Contain("the beta image says it's beta");
             section.Should().Contain("**Update available**").And.Contain("**Create docker-compose.yml**").And.Contain("values block").And.Contain("Action → Build");
             section.Should().Contain("**Requestarr Beta (availability)**").And.Contain("**System → Backup**").And.Contain("**Restore**").And.Contain("ghcr.io/requestarr/requestarr:0.7.0004");
             section.Should().NotContain("update.sh rollback").And.NotContain("http://requestarr:9797");
