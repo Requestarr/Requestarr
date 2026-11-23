@@ -396,9 +396,9 @@ namespace Requestarr.Core.Requests
                 lines.Add(DiscordText.SeasonsLine(seasonsText));
             }
 
-            if (result.Request?.Language is { } language)
+            if (result.Request != null)
             {
-                lines.Add(DiscordText.LanguageLine(language));
+                lines.AddRange(HowItWasAdded(result.Request));
             }
 
             var reply = new InteractionReply

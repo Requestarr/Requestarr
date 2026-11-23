@@ -85,7 +85,7 @@ namespace Requestarr.Core.Test.AvailabilityFeed
         {
             var guide = File.ReadAllText(Item4To6Fixture.RepoFile("docs", "setup-guide.md"));
 
-            guide.Should().Contain("### 4.8 Downloads and availability")
+            guide.Should().Contain("### 4.9 Downloads and availability")
                 .And.Contain("webhookUrl: http://requestarr:9797")
                 .And.Contain("Docker, Sonarr/Radarr in the same Compose file")
                 .And.Contain("Not in Docker, all on one machine")
