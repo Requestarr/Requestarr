@@ -6,11 +6,11 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 8: every action writes an audit entry (who, what, target, when).
+    // Every action on a member or their media server link writes an audit entry (who, what, target, when).
     [TestFixture]
-    public class Item8AuditFixture : DiscordScenario
+    public class MemberAuditFixture : DiscordScenario
     {
-        // These cover Link Plex, which shows only while a Plex server is connected (task 4e).
+        // Link Plex shows only while a Plex server is connected.
         [SetUp]
         public void ConnectPlex() => ConnectedMediaServers.Servers.Add(Requestarr.Core.MediaServers.MediaServerProvider.Plex);
 

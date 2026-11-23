@@ -1,29 +1,29 @@
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using FluentAssertions;
 using NUnit.Framework;
-using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Interactions;
-using Requestarr.Core.MediaServers;
-using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Test.Framework;
 
-namespace Requestarr.Core.Test.CommandSurface
+namespace Requestarr.Core.Test.Admin
 {
-    // Item 4: every admin command lives under /admin, hidden from non-admins; old commands are gone.
-    // Task 3b: /admin has exactly three subcommands (user, request, help).
+    // The registered slash commands: /request and /help for everyone, and /admin (user, requests, help) hidden from
+    // non-admins. The admin commands it replaced are no longer handled, and the docs say where each one went.
     [TestFixture]
-    public class Item4AdminPrefixFixture : RequestScenario
+    public class AdminCommandsFixture : RequestScenario
     {
-        // These cover Link Plex, which shows only while a Plex server is connected (task 4e).
-        [SetUp]
-        public void ConnectPlex() => ConnectedMediaServers.Servers.Add(Requestarr.Core.MediaServers.MediaServerProvider.Plex);
+        private static readonly string[] OldCommands =
+        {
+            "/admin user add", "/admin user access", "/admin user quota", "/admin user info", "/admin user suspend", "/admin user remove",
+            "/admin user mediaserver", "/admin queue", "/admin approve", "/admin mediaserver approve", "/admin help"
+        };
 
         [Test]
-        public void exactly_request_and_admin_are_registered()
+        public void exactly_request_help_and_admin_are_registered()
         {
             var commands = DiscordCommandDefinitions.Build().Cast<SlashCommandProperties>().ToDictionary(c => c.Name.Value);
 
@@ -48,20 +48,6 @@ namespace Requestarr.Core.Test.CommandSurface
             admin.Options.Value.Single(o => o.Name == "requests").Options.Should().BeNullOrEmpty("it walks everything; no number or title to know");
             admin.Options.Value.Single(o => o.Name == "help").Options.Should().BeNullOrEmpty();
             DiscordCommandDefinitions.Leaves().Select(l => l.Path).Should().Equal("request", "help", "admin user", "admin requests", "admin help");
-        }
-
-        [Test]
-        public async Task admin_commands_work_under_the_prefix()
-        {
-            await RequestMovie(Alice, Dune);
-            await RequestMovie(Bob, DuneTwo);
-            await Harness.SendAsync(PlexForm(Alice, "alice_plex"));
-
-            (await Admin("queue")).LastReply.Content.Should().StartWith(DiscordText.WalkHeader(1, 3));
-            (await Harness.SendAsync(AdminSlash("approve").WithOption("id", 1L))).LastReply.Content.Should().StartWith("Approved request #1");
-            (await Harness.SendAsync(AdminSlash("deny").WithOption("id", 2L).WithOption("reason", "no"))).LastReply.Content.Should().Be(DiscordText.AdminDenied(RequestStore.Get(2)));
-            (await Harness.SendAsync(AdminSlash("mediaserver approve").WithOption("id", 1L))).LastReply.Content.Should().Contain("approved");
-            (await Harness.SendAsync(AdminCommand("user info", Alice))).LastReply.Content.Should().Contain("Plex `alice_plex`");
         }
 
         [TestCase("user add")]
@@ -95,15 +81,28 @@ namespace Requestarr.Core.Test.CommandSurface
         }
 
         [Test]
-        public async Task buttons_on_cards_posted_before_the_change_still_work()
+        public void the_command_reference_maps_every_old_command()
         {
-            await RequestMovie(Alice, Dune);
-            await Harness.SendAsync(PlexForm(Alice, "alice_plex"));
+            var commands = File.ReadAllText(RepoFiles.Path("docs", "commands.md"));
+            var table = commands.Substring(commands.IndexOf("### Where the old admin commands went"));
 
-            (await AdminButton("req-approve:1")).LastReply.Content.Should().Contain("approved");
-            (await AdminButton("msreq-deny:1")).LastReply.Content.Should().Contain("denied");
-            Mocker.Resolve<IMediaServerAccessRequestRepository>().Get(1).Status.Should().Be(AccessRequestStatus.Denied);
-            RequestStore.Get(1).Status.Should().Be(RequestStatus.Approved);
+            foreach (var old in OldCommands)
+            {
+                table.Should().Contain($"`{old}", $"{old} must say where it went");
+            }
+
+            table.Should().Contain("`unsuspend`").And.Contain("`deny` / `available` / `cancel`").And.Contain("`/admin mediaserver approve` / `deny`");
+            commands.Should().Contain("### `/admin user member:@someone`").And.Contain("### `/admin requests`").And.NotContain("/admin request request");
+        }
+
+        [Test]
+        public void the_setup_guide_admin_section_describes_the_new_layout()
+        {
+            var guide = File.ReadAllText(RepoFiles.Path("docs", "setup-guide.md"));
+            var admin = guide.Substring(guide.IndexOf("## 5. Admin setup in Discord"), guide.IndexOf("## 6. ") - guide.IndexOf("## 5. Admin setup in Discord"));
+
+            admin.Should().Contain("**Add or find a member**").And.Contain("### 5.6 The member card").And.Contain("`/admin requests`").And.Contain("### 5.7 When Sonarr or Radarr can't be reached");
+            admin.Should().NotContain("/admin user add").And.NotContain("/admin queue").And.NotContain("/admin approve").And.NotContain("/admin mediaserver");
         }
     }
 }

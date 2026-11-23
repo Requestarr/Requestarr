@@ -26,7 +26,7 @@ using Requestarr.Core.Test.Framework;
 using Requestarr.Core.Users;
 using Requestarr.Test.Common.Categories;
 
-namespace Requestarr.Core.Test.AdminRequests
+namespace Requestarr.Core.Test.Admin
 {
     // Live (task 3c): the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
     // Grants Music with no Lidarr (the private notice, and the member's real panel without Music); walks

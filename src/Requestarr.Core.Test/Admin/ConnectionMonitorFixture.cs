@@ -8,12 +8,12 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
 
-namespace Requestarr.Core.Test.AdminRequests
+namespace Requestarr.Core.Test.Admin
 {
-    // Task 3c item 7: content types follow real connections. Never connected: hidden from users.
+    // Content types follow real connections. Never connected: hidden from users.
     // Lost: still shown, requests say they're paused, the admins get one alert and one "back".
     [TestFixture]
-    public class Item1ConnectionsFixture : RequestMessageScenario
+    public class ConnectionMonitorFixture : RequestMessageScenario
     {
         private DateTime _now = new(2026, 10, 21, 12, 0, 0, DateTimeKind.Utc);
 
@@ -139,16 +139,6 @@ namespace Requestarr.Core.Test.AdminRequests
 
             check.LastReply.Content.Should().Contain(DiscordText.InstanceBackNow("Sonarr")).And.Contain(DiscordText.WalkDone);
             Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
-        }
-
-        [Test]
-        public async Task the_admin_panel_counts_what_waits()
-        {
-            await Mocker.Resolve<IPanelService>().EnsureAdminPanelAsync();
-            await PendingMovie(Alice, Dune);
-            await Mocker.Resolve<IPanelService>().RefreshAdminPanelAsync();
-
-            PanelIn(Discord.Channels[AdminChannel]).Buttons.First().Label.Should().Be(DiscordText.PanelPendingQueueCount(1)).And.Be("Pending queue (1)");
         }
     }
 }

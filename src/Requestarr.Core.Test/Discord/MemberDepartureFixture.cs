@@ -9,9 +9,9 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Item 5: a member leaving is suspended automatically and can be restored after rejoining.
+    // A member leaving the server is suspended automatically and can be restored after rejoining.
     [TestFixture]
-    public class Item5DeparturesFixture : DiscordScenario
+    public class MemberDepartureFixture : DiscordScenario
     {
         [Test]
         public async Task leaving_member_should_be_suspended_and_channel_locked()

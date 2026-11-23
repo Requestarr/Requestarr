@@ -7,13 +7,14 @@ using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Help;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.Polish
+namespace Requestarr.Core.Test.Discord
 {
-    // Item 7: separate user and admin help trees, private, menu-driven, filtered, built from definitions.
+    // Separate user and admin help trees: private, menu-driven, filtered to what the caller can use, built from the
+    // command and panel definitions.
     [TestFixture]
-    public class Item7HelpFixture : RequestCardScenario
+    public class HelpFixture : RequestCardScenario
     {
-        // What a user with every type sees; Linking Plex only while a Plex server is connected (task 4e), which the
+        // What a user with every type sees; Linking Plex only while a Plex server is connected, which the
         // admin's view of user help always shows.
         private static readonly string[] AllUserTopics = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "removals", "news" };
         private static readonly string[] EveryUserTopic = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "plex", "removals", "news" };
@@ -101,6 +102,7 @@ namespace Requestarr.Core.Test.Polish
 
             var run = await AdminHelp();
             run.LastReply.Ephemeral.Should().BeTrue();
+            run.LastReply.Content.Should().StartWith("**Requestarr admin help**");
             Topics(run).Should().Equal(AllAdminTopics.Append(HelpCatalog.UsersBranchKey));
         }
 
@@ -129,8 +131,17 @@ namespace Requestarr.Core.Test.Polish
         {
             var topic = await Harness.SendAsync(FakeInteraction.SelectMenu("help:admin", "onboarding").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
 
-            topic.LastReply.Content.Should().Contain($"`/admin user member`: {DiscordText.Commands.AdminUser}")
-                .And.Contain($"**{DiscordText.PanelUsers}** on the admin panel");
+            topic.LastReply.Content.Should().StartWith("**Members: adding and managing**")
+                .And.Contain($"`/admin user member`: {DiscordText.Commands.AdminUser}")
+                .And.Contain($"**{DiscordText.PanelUsers}** on the admin panel")
+                .And.Contain(DiscordText.PanelMembers).And.Contain(DiscordText.AddMemberLabel);
+        }
+
+        [Test]
+        public void admin_help_describes_exactly_the_admin_commands()
+        {
+            HelpCatalog.AdminTopics.SelectMany(t => t.Commands).Distinct().Should().BeEquivalentTo("admin user", "admin requests");
+            HelpCatalog.AdminTopics.SelectMany(t => t.Buttons).Should().Contain(PanelButtons.Members);
         }
 
         [Test]

@@ -5,11 +5,12 @@ using NUnit.Framework;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.CommandSurface
+namespace Requestarr.Core.Test.Admin
 {
-    // Item 5: #requestarr-admin has a panel with Pending queue and Users (the newest message, unpinned since task 4e).
+    // The admin channel has one panel (always its newest message, never pinned): Pending queue with what waits,
+    // Users, Members, Remove a title and Help, for admins in the admin channel only.
     [TestFixture]
-    public class Item5AdminPanelFixture : RequestScenario
+    public class AdminPanelFixture : RequestScenario
     {
         [SetUp]
         public async Task Panels()
@@ -20,8 +21,10 @@ namespace Requestarr.Core.Test.CommandSurface
         private FakeDiscordGuild.FakeChannel AdminRoom => Discord.Channels[AdminChannel];
 
         [Test]
-        public void admin_channel_has_one_panel_with_queue_and_users()
+        public async Task admin_channel_has_one_panel_with_queue_and_users_even_after_a_restart()
         {
+            await Mocker.Resolve<IPanelService>().EnsureAllAsync();
+
             AdminRoom.Pinned.Should().BeEmpty();
             PanelsIn(AdminRoom, PanelRoutes.AdminQueue).Should().Be(1);
             PanelIn(AdminRoom).Buttons.Select(b => (b.Label, b.CustomId)).Should().Equal(
@@ -34,15 +37,7 @@ namespace Requestarr.Core.Test.CommandSurface
         }
 
         [Test]
-        public async Task panel_is_not_duplicated_on_restart()
-        {
-            await Mocker.Resolve<IPanelService>().EnsureAllAsync();
-
-            PanelsIn(AdminRoom, PanelRoutes.AdminQueue).Should().Be(1);
-        }
-
-        [Test]
-        public async Task pending_queue_button_starts_the_walk_and_shows_the_count()
+        public async Task pending_queue_button_starts_the_walk_and_the_panel_counts_what_waits()
         {
             (await AdminButton(PanelRoutes.AdminQueue)).LastReply.Content.Should().Be(DiscordText.WalkDone);
 
@@ -51,10 +46,10 @@ namespace Requestarr.Core.Test.CommandSurface
 
             run.LastReply.Ephemeral.Should().BeTrue();
             run.LastReply.Content.Should().StartWith(DiscordText.WalkHeader(1, 1)).And.Contain("Dune (2021)").And.Contain("**alice** (asked)");
-            PanelLabel(Requestarr.Core.Discord.PanelService.AdminPanel(1)).Should().Be("Pending queue (1)");
-        }
 
-        public static string PanelLabel(Requestarr.Core.Discord.Interactions.InteractionReply panel) => panel.Buttons.First(b => b.CustomId == PanelRoutes.AdminQueue).Label;
+            await Mocker.Resolve<IPanelService>().RefreshAdminPanelAsync();
+            PanelIn(AdminRoom).Buttons.First().Label.Should().Be(DiscordText.PanelPendingQueueCount(1)).And.Be("Pending queue (1)");
+        }
 
         [Test]
         public async Task users_button_lists_users_with_access()
