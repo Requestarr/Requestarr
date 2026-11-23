@@ -112,7 +112,8 @@ namespace Requestarr.Core.Portal
                 Timeline(request, names),
                 Actions(request, latest),
                 HistoryTrimmedAfter(request.Requested),
-                rows.FollowersOf(request));
+                rows.FollowersOf(request),
+                request.AppliedFix);
         }
 
         public IReadOnlyList<PortalMember> Members()

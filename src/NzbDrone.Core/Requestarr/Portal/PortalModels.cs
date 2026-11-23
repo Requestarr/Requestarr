@@ -43,7 +43,7 @@ namespace Requestarr.Core.Portal
     // Followers: everyone following it with when they followed, earliest first; the list views show only a count.
     public record PortalRequestDetail(PortalRequest Request, string DecisionReason, string ProgressDetail, IReadOnlyList<int> AvailableSeasons, string PosterUrl,
                                       PortalRemoval LatestRemoval, IReadOnlyList<PortalEvent> Timeline, IReadOnlyList<string> Actions, string HistoryTrimmedAfter,
-                                      IReadOnlyList<PortalFollower> Followers);
+                                      IReadOnlyList<PortalFollower> Followers, string AppliedFix);
 
     // A member's access to one content type: its level and their limit (requests per so many days).
     public record PortalAccess(ContentType ContentType, AccessState State, int? QuotaLimit, int? QuotaDays);

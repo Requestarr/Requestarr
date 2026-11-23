@@ -76,6 +76,9 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<Requestarr.Core.Qa.BugReport>("BugReports").RegisterModel();
             Mapper.Entity<Requestarr.Core.Qa.BugReportGuard>("BugReportGuards").RegisterModel();
             Mapper.Entity<Requestarr.Core.Imports.ImportedMessage>("ImportedMessages").RegisterModel();
+            Mapper.Entity<Requestarr.Core.SeriesFixes.SeriesFix>("SeriesFixes").RegisterModel()
+                .Ignore(f => f.TagName)
+                .Ignore(f => f.ProfileName);
         }
 
         private static void RegisterMappers()

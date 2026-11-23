@@ -217,7 +217,7 @@ backends:
 | `seriesType` | no | Sonarr only. Applied to every series this instance gets from Requestarr. |
 | `purpose` | no | What the instance is for (section 4.4): `everything` (the type's main one, which takes whatever no other claims), `anime` (Sonarr only: anime shows) or `nothing` (an extra no new request goes to). One instance per purpose per type. The older `default: true` still reads as `everything`. On a server set up in the web app, it's **What this Sonarr is for** (or Radarr) on the instance, shown once a type has more than one. |
 | `enabled` | no | `false` keeps the instance but stops using it. |
-| `pollingOnly` | no | `true`: no webhook on this instance; downloads are found by the backup poll only (section 4.8). |
+| `pollingOnly` | no | `true`: no webhook on this instance; downloads are found by the backup poll only (section 4.9). |
 | `defaultAccess` | no | What a new member gets for the type, read from the type's `everything` instance: `off`, `approval` or `auto` (section 5.5). Defaults to `approval`. On a server set up in the web app, it's **Default access for new members** on the instance. |
 
 On every start, Requestarr checks each instance:
@@ -279,7 +279,7 @@ Each purpose belongs to one instance per type. In the web app, choosing a purpos
    - **needs approval:** an Approve / Deny card appears in `#requestarr-admin`; Deny asks for a reason
    - **auto-approve:** sent straight away
 6. The message ends with a clear status: **Request sent**, **Waiting for approval** (with a Cancel button), **Following**, **Already available**, or **Not requested** with the reason. TV requests also get **Add seasons**: the owner, anyone following, or an admin can add more seasons (or new seasons as they air) at any time, without approval and without using a limit. Seasons are never removed there.
-7. When a request is approved, Requestarr adds it to the instance with the instance's quality profile, root folder and series type, monitored, and starts a search. After that the message follows the download: downloading, stuck or failed, partly available, available (section 4.8).
+7. When a request is approved, Requestarr adds it to the instance with the instance's quality profile, root folder and series type, monitored, and starts a search. After that the message follows the download: downloading, stuck or failed, partly available, available (section 4.9).
 8. A request for a title that's already in the library when you act ends as 🎉 **Already available** with a "good news" message to the user (never denied, cancelled or failed, whichever you press, and also when Sonarr or Radarr reports it was added meanwhile); use the **Already available** button on the approval card, feed card or request card when you have it some other way.
 9. Whenever a request changes later (approved, already available, denied, cancelled by an admin, switched to another anime language, downloading, available, or seasons added by someone else), the user's old request message is deleted and a fresh one is posted at the bottom of their channel. It mentions them, so they get a ping, and only has the buttons that still make sense (Cancel while it waits for approval, none once decided). Followers' messages get the same treatment. The approval card is edited in place. Details:
    - The user's own **Cancel** edits their message in place, without a repost or ping.
@@ -385,7 +385,15 @@ A request for the losing language doesn't create a second request; the user foll
 - The instances need **different root folders**. Two Sonarrs sharing a folder fight over the same files.
 - Point your media server at them as **separate libraries**. In one library, the show appears twice.
 
-### 4.8 Downloads and availability
+### 4.8 Series fixes
+
+Some shows get the wrong releases: a name clash pulls in another series' files. Requestarr keeps a ready list of fixes for them, each tied to one show by its TheTVDB ID, never its name. Nothing is made in Sonarr ahead of time. When a listed show is requested, Requestarr adds a tag `requestarr-fix-<short name>` and a release profile "Requestarr fix: <show>" with the fix's terms on that tag, then adds the show with the tag. A listed show already in Sonarr gets the tag too. Every name starts with `requestarr`, so your own tags and profiles are never touched; Requestarr's are brought back in line with the list when they drift.
+
+The list is under **Settings, Connections, Series fixes**. Add a fix, change it, or turn it off; a fix that comes with Requestarr can be turned off but not deleted. It comes with one: Pokémon (1997), TheTVDB 76703, whose releases must not contain "Horizons". A request added with a fix says so on its message and its page, and the audit log records it, so a fix that stops downloads can be found.
+
+Series fixes are for Sonarr only. Radarr has no release profiles (it uses custom formats), and films rarely clash by name.
+
+### 4.9 Downloads and availability
 
 Once a request is sent, Requestarr follows it in Sonarr or Radarr and tells the user (and anyone following it) as it changes:
 
@@ -979,5 +987,5 @@ The first beta folder (with its own Sonarr and Radarr, `-beta` media folders and
 - **Discord still shows old commands after an update:** press Ctrl+R in the Discord app, or fully quit it from the system tray and reopen it.
 - **The bot doesn't come online:** check **System → Status** for the Discord message. Common causes are a wrong token, the bot not being invited to the server in `guildId`, or a missing application ID.
 - **"Provisioning file could not be applied" under System → Status:** the message names the problem, for example an environment variable that is not set or an invalid value. Fix `provisioning.yml` or `secrets.env`, then `docker compose restart requestarr`.
-- **"can't reach Requestarr at …" under System → Status:** that Sonarr or Radarr can't call Requestarr's webhook. Downloads are still tracked by the backup poll. Check `availability.webhookUrl` against the table in section 4.8, then restart Requestarr. On Docker, Requestarr and the instance must share a network for `http://requestarr:9797` to work.
+- **"can't reach Requestarr at …" under System → Status:** that Sonarr or Radarr can't call Requestarr's webhook. Downloads are still tracked by the backup poll. Check `availability.webhookUrl` against the table in section 4.9, then restart Requestarr. On Docker, Requestarr and the instance must share a network for `http://requestarr:9797` to work.
 - **The container restarts or stays unhealthy:** check `docker compose logs requestarr`. A common cause is a `./config` folder the container cannot write to (see section 3.2).

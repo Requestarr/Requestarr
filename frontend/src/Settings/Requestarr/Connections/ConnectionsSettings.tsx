@@ -18,6 +18,7 @@ import { MediaServersSection } from './ConnectionSections';
 import ConnectionsToolbar from './ConnectionsToolbar';
 import DiscordSection from './Discord/DiscordSection';
 import MediaManagersSection from './MediaManagers/MediaManagersSection';
+import SeriesFixesSection from './SeriesFixes/SeriesFixesSection';
 import WebhookAddressField from './WebhookAddressField';
 import styles from './Connections.css';
 
@@ -74,8 +75,8 @@ interface ConnectionCardsProps {
   onSaved: () => void;
 }
 
-// The sections in the owner's order: Discord, Media managers, Media servers, then Options. The Movie Database and
-// GitHub keys aren't here: they come from the server's environment, never the web app.
+// The sections in the owner's order: Discord, Media managers and their series fixes, Media servers, then Options.
+// The Movie Database and GitHub keys aren't here: they come from the server's environment, never the web app.
 function ConnectionCards({
   settings,
   setup,
@@ -90,6 +91,8 @@ function ConnectionCards({
       )}
 
       <MediaManagersSection settings={settings} outcomes={outcomes} />
+
+      <SeriesFixesSection />
 
       <MediaServersSection />
 

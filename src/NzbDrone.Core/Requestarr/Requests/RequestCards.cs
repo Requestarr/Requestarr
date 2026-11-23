@@ -396,9 +396,9 @@ namespace Requestarr.Core.Requests
                 lines.Add(DiscordText.SeasonsLine(seasonsText));
             }
 
-            if (result.Request?.Language is { } language)
+            if (result.Request != null)
             {
-                lines.Add(DiscordText.LanguageLine(language));
+                lines.AddRange(HowItWasAdded(result.Request));
             }
 
             var reply = new InteractionReply
@@ -418,6 +418,20 @@ namespace Requestarr.Core.Requests
             }
 
             return reply;
+        }
+
+        // How the title was added: its anime language, and the series fix it went in with.
+        private static IEnumerable<string> HowItWasAdded(Request request)
+        {
+            if (request.Language.HasValue)
+            {
+                yield return DiscordText.LanguageLine(request.Language.Value);
+            }
+
+            if (request.AppliedFix != null)
+            {
+                yield return DiscordText.FixLine(request.AppliedFix);
+            }
         }
 
         // A request message showing the request's real state; Cancel only while it is pending.
@@ -444,10 +458,7 @@ namespace Requestarr.Core.Requests
                 }
             }
 
-            if (request.Language.HasValue)
-            {
-                lines.Add(DiscordText.LanguageLine(request.Language.Value));
-            }
+            lines.AddRange(HowItWasAdded(request));
 
             if (note != null)
             {
@@ -523,10 +534,7 @@ namespace Requestarr.Core.Requests
                 }
             }
 
-            if (request.Language.HasValue)
-            {
-                lines.Add(DiscordText.LanguageLine(request.Language.Value));
-            }
+            lines.AddRange(HowItWasAdded(request));
 
             if (followers.Any())
             {
