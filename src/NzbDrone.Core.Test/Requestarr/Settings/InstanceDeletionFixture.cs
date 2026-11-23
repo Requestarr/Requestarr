@@ -71,7 +71,7 @@ namespace Requestarr.Core.Test.Settings
             _main.Name.Should().Be("Sonarr (deleted)", "its requests say where they went, and the name is free again");
             _anime.Config.Purpose.Should().Be(InstancePurpose.Everything, "it takes over");
 
-            _requests.Where(r => r.Id != 12).Should().OnlyContain(r => r.Status == RequestStatus.Failed && r.BackendId == 1 && r.DecisionReason == InstanceDeletion.NeedsNewHome("Sonarr"),
+            _requests.Where(r => r.Id != 12).Should().OnlyContain(r => r.Status == RequestStatus.Failed && r.BackendId == 1 && r.DecisionReason == InstanceDeletion.NeedsNewHome,
                 "they keep where they went until Retry gives them a new home");
             _requests.Single(r => r.Id == 12).Should().Match<Request>(r => r.Status == RequestStatus.Available && r.BackendId == 1, "finished requests keep where they went");
 

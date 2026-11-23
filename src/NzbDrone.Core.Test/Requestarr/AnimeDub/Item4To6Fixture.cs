@@ -58,6 +58,23 @@ namespace Requestarr.Core.Test.AnimeDub
         }
 
         [Test]
+        public async Task anime_sent_before_an_anime_sonarr_existed_stays_where_it_went()
+        {
+            TwoSonarrs();
+            await RequestAnime(Alice, "d");
+            var repo = Mocker.Resolve<IBackendRepository>();
+            var anime = repo.FindByName("Sonarr Sub");
+            anime.Config.Purpose = InstancePurpose.Anime;
+            repo.Update(anime);
+
+            await RequestAnime(Bob, "d");
+
+            RequestStore.All().Should().ContainSingle("Bob follows Alice's request instead of adding the show again")
+                .Which.BackendId.Should().Be(repo.FindByName("Sonarr").Id);
+            Sonarr.Adds.Should().ContainSingle();
+        }
+
+        [Test]
         public void the_setup_guide_warns_about_separate_instances()
         {
             var guide = File.ReadAllText(RepoFile("docs", "setup-guide.md"));

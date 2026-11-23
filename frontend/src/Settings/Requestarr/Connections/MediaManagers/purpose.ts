@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppState from 'App/State/AppState';
 import { setMediaManagerFieldValue } from 'Store/Actions/settingsActions';
@@ -61,14 +61,21 @@ export function usePurpose(item: MediaManagerItem, app: string) {
   const chosen = purposeOf(item);
   const allowsAnime = app === 'Sonarr';
   const isNew = !item.id?.value;
-  const startsOnEverything =
-    isNew && others.length > 0 && chosen === EVERYTHING;
+  const hasOthers = others.length > 0;
+  // Settled once, when the form's value first arrives: the admin can still choose Everything afterwards.
+  const settled = useRef(false);
 
   useEffect(() => {
-    if (startsOnEverything) {
+    if (settled.current || chosen === undefined) {
+      return;
+    }
+
+    settled.current = true;
+
+    if (isNew && hasOthers && chosen === EVERYTHING) {
       dispatch(setFieldValue({ name: PURPOSE_FIELD, value: NOTHING }));
     }
-  }, [dispatch, startsOnEverything]);
+  }, [dispatch, isNew, hasOthers, chosen]);
 
   const holder =
     chosen === NOTHING

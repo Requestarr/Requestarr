@@ -124,13 +124,13 @@ namespace Requestarr.Core.Backends
         // created or updated by name; instances no longer listed are disabled (kept for history).
         public void SyncFromProvisioning(BackendsProvisioning backends)
         {
-            var listed = new List<(string Implementation, BackendInstanceProvisioning Instance)>();
-            listed.AddRange((backends?.Sonarr ?? new List<BackendInstanceProvisioning>()).Select(i => (BackendImplementations.Sonarr, i)));
-            listed.AddRange((backends?.Radarr ?? new List<BackendInstanceProvisioning>()).Select(i => (BackendImplementations.Radarr, i)));
+            var listed = new List<(string Implementation, BackendInstanceProvisioning Instance, InstancePurpose Purpose)>();
+            listed.AddRange(WithPurposes(BackendImplementations.Sonarr, backends?.Sonarr));
+            listed.AddRange(WithPurposes(BackendImplementations.Radarr, backends?.Radarr));
 
             var existing = _repository.All().ToList();
 
-            foreach (var (implementation, entry) in listed)
+            foreach (var (implementation, entry, purpose) in listed)
             {
                 var instance = existing.FirstOrDefault(b => string.Equals(b.Name, entry.Name, StringComparison.OrdinalIgnoreCase)) ??
                                new BackendInstance { Name = entry.Name, Added = DateTime.UtcNow };
@@ -145,7 +145,7 @@ namespace Requestarr.Core.Backends
                     QualityProfile = entry.QualityProfile,
                     RootFolder = entry.RootFolder,
                     SeriesType = entry.SeriesType,
-                    Purpose = ProvisionedPurpose(entry),
+                    Purpose = purpose,
                     PollingOnly = entry.PollingOnly,
                     DefaultAccess = Discord.Handlers.HandlerSupport.ParseLevel(entry.DefaultAccess?.Trim()) ?? AccessState.NeedsApproval,
                     AnimeEnabled = entry.Anime?.Enabled ?? true,
@@ -257,8 +257,37 @@ namespace Requestarr.Core.Backends
             return implementation != null && All().Any(b => b.Enable && b.Implementation == implementation && b.FirstConnected.HasValue);
         }
 
+        // One type's entries with what each is for, keeping each purpose to one instance: a later entry claiming a taken
+        // purpose (or Anime on Radarr) is for nothing, and with none for everything the first one for nothing takes it.
+        private IEnumerable<(string Implementation, BackendInstanceProvisioning Instance, InstancePurpose Purpose)> WithPurposes(string implementation, List<BackendInstanceProvisioning> entries)
+        {
+            var listed = entries ?? new List<BackendInstanceProvisioning>();
+            var purposes = listed.Select(ProvisionedPurpose).ToList();
+            var taken = new HashSet<InstancePurpose>();
+
+            for (var i = 0; i < purposes.Count; i++)
+            {
+                var allowed = purposes[i] != InstancePurpose.Anime || implementation == BackendImplementations.Sonarr;
+
+                if (purposes[i] != InstancePurpose.Nothing && (!allowed || !taken.Add(purposes[i])))
+                {
+                    _logger.Warn("Provisioning: {0} '{1}' is for nothing: {2} is taken by an earlier one or isn't for {0}", implementation, listed[i].Name, purposes[i]);
+                    purposes[i] = InstancePurpose.Nothing;
+                }
+            }
+
+            var spare = purposes.IndexOf(InstancePurpose.Nothing);
+
+            if (!taken.Contains(InstancePurpose.Everything) && spare >= 0)
+            {
+                purposes[spare] = InstancePurpose.Everything;
+            }
+
+            return listed.Select((entry, i) => (implementation, entry, purposes[i]));
+        }
+
         // A provisioning file's purpose: everything | anime | nothing. Files written before purposes said Default instead,
-        // which still reads as Everything (and its absence as Nothing).
+        // which still reads as Everything.
         private static InstancePurpose ProvisionedPurpose(BackendInstanceProvisioning entry)
         {
             if (Enum.TryParse<InstancePurpose>(entry.Purpose?.Trim(), true, out var purpose))

@@ -264,10 +264,11 @@ namespace Requestarr.Core.Requests
             {
                 item = await Lookup(instance, type, externalId);
 
-                // Anime goes to the Anime Sonarr when one is turned on, looked up again there as that library has it.
-                if (item != null && _backends.ForRequest(type, item.IsAnime) is { } routed && routed.Id != instance.Id)
+                // A title goes where it was sent before, else by what it is (anime to the Anime Sonarr), looked up
+                // again there as that library has it.
+                if (item != null && Home(type, externalId, item.IsAnime) is { } home && home.Id != instance.Id)
                 {
-                    instance = routed;
+                    instance = home;
                     item = await Lookup(instance, type, externalId);
                 }
             }
@@ -307,6 +308,14 @@ namespace Requestarr.Core.Requests
                 Language = language
             });
         }
+
+        // Where a title's requests go: the instance it was last sent to while that one is still in use (its library has
+        // it, and anyone else asking follows that request), otherwise the instance for what it is.
+        private BackendInstance Home(ContentType type, int externalId, bool isAnime) =>
+            _requests.ForTitle(type, externalId).Newest()
+                .Select(r => _backends.Find(r.BackendId ?? 0))
+                .FirstOrDefault(b => b is { IsDeleted: false, Enable: true })
+            ?? _backends.ForRequest(type, isAnime);
 
         public async Task<RequestResult> RequestAsync(RequestCaller caller, ContentType type, int externalId, SeasonChoice seasons = null, AnimeLanguage? language = null)
         {
@@ -887,10 +896,11 @@ namespace Requestarr.Core.Requests
                 : ServiceResult.Fail(DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason));
         }
 
-        // A request whose instance was deleted goes to its type's main instance on Retry, as a new title there.
+        // A request whose instance was deleted goes where its kind goes on Retry (anime, which has a language, to the
+        // Anime Sonarr), as a new title there.
         private BackendInstance NewHomeIfDeleted(Request request)
         {
-            if (_backends.Find(request.BackendId ?? 0) is not { IsDeleted: true } || _backends.Default(request.ContentType) is not { } home)
+            if (_backends.Find(request.BackendId ?? 0) is not { IsDeleted: true } || _backends.ForRequest(request.ContentType, request.Language.HasValue) is not { } home)
             {
                 return null;
             }
@@ -1311,9 +1321,9 @@ namespace Requestarr.Core.Requests
                          ?? throw new BackendException(DiscordText.TitleNotFound);
 
                 var profile = BackendService.ResolveProfile(await api.GetQualityProfilesAsync(instance.Config), instance.Config.QualityProfile)
-                              ?? throw new BackendException($"quality profile '{instance.Config.QualityProfile}' not found on {instance.Name}");
+                              ?? throw new BackendException($"its quality profile '{instance.Config.QualityProfile}' isn't there any more");
                 var root = instance.Config.RootFolder ?? (await api.GetRootFoldersAsync(instance.Config)).FirstOrDefault()
-                           ?? throw new BackendException($"no root folder on {instance.Name}");
+                           ?? throw new BackendException("there's no root folder to add it to");
 
                 // Anime always goes in as Sonarr's Anime type (absolute numbering, scene mapping). With
                 // sub/dub on, it's tagged with its language so the matching release profile applies.

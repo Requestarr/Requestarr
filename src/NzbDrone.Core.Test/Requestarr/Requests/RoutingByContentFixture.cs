@@ -1,8 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Provisioning;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Requests
@@ -42,6 +46,33 @@ namespace Requestarr.Core.Test.Requests
             _anime.Enable = false;
 
             Subject.ForRequest(ContentType.Tv, isAnime: true).Should().BeSameAs(_everything);
+        }
+
+        [Test]
+        public void provisioning_keeps_one_instance_per_purpose_and_gives_everything_to_the_first_spare()
+        {
+            var saved = new List<BackendInstance>();
+            Mocker.GetMock<IBackendRepository>().Setup(r => r.All()).Returns(new List<BackendInstance>());
+            Mocker.GetMock<IBackendRepository>().Setup(r => r.Upsert(It.IsAny<BackendInstance>())).Returns<BackendInstance>(b =>
+            {
+                saved.Add(b);
+                return b;
+            });
+
+            Subject.SyncFromProvisioning(new BackendsProvisioning
+            {
+                Sonarr = new List<BackendInstanceProvisioning> { new() { Name = "A", Purpose = "anime" }, new() { Name = "B", Purpose = "anime" }, new() { Name = "C" } },
+                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "R", Purpose = "anime" } }
+            });
+
+            saved.ToDictionary(b => b.Name, b => b.Config.Purpose).Should().Equal(new Dictionary<string, InstancePurpose>
+            {
+                ["A"] = InstancePurpose.Anime,
+                ["B"] = InstancePurpose.Everything,
+                ["C"] = InstancePurpose.Nothing,
+                ["R"] = InstancePurpose.Everything
+            });
+            ExceptionVerification.ExpectedWarns(2);
         }
 
         [Test]
