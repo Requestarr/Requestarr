@@ -27,7 +27,7 @@ using Requestarr.Core.Test.Framework;
 using Requestarr.Core.Users;
 using Requestarr.Test.Common.Categories;
 
-namespace Requestarr.Core.Test.AvailabilityFeed
+namespace Requestarr.Core.Test.Availability
 {
     // Live: the real bot in the Discord test server with the dev stack's TEST Radarr and Sonarr.
     // A movie and a TV season are requested in real messages and approved from the real feed. The

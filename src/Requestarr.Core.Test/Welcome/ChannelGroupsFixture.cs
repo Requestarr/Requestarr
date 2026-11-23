@@ -9,24 +9,28 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Welcome
 {
-    // Task 4e item 1: two channel groups kept by the bot. Requestarr Admin holds the admin channel and the feed, which
-    // follow the group's admin-only permissions; Requestarr Users holds the welcome, announcements and blocked channels
-    // and every member's private channel. An existing server is moved over with its messages kept.
+    // The two channel groups the bot keeps. Requestarr Admin holds the admin channel and the feed, which follow the
+    // group's admin-only permissions; Requestarr Users holds the welcome, announcements and blocked channels and every
+    // member's private channel. An existing server is moved over with its messages kept.
     [TestFixture]
-    public class Item1GroupsFixture : WelcomeScenario
+    public class ChannelGroupsFixture : WelcomeScenario
     {
         private FakeDiscordGuild.FakeChannel Group(string name) => Discord.Channels.Values.Single(c => c.IsCategory && c.Name == name);
 
         [Test]
-        public void the_admin_group_holds_the_admin_channel_and_the_feed_with_the_group_permissions()
+        public async Task the_admin_group_holds_the_admin_channel_and_the_feed_with_the_group_permissions()
         {
+            await AddUser(Alice);
             var group = Group(ChannelLayout.AdminCategoryName);
             var admin = Discord.ChannelNamed(ChannelLayout.AdminChannelName);
             var feed = Discord.ChannelNamed(ChannelLayout.FeedChannelName);
 
             Config.AdminCategoryId.Should().Be(group.Id.ToString());
+            Config.FeedChannelId.Should().Be(feed.Id.ToString());
+            feed.Topic.Should().Be(DiscordText.FeedChannelTopic);
             admin.CategoryId.Should().Be(group.Id);
             feed.CategoryId.Should().Be(group.Id);
+            OverwriteFor(feed, RoleOf(Alice)).Should().BeNull("members never see the feed");
             OverwriteFor(group, FakeDiscordGuild.Guild).Deny.Should().HaveFlag(ChannelPermissions.ViewChannel, "only the admin role and the bot see it");
             OverwriteFor(group, AdminRole).Allow.Should().HaveFlag(ChannelPermissions.ViewChannel);
             OverwriteFor(group, FakeDiscordGuild.Bot).Allow.Should().HaveFlag(ChannelPermissions.ViewChannel);
@@ -84,8 +88,8 @@ namespace Requestarr.Core.Test.Welcome
             var aliceMessages = ChannelFor(Alice).MessageIds.ToList();
             var usersGroup = ulong.Parse(Config.RequestCategoryIds.Single());
 
-            // The layout before task 4e: the admin channel, the feed and announcements at the top, the private channels
-            // in "Requestarr Requests", and no admin group, welcome or blocked channel.
+            // The layout older versions made: the admin channel, the feed and announcements at the top, the private
+            // channels in "Requestarr Requests", and no admin group, welcome or blocked channel.
             foreach (var name in new[] { ChannelLayout.AdminChannelName, ChannelLayout.FeedChannelName, ChannelLayout.AnnouncementsChannelName })
             {
                 Discord.ChannelNamed(name).CategoryId = null;

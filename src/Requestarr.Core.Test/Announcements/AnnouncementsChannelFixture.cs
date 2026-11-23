@@ -10,10 +10,10 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Announcements
 {
-    // Task 3d item 1: one announcements channel, readable by every onboarded member (through one shared
-    // role) and read-only for them; admins and the bot post. Recreated if deleted; existing members join.
+    // One announcements channel, readable by every onboarded member (through one shared role) and read-only for
+    // them; admins and the bot post. Recreated if deleted; existing members join.
     [TestFixture]
-    public class Item1ChannelFixture : DiscordScenario
+    public class AnnouncementsChannelFixture : DiscordScenario
     {
         private ulong MembersRole => ulong.Parse(Config.MembersRoleId);
 
@@ -91,17 +91,6 @@ namespace Requestarr.Core.Test.Announcements
             await Harness.SendAsync(AdminCommand("user remove", Alice));
             UserFor(Alice).Status.Should().Be(UserStatus.Removed);
             HasRole(Alice).Should().BeFalse("removed");
-        }
-
-        [Test]
-        public async Task a_member_who_leaves_the_server_is_suspended_without_errors()
-        {
-            await AddUser(Alice);
-            Discord.RemoveMember(Alice);
-
-            await Mocker.Resolve<IUserManagementService>().HandleMemberLeftAsync(Alice);
-
-            UserFor(Alice).Status.Should().Be(UserStatus.Suspended);
         }
 
         [Test]

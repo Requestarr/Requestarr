@@ -7,12 +7,12 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.AvailabilityFeed
+namespace Requestarr.Core.Test.Availability
 {
-    // Item 3: the owner, any follower or an admin adds seasons to a TV request at any time, with no
-    // approval and no quota cost. Seasons are never removed here.
+    // The owner, any follower or an admin adds seasons to a TV request at any time, with no approval and no quota
+    // cost. Seasons are never removed here.
     [TestFixture]
-    public class Item3AddSeasonsFixture : FeedScenario
+    public class AddSeasonsFixture : FeedScenario
     {
         private const int Series = 101;
 

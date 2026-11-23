@@ -1,18 +1,15 @@
 using System.IO;
 using System.Linq;
 using FluentAssertions;
-using Moq;
 using NUnit.Framework;
-using NzbDrone.Core.Configuration;
-using Requestarr.Core.Announcements;
 using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Welcome
 {
-    // Task 4e item 9: the web app shows Requestarr's logo, in the set for the environment it runs in (dev, QA, beta for
-    // staging, production for anything else) and the theme it shows (light or dark, Auto with the system setting).
+    // The web app shows Requestarr's logo, in the set for the environment it runs in and the theme it shows (light or
+    // dark, Auto with the system setting). Which set each environment gets: ReleaseEnvironmentFixture.
     [TestFixture]
-    public class Item9WebIconsFixture
+    public class WebIconsFixture
     {
         private static readonly string[] Sets = { "production", "dev", "qa", "beta" };
 
@@ -23,38 +20,6 @@ namespace Requestarr.Core.Test.Welcome
         };
 
         private static string Icons(params string[] parts) => RepoFiles.Path(new[] { "frontend", "src", "Content", "Images", "Icons" }.Concat(parts).ToArray());
-
-        [TestCase("dev", "dev")]
-        [TestCase("qa", "qa")]
-        [TestCase(" QA ", "qa")]
-        [TestCase("staging", "beta")]
-        [TestCase(null, "production")]
-        [TestCase("", "production")]
-        [TestCase("anything else", "production")]
-        public void the_set_follows_the_environment_it_runs_in(string environment, string set)
-        {
-            ReleaseEnvironment.IconSetFor(environment).Should().Be(set);
-            new ReleaseEnvironment(Mock.Of<IConfigService>()) { Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? environment : null }.IconSet.Should().Be(set);
-        }
-
-        // A published image runs on beta and production alike, so without the stack's variable the role chosen in the
-        // first-run setup decides; the stack's variable, on dev and QA, always wins.
-        [TestCase(null, "beta", "beta")]
-        [TestCase(null, "production", "production")]
-        [TestCase(null, "", "production")]
-        [TestCase("dev", "beta", "dev")]
-        [TestCase("qa", "production", "qa")]
-        public void without_the_stacks_variable_the_servers_role_decides(string environment, string role, string set)
-        {
-            var config = Mock.Of<IConfigService>(c => c.ServerRole == role);
-            var release = new ReleaseEnvironment(config) { Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? environment : null };
-
-            release.IconSet.Should().Be(set);
-            release.SetByStack.Should().Be(environment != null);
-            release.VersionPosts.Should().Be(PostsFor(environment));
-        }
-
-        private static VersionPostMode PostsFor(string environment) => environment switch { "dev" => VersionPostMode.CurrentOnly, "qa" => VersionPostMode.NotYetStaged, _ => VersionPostMode.Standing };
 
         [Test]
         public void every_environment_has_a_full_light_and_dark_set()

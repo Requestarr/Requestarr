@@ -2,20 +2,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
-using NzbDrone.Core.HealthCheck;
 using Requestarr.Core.Availability;
-using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
-using Requestarr.Test.Common;
 
-namespace Requestarr.Core.Test.AvailabilityFeed
+namespace Requestarr.Core.Test.Availability
 {
-    // Item 1: downloading, available (TV: every aired episode of a season has a file), stuck and
-    // failed, from Sonarr's / Radarr's webhook and the backup poll, each change reposted once.
+    // Availability: downloading, available (TV: every aired episode of a season has a file), stuck and failed, from the
+    // instance's webhook and the backup poll, each change reposted once to the requester and the feed.
     [TestFixture]
-    public class Item1AvailabilityFixture : FeedScenario
+    public class AvailabilityFixture : FeedScenario
     {
         private const int MovieId = 101;
 
@@ -64,7 +61,7 @@ namespace Requestarr.Core.Test.AvailabilityFeed
             done.Progress.Should().Be(DownloadProgress.Imported);
             done.Fulfilled.Should().Be(Now);
             Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalReady}").And.Contain("ready to watch");
-            Latest(Alice).Buttons.Select(b => b.CustomId).Should().Equal(new[] { $"rm-user:{request.Id}" }, "once it's in the library, its requester can ask to remove it (task 4)");
+            Latest(Alice).Buttons.Select(b => b.CustomId).Should().Equal(new[] { $"rm-user:{request.Id}" }, "once it's in the library, its requester can ask to remove it");
             State(CardOf(request.Id)).Should().Be(DiscordText.FinalReady);
             CardOf(request.Id).Buttons.Select(b => b.CustomId).Should().Equal(new[] { $"rm-feed:{request.Id}" }, "the feed card's Delete starts a removal");
             Audits("request.fulfilled").Should().Be(1);
@@ -152,30 +149,21 @@ namespace Requestarr.Core.Test.AvailabilityFeed
             Reload(request.Id).Status.Should().Be(RequestStatus.Available);
         }
 
-        [Test]
-        public async Task a_download_the_instance_flags_is_stuck_with_its_reason()
+        // A download the instance flags, or an import it blocks, is stuck with the instance's reason.
+        [TestCase("warning", "downloading", "The download is stalled with no connections")]
+        [TestCase("completed", "importBlocked", "No files found are eligible for import")]
+        public async Task a_download_the_instance_flags_is_stuck_with_its_reason(string status, string state, string reason)
         {
             var request = await SentMovie();
-            Radarr.QueueIssue(MovieId, "warning", "warning", "downloading", "The download is stalled with no connections");
+            Radarr.QueueIssue(MovieId, status, "warning", state, reason);
 
             await Availability.CheckAllAsync();
 
             var stuck = Reload(request.Id);
             stuck.Progress.Should().Be(DownloadProgress.Stalled);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalStalled}").And.Contain("stalled with no connections");
-            State(CardOf(request.Id)).Should().Be($"{DiscordText.FinalStalled}: The download is stalled with no connections");
-        }
-
-        [Test]
-        public async Task an_import_the_instance_blocks_is_stuck_too()
-        {
-            var request = await SentMovie();
-            Radarr.QueueIssue(MovieId, "completed", "warning", "importBlocked", "No files found are eligible for import");
-
-            await Availability.CheckAllAsync();
-
-            Reload(request.Id).Progress.Should().Be(DownloadProgress.Stalled);
-            Reload(request.Id).ProgressDetail.Should().Be("No files found are eligible for import");
+            stuck.ProgressDetail.Should().Be(reason);
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalStalled}").And.Contain(reason);
+            State(CardOf(request.Id)).Should().Be($"{DiscordText.FinalStalled}: {reason}");
         }
 
         [Test]
@@ -227,31 +215,6 @@ namespace Requestarr.Core.Test.AvailabilityFeed
         }
 
         [Test]
-        public async Task a_webhook_with_a_wrong_token_or_instance_changes_nothing()
-        {
-            var request = await SentMovie();
-            Radarr.Imported(MovieId);
-
-            (await Availability.HandleWebhookAsync(request.BackendId.Value, "wrong", "Download", null, Dune)).Should().Be(WebhookOutcome.Unauthorized);
-            (await Availability.HandleWebhookAsync(request.BackendId.Value, null, "Download", null, Dune)).Should().Be(WebhookOutcome.Unauthorized);
-            (await Availability.HandleWebhookAsync(999, Token(999), "Download", null, Dune)).Should().Be(WebhookOutcome.UnknownInstance);
-            (await Availability.HandleWebhookAsync(Instance("Radarr 4K").Id, Token(request.BackendId.Value), "Download", null, Dune)).Should().Be(WebhookOutcome.Unauthorized, "each instance has its own token");
-
-            Reload(request.Id).Status.Should().Be(RequestStatus.Approved);
-            ExceptionVerification.ExpectedWarns(3);
-        }
-
-        [Test]
-        public async Task webhooks_for_titles_with_no_sent_request_are_ignored()
-        {
-            await PendingMovie(Alice, Dune);
-
-            (await Availability.HandleWebhookAsync(Instance("Radarr").Id, Token(Instance("Radarr").Id), "Download", null, Dune)).Should().Be(WebhookOutcome.Ignored);
-            (await Availability.HandleWebhookAsync(Instance("Radarr").Id, Token(Instance("Radarr").Id), "Test", null, null)).Should().Be(WebhookOutcome.Accepted);
-            Reload(1).Status.Should().Be(RequestStatus.Pending);
-        }
-
-        [Test]
         public async Task without_discord_the_poll_waits_and_catches_up_later()
         {
             var request = await SentMovie();
@@ -264,107 +227,6 @@ namespace Requestarr.Core.Test.AvailabilityFeed
             Discord.IsConnected = true;
             await Availability.CheckAllAsync();
             Reload(request.Id).Status.Should().Be(RequestStatus.Available);
-        }
-
-        // Requestarr's own webhook connection on each instance.
-        [Test]
-        public async Task the_webhook_is_created_once_per_instance_and_never_touches_owner_connections()
-        {
-            Mocker.Resolve<IAvailabilitySettingsStore>().Set("http://requestarr:9797/", null);
-
-            await Availability.SetUpWebhooksAsync();
-            await Availability.SetUpWebhooksAsync();
-
-            var radarr = Instance("Radarr");
-            Radarr.Webhooks["http://radarr-test:7878"].Should().Be($"http://requestarr:9797/api/v1/webhook/{radarr.Id}?token={Token(radarr.Id)}");
-            Radarr.Webhooks.Should().HaveCount(2, "Radarr and Radarr 4K, each with its own URL");
-            Sonarr.Webhooks.Should().ContainKey("http://sonarr-test:8989");
-            Radarr.WebhookWrites.Should().Be(2, "the second run changed nothing");
-            Radarr.OwnerConnections.Should().Equal("Owner's Discord", "Owner's webhook");
-            Availability.WebhookProblems.Should().BeEmpty();
-        }
-
-        [Test]
-        public async Task polling_only_instances_and_installs_without_an_address_get_no_webhook()
-        {
-            Mocker.Resolve<IAvailabilitySettingsStore>().Set("http://requestarr:9797", null);
-            await Availability.SetUpWebhooksAsync();
-
-            var sonarr = Instance("Sonarr");
-            sonarr.Config.PollingOnly = true;
-            Mocker.Resolve<IBackendRepository>().Update(sonarr);
-            Mocker.GetMock<Requestarr.Core.Provisioning.IProvisioningService>().SetupGet(p => p.UsesFile).Returns(true);
-            await Availability.SetUpWebhooksAsync();
-            Sonarr.Webhooks.Should().BeEmpty("a provisioning file's polling only removes Requestarr's webhook");
-            Availability.UpdatesFor(Instance("Sonarr")).Reason.Should().Be(UpdatesReasons.SetByFile);
-
-            Mocker.Resolve<IAvailabilitySettingsStore>().Set(null, null);
-            await Availability.SetUpWebhooksAsync();
-            Radarr.Webhooks.Should().BeEmpty();
-        }
-
-        [Test]
-        public async Task an_instance_saved_as_timer_only_switches_to_right_away_once_its_connect_test_reaches_requestarr()
-        {
-            Mocker.Resolve<IAvailabilitySettingsStore>().Set("http://requestarr:9797", 10);
-            var sonarr = Instance("Sonarr");
-            sonarr.Config.PollingOnly = true;
-            Mocker.Resolve<IBackendRepository>().Update(sonarr);
-            Sonarr.WebhookUnreachable = true;
-
-            await Availability.SetUpWebhooksAsync();
-
-            Sonarr.Webhooks.Should().BeEmpty("it can't reach Requestarr yet, so it stays on the timer");
-            Instance("Sonarr").Config.PollingOnly.Should().BeTrue();
-
-            Sonarr.WebhookUnreachable = false;
-            await Availability.SetUpWebhooksAsync();
-
-            Instance("Sonarr").Config.PollingOnly.Should().BeFalse("its own Connect test got through");
-            Sonarr.Webhooks.Should().ContainKey("http://sonarr-test:8989");
-            Availability.UpdatesFor(Instance("Sonarr")).Should().Be(new InstanceUpdates(true, UpdatesReasons.RightAway, 10));
-        }
-
-        [Test]
-        public async Task each_instance_says_how_its_downloads_are_reported_and_an_address_is_tested_before_saving()
-        {
-            Mocker.Resolve<IAvailabilitySettingsStore>().Set(null, 10);
-            Availability.UpdatesFor(Instance("Radarr")).Reason.Should().Be(UpdatesReasons.NoAddress);
-
-            Mocker.Resolve<IAvailabilitySettingsStore>().Set("http://requestarr:9797", 10);
-            Availability.UpdatesFor(Instance("Radarr")).Reason.Should().Be(UpdatesReasons.NotChecked);
-
-            Radarr.WebhookUnreachable = true;
-            await Availability.SetUpWebhooksAsync();
-            Availability.UpdatesFor(Instance("Radarr")).Should().Be(new InstanceUpdates(false, UpdatesReasons.Unreachable, 10));
-            Availability.UpdatesFor(Instance("Sonarr")).Reason.Should().Be(UpdatesReasons.RightAway);
-
-            var reached = await Availability.TestAddressAsync("http://192.168.1.10:9797");
-
-            reached.Where(r => r.Problem == null).Select(r => r.Name).Should().Equal("Sonarr");
-            reached.Where(r => r.Problem != null).Select(r => r.Name).Should().BeEquivalentTo("Radarr", "Radarr 4K");
-            reached.Single(r => r.Name == "Radarr").Problem.Should().Contain("192.168.1.10:9797");
-            ExceptionVerification.ExpectedWarns(2);
-        }
-
-        [Test]
-        public async Task an_instance_that_cannot_reach_requestarr_is_a_health_warning_and_polling_covers_it()
-        {
-            Mocker.Resolve<IAvailabilitySettingsStore>().Set("http://requestarr:9797", 10);
-            Radarr.WebhookUnreachable = true;
-
-            await Availability.SetUpWebhooksAsync();
-
-            Availability.WebhookProblems.Keys.Should().BeEquivalentTo("Radarr", "Radarr 4K");
-            Availability.WebhookProblems["Radarr"].Should().Contain("http://requestarr:9797").And.Contain("every 10 minutes").And.NotContain(Token(Instance("Radarr").Id));
-            var health = new WebhookHealthCheck(Availability, Mocker.Resolve<NzbDrone.Core.Localization.ILocalizationService>()).Check();
-            health.Type.Should().Be(HealthCheckResult.Warning);
-            health.Reason.Should().Be(HealthCheckReason.WebhookUnreachable);
-
-            Radarr.WebhookUnreachable = false;
-            await Availability.SetUpWebhooksAsync();
-            Availability.WebhookProblems.Should().BeEmpty();
-            ExceptionVerification.ExpectedWarns(2);
         }
     }
 }

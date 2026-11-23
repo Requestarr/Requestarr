@@ -3,32 +3,16 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Discord;
-using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.AvailabilityFeed
+namespace Requestarr.Core.Test.Availability
 {
-    // Item 2: the admin-only feed channel, one compact card per request, reposted at the bottom on
-    // every change with only the buttons valid now; approval cards and the feed stay in step.
+    // The admin-only feed channel: one compact card per request, reposted at the bottom on every change with only the
+    // buttons valid now; approval cards and the feed stay in step.
     [TestFixture]
-    public class Item2FeedFixture : FeedScenario
+    public class AdminFeedFixture : FeedScenario
     {
-        [Test]
-        public void the_feed_channel_is_created_next_to_the_admin_channel_for_admins_only()
-        {
-            var feed = Discord.ChannelNamed(ChannelLayout.FeedChannelName);
-
-            feed.Should().NotBeNull();
-            Config.FeedChannelId.Should().Be(feed.Id.ToString());
-            feed.CategoryId.Should().Be(Discord.ChannelNamed(ChannelLayout.AdminChannelName).CategoryId);
-            feed.Topic.Should().Be(DiscordText.FeedChannelTopic);
-            OverwriteFor(feed, FakeDiscordGuild.Guild).Deny.Should().HaveFlag(ChannelPermissions.ViewChannel);
-            OverwriteFor(feed, AdminRole).Allow.Should().HaveFlag(ChannelPermissions.ViewChannel);
-            OverwriteFor(feed, Discord.BotUserId).Allow.Should().HaveFlag(ChannelPermissions.ViewChannel);
-            OverwriteFor(feed, RoleOf(Alice)).Should().BeNull("users never see the feed");
-        }
-
         [Test]
         public async Task the_feed_channel_survives_restarts_and_comes_back_if_deleted()
         {
