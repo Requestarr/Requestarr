@@ -56,7 +56,14 @@ namespace Requestarr.Core.SeriesFixes
 
             if (ours == null)
             {
-                await _sonarr.SaveReleaseProfileAsync(instance.Config, new ReleaseProfile { Name = fix.ProfileName, Required = fix.MustContain.ToList(), Ignored = fix.MustNotContain.ToList(), Tags = new List<int> { tag.Id } });
+                var profile = new ReleaseProfile
+                {
+                    Name = fix.ProfileName,
+                    Required = fix.MustContain.ToList(),
+                    Ignored = fix.MustNotContain.ToList(),
+                    Tags = new List<int> { tag.Id }
+                };
+                await _sonarr.SaveReleaseProfileAsync(instance.Config, profile);
                 _logger.Info("Series fix for {0} built on {1}", fix.Series, instance.Name);
             }
             else if (!InLine(ours, fix, tag.Id))

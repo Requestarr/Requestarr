@@ -23,6 +23,7 @@ namespace Requestarr.Core.SeriesFixes
     public class SeriesFixList : ISeriesFixList
     {
         private const string ChangeAction = "seriesfix.change";
+        private const string Gone = "That fix doesn't exist any more.";
         private static readonly Regex NotTagSafe = new("[^a-z0-9]+", RegexOptions.Compiled);
 
         private readonly ISeriesFixRepository _fixes;
@@ -42,7 +43,7 @@ namespace Requestarr.Core.SeriesFixes
 
             if (id.HasValue && existing == null)
             {
-                return new SeriesFixResult(null, "That fix doesn't exist any more.");
+                return new SeriesFixResult(null, Gone);
             }
 
             var mustContain = Terms(input.MustContain);
@@ -74,7 +75,7 @@ namespace Requestarr.Core.SeriesFixes
 
             if (fix == null)
             {
-                return new SeriesFixResult(null, "That fix doesn't exist any more.");
+                return new SeriesFixResult(null, Gone);
             }
 
             if (fix.Shipped)

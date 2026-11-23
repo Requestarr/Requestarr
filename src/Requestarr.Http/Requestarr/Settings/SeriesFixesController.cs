@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Requestarr.Core.SeriesFixes;
@@ -28,7 +29,7 @@ namespace Requestarr.Http.Settings
         [HttpDelete("/api/v1/requestarr/seriesfixes/{id:int}")]
         public Task<IActionResult> Remove(int id) => Answer(async () => _fixes.Delete(id, await WebAdmin.ActorAsync(HttpContext)));
 
-        private async Task<IActionResult> Answer(System.Func<Task<SeriesFixResult>> action)
+        private async Task<IActionResult> Answer(Func<Task<SeriesFixResult>> action)
         {
             var result = await action();
 

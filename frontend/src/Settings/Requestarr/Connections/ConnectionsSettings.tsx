@@ -75,8 +75,8 @@ interface ConnectionCardsProps {
   onSaved: () => void;
 }
 
-// The sections in the owner's order: Discord, Media managers and their series fixes, Media servers, then Options. The Movie Database and
-// GitHub keys aren't here: they come from the server's environment, never the web app.
+// The sections in the owner's order: Discord, Media managers and their series fixes, Media servers, then Options.
+// The Movie Database and GitHub keys aren't here: they come from the server's environment, never the web app.
 function ConnectionCards({
   settings,
   setup,
