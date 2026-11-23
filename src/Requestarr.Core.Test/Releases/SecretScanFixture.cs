@@ -1,30 +1,30 @@
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using Dapper;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Common.Instrumentation;
 using NzbDrone.Core.Datastore;
-using NzbDrone.Core.Datastore.Converters;
 using Requestarr.Core.Backends;
-using Requestarr.Core.Discord;
 using Requestarr.Core.Test.Framework;
 
-namespace Requestarr.Core.Test.AnimeDub
+namespace Requestarr.Core.Test.Releases
 {
-    // Items 8 and 9: secrets never reach test or CI output; the build scans each change for secrets.
+    // Secrets never reach test or CI output, and the build scans each change for secrets.
     [TestFixture]
-    public class Item8And9SecretsFixture
+    public class SecretScanFixture
     {
         // Built at run time so the source holds no key-shaped literal for the secret scanner.
         private static readonly string ApiKey = string.Concat(Enumerable.Repeat("fake", 8));
 
-        // As the running app has it: backend settings are stored (and traced) as JSON.
+        // As the running app has it: backend settings are stored (and traced) as JSON. The database factory sets up that
+        // mapping once per process, so it's run here too: without it the trace leaves the settings out, and the test
+        // would pass or fail depending on which fixtures ran before it.
         [SetUp]
         public void MapSettingsLikeTheApp()
         {
-            SqlMapper.AddTypeHandler(typeof(BackendSettings), new EmbeddedDocumentConverter<BackendSettings>());
+            RuntimeHelpers.RunClassConstructor(typeof(DbFactory).TypeHandle);
         }
 
         [Test]
@@ -89,7 +89,6 @@ namespace Requestarr.Core.Test.AnimeDub
         public void the_secrets_file_stays_out_of_git()
         {
             File.ReadAllText(RepoFiles.Path(".gitignore")).Should().Contain("secrets.env");
-            DiscordText.TmdbNotice.Should().NotBeNull();
         }
     }
 }

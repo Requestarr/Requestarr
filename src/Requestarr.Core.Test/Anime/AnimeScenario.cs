@@ -6,7 +6,7 @@ using Requestarr.Core.Backends;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.AnimeDub
+namespace Requestarr.Core.Test.Anime
 {
     // One Piece is anime in the fake Sonarr (genre "Anime"); Severance is not.
     public abstract class AnimeScenario : RequestMessageScenario

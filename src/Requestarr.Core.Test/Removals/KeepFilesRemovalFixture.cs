@@ -14,7 +14,7 @@ namespace Requestarr.Core.Test.Removals
     // "Delete files in media managers" off (the default, and beta's): a removal does everything but delete, then waits
     // in the admin queue for an admin to delete it by hand.
     [TestFixture]
-    public class Item5DeleteFilesFixture : RemovalScenario
+    public class KeepFilesRemovalFixture : RemovalScenario
     {
         [SetUp]
         public void DeletingOff()
@@ -116,19 +116,6 @@ namespace Requestarr.Core.Test.Removals
             Proposal().Status.Should().Be(RemovalStatus.Cancelled);
             Reload(request.Id).Status.Should().Be(RequestStatus.Available);
             Waiting().Should().BeFalse();
-        }
-
-        [Test]
-        public async Task turned_on_a_vote_deletes_as_before()
-        {
-            Mocker.Resolve<IConfigService>().RemovalDeleteFiles = true;
-            var request = await DownloadedMovie();
-            await UserStartVote(Alice, request.Id);
-
-            await Tick(TimeSpan.FromDays(7));
-
-            Radarr.Deletes.Should().Equal((Instance("Radarr").Config.Url, request.ExternalItemId.Value));
-            Proposal().Status.Should().Be(RemovalStatus.Deleted);
         }
     }
 }

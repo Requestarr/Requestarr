@@ -10,11 +10,11 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Removals
 {
-    // Task 4 items 2, 3 and 11: the admin starts a removal from the feed card's Delete; a requested title
+    // Admin-started removals: the admin starts a removal from the feed card's Delete; a requested title
     // asks its requester first (Yes starts the vote, No keeps it, silence counts as yes after the
     // timeout with a reminder on day 5); Force works at every stage; removals wait in /admin requests.
     [TestFixture]
-    public class Item2AdminFixture : RemovalScenario
+    public class AdminRemovalFixture : RemovalScenario
     {
         [Test]
         public async Task delete_on_the_feed_card_asks_the_requester_first_and_says_silence_counts_as_yes()

@@ -11,7 +11,7 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Removals
 {
-    // Task 4: removal voting over the fake server and backends. Alice and Bob are users with Movies and
+    // Removal voting over the fake server and backends. Alice and Bob are users with Movies and
     // TV access (needs approval); Carol joins when a test needs a third voter. One clock for everything.
     public abstract class RemovalScenario : FeedScenario
     {

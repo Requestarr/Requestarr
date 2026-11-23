@@ -9,11 +9,11 @@ using Requestarr.Core.Requests;
 
 namespace Requestarr.Core.Test.Removals
 {
-    // Task 4 items 1, 4 to 6, 8 to 10: the requester asks to remove their title; everyone else with
+    // A removal vote: the requester asks to remove their title; everyone else with
     // access gets "still watching?"; one keep keeps it; no keeps at the close deletes it, without
     // excluding it; everyone asked sees the outcome. Nothing changes while the vote is open.
     [TestFixture]
-    public class Item1VoteFixture : RemovalScenario
+    public class RemovalVoteFixture : RemovalScenario
     {
         [Test]
         public async Task the_requester_removes_their_title_from_its_message_and_it_goes_straight_to_the_vote()

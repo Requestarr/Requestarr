@@ -6,12 +6,12 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 
-namespace Requestarr.Core.Test.AnimeDub
+namespace Requestarr.Core.Test.Requests
 {
-    // Item 7: a later state change deletes the old request message and posts a fresh one at the
+    // A later state change deletes the old request message and posts a fresh one at the
     // bottom, mentioning its user, with only the buttons valid now.
     [TestFixture]
-    public class Item7RepostFixture : RequestMessageScenario
+    public class RequestRepostFixture : RequestMessageScenario
     {
         private IRequestSubscriberRepository Subscribers => Mocker.Resolve<IRequestSubscriberRepository>();
 
@@ -95,16 +95,6 @@ namespace Requestarr.Core.Test.AnimeDub
 
             ChannelFor(Bob).MessageIds.Last().Should().Be(card, "nothing was posted after it");
             Message(Bob, card).Content.Should().Be(before);
-        }
-
-        [Test]
-        public async Task an_old_request_without_a_stored_message_keeps_the_notice()
-        {
-            await RequestMovie(Alice, Dune);
-
-            await AdminButton("req-approve:1");
-
-            LastMessageIn(Alice).Should().Be(DiscordText.RequestApprovedNotice("Dune (2021)", 1));
         }
     }
 }

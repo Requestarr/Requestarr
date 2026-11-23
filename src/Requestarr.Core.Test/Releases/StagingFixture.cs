@@ -8,10 +8,10 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Releases
 {
-    // Task 4d: the staging (beta) environment on the owner's server, published images, the staging promotion, and the
-    // changelog rule. What runs is shown live in the task's reply; these keep the files honest.
+    // The staging (beta) environment on the owner's server, published images, the staging promotion, and the
+    // changelog rule. What runs is checked live on a promotion; these keep the files honest.
     [TestFixture]
-    public class Item4dStagingFixture
+    public class StagingFixture
     {
         // Line endings as on Linux, whatever the checkout made them.
         private static string Read(params string[] path) => File.ReadAllText(RepoFiles.Path(path)).Replace("\r", string.Empty);

@@ -18,11 +18,11 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Removals
 {
-    // Task 4 items 2, 7, 8 and 12: Remove a title searches every library (titles nobody requested go
+    // Removing from the library: Remove a title searches every library (titles nobody requested go
     // straight to the vote); season removals; one open removal per title and season scope; deleting
     // never excludes; the settings.
     [TestFixture]
-    public class Item3LibraryFixture : RemovalScenario
+    public class LibraryRemovalFixture : RemovalScenario
     {
         private Task<InteractionRun> Search(string term) =>
             Harness.SendAsync(AsAdmin(FakeInteraction.ModalSubmit(RemovalRoutes.SearchForm).WithField(RemovalRoutes.SearchField, term)));
