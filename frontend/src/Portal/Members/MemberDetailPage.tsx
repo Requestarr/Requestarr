@@ -69,7 +69,7 @@ function memberRows(
     ],
     ...member.access.map((access): [string, ReactNode] => [
       contentTypeText(access.contentType),
-      [accessText(access), access.instance].filter(Boolean).join(' · '),
+      accessText(access),
     ]),
   ];
 

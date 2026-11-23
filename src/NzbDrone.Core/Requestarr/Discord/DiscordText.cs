@@ -227,7 +227,6 @@ namespace Requestarr.Core.Discord
         public const string FieldAired = "Aired";
         public const string FieldReleased = "Released";
         public const string FieldCast = "Cast";
-        public const string FieldGoesTo = "Goes to";
 
         public static string BlockHeader(ContentType type, string step) => $"{(type == ContentType.Tv ? "📺" : "🎬")} **{Label(type)} request**{Dot}{step}";
 

@@ -23,6 +23,7 @@ import styles from '../Connections.css';
 
 interface MediaManagerCardProps {
   item: MediaManager;
+  siblings: MediaManager[];
   settings?: AppSettings;
   tested?: TestOutcome;
   onOpen: (id: number) => void;
@@ -30,6 +31,7 @@ interface MediaManagerCardProps {
 
 function MediaManagerCard({
   item,
+  siblings,
   settings,
   tested,
   onOpen,
@@ -40,7 +42,7 @@ function MediaManagerCard({
     <ConnectionCard
       name={item.name}
       type={item.implementationName}
-      labels={mediaManagerLabels(item, settings, tested)}
+      labels={mediaManagerLabels(item, settings, siblings, tested)}
       detail={
         item.enable && item.updates
           ? updatesText(item.updates, item.implementation)
@@ -136,6 +138,7 @@ function MediaManagersSection({
               <MediaManagerCard
                 key={item.id}
                 item={item}
+                siblings={items}
                 settings={settings}
                 tested={outcomes?.find((outcome) => outcome.id === item.id)}
                 onOpen={onOpen}

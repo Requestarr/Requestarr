@@ -13,6 +13,7 @@ export interface ProviderField {
   hidden?: string;
   privacy?: string;
   selectOptionsProviderAction?: string;
+  selectOptions?: { value: number; name: string }[];
 }
 
 // A Sonarr or Radarr instance, as the media managers' provider API sends it. Connected and problem: its last
