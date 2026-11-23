@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
@@ -19,7 +21,7 @@ namespace Requestarr.Core.Test.Removals
     {
         private void FastVotes(bool on) => Mocker.GetMock<IDevFastVotes>().SetupGet(f => f.On).Returns(on);
 
-        private System.Collections.Generic.List<string> AdminNotices =>
+        private List<string> AdminNotices =>
             Discord.Channels[AdminChannel].Messages.Select(m => m.Content).Where(c => c != null && c.StartsWith("🧪")).ToList();
 
         [Test]
@@ -97,7 +99,7 @@ namespace Requestarr.Core.Test.Removals
             foreach (var command in new[] { "init", "up", "check", "stacks", "down", "reset-test-backends", "reset-qa", "reset-uat", "reset-dev", "logs", "stop-backend", "start-backend", "fake-download", "fast-votes" })
             {
                 ps1.Should().Contain($"'{command}'", $"dev.ps1 has {command}");
-                System.Text.RegularExpressions.Regex.IsMatch(sh, $@"\n    ([a-z-]+\|)*{command}(\|[a-z-]+)*\)").Should().BeTrue($"dev.sh has {command}");
+                Regex.IsMatch(sh, $@"\n    ([a-z-]+\|)*{command}(\|[a-z-]+)*\)").Should().BeTrue($"dev.sh has {command}");
             }
 
             ps1.Where(c => c > 127).Should().BeEmpty("Windows PowerShell 5.1 misreads non-ASCII in a script saved without a byte order mark");

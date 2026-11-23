@@ -14,6 +14,10 @@ namespace Requestarr.Core.Test.Requests
     [TestFixture]
     public class SeasonPagesFixture : RequestMessageScenario
     {
+        // The 36-season show's page buttons.
+        private const string NextPage = "Seasons 25–36 ▶";
+        private const string PreviousPage = "◀ Seasons 1–24";
+
         private ulong _message;
 
         [SetUp]
@@ -46,12 +50,12 @@ namespace Requestarr.Core.Test.Requests
             Values(first).Should().Equal(new[] { "s0" }.Concat(Enumerable.Range(1, 24).Select(n => $"s{n}")));
             first.SelectMenu.Options.Count.Should().BeLessThanOrEqualTo(DiscordLimits.ChoicesPerMenu);
             first.Content.Should().Contain("Showing seasons 1–24 of 36");
-            first.Buttons.Select(b => b.Label).Should().Equal("Seasons 25–36 ▶", "Also new seasons: off", "Continue", "Back");
+            first.Buttons.Select(b => b.Label).Should().Equal(NextPage, "Also new seasons: off", "Continue", "Back");
 
-            var second = await Press(first, "Seasons 25–36 ▶");
+            var second = await Press(first, NextPage);
 
             Values(second).Should().Equal(Enumerable.Range(25, 12).Select(n => $"s{n}"));
-            second.Buttons.First().Label.Should().Be("◀ Seasons 1–24");
+            second.Buttons.First().Label.Should().Be(PreviousPage);
         }
 
         [Test]
@@ -61,12 +65,12 @@ namespace Requestarr.Core.Test.Requests
             first = await Pick(first, "s1", "s2");
             first.Content.Should().Contain("Picked so far: **seasons 1–2 only; new seasons won't be added**.");
 
-            var second = await Press(first, "Seasons 25–36 ▶");
+            var second = await Press(first, NextPage);
             Selected(second).Should().BeEmpty();
             second = await Pick(second, "s36");
             second.Content.Should().Contain("Picked so far: **seasons 1–2 and 36 only");
 
-            var back = await Press(second, "◀ Seasons 1–24");
+            var back = await Press(second, PreviousPage);
             Selected(back).Should().Equal("s1", "s2");
 
             var confirm = await Press(back, "Continue");
@@ -84,8 +88,8 @@ namespace Requestarr.Core.Test.Requests
         {
             var first = await Open(ThirtySix);
             first = await Pick(first, "s1", "s2");
-            var second = await Pick(await Press(first, "Seasons 25–36 ▶"), "s30");
-            first = await Press(second, "◀ Seasons 1–24");
+            var second = await Pick(await Press(first, NextPage), "s30");
+            first = await Press(second, PreviousPage);
 
             first = await Pick(first, "s2");
 
@@ -96,7 +100,7 @@ namespace Requestarr.Core.Test.Requests
         public async Task specials_and_new_seasons_can_be_added_from_any_page()
         {
             var first = await Pick(await Open(ThirtySix), "s0");
-            var second = await Press(first, "Seasons 25–36 ▶");
+            var second = await Press(first, NextPage);
             second = await Press(second, "Also new seasons: off");
             second.Buttons.Single(b => b.Label.StartsWith("Also new")).Label.Should().Be("Also new seasons: on");
 

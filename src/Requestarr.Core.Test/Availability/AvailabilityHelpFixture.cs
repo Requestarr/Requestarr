@@ -29,10 +29,10 @@ namespace Requestarr.Core.Test.Availability
         [Test]
         public async Task admins_get_the_feed_and_downloads_topics()
         {
-            var feed = await Harness.SendAsync(FakeInteraction.SelectMenu("help:admin", "feed").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
+            var feed = await Harness.SendAsync(AsAdmin(FakeInteraction.SelectMenu("help:admin", "feed")));
             feed.LastReply.Content.Should().StartWith("**The admin feed**").And.Contain(ChannelLayout.FeedChannelName).And.Contain("never deleted");
 
-            var downloads = await Harness.SendAsync(FakeInteraction.SelectMenu("help:admin", "downloads").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
+            var downloads = await Harness.SendAsync(AsAdmin(FakeInteraction.SelectMenu("help:admin", "downloads")));
             downloads.LastReply.Content.Should().Contain("availability.webhookUrl").And.Contain(Requestarr.Core.Backends.ArrApiBase.WebhookName).And.Contain("pollingOnly");
 
             HelpCatalog.AdminTopics.Select(t => t.Key).Should().Contain(new[] { "feed", "downloads" });

@@ -10,8 +10,8 @@ using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // Without Pin Messages a health warning names the permission and no flow fails. Panels
-    // are never pinned (they're always the newest message); Pin Messages is for outage notices while they last.
+    // Without Pin Messages a health warning names the permission and no flow fails. Panels are never pinned (they're
+    // always the newest message); Pin Messages is for outage notices while they last.
     [TestFixture]
     public class PinPermissionFixture : RequestScenario
     {

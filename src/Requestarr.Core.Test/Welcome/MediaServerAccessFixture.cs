@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Requestarr.Core.Access;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Help;
+using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.MediaServers;
 using Requestarr.Core.Test.Discord.Harness;
 
@@ -16,7 +17,7 @@ namespace Requestarr.Core.Test.Welcome
     [TestFixture]
     public class MediaServerAccessFixture : WelcomeScenario
     {
-        private Requestarr.Core.Discord.Interactions.InteractionReply WelcomeMessage => PanelIn(Discord.Channels[WelcomeChannel]);
+        private InteractionReply WelcomeMessage => PanelIn(Discord.Channels[WelcomeChannel]);
 
         private async Task<string[]> HelpTopics(ulong member)
         {

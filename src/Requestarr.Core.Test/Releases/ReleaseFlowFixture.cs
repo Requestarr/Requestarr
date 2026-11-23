@@ -52,18 +52,19 @@ namespace Requestarr.Core.Test.Releases
         public void live_fixtures_only_ever_use_the_dev_server_and_the_dev_stack()
         {
             var tests = Directory.GetFiles(RepoFiles.Path("src", "Requestarr.Core.Test"), "*.cs", SearchOption.AllDirectories);
+            var source = tests.ToDictionary(f => f, File.ReadAllText);
             var qa = new Regex(@"GetEnvironmentVariable\(""(DISCORD_BOT_TOKEN|DISCORD_APPLICATION_ID|DISCORD_TEST_GUILD_ID|DISCORD_ADMIN_ROLE_ID|RADARR_TEST_PORT|SONARR_TEST_PORT)""\)");
 
-            tests.Where(f => qa.IsMatch(File.ReadAllText(f))).Select(Path.GetFileName).Should().BeEmpty("the QA server and stack are the owner's; live checks use LiveDev");
+            tests.Where(f => qa.IsMatch(source[f])).Select(Path.GetFileName).Should().BeEmpty("the QA server and stack are the owner's; live checks use LiveDev");
 
-            tests.Where(f => File.ReadAllText(f).Contains("com.docker.compose.service=") && !File.ReadAllText(f).Contains("com.docker.compose.project={LiveDev.ComposeProject}"))
+            tests.Where(f => source[f].Contains("com.docker.compose.service=") && !source[f].Contains("com.docker.compose.project={LiveDev.ComposeProject}"))
                 .Select(Path.GetFileName).Should().BeEmpty("a container found by its service alone could be the QA stack's");
-            tests.Where(f => Path.GetFileName(f) != "ReleaseFlowFixture.cs" && File.ReadAllText(f).Contains("\"requestarr-qa-"))
+            tests.Where(f => Path.GetFileName(f) != "ReleaseFlowFixture.cs" && source[f].Contains("\"requestarr-qa-"))
                 .Select(Path.GetFileName).Should().BeEmpty("live checks never name a QA container");
 
-            var live = tests.Where(f => Path.GetFileName(f).StartsWith("Live") && File.ReadAllText(f).Contains("[ManualTest]")).ToList();
+            var live = tests.Where(f => Path.GetFileName(f).StartsWith("Live") && source[f].Contains("[ManualTest]")).ToList();
             live.Should().HaveCountGreaterThan(5);
-            live.Where(f => File.ReadAllText(f).Contains("DiscordSettingsStore") && !File.ReadAllText(f).Contains("LiveDev.Settings()"))
+            live.Where(f => source[f].Contains("DiscordSettingsStore") && !source[f].Contains("LiveDev.Settings()"))
                 .Select(Path.GetFileName).Should().BeEmpty("every live bot is the dev bot in the dev server");
         }
 

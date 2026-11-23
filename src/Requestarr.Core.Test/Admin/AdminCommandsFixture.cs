@@ -99,7 +99,8 @@ namespace Requestarr.Core.Test.Admin
         public void the_setup_guide_admin_section_describes_the_new_layout()
         {
             var guide = File.ReadAllText(RepoFiles.Path("docs", "setup-guide.md"));
-            var admin = guide.Substring(guide.IndexOf("## 5. Admin setup in Discord"), guide.IndexOf("## 6. ") - guide.IndexOf("## 5. Admin setup in Discord"));
+            var start = guide.IndexOf("## 5. Admin setup in Discord");
+            var admin = guide.Substring(start, guide.IndexOf("## 6. ") - start);
 
             admin.Should().Contain("**Add or find a member**").And.Contain("### 5.6 The member card").And.Contain("`/admin requests`").And.Contain("### 5.7 When Sonarr or Radarr can't be reached");
             admin.Should().NotContain("/admin user add").And.NotContain("/admin queue").And.NotContain("/admin approve").And.NotContain("/admin mediaserver");

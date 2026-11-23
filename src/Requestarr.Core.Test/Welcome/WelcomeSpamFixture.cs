@@ -6,6 +6,7 @@ using NUnit.Framework;
 using Requestarr.Core.Access;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
+using Requestarr.Core.Provisioning;
 using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Welcome
@@ -22,6 +23,9 @@ namespace Requestarr.Core.Test.Welcome
         private bool HasBlockedRole => Discord.Members[Carol].RoleIds.Contains(BlockedRole);
 
         private int BlockNotices => AdminRoom.Messages.Count(m => m.Content != null && m.Content.StartsWith("🚫"));
+
+        // The Unblock button on Carol's block notice and member card.
+        private static string UnblockCarol => $"{AccessRoutes.Unblock}:{Carol}";
 
         // An open request, so every later click can't do anything.
         private async Task OpenRequest() => await AskForAccess(Carol, null, "movie");
@@ -85,7 +89,7 @@ namespace Requestarr.Core.Test.Welcome
             Guard.Blocked.Should().Be(Now);
             BlockNotices.Should().Be(1);
             AdminRoom.Messages.Last().Content.Should().Contain($"<@{Carol}>").And.Contain(ChannelLayout.BlockedChannelName);
-            AdminRoom.Messages.Last().Buttons.Single().CustomId.Should().Be($"{AccessRoutes.Unblock}:{Carol}");
+            AdminRoom.Messages.Last().Buttons.Single().CustomId.Should().Be(UnblockCarol);
 
             (await Click()).Should().Be(DiscordText.WelcomeBlocked, "a stale button still answers, and nothing else happens");
             BlockNotices.Should().Be(1, "one notice");
@@ -118,9 +122,9 @@ namespace Requestarr.Core.Test.Welcome
             await BlockCarol();
             var card = (await MemberCard(Carol)).LastReply;
             card.Content.Should().Contain("Access requests paused since");
-            card.Buttons.Select(b => b.CustomId).Should().Contain($"{AccessRoutes.Unblock}:{Carol}");
+            card.Buttons.Select(b => b.CustomId).Should().Contain(UnblockCarol);
 
-            var run = await Harness.SendAsync(AsAdmin(FakeInteraction.Button($"{AccessRoutes.Unblock}:{Carol}")));
+            var run = await Harness.SendAsync(AsAdmin(FakeInteraction.Button(UnblockCarol)));
 
             run.LastReply.Content.Should().Be(DiscordText.Unblocked(Carol));
             HasBlockedRole.Should().BeFalse();
@@ -142,11 +146,11 @@ namespace Requestarr.Core.Test.Welcome
                 }
 
                 AdminRoom.Messages.Count(m => m.Content != null && m.Content.StartsWith("🚫") && m.Content.Contains($"<@{Carol}>")).Should().Be(1, "one notice per person");
-                await Harness.SendAsync(AsAdmin(FakeInteraction.Button($"{AccessRoutes.Unblock}:{Carol}")));
+                await Harness.SendAsync(AsAdmin(FakeInteraction.Button(UnblockCarol)));
             }
 
             AdminRoom.Messages.Should().ContainSingle(m => m.Content == DiscordText.Unblocked(Carol), "the notice now says it was lifted");
-            AdminRoom.Messages.Should().NotContain(m => m.Buttons.Any(b => b.CustomId == $"{AccessRoutes.Unblock}:{Carol}"));
+            AdminRoom.Messages.Should().NotContain(m => m.Buttons.Any(b => b.CustomId == UnblockCarol));
         }
 
         [Test]
@@ -198,7 +202,7 @@ namespace Requestarr.Core.Test.Welcome
             (settings.SpamWindowMinutes, settings.ShortCooldownClicks, settings.ShortCooldownMinutes, settings.LongCooldownClicks, settings.LongCooldownHours, settings.BlockClicks, settings.BlockWithinHours, settings.DenialCooldownDays)
                 .Should().Be((60, 5, 1, 10, 24, 5, 24, 7));
 
-            settings.Apply(new Requestarr.Core.Provisioning.AccessRequestsProvisioning { DenialCooldownDays = 3, Spam = new Requestarr.Core.Provisioning.AccessSpamProvisioning { ShortCooldownClicks = 3, BlockClicks = 2 } });
+            settings.Apply(new AccessRequestsProvisioning { DenialCooldownDays = 3, Spam = new AccessSpamProvisioning { ShortCooldownClicks = 3, BlockClicks = 2 } });
 
             (settings.DenialCooldownDays, settings.ShortCooldownClicks, settings.BlockClicks, settings.LongCooldownClicks).Should().Be((3, 3, 2, 10));
         }

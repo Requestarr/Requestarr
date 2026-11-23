@@ -5,6 +5,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Anime;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Provisioning;
 
 namespace Requestarr.Core.Test.Anime
 {
@@ -118,7 +119,7 @@ namespace Requestarr.Core.Test.Anime
             AnimeDefaults.ParsePriority("first").Should().Be(AnimePriority.First);
             new BackendSettings().AnimeEnabled.Should().BeTrue();
 
-            var errors = Requestarr.Core.Provisioning.ProvisioningLoader.Validate(new Requestarr.Core.Provisioning.ProvisioningDocument
+            var errors = ProvisioningLoader.Validate(new ProvisioningDocument
             {
                 Backends = new()
                 {

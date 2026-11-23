@@ -7,6 +7,7 @@ using Requestarr.Core.Access;
 using Requestarr.Core.Admin;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
+using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
 
@@ -18,7 +19,7 @@ namespace Requestarr.Core.Test.Welcome
     [TestFixture]
     public class AccessRequestFixture : WelcomeScenario
     {
-        private Requestarr.Core.Discord.Interactions.InteractionReply WelcomeMessage => PanelIn(Discord.Channels[WelcomeChannel]);
+        private InteractionReply WelcomeMessage => PanelIn(Discord.Channels[WelcomeChannel]);
 
         [Test]
         public void the_welcome_message_says_what_requestarr_is_and_has_request_access_only()

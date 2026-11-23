@@ -75,9 +75,10 @@ namespace Requestarr.Core.Test.Availability
         public async Task webhooks_for_titles_with_no_sent_request_are_ignored()
         {
             await PendingMovie(Alice, Dune);
+            var radarrId = Instance("Radarr").Id;
 
-            (await Availability.HandleWebhookAsync(Instance("Radarr").Id, Token(Instance("Radarr").Id), "Download", null, Dune)).Should().Be(WebhookOutcome.Ignored);
-            (await Availability.HandleWebhookAsync(Instance("Radarr").Id, Token(Instance("Radarr").Id), "Test", null, null)).Should().Be(WebhookOutcome.Accepted);
+            (await Availability.HandleWebhookAsync(radarrId, Token(radarrId), "Download", null, Dune)).Should().Be(WebhookOutcome.Ignored);
+            (await Availability.HandleWebhookAsync(radarrId, Token(radarrId), "Test", null, null)).Should().Be(WebhookOutcome.Accepted);
             Reload(1).Status.Should().Be(RequestStatus.Pending);
         }
 

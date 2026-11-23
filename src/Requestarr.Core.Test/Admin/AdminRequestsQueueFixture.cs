@@ -10,6 +10,7 @@ using Requestarr.Core.MediaServers;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
+using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Admin
 {
@@ -85,7 +86,7 @@ namespace Requestarr.Core.Test.Admin
 
             var back = (await Press(second, DiscordText.BackLabel)).LastReply;
             Header(back).Should().Be(DiscordText.WalkHeader(1, 4));
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -195,7 +196,7 @@ namespace Requestarr.Core.Test.Admin
 
             RequestStore.Get(1).Status.Should().Be(RequestStatus.Approved);
             done.Content.Should().EndWith(DiscordText.WalkDone);
-            Requestarr.Test.Common.ExceptionVerification.IgnoreErrors();
+            ExceptionVerification.IgnoreErrors();
         }
 
         [Test]

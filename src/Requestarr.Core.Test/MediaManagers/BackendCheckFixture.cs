@@ -17,6 +17,8 @@ namespace Requestarr.Core.Test.MediaManagers
     {
         private IBackendService Backends => Mocker.Resolve<IBackendService>();
 
+        private string ErrorOf(string name) => Backends.LastResults.Single(r => r.Name == name).Error;
+
         [Test]
         public async Task check_should_pass_for_supported_versions_and_resolve_profile()
         {
@@ -35,7 +37,7 @@ namespace Requestarr.Core.Test.MediaManagers
 
             await Backends.CheckAllAsync();
 
-            Backends.LastResults.Single(r => r.Name == name).Error.Should().Be(message);
+            ErrorOf(name).Should().Be(message);
             var health = Mocker.Resolve<BackendHealthCheck>().Check();
             health.Type.Should().Be(HealthCheckResult.Error);
             health.Message.Should().Contain(message);
@@ -48,22 +50,22 @@ namespace Requestarr.Core.Test.MediaManagers
         {
             Sonarr.AppName = "Radarr";
             await Backends.CheckAllAsync();
-            Backends.LastResults.Single(r => r.Name == "Sonarr").Error.Should().Contain("is Radarr, not Sonarr");
+            ErrorOf("Sonarr").Should().Contain("is Radarr, not Sonarr");
 
             Sonarr.AppName = "Sonarr";
             Sonarr.Unreachable = true;
             await Backends.CheckAllAsync();
-            Backends.LastResults.Single(r => r.Name == "Sonarr").Error.Should().Contain("Connection refused");
+            ErrorOf("Sonarr").Should().Contain("Connection refused");
 
             Sonarr.Unreachable = false;
             Sonarr.Profiles.Clear();
             await Backends.CheckAllAsync();
-            Backends.LastResults.Single(r => r.Name == "Sonarr").Error.Should().Contain("quality profile 'HD-1080p' not found");
+            ErrorOf("Sonarr").Should().Contain("quality profile 'HD-1080p' not found");
 
             Radarr.RootFolders.Clear();
             Radarr.RootFolders.Add("/elsewhere");
             await Backends.CheckAllAsync();
-            Backends.LastResults.Single(r => r.Name == "Radarr").Error.Should().Contain("root folder '/data/media' not found");
+            ErrorOf("Radarr").Should().Contain("root folder '/data/media' not found");
 
             ExceptionVerification.IgnoreWarns();
         }

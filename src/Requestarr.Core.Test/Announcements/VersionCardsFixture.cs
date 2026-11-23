@@ -28,6 +28,9 @@ namespace Requestarr.Core.Test.Announcements
 - **Member cards:** a clearer layout.
 ";
 
+        // The Read changes button on the admin channel's card for the version above.
+        private const string AdminsReadChanges = "whatsnew:a:0.2.0";
+
         private AnnouncementService Service => (AnnouncementService)Mocker.Resolve<IAnnouncementService>();
 
         private ulong UsersChannel => ulong.Parse(Config.AnnouncementsChannelId);
@@ -97,7 +100,7 @@ namespace Requestarr.Core.Test.Announcements
         [Test]
         public async Task read_changes_shows_the_full_card_privately()
         {
-            var run = await Harness.SendAsync(AsAdmin(FakeInteraction.Button("whatsnew:a:0.2.0")));
+            var run = await Harness.SendAsync(AsAdmin(FakeInteraction.Button(AdminsReadChanges)));
 
             var full = run.LastReply;
             full.Ephemeral.Should().BeTrue("only the person who pressed it sees it");
@@ -111,8 +114,8 @@ namespace Requestarr.Core.Test.Announcements
         [Test]
         public async Task pressing_read_changes_again_replaces_the_earlier_copy()
         {
-            var first = await Harness.SendAsync(AsAdmin(FakeInteraction.Button("whatsnew:a:0.2.0")));
-            var second = await Harness.SendAsync(AsAdmin(FakeInteraction.Button("whatsnew:a:0.2.0")));
+            var first = await Harness.SendAsync(AsAdmin(FakeInteraction.Button(AdminsReadChanges)));
+            var second = await Harness.SendAsync(AsAdmin(FakeInteraction.Button(AdminsReadChanges)));
 
             first.Responder.PrivateRepliesDeleted.Should().BeTrue();
             second.Responder.PrivateRepliesDeleted.Should().BeFalse();

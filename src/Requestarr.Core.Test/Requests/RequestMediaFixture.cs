@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Common.Http;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Metadata;
 using Requestarr.Core.Requests;
@@ -114,10 +116,10 @@ namespace Requestarr.Core.Test.Requests
         public async Task a_title_radarr_answers_it_cant_find_is_marked_looked_up()
         {
             var movie = Insert(ContentType.Movie, 999999901, null);
-            var request = new NzbDrone.Common.Http.HttpRequest("http://radarr:7878/api/v3/movie/lookup/tmdb");
-            var answer = new NzbDrone.Common.Http.HttpResponse(request, new NzbDrone.Common.Http.HttpHeader(), new System.Net.CookieCollection(), "Not found", statusCode: System.Net.HttpStatusCode.NotFound);
+            var request = new HttpRequest("http://radarr:7878/api/v3/movie/lookup/tmdb");
+            var answer = new HttpResponse(request, new HttpHeader(), new CookieCollection(), "Not found", statusCode: HttpStatusCode.NotFound);
             Mocker.GetMock<IRadarrApi>().Setup(r => r.LookupTmdbAsync(It.IsAny<BackendSettings>(), It.IsAny<int>()))
-                .ThrowsAsync(new BackendException("not found", new NzbDrone.Common.Http.HttpException(answer)));
+                .ThrowsAsync(new BackendException("not found", new HttpException(answer)));
 
             (await Subject.FillAsync()).Should().Be(1);
 

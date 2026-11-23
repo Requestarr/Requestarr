@@ -22,6 +22,7 @@ namespace Requestarr.Core.Test.Removals
     [TestFixture]
     public class RecordRemovalFixture : RemovalScenario
     {
+        private const string WebAdminName = "owner (web app)";
         private static readonly Actor WebAdmin = Actor.Web("owner");
 
         private Request History(ulong owner = Alice) =>
@@ -31,7 +32,7 @@ namespace Requestarr.Core.Test.Removals
             });
 
         private Task<ServiceResult> Start(Request request, bool force = false, IReadOnlyCollection<int> seasons = null) =>
-            Removals.StartRecordByAdminAsync(WebAdmin, "owner (web app)", null, request.Id, seasons ?? new List<int>(), force);
+            Removals.StartRecordByAdminAsync(WebAdmin, WebAdminName, null, request.Id, seasons ?? new List<int>(), force);
 
         private void NothingSentToSonarrOrRadarr()
         {
@@ -74,7 +75,7 @@ namespace Requestarr.Core.Test.Removals
             Proposal().Status.Should().Be(RemovalStatus.Flagged);
             RequestStore.Find(request.Id).Should().NotBeNull();
 
-            await Removals.DropAsync(1, WebAdmin, "owner (web app)", null);
+            await Removals.DropAsync(1, WebAdmin, WebAdminName, null);
 
             Proposal().Status.Should().Be(RemovalStatus.Kept);
             RequestStore.Find(request.Id).Status.Should().Be(RequestStatus.NotInLibrary);
@@ -115,7 +116,7 @@ namespace Requestarr.Core.Test.Removals
 
             Proposal().Status.Should().Be(open);
 
-            var forced = await Removals.ForceAsync(1, WebAdmin, "owner (web app)", null);
+            var forced = await Removals.ForceAsync(1, WebAdmin, WebAdminName, null);
 
             forced.Message.Should().Be(DiscordText.RemovalRecordDropped(Proposal()));
             Proposal().Status.Should().Be(RemovalStatus.Forced, "not Delete it yourself: there are no files");
@@ -129,7 +130,7 @@ namespace Requestarr.Core.Test.Removals
             var request = History();
             await Start(request);
             await Answer(Alice, yes: false);
-            await Removals.DropAsync(1, WebAdmin, "owner (web app)", null);
+            await Removals.DropAsync(1, WebAdmin, WebAdminName, null);
 
             await Start(request, force: true);
 

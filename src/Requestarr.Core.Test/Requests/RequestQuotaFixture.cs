@@ -14,6 +14,8 @@ namespace Requestarr.Core.Test.Requests
     [TestFixture]
     public class RequestQuotaFixture : RequestScenario
     {
+        private const int Heat = 949;
+
         private DateTime _now;
 
         [SetUp]
@@ -24,6 +26,8 @@ namespace Requestarr.Core.Test.Requests
             await Harness.SendAsync(AdminCommand("user quota", Alice).WithOption("type", "movie").WithOption("limit", 2L).WithOption("days", 7L));
         }
 
+        private void HeatInRadarr() => Radarr.Catalog.Add(new Backends.MediaLookupResult { Title = "Heat", Year = 1995, TmdbId = Heat });
+
         [Test]
         public async Task request_over_the_limit_should_be_refused_with_next_slot()
         {
@@ -31,8 +35,8 @@ namespace Requestarr.Core.Test.Requests
             _now = _now.AddDays(1);
             await RequestMovie(Alice, DuneTwo);
 
-            Radarr.Catalog.Add(new Backends.MediaLookupResult { Title = "Heat", Year = 1995, TmdbId = 949 });
-            var run = await RequestMovie(Alice, 949);
+            HeatInRadarr();
+            var run = await RequestMovie(Alice, Heat);
 
             run.LastReply.Content.Should().Contain(DiscordText.QuotaReached(ContentType.Movie, 2, 7, new DateTime(2026, 10, 26, 12, 0, 0, DateTimeKind.Utc)));
             RequestStore.All().Should().HaveCount(2);
@@ -43,11 +47,11 @@ namespace Requestarr.Core.Test.Requests
         {
             await RequestMovie(Alice, Dune);
             await RequestMovie(Alice, DuneTwo);
-            Radarr.Catalog.Add(new Backends.MediaLookupResult { Title = "Heat", Year = 1995, TmdbId = 949 });
+            HeatInRadarr();
 
             _now = _now.AddDays(7);
 
-            (await RequestMovie(Alice, 949)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Heat (1995)", 3));
+            (await RequestMovie(Alice, Heat)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Heat (1995)", 3));
         }
 
         [Test]
@@ -57,10 +61,10 @@ namespace Requestarr.Core.Test.Requests
             await RequestMovie(Alice, Dune);
             await RequestMovie(Alice, DuneTwo);
             await Harness.SendAsync(CancelButton(Alice, 2));
-            Radarr.Catalog.Add(new Backends.MediaLookupResult { Title = "Heat", Year = 1995, TmdbId = 949 });
+            HeatInRadarr();
             Radarr.Catalog.Add(new Backends.MediaLookupResult { Title = "Ronin", Year = 1998, TmdbId = 8195 });
 
-            (await RequestMovie(Alice, 949)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Heat (1995)", 3));
+            (await RequestMovie(Alice, Heat)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Heat (1995)", 3));
             await Harness.SendAsync(AdminSlash("deny").WithOption("id", 3L));
             (await RequestMovie(Alice, 8195)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Ronin (1998)", 4));
         }

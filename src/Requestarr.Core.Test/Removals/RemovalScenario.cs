@@ -108,6 +108,7 @@ namespace Requestarr.Core.Test.Removals
         protected Task<InteractionRun> Press(InteractionReply card, string label) =>
             Harness.SendAsync(AsAdmin(FakeInteraction.Button(card.Buttons.Single(b => b.Label == label).CustomId)));
 
-        protected static string Line(InteractionReply card, string starting) => card.Embeds[0].Description.Split('\n').SingleOrDefault(l => l.StartsWith(starting));
+        // The removal line on the request's feed card (null when it has none).
+        protected string RemovalLineOf(Request request) => CardOf(request.Id).Embeds[0].Description.Split('\n').SingleOrDefault(l => l.StartsWith("🗑️ Remov"));
     }
 }

@@ -5,6 +5,7 @@ using Requestarr.Core.Anime;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Anime
 {
@@ -13,7 +14,7 @@ namespace Requestarr.Core.Test.Anime
     {
         protected AnimeService Anime => (AnimeService)Mocker.Resolve<IAnimeService>();
 
-        protected BackendInstance SonarrInstance => Mocker.Resolve<IBackendService>().Default(Requestarr.Core.Users.ContentType.Tv);
+        protected BackendInstance SonarrInstance => Mocker.Resolve<IBackendService>().Default(ContentType.Tv);
 
         [SetUp]
         public async Task AutoApproveTvForEveryone()

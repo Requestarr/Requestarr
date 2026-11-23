@@ -14,7 +14,7 @@ namespace Requestarr.Core.Test.Requests
     public class RequestStateFixture : RequestScenario
     {
         private Task<InteractionRun> Detail(ulong user, int tmdbId) =>
-            Harness.SendAsync(Search(user, "movie", "tmdb:" + tmdbId));
+            Harness.SendAsync(Search(user, "movie", $"tmdb:{tmdbId}"));
 
         [Test]
         public async Task a_title_in_the_library_brings_good_news_without_a_request_button()

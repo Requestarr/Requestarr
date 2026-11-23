@@ -13,10 +13,10 @@ namespace Requestarr.Common.Test.Http
     [TestFixture]
     public class HappyEyeballsFixture : TestBase
     {
-        private static IPAddress Ipv6Address1 = IPAddress.Parse("2001:db8::1");
-        private static IPAddress Ipv6Address2 = IPAddress.Parse("2001:db8::2");
-        private static IPAddress Ipv4Address1 = IPAddress.Parse("192.0.2.1");
-        private static IPAddress Ipv4Address2 = IPAddress.Parse("192.0.2.2");
+        private static readonly IPAddress Ipv6Address1 = IPAddress.Parse("2001:db8::1");
+        private static readonly IPAddress Ipv6Address2 = IPAddress.Parse("2001:db8::2");
+        private static readonly IPAddress Ipv4Address1 = IPAddress.Parse("192.0.2.1");
+        private static readonly IPAddress Ipv4Address2 = IPAddress.Parse("192.0.2.2");
 
         private Mock<Func<IPAddress, CancellationToken, Task<IDisposable>>> _connectSocketMock;
         private Mock<Func<CancellationToken, Task>> _taskDelayMock;

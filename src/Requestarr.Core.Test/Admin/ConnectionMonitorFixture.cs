@@ -7,6 +7,7 @@ using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
+using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Admin
 {
@@ -93,7 +94,7 @@ namespace Requestarr.Core.Test.Admin
             AdminMessages.Last().Should().Be(DiscordText.InstanceBackAlert(Sonarr1, TimeSpan.FromMinutes(15)));
             AdminMessages.Last().Should().Contain("after 15 minutes");
             Sonarr1.DownSince.Should().BeNull();
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -121,7 +122,7 @@ namespace Requestarr.Core.Test.Admin
 
             run.LastReply.Content.Should().Contain(DiscordText.RequestsPaused(ContentType.Tv));
             Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(UserFor(Alice).Id).Single(a => a.ContentType == ContentType.Tv).State.Should().Be(AccessState.AutoApprove, "an outage never changes access");
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -138,7 +139,7 @@ namespace Requestarr.Core.Test.Admin
             var check = await Harness.SendAsync(AsAdmin(FakeInteraction.Button(walk.Buttons.Single(b => b.Label == DiscordText.CheckNowLabel).CustomId)));
 
             check.LastReply.Content.Should().Contain(DiscordText.InstanceBackNow("Sonarr")).And.Contain(DiscordText.WalkDone);
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
     }
 }

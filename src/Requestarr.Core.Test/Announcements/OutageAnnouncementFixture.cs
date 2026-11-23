@@ -8,6 +8,7 @@ using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
+using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Announcements
 {
@@ -79,7 +80,7 @@ namespace Requestarr.Core.Test.Announcements
             DownAlert.Buttons.Single().CustomId.Should().Be($"{ConnectionRoutes.Announce}:{Sonarr1.Id}");
             DownAlert.Content.Should().Contain(DiscordText.AnnounceOffer(TimeSpan.FromMinutes(30)));
             UsersRoom.Messages.Should().BeEmpty("nothing reaches users until an admin decides");
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -113,7 +114,7 @@ namespace Requestarr.Core.Test.Announcements
             var outage = Mocker.Resolve<IOutageRepository>().History().Single();
             (outage.InstanceName, outage.Started, outage.Ended, outage.Duration, outage.Announced, outage.AnnouncedBy)
                 .Should().Be(("Sonarr", Start, Start.AddMinutes(32), TimeSpan.FromMinutes(32), Start.AddMinutes(31), "owner"));
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -129,7 +130,7 @@ namespace Requestarr.Core.Test.Announcements
             DownAlert.Should().BeNull("the alert (and its offer) goes once it's back");
             AdminRoom.Pinned.Should().BeEmpty();
             AdminRoom.Messages.Last().Content.Should().StartWith("✅ **Sonarr is back**");
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -144,7 +145,7 @@ namespace Requestarr.Core.Test.Announcements
             AdminRoom.Messages.Last().Content.Should().StartWith("⚠️ **Sonarr can't be reached**");
             AdminRoom.Messages.Last().Buttons.Should().BeNullOrEmpty();
             UsersRoom.Messages.Should().ContainSingle("the earlier \"back\" notice; no new announcement until an admin presses it again");
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -158,7 +159,7 @@ namespace Requestarr.Core.Test.Announcements
 
             run.LastReply.Content.Should().Be(DiscordText.AnnounceNotDown("Sonarr"));
             UsersRoom.Messages.Should().BeEmpty();
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -170,7 +171,7 @@ namespace Requestarr.Core.Test.Announcements
 
             run.LastReply.Content.Should().Be(DiscordText.AdminOnly);
             UsersRoom.Messages.Should().BeEmpty();
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -189,7 +190,7 @@ namespace Requestarr.Core.Test.Announcements
 
             AdminRoom.Pinned.Should().HaveCount(2);
             Mocker.Resolve<IOutageRepository>().History().Count(o => o.Ended != null).Should().Be(1);
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -210,7 +211,7 @@ namespace Requestarr.Core.Test.Announcements
 
             DownAlert.Should().NotBeNull();
             AdminRoom.Pinned.Should().BeEmpty();
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [TestCase(20, "1 minute")]

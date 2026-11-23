@@ -90,6 +90,13 @@ namespace Requestarr.Core.Test.Announcements
             await Service.PostVersionNotesAsync();
         }
 
+        // A card as an earlier version of Requestarr posted it: the same button, an older title.
+        private static InteractionReply OldCard(string version, string audience, string title) => new()
+        {
+            Embeds = new List<InteractionEmbed> { new() { Title = title } },
+            Buttons = new List<InteractionButton> { new() { CustomId = $"{VersionCardRoutes.ReadChanges}:{audience}:{version}", Label = DiscordText.ReadChangesLabel } }
+        };
+
         [TestCase("0.1.0", "0.2.0,0.3.0", "0.2.0")]
         [TestCase(null, "0.1.0,0.2.0,0.3.0", "0.1.0,0.2.0")]
         public async Task qa_shows_every_version_staging_does_not_have_yet(string staged, string admins, string users)
@@ -257,13 +264,6 @@ namespace Requestarr.Core.Test.Announcements
             AdminHeaders.Should().Equal("0.6.0", "0.7.4");
             Discord.Channels[AdminChannel].Messages.Last(m => m.Embeds.Any()).Embeds[0].Title.Should().Be("Requestarr 0.7.0004 · November 20");
         }
-
-        // A card as an earlier version of Requestarr posted it: the same button, an older title.
-        private static InteractionReply OldCard(string version, string audience, string title) => new()
-        {
-            Embeds = new List<InteractionEmbed> { new() { Title = title } },
-            Buttons = new List<InteractionButton> { new() { CustomId = $"{VersionCardRoutes.ReadChanges}:{audience}:{version}", Label = DiscordText.ReadChangesLabel } }
-        };
 
         [TestCase("staging")]
         [TestCase("production")]

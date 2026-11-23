@@ -5,6 +5,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
 using Requestarr.Core.Admin;
+using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
@@ -36,7 +37,7 @@ namespace Requestarr.Core.Test.Removals
             Proposal().Status.Should().Be(RemovalStatus.DeleteByHand);
             Reload(request.Id).Status.Should().Be(RequestStatus.Available, "the request stays until it's really gone");
             PromptOf(Bob).Content.Should().Contain("🗑️ **Removal agreed** · **Dune (2021)** will be removed from the library. Deleting is turned off on this server, so an admin deletes it by hand.");
-            Line(CardOf(request.Id), "🗑️ Remov").Should().Contain("deleting is turned off on this server");
+            RemovalLineOf(request).Should().Contain("deleting is turned off on this server");
             CardOf(request.Id).Buttons.Select(b => b.CustomId).Should().Equal("rm-by-hand:1", "rm-drop:1");
             Waiting().Should().BeTrue();
 
@@ -78,11 +79,11 @@ namespace Requestarr.Core.Test.Removals
             await Tick(TimeSpan.FromDays(7));
             var told = AuditTrail.Count;
 
-            (await Removals.ForceAsync(1, Requestarr.Core.Audit.Actor.System, "owner", null)).Message.Should().Be(DiscordText.RemovalAlreadyByHand(Proposal()));
+            (await Removals.ForceAsync(1, Actor.System, "owner", null)).Message.Should().Be(DiscordText.RemovalAlreadyByHand(Proposal()));
             AuditTrail.Count.Should().Be(told, "nothing happens a second time");
 
             Mocker.Resolve<IConfigService>().RemovalDeleteFiles = true;
-            await Removals.ForceAsync(1, Requestarr.Core.Audit.Actor.System, "owner", null);
+            await Removals.ForceAsync(1, Actor.System, "owner", null);
 
             Radarr.Deletes.Should().Equal((Instance("Radarr").Config.Url, request.ExternalItemId.Value));
             Proposal().Status.Should().Be(RemovalStatus.Forced);

@@ -1,15 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using NzbDrone.Common.Http;
+using NzbDrone.Core.Configuration;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
+using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
@@ -26,6 +31,8 @@ namespace Requestarr.Core.Test.Removals
     {
         private Task<InteractionRun> Search(string term) =>
             Harness.SendAsync(AsAdmin(FakeInteraction.ModalSubmit(RemovalRoutes.SearchForm).WithField(RemovalRoutes.SearchField, term)));
+
+        private static bool IsFirstRemovalCard(InteractionReply message) => message.Embeds.FirstOrDefault()?.Footer == "Removal #1";
 
         [Test]
         public async Task remove_a_title_searches_every_library_and_an_ownerless_title_goes_straight_to_the_vote()
@@ -49,7 +56,7 @@ namespace Requestarr.Core.Test.Removals
             PromptOf(Alice).Content.Should().Contain("**Arrival (2016)**");
             PromptOf(Bob).Should().NotBeNull("everyone with Movies access is asked, nobody first");
 
-            var feedCard = Feed.Messages.Last(m => m.Embeds.FirstOrDefault()?.Footer == "Removal #1");
+            var feedCard = Feed.Messages.Last(IsFirstRemovalCard);
             feedCard.Embeds[0].Title.Should().Be("Arrival (2016)");
             feedCard.Embeds[0].Description.Should().StartWith("🗑️ Removal vote until").And.Contain("not requested through Requestarr");
             feedCard.Embeds[0].ImageUrl.Should().Be(DiscordText.FeedCardWidthUrl);
@@ -59,8 +66,8 @@ namespace Requestarr.Core.Test.Removals
 
             Radarr.Deletes.Select(d => d.Id).Should().Equal(7);
             PromptOf(Alice).Content.Should().Contain("🗑️ **Removed**");
-            Feed.Messages.Last(m => m.Embeds.FirstOrDefault()?.Footer == "Removal #1").Embeds[0].Description.Should().StartWith("🗑️ Removed by vote");
-            Feed.Messages.Count(m => m.Embeds.FirstOrDefault()?.Footer == "Removal #1").Should().Be(1, "reposted at every step, never piling up");
+            Feed.Messages.Last(IsFirstRemovalCard).Embeds[0].Description.Should().StartWith("🗑️ Removed by vote");
+            Feed.Messages.Count(IsFirstRemovalCard).Should().Be(1, "reposted at every step, never piling up");
         }
 
         [Test]
@@ -142,7 +149,7 @@ namespace Requestarr.Core.Test.Removals
 
             settings.Apply(new RemovalProvisioning { VoteDays = 10, RequesterTimeoutDays = 4, ReminderDay = 3 });
             (settings.VoteDays, settings.RequesterTimeoutDays, settings.ReminderDay).Should().Be((10, 4, 3));
-            Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>().RemovalVoteDays.Should().Be(10, "stored where the admin portal reads and writes settings");
+            Mocker.Resolve<IConfigService>().RemovalVoteDays.Should().Be(10, "stored where the admin portal reads and writes settings");
 
             settings.Apply(new RemovalProvisioning { RequesterTimeoutDays = 2 });
             (settings.VoteDays, settings.ReminderDay).Should().Be((10, 0), "unnamed settings stay; a reminder on or after the timeout is no reminder");
@@ -154,12 +161,12 @@ namespace Requestarr.Core.Test.Removals
         [Test]
         public void removals_are_documented_for_users_and_admins()
         {
-            var guide = System.IO.File.ReadAllText(RepoFiles.Path("docs", "setup-guide.md"));
-            var commands = System.IO.File.ReadAllText(RepoFiles.Path("docs", "commands.md"));
+            var guide = File.ReadAllText(RepoFiles.Path("docs", "setup-guide.md"));
+            var commands = File.ReadAllText(RepoFiles.Path("docs", "commands.md"));
 
             guide.Should().Contain("### 5.9 Removing titles").And.Contain("**without** adding it to the exclusion list").And.Contain("voteDays: 7").And.Contain("reminderDay: 5").And.Contain("**Remove a title:**");
             commands.Should().Contain("### Removing and keeping titles").And.Contain("### Removals").And.Contain("| **Remove a title** |");
-            System.IO.File.ReadAllText(RepoFiles.Path("docker", "provisioning.yml")).Should().Contain("removal:");
+            File.ReadAllText(RepoFiles.Path("docker", "provisioning.yml")).Should().Contain("removal:");
         }
 
         [Test]
@@ -168,7 +175,7 @@ namespace Requestarr.Core.Test.Removals
             var seen = new List<HttpRequest>();
             var http = new Mock<IHttpClient>();
             http.Setup(h => h.ExecuteAsync(It.IsAny<HttpRequest>())).Callback<HttpRequest>(seen.Add)
-                .ReturnsAsync((HttpRequest r) => new HttpResponse(r, new HttpHeader(), new System.Net.CookieCollection(), string.Empty, 0, HttpStatusCode.OK));
+                .ReturnsAsync((HttpRequest r) => new HttpResponse(r, new HttpHeader(), new CookieCollection(), string.Empty, 0, HttpStatusCode.OK));
             var settings = new BackendSettings { Url = "http://arr.test", ApiKey = "k" };
 
             await new RadarrApi(http.Object).DeleteItemAsync(settings, 7);
@@ -187,17 +194,17 @@ namespace Requestarr.Core.Test.Removals
             await new SonarrApi(http.Object).DeleteSeasonsAsync(settings, 9, new[] { 1 });
 
             seen.Select(r => (r.Method.Method, r.Url.FullUri.Replace("http://arr.test/api/v3/", string.Empty))).Should().Equal(("DELETE", "episodefile/bulk"), ("PUT", "series/9"), ("PUT", "episode/monitor"));
-            JObject.Parse(seen[0].ContentSummary ?? System.Text.Encoding.UTF8.GetString(seen[0].ContentData))["episodeFileIds"].Select(t => (int)t).Should().Equal(11, 13);
-            var series = JObject.Parse(System.Text.Encoding.UTF8.GetString(seen[1].ContentData));
+            JObject.Parse(seen[0].ContentSummary ?? Encoding.UTF8.GetString(seen[0].ContentData))["episodeFileIds"].Select(t => (int)t).Should().Equal(11, 13);
+            var series = JObject.Parse(Encoding.UTF8.GetString(seen[1].ContentData));
             series["seasons"].Select(s => ((int)s["seasonNumber"], (bool)s["monitored"])).Should().Equal((1, false), (2, true));
-            JObject.Parse(System.Text.Encoding.UTF8.GetString(seen[2].ContentData)).ToString(Newtonsoft.Json.Formatting.None).Should().Be("{\"episodeIds\":[21],\"monitored\":false}");
+            JObject.Parse(Encoding.UTF8.GetString(seen[2].ContentData)).ToString(Newtonsoft.Json.Formatting.None).Should().Be("{\"episodeIds\":[21],\"monitored\":false}");
         }
 
         private static void Respond<T>(Mock<IHttpClient> http, string resource, string json)
             where T : new()
         {
-            http.Setup(h => h.GetAsync<T>(It.Is<HttpRequest>(r => System.Text.RegularExpressions.Regex.IsMatch(r.Url.FullUri, $@"/api/v3/{resource}(\?|$)"))))
-                .ReturnsAsync((HttpRequest r) => new HttpResponse<T>(new HttpResponse(r, new HttpHeader(), new System.Net.CookieCollection(), json, 0, HttpStatusCode.OK)));
+            http.Setup(h => h.GetAsync<T>(It.Is<HttpRequest>(r => Regex.IsMatch(r.Url.FullUri, $@"/api/v3/{resource}(\?|$)"))))
+                .ReturnsAsync((HttpRequest r) => new HttpResponse<T>(new HttpResponse(r, new HttpHeader(), new CookieCollection(), json, 0, HttpStatusCode.OK)));
         }
     }
 }

@@ -14,8 +14,8 @@ namespace Requestarr.Core.Test.Discord
     [TestFixture]
     public class HelpFixture : RequestCardScenario
     {
-        // What a user with every type sees; Linking Plex only while a Plex server is connected, which the
-        // admin's view of user help always shows.
+        // What a user with every type sees; Linking Plex only while a Plex server is connected, which the admin's view
+        // of user help always shows.
         private static readonly string[] AllUserTopics = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "removals", "news" };
         private static readonly string[] EveryUserTopic = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "plex", "removals", "news" };
         private static readonly string[] AllAdminTopics = { "onboarding", "access", "approvals", "feed", "removing", "announcements", "downloads", "limits", "mediaserver", "anime", "channels", "visibility" };

@@ -42,16 +42,17 @@ namespace Requestarr.Core.Test.Releases
         public void images_are_published_for_two_architectures_on_staging_and_main_only()
         {
             var image = Read(".github", "workflows", "image.yml");
+            var dockerfile = Read("docker", "Dockerfile");
 
             image.Should().Contain("branches: [staging, main]").And.Contain("platforms: linux/amd64,linux/arm64").And.Contain("packages: write");
             image.Should().Contain("build_numbers.py image \"$EVENT\" \"$BRANCH\" \"$GITHUB_SHA\"", "the build-number script decides what is published");
             image.Should().Contain("BUILD_NUMBER=${{ steps.tags.outputs.number }}").And.Contain("RELEASE_VERSION=${{ steps.tags.outputs.label }}");
             image.Should().Contain("git push origin \"refs/tags/$RECORD\"", "each staging publish is recorded as the tag the next number is counted from");
             image.Should().Contain("docker buildx imagetools create").And.Contain("if: steps.tags.outputs.mode == 'build'", "ship it retags staging's image and never builds");
-            Read("docker", "Dockerfile").Should().Contain($"ENV {ReleaseEnvironment.ReleaseVersionVariable}=$RELEASE_VERSION").And.Contain("-p:RequestarrVersion=\"$BUILD_NUMBER\"");
+            dockerfile.Should().Contain($"ENV {ReleaseEnvironment.ReleaseVersionVariable}=$RELEASE_VERSION").And.Contain("-p:RequestarrVersion=\"$BUILD_NUMBER\"");
             Read(".github", "build_numbers.py").Should().Contain("test-[a-z0-9.-]+", "a hand-run publishes only a test tag");
             image.Should().Contain("org.opencontainers.image.source=").And.Contain("secret-looking environment variable").And.Contain("answers /ping");
-            Read("docker", "Dockerfile").Should().Contain("FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk").And.Contain("ARG TARGETARCH");
+            dockerfile.Should().Contain("FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk").And.Contain("ARG TARGETARCH");
         }
 
         [Test]
@@ -79,8 +80,8 @@ namespace Requestarr.Core.Test.Releases
             Read("docker", "compose.yaml").Should().Contain("REQUESTARR_AUTH_REQUIRED: ${STACK_AUTH_REQUIRED:-disabledForLocalAddresses}");
             Read("docker", "dev.ps1").Should().Contain("STACK_AUTH_REQUIRED = 'enabled'").And.Contain("'DEV_AUTH_REQUIRED' 'disabledForLocalAddresses'");
             Read("docker", "dev.sh").Should().Contain("STACK_AUTH_REQUIRED=\"enabled\"").And.Contain("STACK_AUTH_REQUIRED=\"${auth_required:-${DEV_AUTH_REQUIRED:-disabledForLocalAddresses}}\"");
-            Read("docs", "setup-guide.md").Should().Contain("keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts)");
-            Read("docs", "setup-guide.md").Should().Contain("Changing the web portal password").And.Contain("REQUESTARR_ADMIN_PASSWORD");
+            Read("docs", "setup-guide.md").Should().Contain("keep **Authentication Required** on **Enabled** (beta requires sign-in for every address, so it needs no allowed hosts)")
+                .And.Contain("Changing the web portal password").And.Contain("REQUESTARR_ADMIN_PASSWORD");
         }
 
         [Test]

@@ -55,19 +55,20 @@ namespace Requestarr.Core.Test.Requests
         [Test]
         public async Task deny_button_should_ask_for_reason_then_deny()
         {
+            const string reason = "Already on the server in 4K";
             await RequestMovie(Alice, Dune);
 
             var modalRun = await AdminButton("req-deny:1");
             modalRun.Responder.Responses.Single().Kind.Should().Be(ResponseKind.Modal);
             modalRun.Responder.LastModal.CustomId.Should().Be("req-deny-reason:1");
 
-            var submit = await Harness.SendAsync(FakeInteraction.ModalSubmit("req-deny-reason:1").WithField("reason", "Already on the server in 4K")
+            var submit = await Harness.SendAsync(FakeInteraction.ModalSubmit("req-deny-reason:1").WithField("reason", reason)
                 .By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel).OnMessage(ApprovalCardOf("req-deny-reason:1")));
 
-            submit.LastReply.Content.Should().Contain("denied").And.Contain("Already on the server in 4K");
+            submit.LastReply.Content.Should().Contain("denied").And.Contain(reason);
             LastRequest.Status.Should().Be(RequestStatus.Denied);
-            LastRequest.DecisionReason.Should().Be("Already on the server in 4K");
-            LastMessageIn(Alice).Should().Be(DiscordText.RequestDeniedNotice("Dune (2021)", 1, "Already on the server in 4K"));
+            LastRequest.DecisionReason.Should().Be(reason);
+            LastMessageIn(Alice).Should().Be(DiscordText.RequestDeniedNotice("Dune (2021)", 1, reason));
             Radarr.Adds.Should().BeEmpty();
         }
 

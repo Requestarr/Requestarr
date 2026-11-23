@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Core.Configuration;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
@@ -40,8 +41,8 @@ namespace Requestarr.Core.Test.Removals
 
             Radarr.Deletes.Should().BeEmpty("nothing changes during a vote");
             Radarr.Monitored.Should().NotContainKey(request.ExternalItemId.Value, "not even unmonitored");
-            Line(CardOf(request.Id), "🗑️ Remov").Should().StartWith("🗑️ Removal vote until").And.EndWith("0 keep");
-            ButtonIdsOf(CardOf(request.Id)).Should().Equal("rm-force:1", "rm-drop:1");
+            RemovalLineOf(request).Should().StartWith("🗑️ Removal vote until").And.EndWith("0 keep");
+            ButtonIds(CardOf(request.Id)).Should().Equal("rm-force:1", "rm-drop:1");
         }
 
         [Test]
@@ -78,7 +79,7 @@ namespace Requestarr.Core.Test.Removals
             bobs.Buttons.Should().BeEmpty("the outcome has no buttons");
             MessagesOf(Alice, "Up for a vote").Should().BeEmpty("their request message carries the outcome, so the vote notice goes");
             State(CardOf(request.Id)).Should().Be(DiscordText.FinalRemoved);
-            Line(CardOf(request.Id), "🗑️ Remov").Should().Be("🗑️ Removed by vote");
+            RemovalLineOf(request).Should().Be("🗑️ Removed by vote");
             AuditTrail.Single(a => a.Action == "removal.deleted").Detail.Should().Contain("not excluded");
 
             // A later request is a fresh one.
@@ -97,7 +98,7 @@ namespace Requestarr.Core.Test.Removals
             kept.Responder.Replies.First().Content.Should().Contain("You asked to keep it");
             kept.Responder.Replies.First().Buttons.Select(b => b.Label).Should().Equal(DiscordText.RemovalTakeBackLabel);
             kept.LastReply.Content.Should().Be(DiscordText.RemovalKeepNoted);
-            Line(CardOf(request.Id), "🗑️ Remov").Should().EndWith("1 keep");
+            RemovalLineOf(request).Should().EndWith("1 keep");
 
             await Tick(TimeSpan.FromDays(7));
 
@@ -112,7 +113,7 @@ namespace Requestarr.Core.Test.Removals
             }
 
             MessagesOf(Alice, "**Kept**").Single().Content.Should().NotContain("bob", "the requester isn't told who either");
-            Line(CardOf(request.Id), "🗑️ Remov").Should().Be("🗑️ Removal: kept by 1 keep (Force or drop)");
+            RemovalLineOf(request).Should().Be("🗑️ Removal: kept by 1 keep (Force or drop)");
         }
 
         [Test]
@@ -154,7 +155,7 @@ namespace Requestarr.Core.Test.Removals
         [Test]
         public async Task the_vote_window_is_a_setting()
         {
-            Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>().RemovalVoteDays = 3;
+            Mocker.Resolve<IConfigService>().RemovalVoteDays = 3;
             var request = await DownloadedMovie();
 
             await UserStartVote(Alice, request.Id);
@@ -162,7 +163,5 @@ namespace Requestarr.Core.Test.Removals
 
             Proposal().Status.Should().Be(RemovalStatus.Deleted);
         }
-
-        private static string[] ButtonIdsOf(Requestarr.Core.Discord.Interactions.InteractionReply card) => card.Buttons.Select(b => b.CustomId).ToArray();
     }
 }

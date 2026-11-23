@@ -8,8 +8,8 @@ using Requestarr.Core.Test.Discord.Harness;
 
 namespace Requestarr.Core.Test.Discord
 {
-    // One panel per user channel, kept current. Panels aren't pinned (they're always the newest
-    // message instead), and Link Plex shows only while a Plex server is connected.
+    // One panel per user channel, kept current. Panels aren't pinned (they're always the newest message instead), and
+    // Link Plex shows only while a Plex server is connected.
     [TestFixture]
     public class UserPanelFixture : RequestScenario
     {

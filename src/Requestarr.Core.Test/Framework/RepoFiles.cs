@@ -11,7 +11,8 @@ namespace Requestarr.Core.Test.Framework
         {
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
 
-            while (dir != null && !Directory.Exists(System.IO.Path.Combine(dir.FullName, ".git")) && !File.Exists(System.IO.Path.Combine(dir.FullName, ".git")))
+            // A checkout's .git is a folder, or a file in a worktree.
+            while (dir != null && !System.IO.Path.Exists(System.IO.Path.Combine(dir.FullName, ".git")))
             {
                 dir = dir.Parent;
             }

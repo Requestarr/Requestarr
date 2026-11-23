@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -111,16 +112,16 @@ namespace Requestarr.Core.Test.Anime
             Subscribers.ForRequest(RequestFor().Id).Select(s => s.UserId).Should().Equal(new[] { UserFor(Bob).Id }, "it's still on its way: Bob follows it");
         }
 
-        [TestCase(Requestarr.Core.Requests.DownloadProgress.Downloading, false, "is downloading", "⬇️ **Downloading**")]
-        [TestCase(Requestarr.Core.Requests.DownloadProgress.None, true, "is partly in the library", "🎉 **Partly available**")]
-        public async Task the_switch_reply_matches_a_download_in_progress(Requestarr.Core.Requests.DownloadProgress progress, bool partly, string says, string header)
+        [TestCase(DownloadProgress.Downloading, false, "is downloading", "⬇️ **Downloading**")]
+        [TestCase(DownloadProgress.None, true, "is partly in the library", "🎉 **Partly available**")]
+        public async Task the_switch_reply_matches_a_download_in_progress(DownloadProgress progress, bool partly, string says, string header)
         {
             await SetUp();
             await SetAccess(Alice, "tv", "auto");
             await RequestAnime(Alice, "s");
             var request = RequestFor();
             request.Progress = progress;
-            request.AvailableSeasons = partly ? new System.Collections.Generic.List<int> { 1 } : new System.Collections.Generic.List<int>();
+            request.AvailableSeasons = partly ? new List<int> { 1 } : new List<int>();
             RequestStore.Update(request);
 
             var run = await AskLanguage(Bob, "d");
@@ -135,7 +136,7 @@ namespace Requestarr.Core.Test.Anime
             await SetAccess(Alice, "tv", "auto");
             await RequestAnime(Alice, "s");
             var request = RequestFor();
-            request.Status = Requestarr.Core.Requests.RequestStatus.Available;
+            request.Status = RequestStatus.Available;
             RequestStore.Update(request);
 
             var run = await AskLanguage(Bob, "d");

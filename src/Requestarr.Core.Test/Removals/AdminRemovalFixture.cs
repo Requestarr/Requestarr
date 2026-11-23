@@ -3,10 +3,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Core.Configuration;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Removals
 {
@@ -20,7 +22,7 @@ namespace Requestarr.Core.Test.Removals
         public async Task delete_on_the_feed_card_asks_the_requester_first_and_says_silence_counts_as_yes()
         {
             var request = await DownloadedMovie();
-            ButtonIdsOf(CardOf(request.Id)).Should().Equal($"rm-feed:{request.Id}");
+            ButtonIds(CardOf(request.Id)).Should().Equal($"rm-feed:{request.Id}");
 
             var card = (await FeedClick(request.Id, $"{RemovalRoutes.Feed}:{request.Id}")).LastReply;
             card.Ephemeral.Should().BeTrue();
@@ -36,7 +38,7 @@ namespace Requestarr.Core.Test.Removals
             Proposal().Status.Should().Be(RemovalStatus.AwaitingRequester);
             Proposal().AnswerBy.Should().Be(Now.AddDays(7));
             PromptOf(Bob).Should().BeNull("nobody votes before the requester answers");
-            Line(CardOf(request.Id), "🗑️ Remov").Should().StartWith("🗑️ Removal: asked alice, answer by");
+            RemovalLineOf(request).Should().StartWith("🗑️ Removal: asked alice, answer by");
 
             var walk = (await Walk()).LastReply;
             walk.Content.Should().Contain("is waiting on **alice**").And.Contain("counts as yes and starts the vote");
@@ -71,7 +73,7 @@ namespace Requestarr.Core.Test.Removals
             Proposal().Status.Should().Be(RemovalStatus.Declined);
             MessagesOf(Alice, "You chose to keep").Should().ContainSingle();
             PromptOf(Bob).Should().BeNull();
-            Line(CardOf(request.Id), "🗑️ Remov").Should().Be("🗑️ Removal: alice said keep (Force or drop)");
+            RemovalLineOf(request).Should().Be("🗑️ Removal: alice said keep (Force or drop)");
 
             var walk = (await Walk()).LastReply;
             walk.Content.Should().Contain("**alice** said keep **Dune (2021)**");
@@ -123,7 +125,7 @@ namespace Requestarr.Core.Test.Removals
         [Test]
         public async Task the_answer_window_and_reminder_day_are_settings()
         {
-            var config = Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>();
+            var config = Mocker.Resolve<IConfigService>();
             config.RemovalRequesterTimeoutDays = 3;
             config.RemovalReminderDay = 2;
             var request = await DownloadedMovie();
@@ -151,7 +153,7 @@ namespace Requestarr.Core.Test.Removals
             done.LastReply.Content.Should().StartWith("Removed **Dune (2021)**");
             Proposal().Status.Should().Be(RemovalStatus.Forced);
             PromptOf(Bob).Content.Should().Contain("🗑️ **Removed by the admin** · **Dune (2021)** was removed from the library.");
-            Line(CardOf(request.Id), "🗑️ Remov").Should().Be("🗑️ Removed by owner (forced)");
+            RemovalLineOf(request).Should().Be("🗑️ Removed by owner (forced)");
             AuditTrail.Single(a => a.Action == "removal.force").Detail.Should().Contain("forced by owner at").And.Contain("1 keep flag(s)");
         }
 
@@ -188,8 +190,8 @@ namespace Requestarr.Core.Test.Removals
 
             Proposal().Status.Should().Be(RemovalStatus.Kept);
             PromptOf(Bob).Content.Should().Be(told, "users were already told it's kept");
-            Line(CardOf(request.Id), "🗑️ Remov").Should().Be("🗑️ Removal: kept (1 keep)");
-            ButtonIdsOf(CardOf(request.Id)).Should().Equal(new[] { $"rm-feed:{request.Id}" }, "a new removal can be started later");
+            RemovalLineOf(request).Should().Be("🗑️ Removal: kept (1 keep)");
+            ButtonIds(CardOf(request.Id)).Should().Equal(new[] { $"rm-feed:{request.Id}" }, "a new removal can be started later");
         }
 
         [Test]
@@ -203,7 +205,7 @@ namespace Requestarr.Core.Test.Removals
             Proposal().Status.Should().Be(RemovalStatus.Cancelled);
             PromptOf(Bob).Content.Should().Contain("✅ **Kept** · The removal of **Dune (2021)** was called off.");
             PromptOf(Bob).Buttons.Should().BeEmpty();
-            Line(CardOf(request.Id), "🗑️ Remov").Should().Be("🗑️ Removal cancelled by owner");
+            RemovalLineOf(request).Should().Be("🗑️ Removal cancelled by owner");
         }
 
         [Test]
@@ -227,7 +229,7 @@ namespace Requestarr.Core.Test.Removals
 
             Proposal().Status.Should().Be(RemovalStatus.Forced);
             Radarr.Deletes.Should().ContainSingle();
-            Requestarr.Test.Common.ExceptionVerification.IgnoreWarns();
+            ExceptionVerification.IgnoreWarns();
         }
 
         [Test]
@@ -241,7 +243,5 @@ namespace Requestarr.Core.Test.Removals
             (await Keep(Alice)).LastReply.Content.Should().Be(DiscordText.RemovalNotYours, "the requester who asked has no vote");
             Mocker.Resolve<IRemovalFlagRepository>().All().Should().BeEmpty();
         }
-
-        private static string[] ButtonIdsOf(Requestarr.Core.Discord.Interactions.InteractionReply card) => card.Buttons.Select(b => b.CustomId).ToArray();
     }
 }
