@@ -68,7 +68,7 @@ namespace Requestarr.Core.Settings
         {
             if (!Implementations.Contains(input.Implementation))
             {
-                return new InstanceTestResult("Choose Sonarr or Radarr.", Array.Empty<string>(), Array.Empty<string>());
+                return new InstanceTestResult("Choose which app this connection is.", Array.Empty<string>(), Array.Empty<string>());
             }
 
             // The saved API key is only sent to the saved address: a changed address needs its key typed again.
@@ -149,7 +149,7 @@ namespace Requestarr.Core.Settings
 
             if (!Implementations.Contains(input.Implementation) || (existing != null && existing.Implementation != input.Implementation))
             {
-                return "Choose Sonarr or Radarr; a saved instance keeps its type.";
+                return "Choose which app this connection is; a saved one keeps its app.";
             }
 
             if (string.IsNullOrWhiteSpace(input.Name) || (_backends.FindByName(input.Name.Trim()) is { } named && named.Id != id))

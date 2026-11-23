@@ -163,8 +163,11 @@ jobs:
           python3 docker/qa_checks.py --self-test
           python3 .github/unused_check.py --self-test
           python3 .github/tool_names_check.py --self-test
+          python3 .github/app_names_check.py --self-test
       - name: No AI tool named in the code, docs, scripts or image metadata
         run: python3 .github/tool_names_check.py
+      - name: No fixed list of app names in what users and admins read
+        run: python3 .github/app_names_check.py
       - name: CHANGELOG.md says what this change does under Unreleased, written to the rule
         env:
           EVENT: ${{ github.event_name }}

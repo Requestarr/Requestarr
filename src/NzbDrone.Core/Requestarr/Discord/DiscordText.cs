@@ -799,19 +799,19 @@ namespace Requestarr.Core.Discord
         public const string RemovalScopePlaceholder = "What to remove";
         public const string RemovalPickPlaceholder = "Pick a title";
         public const string RemoveSearchTitle = "Remove a title";
-        public const string RemoveSearchField = "Title in Sonarr or Radarr";
+        public const string RemoveSearchField = "Title in your library";
 
-        public const string RemovalNotInLibrary = "That title isn't in Sonarr or Radarr any more.";
+        public const string RemovalNotInLibrary = "That title isn't in the library any more.";
         public const string RemovalOnlyYours = "You can only ask to remove titles you requested.";
         public const string RemovalNotYours = "That isn't yours to answer.";
         public const string RemovalNotFound = "That removal doesn't exist any more.";
         public const string RemovalNoSuchSeason = "That show doesn't have those seasons.";
-        public const string RemovalInstanceGone = "its Sonarr or Radarr is no longer set up";
+        public const string RemovalInstanceGone = "the app that had it is no longer set up";
         public const string RemovalKeepNoted = "Noted: you want to keep it. One keep is enough; you can take it back while the vote is open.";
         public const string RemovalKeepTakenBack = "Your keep is taken back.";
-        public const string RemovalNothingFound = "Nothing in Sonarr or Radarr matches that.";
-        public const string RemovalRecordIsWhole = "Sonarr and Radarr don't have it, so the whole request is removed: leave the seasons out.";
-        public const string RemovalNotHistory = "That request's title is in Sonarr or Radarr, so its removal starts there.";
+        public const string RemovalNothingFound = "Nothing in the library matches that.";
+        public const string RemovalRecordIsWhole = "It isn't in the library, so the whole request is removed: leave the seasons out.";
+        public const string RemovalNotHistory = "That request's title is in the library, so its removal starts there.";
 
         // Where a passed removal takes it out of: a request Sonarr and Radarr don't have only leaves Requestarr's lists.
         private static string RemovedFrom(Removals.RemovalProposal proposal) => proposal.RecordOnly ? "Requestarr's lists" : "the library";
@@ -915,10 +915,10 @@ namespace Requestarr.Core.Discord
                 : $"Removed {RemovalScope(proposal)} from {instance}: those seasons' files are deleted and the seasons unmonitored. The show stays.";
 
         public static string RemovalRecordDropped(Removals.RemovalProposal proposal) =>
-            $"Removed {RemovalScope(proposal)} from Requestarr's lists. Sonarr and Radarr don't have it, so nothing was deleted there.";
+            $"Removed {RemovalScope(proposal)} from Requestarr's lists. It isn't in the library, so nothing was deleted.";
 
         public static string RemovalFailed(Removals.RemovalProposal proposal, string instance) =>
-            $"{instance ?? "Sonarr or Radarr"} refused to remove {RemovalScope(proposal)}: {proposal.Detail}. It's waiting in `/admin requests` (Force tries again).";
+            $"{instance ?? "The app that has it"} refused to remove {RemovalScope(proposal)}: {proposal.Detail}. It's waiting in `/admin requests` (Force tries again).";
 
         public static string Label(Removals.RemovalStatus status) => status switch
         {
@@ -969,11 +969,11 @@ namespace Requestarr.Core.Discord
         // vote, Keep it and Force, and only Requestarr's lists change.
         public static string RemovalHistoryCard(Request request) =>
             $"**Remove {request.Label}** · Not in library\n" +
-            "Sonarr and Radarr don't have it, so removing it only takes it off Requestarr's lists; nothing is deleted. " +
+            "It isn't in the library, so removing it only takes it off Requestarr's lists; nothing is deleted. " +
             "Its requester is asked first when they can be, then everyone with access gets a **Keep it** button. **Force** removes it now.";
 
         public static string RemovalHistoryConfirmForce(Request request) =>
-            $"Remove {request.Label} from Requestarr's lists **now**? Nobody is asked. Sonarr and Radarr don't have it, so nothing is deleted there.";
+            $"Remove {request.Label} from Requestarr's lists **now**? Nobody is asked. It isn't in the library, so nothing is deleted.";
 
         public static string RemovalHistoryChoice(Request request) =>
             DiscordLimits.Truncate($"{request.Label} · Not in library", DiscordLimits.OptionLabelLength);
@@ -990,7 +990,7 @@ namespace Requestarr.Core.Discord
         // Force on an open removal: one Sonarr and Radarr don't have only leaves Requestarr's lists, whatever deleting is set to.
         public static string RemovalConfirmForce(Removals.RemovalProposal proposal, bool deletesFiles) =>
             proposal.RecordOnly
-                ? $"Remove {RemovalScope(proposal)} from Requestarr's lists **now**? Nobody is asked. Sonarr and Radarr don't have it, so nothing is deleted there."
+                ? $"Remove {RemovalScope(proposal)} from Requestarr's lists **now**? Nobody is asked. It isn't in the library, so nothing is deleted."
                 : RemovalConfirmForce(proposal.Label, proposal.Seasons, deletesFiles);
 
         public static string RemovalAlreadyByHand(Removals.RemovalProposal proposal) =>
@@ -1007,7 +1007,7 @@ namespace Requestarr.Core.Discord
             Removals.RemovalStatus.AwaitingRequester => $"🗑️ The removal of {RemovalScope(proposal)} is waiting on **{requester}**, asked {DiscordTimestamp(proposal.Created)}. No answer by {Closing(proposal.AnswerBy ?? DateTime.UtcNow)} counts as yes and starts the vote. **{ForceRemovalLabel}** skips both.",
             Removals.RemovalStatus.Declined => $"🗑️ **{requester}** said keep {RemovalScope(proposal)}. **{ForceRemovalLabel}** removes it anyway; **{DropRemovalLabel}** leaves it.",
             Removals.RemovalStatus.Flagged => $"🗑️ The vote kept {RemovalScope(proposal)}: {flaggers.Count} keep ({string.Join(", ", flaggers)}). **{ForceRemovalLabel}** removes it anyway; **{DropRemovalLabel}** leaves it.",
-            Removals.RemovalStatus.DeleteByHand => $"🗑️ **Delete it yourself:** removing {RemovalScope(proposal)} is agreed, but deleting is turned off on this server. Delete it from {instance ?? "Sonarr or Radarr"}, then **{DeletedByHandLabel}**; **{DropRemovalLabel}** keeps it after all.",
+            Removals.RemovalStatus.DeleteByHand => $"🗑️ **Delete it yourself:** removing {RemovalScope(proposal)} is agreed, but deleting is turned off on this server. Delete it from {instance ?? "the app that has it"}, then **{DeletedByHandLabel}**; **{DropRemovalLabel}** keeps it after all.",
             _ => $"🗑️ Removing {RemovalScope(proposal)} failed: {proposal.Detail}. **{ForceRemovalLabel}** tries again; **{DropRemovalLabel}** leaves it."
         };
 
@@ -1343,7 +1343,7 @@ namespace Requestarr.Core.Discord
         public static string PersonLine(string name, string role, ContentType type, AccessState state, int used, int? limit, int days, int pending) =>
             $"• **{name}** ({role}): {Label(type)} {Label(state)} · {used}{(limit.HasValue ? $" of {limit}" : string.Empty)} {Label(type)} request{(used == 1 && !limit.HasValue ? string.Empty : "s")} in {days} days{(limit.HasValue ? string.Empty : " (no limit)")} · {pending} waiting for approval";
 
-        public static string NothingToSearch(Request request) => $"Request #{request.Id} isn't in Sonarr or Radarr, so there's nothing to search for.";
+        public static string NothingToSearch(Request request) => $"Request #{request.Id} isn't in the library, so there's nothing to search for.";
 
         public static string NothingToRetry(Request request) => $"Request #{request.Id} isn't waiting to be added again; it's {Label(request.Status)}.";
 

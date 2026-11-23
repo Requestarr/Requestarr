@@ -22,7 +22,7 @@ namespace Requestarr.Core.Portal
             ["request.deny"] = "Denied",
             ["request.cancel"] = "Cancelled",
             ["request.deleteRecord"] = "Record deleted",
-            ["request.send"] = "Sent to Sonarr or Radarr",
+            ["request.send"] = "Sent to download",
             ["request.refused"] = "Request refused",
             ["anime.switch"] = "Sub or dub switched",
             ["access.request"] = "Asked to join",

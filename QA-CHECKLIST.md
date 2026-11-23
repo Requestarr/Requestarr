@@ -22,7 +22,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - It refuses, and says to choose Everything on the Sonarr that should take over.
   - Checked by the owner, unsure of the desired behavior: the task said to ask which takes over; is pointing you to the other Sonarr what you want?
-- **Sonarr and Radarr wording**
+- **Media manager wording**
   - Steps:
     1. In the web app, open Settings, then Connections.
     2. Press the Sonarr card.

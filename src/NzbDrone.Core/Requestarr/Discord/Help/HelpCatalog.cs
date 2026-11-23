@@ -116,7 +116,7 @@ namespace Requestarr.Core.Discord.Help
                 Title = "Downloads and availability",
                 Summary = "Downloading, stuck, ready to watch",
                 Visible = v => v.Types.Any(),
-                Intro = _ => $"Once a request is sent, its message keeps you posted: {DiscordText.FinalDownloading}, {DiscordText.FinalStalled} or {DiscordText.FinalDownloadFailed} (Sonarr or Radarr usually tries another release by itself), and {DiscordText.FinalReady} when it's ready to watch.\n" +
+                Intro = _ => $"Once a request is sent, its message keeps you posted: {DiscordText.FinalDownloading}, {DiscordText.FinalStalled} or {DiscordText.FinalDownloadFailed} (the app that downloads it usually tries another release by itself), and {DiscordText.FinalReady} when it's ready to watch.\n" +
                              "For TV, a season counts as available when every episode that has aired is there, and the message says which seasons are ready. Each update replaces the message at the bottom of your channel and mentions you; people following the request get the same."
             },
             new HelpTopic
@@ -175,7 +175,7 @@ namespace Requestarr.Core.Discord.Help
                 Summary = "Add people, set access, suspend, remove",
                 Intro = _ => $"**{DiscordText.PanelMembers}** on the admin panel opens Discord's member picker; `/admin user` opens one member's card directly. The card shows only what applies now: **{DiscordText.AddMemberLabel}** for someone new (their role, private channel and panel; each type starts at its instance's default access for new members, set in the web app's Connections), " +
                              $"then one menu per content type showing its level (off, needs approval, auto-approve), a **{DiscordText.MorePlaceholder}** menu, and buttons to link Plex, **{DiscordText.SuspendLabel}** or **{DiscordText.UnsuspendLabel}** and **{DiscordText.RemoveLabel}** (it asks first). " +
-                             "Users only see a content type once one of its Sonarr, Radarr or Lidarr instances has connected; you can grant it before that, and the card tells you. " +
+                             "Users only see a content type once one of its media managers has connected; you can grant it before that, and the card tells you. " +
                              $"**{DiscordText.PanelUsers}** lists everyone and opens the same card. Every change shows on the card at once.",
                 Commands = new[] { "admin user" },
                 Buttons = new[] { PanelButtons.Members, PanelButtons.Users }
@@ -186,7 +186,7 @@ namespace Requestarr.Core.Discord.Help
                 Title = "Access requests and the welcome channel",
                 Summary = "Newcomers ask; you approve",
                 Intro = _ => $"#{ChannelLayout.WelcomeChannelName} is open to everyone in the server and only Requestarr posts there: it says what Requestarr is, with **{DiscordText.RequestAccessLabel}**. " +
-                             "That opens a short private form: what they'd like (only types with a connected Sonarr or Radarr) and a note. It posts a card here and joins `/admin requests`. " +
+                             "That opens a short private form: what they'd like (only types with a connected media manager) and a note. It posts a card here and joins `/admin requests`. " +
                              $"**{DiscordText.ApproveAccessLabel}** lets you choose their real access levels, then adds them exactly like **{DiscordText.AddMemberLabel}** does; **{DiscordText.DenyLabel}** takes an optional reason. They get the answer as a private message. " +
                              $"One open request per person; after a denial they can ask again after {Access.AccessSettings.DefaultDenialCooldownDays} days (`accessRequests.denialCooldownDays`). Members already in are told where their channel is.\n" +
                              "One button per media server you've connected sits next to it (none yet: connecting a media server comes with Plex sharing, so for now there are no media server buttons, and Link Plex is gone from member panels).\n" +
@@ -210,7 +210,7 @@ namespace Requestarr.Core.Discord.Help
                 Title = "The admin feed",
                 Summary = "Every request, newest last",
                 Intro = _ => $"#{ChannelLayout.FeedChannelName} has one small card per request: who asked, which instance, the state, and for TV the seasons. Every change moves its card to the bottom, so the newest activity is last. " +
-                             $"Its buttons are only the ones that make sense now: **{DiscordText.ApproveLabel}**, **{DiscordText.DenyLabel}** and **{DiscordText.AlreadyAvailableLabel}** while it waits; **{DiscordText.CancelLabel}** while it waits or until something starts downloading (a sent title is then unmonitored in Sonarr or Radarr, never deleted); **{DiscordText.AddSeasonsLabel}** on TV. " +
+                             $"Its buttons are only the ones that make sense now: **{DiscordText.ApproveLabel}**, **{DiscordText.DenyLabel}** and **{DiscordText.AlreadyAvailableLabel}** while it waits; **{DiscordText.CancelLabel}** while it waits or until something starts downloading (a sent title is then unmonitored in the app that downloads it, never deleted); **{DiscordText.AddSeasonsLabel}** on TV. " +
                              "Approval cards stay in this channel too, and acting in either place updates both and the user's message. Account events (new users, access changes, suspensions, Plex links) stay in this channel, not the feed."
             },
             new HelpTopic
@@ -218,10 +218,10 @@ namespace Requestarr.Core.Discord.Help
                 Key = "removing",
                 Title = "Removing titles",
                 Summary = "Votes, Force, and the settings",
-                Intro = _ => $"**{DiscordText.DeleteLabel}** on a downloaded title's feed card, or **{DiscordText.RemoveTitleLabel}** on the panel (it searches every Sonarr and Radarr library, including titles nobody requested here), starts a removal of the whole title or chosen seasons. " +
+                Intro = _ => $"**{DiscordText.DeleteLabel}** on a downloaded title's feed card, or **{DiscordText.RemoveTitleLabel}** on the panel (it searches every connected library, including titles nobody requested here), starts a removal of the whole title or chosen seasons. " +
                              $"A title someone requested asks them first (silence counts as yes after the requester window, with a reminder); otherwise it goes straight to a vote of everyone with access, and any one **{DiscordText.RemovalKeepLabel}** keeps it. Nothing changes during a vote. " +
                              $"**{DiscordText.ForceRemovalLabel}** deletes at any stage (it asks first, and is audited); **{DiscordText.DropRemovalLabel}** leaves it. A requester's No, a vote kept by keeps, and a removal waiting on its requester show in `/admin requests`, where you see who pressed Keep it. " +
-                             "Removing deletes the files and the title from Sonarr or Radarr without adding it to the exclusion list; seasons have their files deleted and are unmonitored. " +
+                             "Removing deletes the files and the title from the app that has it without adding it to the exclusion list; seasons have their files deleted and are unmonitored. " +
                              $"Settings (days): vote {Removals.RemovalSettings.DefaultVoteDays}, requester answer {Removals.RemovalSettings.DefaultRequesterTimeoutDays}, reminder on day {Removals.RemovalSettings.DefaultReminderDay} by default; set them under `removal:` in provisioning.",
                 Buttons = new[] { PanelButtons.RemoveTitle }
             },
@@ -231,7 +231,7 @@ namespace Requestarr.Core.Discord.Help
                 Title = "Announcements and outages",
                 Summary = "News for every member",
                 Intro = _ => $"#{ChannelLayout.AnnouncementsChannelName} is for every member: they can read it but not post; admins can post there directly. Members get it through one shared role, **{ChannelLayout.MembersRoleName}**, given when they're added or unsuspended and taken when they're suspended or removed. " +
-                             $"Outages: a Sonarr or Radarr that can't be reached gets an alert here after {DiscordText.Duration(Backends.ConnectionMonitor.DefaultAlertAfter)}; still down after {DiscordText.Duration(Backends.ConnectionMonitor.DefaultAnnounceAfter)}, the alert offers **{DiscordText.AnnounceLabel}**, which posts a plain notice for users. If you announced it, the recovery is announced too; if not, users never hear about it. " +
+                             $"Outages: a media manager that can't be reached gets an alert here after {DiscordText.Duration(Backends.ConnectionMonitor.DefaultAlertAfter)}; still down after {DiscordText.Duration(Backends.ConnectionMonitor.DefaultAnnounceAfter)}, the alert offers **{DiscordText.AnnounceLabel}**, which posts a plain notice for users. If you announced it, the recovery is announced too; if not, users never hear about it. " +
                              "While it lasts, the alert (and the notice, if you announced it) is pinned; when the instance is back both are removed and the \"back\" messages are posted. Every outage is also kept in Requestarr's own record: when it started and ended, and whether and by whom it was announced.\n" +
                              $"Upgrades: when Requestarr starts on a new version, a one-line card here shows its version and date, then the main change and how many more (admins' and users' lines together), and a card in the announcements channel does the same with the users' lines. **{DiscordText.ReadChangesLabel}** shows the full list privately."
             },
@@ -240,9 +240,9 @@ namespace Requestarr.Core.Discord.Help
                 Key = "downloads",
                 Title = "Downloads, webhooks and polling",
                 Summary = "How Requestarr hears about downloads",
-                Intro = _ => $"With `availability.webhookUrl` set (the address Sonarr and Radarr use to reach Requestarr), Requestarr adds its own connection, \"{Requestarr.Core.Backends.ArrApiBase.WebhookName}\" (on beta \"{Requestarr.Core.Backends.ArrApiBase.WebhookNameFor("beta")}\", so each server's is told apart), to each Sonarr and Radarr; it never changes your own connections. " +
+                Intro = _ => $"With `availability.webhookUrl` set (the address your media managers use to reach Requestarr), Requestarr adds its own connection, \"{Requestarr.Core.Backends.ArrApiBase.WebhookName}\" (on beta \"{Requestarr.Core.Backends.ArrApiBase.WebhookNameFor("beta")}\", so each server's is told apart), to each media manager; it never changes your own connections. " +
                              "It also checks every few minutes (`availability.pollMinutes`, 15 by default) in case a call is missed, and `pollingOnly: true` on an instance skips the webhook. If an instance can't reach Requestarr, System → Status says so and the poll still works. " +
-                             "A download counts as stuck when Sonarr or Radarr flag it (stalled, import blocked) or it doesn't move for 6 hours."
+                             "A download counts as stuck when the app downloading it flags it (stalled, import blocked) or it doesn't move for 6 hours."
             },
             new HelpTopic
             {

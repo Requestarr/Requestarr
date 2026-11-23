@@ -281,7 +281,7 @@ namespace Requestarr.Core.Removals
 
             return proposal == null
                 ? ServiceResult.Fail(error)
-                : await StartAsAdmin(proposal, AskableRequester(request), "in Requestarr only (Sonarr and Radarr don't have it)", admin, adminName, adminUserId, force);
+                : await StartAsAdmin(proposal, AskableRequester(request), "in Requestarr only (it isn't in the library)", admin, adminName, adminUserId, force);
         }
 
         // A request Sonarr and Radarr don't have (history, usually imported): its removal drops only its record.
@@ -717,7 +717,7 @@ namespace Requestarr.Core.Removals
         private async Task<ServiceResult> DropRecord(RemovalProposal proposal, Actor admin, string adminName, int? adminUserId)
         {
             CloseAsRemoved(proposal, admin, adminName, adminUserId);
-            _audit.Record(admin ?? Actor.System, "removal.deleted", "removal", proposal.Id.ToString(), $"{Scope(proposal)} dropped from Requestarr's lists; Sonarr and Radarr don't have it, so nothing was deleted{How(admin, adminName)}");
+            _audit.Record(admin ?? Actor.System, "removal.deleted", "removal", proposal.Id.ToString(), $"{Scope(proposal)} dropped from Requestarr's lists; it isn't in the library, so nothing was deleted{How(admin, adminName)}");
 
             // Its feed card and messages show the outcome first, while the request is still there to show.
             await PostResults(proposal);
@@ -789,7 +789,7 @@ namespace Requestarr.Core.Removals
             proposal.Closed = Clock();
             Save(proposal);
             var instance = _backends.Find(proposal.BackendId ?? 0);
-            _audit.Record(admin, "removal.deleted-by-hand", "removal", proposal.Id.ToString(), $"{Scope(proposal)} deleted from {instance?.Name ?? "Sonarr or Radarr"} by hand, said {adminName}");
+            _audit.Record(admin, "removal.deleted-by-hand", "removal", proposal.Id.ToString(), $"{Scope(proposal)} deleted from {instance?.Name ?? "the app that had it"} by hand, said {adminName}");
 
             foreach (var request in _requests.ForTitle(proposal.ContentType, proposal.ExternalId ?? 0).Where(r => r.BackendId == proposal.BackendId && r.IsActive).ToList())
             {
