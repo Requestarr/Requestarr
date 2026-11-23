@@ -1165,7 +1165,7 @@
   "System": "System",
   "SystemTimeHealthCheckMessage": "System time is off by more than 1 day. Scheduled tasks may not run correctly until the time is corrected",
   "TestAllConnections": "Test All Connections",
-  "TestAllConnectionsNothing": "Nothing to test: no connection is turned on.",
+  "TestAllConnectionsNothing": "Nothing to test: no media manager is turned on.",
   "TestAllConnectionsPassed": "Every connection passed its test.",
   "TheMovieDatabase": "The Movie Database",
   "TheMovieDatabaseCredit": "This product uses the TMDB API but is not endorsed or certified by TMDB.",

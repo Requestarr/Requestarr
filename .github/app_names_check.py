@@ -5,8 +5,9 @@ one app is connected: build the words from the connected instances, or say "ever
 downloads it" (the head rule "App names in wording", docs/development.md#app-names).
 
 Covers the translations (en.json), the string literals in Requestarr's own C# code (comments, log lines and tests
-left out: they explain the design to developers), the web app's string literals and JSX text, and the changelog's
-Unreleased lines (posted in Discord). An intended case goes in .github/app-names-allowed.txt as
+left out: they explain the design to developers), the web app's string literals and JSX text, and the Unreleased
+lines of the changelog and the QA checklist (both posted in Discord). It reads line by line: a list split over two
+lines isn't seen. An intended case goes in .github/app-names-allowed.txt as
 "path: the exact text  # why".
 
 Usage: python3 .github/app_names_check.py [--self-test]"""
@@ -17,14 +18,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ALLOWED = ROOT / ".github" / "app-names-allowed.txt"
-APPS = r"(?:Sonarr|Radarr|Lidarr|Readarr|Mylar3?|LazyLibrarian)(?:'s)?"
-LIST = re.compile(rf"\b{APPS}(?:\s*(?:,|/|&|\band\b|\bor\b)\s*(?:the\s+)?{APPS})+")
+# An app's name in any case, possibly in Discord's bold or code marks ("**Sonarr**", "`radarr`").
+APPS = r"[*_`]*\b(?:Sonarr|Radarr|Lidarr|Readarr|Mylar3?|LazyLibrarian)(?:'s)?\b[*_`]*"
+JOINS = r"(?:,|/|&|\band/or\b|\band\b|\bor\b|\bnor\b)"
+LIST = re.compile(rf"{APPS}(?:\s*{JOINS}\s*(?:(?:the|a|an)\s+)?{APPS})+", re.IGNORECASE)
 
 CSHARP_DIRS = ["src/NzbDrone.Core/Requestarr", "src/Requestarr.Http", "src/Requestarr.Api.V1"]
 WEB_DIR = "frontend/src"
 WEB_SUFFIXES = (".ts", ".tsx", ".js")
 TRANSLATIONS = "src/NzbDrone.Core/Localization/Core/en.json"
 CHANGELOG = "CHANGELOG.md"
+CHECKLIST = "QA-CHECKLIST.md"
 
 # A line with words users read: a string, a template or JSX text.
 QUOTES = re.compile(r"[\"'`]|>[^<>{}]*[A-Za-z]")
@@ -52,7 +56,7 @@ def code_part(line):
 
 def is_comment(line):
     stripped = line.strip()
-    return stripped.startswith(("//", "/*", "*"))
+    return stripped.startswith(("//", "/*", "*", "{/*"))
 
 
 def findings_in_code(text):
@@ -118,6 +122,7 @@ def scan():
         found += [(rel, *finding) for finding in findings_in_code(read(rel))]
     found += [(TRANSLATIONS, *finding) for finding in findings_in_translations(read(TRANSLATIONS))]
     found += [(CHANGELOG, *finding) for finding in findings_in_unreleased(read(CHANGELOG))]
+    found += [(CHECKLIST, *finding) for finding in findings_in_unreleased(read(CHECKLIST))]
     return found
 
 
@@ -156,6 +161,11 @@ def self_test():
         ('$"{instance ?? "Sonarr or Radarr"} refused"', True),
         ('new[] { Implementations.Sonarr, Implementations.Radarr }', False),
         ('"a \\" b // Sonarr and Radarr"', True),
+        ('"**Sonarr** and **Radarr**"', True),
+        ('"`sonarr` or `radarr`"', True),
+        ('"a Sonarr or a Radarr"', True),
+        ('"neither Sonarr nor Radarr"', True),
+        ('"Sonarr and/or Radarr"', True),
         ('"Open in Sonarr"', False),
         ('"Sonarr (Anime) failed: no answer"', False),
         ('"Every connection passed its test."', False),
@@ -167,6 +177,7 @@ def self_test():
         if got != expected:
             print(f"wrong: {literal} expected {expected}")
     comment = not any(findings_in_code("// Sonarr and Radarr explain the design"))
+    comment = comment and not any(findings_in_code("  {/* Sonarr's and Radarr's cards */}"))
     logged = not any(findings_in_code('_logger.Warn("Sonarr and Radarr down");'))
     jsx = any(findings_in_code("<p>Add Sonarr or Radarr</p>"))
     translated = any(findings_in_translations('{"A": "Every Sonarr and Radarr"}'))

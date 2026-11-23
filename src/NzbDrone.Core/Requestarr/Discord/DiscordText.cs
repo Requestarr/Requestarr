@@ -397,7 +397,7 @@ namespace Requestarr.Core.Discord
 
         public static string AccessOff(ContentType type) => $"You can't request {Label(type).ToLowerInvariant()}. Ask the admin if you'd like access.";
 
-        public static string NoBackend(ContentType type) => $"No {(type == ContentType.Tv ? "Sonarr" : "Radarr")} is set up for {Label(type).ToLowerInvariant()} yet. Ask the admin.";
+        public static string NoBackend(ContentType type) => $"No {Backends.BackendImplementations.ForContentType(type)} is set up for {Label(type).ToLowerInvariant()} yet. Ask the admin.";
 
         public const string BackendUnavailable = "The app that downloads it isn't reachable right now. Try again later.";
 
@@ -810,8 +810,8 @@ namespace Requestarr.Core.Discord
         public const string RemovalKeepNoted = "Noted: you want to keep it. One keep is enough; you can take it back while the vote is open.";
         public const string RemovalKeepTakenBack = "Your keep is taken back.";
         public const string RemovalNothingFound = "Nothing in the library matches that.";
-        public const string RemovalRecordIsWhole = "It isn't in the library, so the whole request is removed: leave the seasons out.";
-        public const string RemovalNotHistory = "That request's title is in the library, so its removal starts there.";
+        public const string RemovalRecordIsWhole = "That title isn't in the library, so the whole request is removed: leave the seasons out.";
+        public const string RemovalNotHistory = $"That request's title is still in the library: remove it with **{RemoveTitleLabel}** instead.";
 
         // Where a passed removal takes it out of: a request Sonarr and Radarr don't have only leaves Requestarr's lists.
         private static string RemovedFrom(Removals.RemovalProposal proposal) => proposal.RecordOnly ? "Requestarr's lists" : "the library";
@@ -918,7 +918,7 @@ namespace Requestarr.Core.Discord
             $"Removed {RemovalScope(proposal)} from Requestarr's lists. It isn't in the library, so nothing was deleted.";
 
         public static string RemovalFailed(Removals.RemovalProposal proposal, string instance) =>
-            $"{instance ?? "The app that has it"} refused to remove {RemovalScope(proposal)}: {proposal.Detail}. It's waiting in `/admin requests` (Force tries again).";
+            $"{(instance == null ? "Couldn't remove" : $"{instance} refused to remove")} {RemovalScope(proposal)}: {proposal.Detail}. It's waiting in `/admin requests` (Force tries again).";
 
         public static string Label(Removals.RemovalStatus status) => status switch
         {
