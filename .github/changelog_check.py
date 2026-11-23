@@ -13,6 +13,9 @@ heading is free) is checked for:
   - no placeholders: "nothing this time", "n/a", "TBD" and the like;
   - no summary without substance: a line with "minor fixes", "various improvements" or another summary phrase must say,
     on the same line, what that changes (at least five more words);
+  - short: each line one to three sentences, at most 50 words after its bold lead, and at most 8 lines in a section
+    (owner, 2026-11-23: "every note should be like 1-3 sentences not a bible"); Unreleased says where a thing ended
+    up, so a change rewrites its line to the final state instead of adding to it;
   - versions: "## 0.7.0004 (YYYY-MM-DD)", the day the build was made, each once, newest first; versions up to 0.6.0
     keep their "x.y.z" numbers (docs/development.md#versions); Unreleased only on top, never empty.
 
@@ -49,6 +52,16 @@ SUMMARY_PHRASES = ["minor fixes", "minor improvements", "minor changes", "minor 
                    "fixes", "misc", "miscellaneous", "tweaks", "cleanup", "clean-up", "updates", "changes"]
 FILLER = ["and", "&", "other", "some", "a few", "several", "plus", "more", "lots of", "many"]
 
+# How long a line and a section may be (docs/development.md#changelog).
+MAX_WORDS = 50
+MAX_SENTENCES = 3
+MAX_LINES = 8
+
+LEAD = re.compile(r"^\*\*[^*]+\*\*")
+# A sentence ends at . ! or ? followed by the end of the line or a space and a capital (version numbers like 0.7.0010
+# and "Settings, then Changes" don't end one).
+SENTENCE_END = re.compile(r"[.!?](?=\s*$|\s+[\"(]?[A-Z])")
+
 
 def words(text):
     return re.findall(r"[A-Za-z0-9']+", text.lower())
@@ -58,9 +71,22 @@ def strip(line):
     return re.sub(r"[*_]", "", line).strip()
 
 
+def too_long(text):
+    """Problems with one line's length: the words after its bold lead, and its sentences."""
+    body = LEAD.sub("", text).strip()
+    problems = []
+    count = len(words(body))
+    if count > MAX_WORDS:
+        problems.append("%d words after the bold lead: at most %d; say what changed in one to three short sentences" % (count, MAX_WORDS))
+    sentences = max(1, len(SENTENCE_END.findall(body)))
+    if sentences > MAX_SENTENCES:
+        problems.append("%d sentences: at most %d; leave details to the setup guide" % (sentences, MAX_SENTENCES))
+    return problems
+
+
 def check_line(text):
     """Problems with one '- ' line's text."""
-    problems = []
+    problems = too_long(text)
     for pattern, what in CODE:
         match = pattern.search(text)
         if match:
@@ -95,6 +121,8 @@ def check(text):
     def close_section():
         if section is not None and section_items == 0:
             problems.append((section_line, "empty section '%s': leave the heading out when there's nothing under it" % section))
+        if section is not None and section_items > MAX_LINES:
+            problems.append((section_line, "%d lines in '%s': at most %d; group related changes into one line" % (section_items, section, MAX_LINES)))
 
     def close_unreleased():
         if version is UNRELEASED and unreleased_items == 0:
@@ -168,6 +196,8 @@ BAD = """# Changelog
 - Nothing this time.
 - Minor fixes.
 - Various improvements and bug fixes.
+- **Too long:** this line goes on and on, word after word, about every small detail of a feature that a reader only needed to hear about once, in a sentence or two, before the setup guide took over with the rest of it, the settings, the windows, the buttons, the menus, the colours and every last label on every page too.
+- **Too many sentences:** one. Two. Three. Four.
 
 ### For admins
 
@@ -177,6 +207,17 @@ BAD = """# Changelog
 Loose text.
 
 ## 0.6.1 (2026-10-01)
+
+### For users
+- **One:** a.
+- **Two:** b.
+- **Three:** c.
+- **Four:** d.
+- **Five:** e.
+- **Six:** f.
+- **Seven:** g.
+- **Eight:** h.
+- **Nine:** i.
 
 ## 0.6.1 (2026-10-01)
 
@@ -206,6 +247,7 @@ Text before the first version is free.
 ### For admins
 - **Removals:** Sonarr/Radarr titles nobody requested can be removed too, from /admin requests.
 - Fixed: approving a request sometimes left the old Cancel button working, and the queue count updates after a restart.
+- **Settings in the web app:** build 0.7.0010 is set up from the web app. Settings, then Changes, records who changed what. Is that clear?
 
 ## 0.6.0 (2026-10-21)
 """
@@ -223,7 +265,8 @@ def self_test():
     found = check(BAD)
     expected = ["backticks", "a file name", "a file path", "a command flag", "a settings key", "an environment variable name",
                 "placeholder", "summary without substance", "empty section", "section 'Internal'", "only headings",
-                "appears twice", "newest first", "a version heading", "goes once, on top", "an empty '## Unreleased'"]
+                "appears twice", "newest first", "a version heading", "goes once, on top", "an empty '## Unreleased'",
+                "words after the bold lead", "4 sentences", "9 lines in 'For users'"]
     missing = [e for e in expected if not any(e in p for _, p in found)]
     headings = sum("a version heading" in p for _, p in found)
     summaries = sum("summary without substance" in p for _, p in found)

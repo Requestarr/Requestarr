@@ -16,7 +16,9 @@ Versions up to 0.6.0 kept their x.y.z numbers, one per pull request; three of th
 
 CHANGELOG.md and QA-CHECKLIST.md: pull requests add their lines under "## Unreleased"; the staging promotion turns
 it into "## 0.7.0011 (YYYY-MM-DD)", the changelog's heading naming the goals' builds it includes ("## 0.7.0011
-(YYYY-MM-DD), with 0.7.0005 to 0.7.0011"). Numbered sections never change after that.
+(YYYY-MM-DD), with 0.7.0005 to 0.7.0011"). Numbered sections never change after that, unless the owner approves
+rewriting one changelog section, recorded in the pull request's description (check --rewrite; release.sh reads the
+"Rewrite of a numbered version:" line). Its heading stays; the QA checklist's numbered sections never change.
 
   python3 .github/build_numbers.py next [--major] [--changelog <file>] [--shipped <x.y.zzzz>] [--before <commit>]
         the number the next build sent to testers takes (from 1.0, a major when that changelog's Unreleased has a
@@ -38,7 +40,8 @@ it into "## 0.7.0011 (YYYY-MM-DD)", the changelog's heading naming the goals' bu
         a merge-back of both files: every numbered section of both, highest first; Unreleased keeps the lines of both
         that no numbered section has yet
   python3 .github/build_numbers.py check <change|release|staging-fix|merge-back> <base dir> <head dir> [<upper dir>]
-        [--number <x.y.zzzz>] [--no-changelog]   a pull request's two files against the rules; exit 1 with the reasons
+        [--number <x.y.zzzz>] [--no-changelog] [--rewrite <x.y.zzzz>]   a pull request's two files against the rules;
+        exit 1 with the reasons (--rewrite: the owner approved rewriting that changelog section's lines)
   python3 .github/build_numbers.py --self-test
 
 next reads the tags with `git ls-remote --tags origin` (no login) and which builds shipped from origin/main.
@@ -414,12 +417,20 @@ def tested_versions():
     return set(parse(shown.stdout)[2]) if shown.returncode == 0 else None
 
 
-def numbered_changes(name, base, head, tested):
+def first_line(section):
+    return section.split("\n", 1)[0]
+
+
+def numbered_changes(name, base, head, tested, rewrites=frozenset()):
     """A numbered section never changes, except that one newer than every version testers have may be folded into
-    Unreleased (removed): it never reached them, and Unreleased says what changed since the last build they got."""
+    Unreleased (removed): it never reached them, and Unreleased says what changed since the last build they got.
+    A changelog section the owner approved rewriting (rewrites) may change its lines, never its heading."""
     old, new = parse(base)[2], parse(head)[2]
-    if any(old.get(v) != s for v, s in new.items()):
+    allowed = rewrites if name == "CHANGELOG.md" else frozenset()
+    if any(old.get(v) != s and not (v in allowed and v in old and first_line(old[v]) == first_line(s)) for v, s in new.items()):
         return ["%s: a numbered version changed; add lines under '## Unreleased' instead" % name]
+    if allowed - set(new):
+        return ["%s: an approved rewrite keeps its version: %s" % (name, ", ".join(map(text, sorted(allowed - set(new)))))]
     folded = set(old) - set(new)
     if folded and (tested is None or min(folded) <= max(tested, default=(0, 0, 0))):
         return ["%s: only versions testers never had can be folded into Unreleased; %s reached them" % (name, ", ".join(map(text, sorted(folded))))]
@@ -436,12 +447,13 @@ def repeated_leads(unreleased):
     return problems
 
 
-def check_change(base, head, no_changelog, tested=None):
+def check_change(base, head, no_changelog, tested=None, rewrites=frozenset()):
     """Into dev, or a fix into qa: numbered sections untouched (a version testers never had may be folded into
-    Unreleased); the changelog gains Unreleased lines, one per thing, or the pull request says it has none."""
+    Unreleased; a changelog section the owner approved rewriting may change); the changelog gains Unreleased lines,
+    one per thing, or the pull request says it has none."""
     problems = []
     for name in FILES:
-        problems += numbered_changes(name, base[name], head[name], tested)
+        problems += numbered_changes(name, base[name], head[name], tested, rewrites)
     problems += repeated_leads(parse(head["CHANGELOG.md"])[1])
     added = lines_of(parse(head["CHANGELOG.md"])[1]) - lines_of(parse(base["CHANGELOG.md"])[1])
     if no_changelog and added:
@@ -503,9 +515,9 @@ def check_merge_back(base, upper, head):
     return sorted(set(problems))
 
 
-def check(kind, base, head, upper=None, number=None, no_changelog=False, tested=None):
+def check(kind, base, head, upper=None, number=None, no_changelog=False, tested=None, rewrites=frozenset()):
     if kind == "change":
-        return check_change(base, head, no_changelog, tested)
+        return check_change(base, head, no_changelog, tested, rewrites)
     if kind in ("release", "staging-fix"):
         return check_numbered(base, head, number, no_changelog, kind == "release")
     if kind == "merge-back":
@@ -549,6 +561,14 @@ def self_test():
         (bool(check("change", base, change, no_changelog=True)), "'No changelog' with lines fails"),
         (bool(check("change", base, {**change, "CHANGELOG.md": change["CHANGELOG.md"].replace("clearer", "better")})),
          "changing a numbered version fails"),
+        (check("change", base, {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("clearer", "better")}, no_changelog=True,
+               rewrites={(0, 6, 0)}) == [], "a rewrite the owner approved changes that version's lines"),
+        (bool(check("change", base, {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("clearer", "better")}, no_changelog=True,
+                    rewrites={(0, 5, 6)})), "an approved rewrite of one version doesn't open another"),
+        (bool(check("change", base, {**base, "CHANGELOG.md": base["CHANGELOG.md"].replace("(2026-11-13)\n\n### For users", "(2026-11-14)\n\n### For users")},
+                    no_changelog=True, rewrites={(0, 6, 0)})), "an approved rewrite keeps the version's heading"),
+        (bool(check("change", base, {**base, "QA-CHECKLIST.md": base["QA-CHECKLIST.md"].replace("look", "see")}, no_changelog=True,
+                    rewrites={(0, 6, 0)})), "nor does it open the QA checklist's numbered version"),
         (check("change", change, {**change, "CHANGELOG.md": newer_dev}) == [], "a fix into QA adds to QA's Unreleased"),
         (check("change", base, folded, tested={(0, 5, 6)}) == [], "a version testers never had folds into Unreleased"),
         (bool(check("change", base, folded, tested={(0, 6, 0)})), "a version testers have can't be folded"),
@@ -729,7 +749,9 @@ def main(argv):
         upper = read_dir(flags.pop(0)) if flags and not flags[0].startswith("--") else None
         number = parse_version(flags[flags.index("--number") + 1]) if "--number" in flags else None
         tested = tested_versions() if args[1] == "change" else None
-        problems = check(args[1], read_dir(args[2]), read_dir(args[3]), upper, number, "--no-changelog" in flags, tested)
+        rewrites = frozenset(parse_version(flags[i + 1]) for i, flag in enumerate(flags) if flag == "--rewrite")
+        problems = check(args[1], read_dir(args[2]), read_dir(args[3]), upper, number, "--no-changelog" in flags, tested,
+                         rewrites)
         for problem in problems:
             print(("::error::" if os.environ.get("GITHUB_ACTIONS") else "") + problem)
         return 1 if problems else 0

@@ -211,6 +211,14 @@ check_changelog() {
     if [[ "$pr_branch" == dependabot/* ]] || printf '%s\n' "${PR_BODY:-}" | grep -qE '^No changelog: .{5,}'; then
         flags+=(--no-changelog)
     fi
+    # Numbered versions never change, unless the owner approved rewriting one changelog section, recorded in the
+    # description with his words: 'Rewrite of a numbered version: 0.7.0010, approved by the owner on 2026-11-23: "..."'.
+    if [ "$kind" = change ]; then
+        local rewrite
+        while read -r rewrite; do
+            [ -n "$rewrite" ] && flags+=(--rewrite "$rewrite")
+        done < <(printf '%s\n' "${PR_BODY:-}" | sed -nE 's/^Rewrite of a numbered version: ([0-9]+\.[0-9]+\.[0-9]{4,}), approved by the owner on [0-9]{4}-[0-9]{2}-[0-9]{2}: ".{5,}"\r?$/\1/p')
+    fi
     # A release carries the number of the build QA ran (the tag on the commit it sits on). A fix into staging takes the
     # next number as it was before this pull request (its branches may already have moved to it); a major when the
     # owner's word is recorded, or from 1.0 a "Before you upgrade" line asks for one.
