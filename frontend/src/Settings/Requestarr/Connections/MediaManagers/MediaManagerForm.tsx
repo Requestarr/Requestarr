@@ -15,19 +15,14 @@ import {
 } from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
 import readOnlyProps from '../../readOnlyProps';
-import {
-  LinkPreview,
-  LoadProblem,
-  PageLink,
-  updatesText,
-} from './MediaManagerExtras';
+import { linkPreview, pageLink, updatesText } from './MediaManagerExtras';
 import {
   MEDIA_MANAGERS_SECTION,
   MediaManagerItem,
   MediaManagerSettings,
   portOf,
 } from './mediaManagerSettings';
-import useChoices from './useChoices';
+import useChoices, { problemOf } from './useChoices';
 
 export {
   MEDIA_MANAGERS_SECTION,
@@ -114,36 +109,46 @@ interface FieldExtrasProps {
   choices: Choices;
 }
 
-// What a field shows under it: why its list couldn't load and a link to the instance's page the list comes from,
-// or the link a request's Open button will make.
-function FieldExtras({ name, item, app, choices }: FieldExtrasProps) {
-  switch (name) {
+// Why a list couldn't load, as one of its field's errors; nothing before there's an address to try.
+function loadErrors(
+  field: Field,
+  list: Choices['profiles'],
+  item: MediaManagerItem
+) {
+  const hasAddress = item.fields.some((f) => f.name === 'url' && f.value);
+  const problem = hasAddress ? problemOf(list) : undefined;
+
+  return {
+    errors: problem ? [...field.errors, { message: problem }] : field.errors,
+  };
+}
+
+// What a field shows under it, in its own column: why its list couldn't load and a link to the instance's page the
+// list comes from (Servarr's help link), or the link a request's Open button will make.
+function fieldExtras(field: Field, { item, app, choices }: FieldExtrasProps) {
+  switch (field.name) {
     case 'qualityProfile':
-      return (
-        <>
-          <LoadProblem list={choices.profiles} />
-          <PageLink
-            item={item}
-            path="settings/profiles"
-            label={translate('InstanceOpenProfiles', { app })}
-          />
-        </>
-      );
+      return {
+        ...loadErrors(field, choices.profiles, item),
+        ...pageLink(
+          item,
+          'settings/profiles',
+          translate('InstanceOpenProfiles', { app })
+        ),
+      };
     case 'rootFolder':
-      return (
-        <>
-          <LoadProblem list={choices.folders} />
-          <PageLink
-            item={item}
-            path="settings/mediamanagement"
-            label={translate('InstanceOpenMediaManagement', { app })}
-          />
-        </>
-      );
+      return {
+        ...loadErrors(field, choices.folders, item),
+        ...pageLink(
+          item,
+          'settings/mediamanagement',
+          translate('InstanceOpenMediaManagement', { app })
+        ),
+      };
     case 'browserUrl':
-      return <LinkPreview item={item} app={app} />;
+      return { helpTexts: linkPreview(item, app) };
     default:
-      return null;
+      return {};
   }
 }
 
@@ -176,19 +181,17 @@ function MediaManagerField({ field, locked, onChange, ...extras }: FieldProps) {
   }
 
   return (
-    <>
-      <ProviderFieldGroup
-        advancedSettings={advancedSettings}
-        provider="mediamanager"
-        providerData={extras.item}
-        section={MEDIA_MANAGERS_SECTION}
-        {...field}
-        {...fieldWords(field, extras.app)}
-        {...locked}
-        onChange={onChange}
-      />
-      <FieldExtras {...extras} />
-    </>
+    <ProviderFieldGroup
+      advancedSettings={advancedSettings}
+      provider="mediamanager"
+      providerData={extras.item}
+      section={MEDIA_MANAGERS_SECTION}
+      {...field}
+      {...fieldWords(field, extras.app)}
+      {...fieldExtras(field, extras)}
+      {...locked}
+      onChange={onChange}
+    />
   );
 }
 

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
+using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Backends.MediaManagers;
 using Requestarr.Core.Settings;
@@ -17,7 +18,8 @@ namespace Requestarr.Api.V1.MediaManagers
     // the instance's history (InstanceDeletion); there's no bulk delete, since each asks what takes over.
     [V1ApiController("mediamanager")]
     public class MediaManagerController : ProviderControllerBase<MediaManagerResource, MediaManagerBulkResource, IMediaManager, BackendInstance>,
-        IHandle<BackendsCheckedEvent>
+        IHandle<BackendsCheckedEvent>,
+        IHandle<AvailabilityWebhooksCheckedEvent>
     {
         private readonly IInstanceDeletion _deletion;
 
@@ -69,5 +71,9 @@ namespace Requestarr.Api.V1.MediaManagers
         // A connection check finished: the page shows each instance's new state.
         [NonAction]
         public void Handle(BackendsCheckedEvent message) => BroadcastResourceChange(ModelAction.Sync);
+
+        // Their webhooks were tested: each card's Updates line follows (right away, or on the timer and why).
+        [NonAction]
+        public void Handle(AvailabilityWebhooksCheckedEvent message) => BroadcastResourceChange(ModelAction.Sync);
     }
 }

@@ -22,6 +22,7 @@ interface ChoiceOption {
 
 interface ChoiceList {
   items: ChoiceOption[];
+  isFetching: boolean;
   isPopulated: boolean;
   error?: { responseJSON?: { errorMessage?: string }[] | { message?: string } };
 }
@@ -30,7 +31,7 @@ interface ChoiceList {
 export function problemOf(list?: ChoiceList): string | undefined {
   const answer = list?.error?.responseJSON;
 
-  if (!list?.error) {
+  if (!list?.error || list.isFetching) {
     return undefined;
   }
 

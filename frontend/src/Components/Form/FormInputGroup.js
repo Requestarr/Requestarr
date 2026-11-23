@@ -82,6 +82,7 @@ function FormInputGroup(props) {
     helpTexts,
     helpTextWarning,
     helpLink,
+    helpLinkText,
     pending,
     errors,
     warnings,
@@ -184,7 +185,7 @@ function FormInputGroup(props) {
           <Link
             to={helpLink}
           >
-            {translate('MoreInfo')}
+            {helpLinkText || translate('MoreInfo')}
           </Link>
       }
 
@@ -239,6 +240,8 @@ FormInputGroup.propTypes = {
   helpTexts: PropTypes.arrayOf(PropTypes.string),
   helpTextWarning: PropTypes.string,
   helpLink: PropTypes.string,
+  // Requestarr: the link's words where "More Info" isn't what it opens ("Open Sonarr's profiles").
+  helpLinkText: PropTypes.string,
   autoFocus: PropTypes.bool,
   includeNoChange: PropTypes.bool,
   includeNoChangeDisabled: PropTypes.bool,

@@ -1,10 +1,5 @@
-import React from 'react';
-import FormInputHelpText from 'Components/Form/FormInputHelpText';
-import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
 import { InstanceUpdates, MediaManagerItem } from './mediaManagerSettings';
-import { problemOf } from './useChoices';
-import styles from './MediaManagerExtras.css';
 
 // An example title for the link preview, used until the library has one.
 const EXAMPLE_SLUG: Record<string, string> = {
@@ -25,55 +20,25 @@ function linkBase(item: MediaManagerItem) {
   return base ? base.replace(/\/+$/, '') : undefined;
 }
 
-// A link to the instance's own page a list's choices come from, once there's an address to build it from.
-export function PageLink({
-  item,
-  path,
-  label,
-}: {
-  item: MediaManagerItem;
-  path: string;
-  label: string;
-}) {
+// A link to the instance's own page a list's choices come from, once there's an address to build it from, as
+// Servarr's input group shows a help link under its field.
+export function pageLink(item: MediaManagerItem, path: string, label: string) {
   const base = linkBase(item);
 
-  return base ? (
-    <div className={styles.extra}>
-      <Link to={`${base}/${path}`} target="_blank">
-        {label}
-      </Link>
-    </div>
-  ) : null;
-}
-
-// Why a list that needs the instance couldn't load, in the server's plain words.
-export function LoadProblem({
-  list,
-}: {
-  list?: Parameters<typeof problemOf>[0];
-}) {
-  const problem = problemOf(list);
-
-  return problem ? <FormInputHelpText text={problem} isError={true} /> : null;
+  return base ? { helpLink: `${base}/${path}`, helpLinkText: label } : {};
 }
 
 // The link a request's Open button makes from what's typed, updated as the admin types.
-export function LinkPreview({
-  item,
-  app,
-}: {
-  item: MediaManagerItem;
-  app: string;
-}) {
+export function linkPreview(item: MediaManagerItem, app: string) {
   const base = linkBase(item);
 
-  if (!base) {
-    return null;
-  }
-
-  const url = `${base}/${EXAMPLE_SLUG[app] ?? EXAMPLE_SLUG.Sonarr}`;
-
-  return <FormInputHelpText text={translate('InstanceLinkPreview', { url })} />;
+  return base
+    ? [
+        translate('InstanceLinkPreview', {
+          url: `${base}/${EXAMPLE_SLUG[app] ?? EXAMPLE_SLUG.Sonarr}`,
+        }),
+      ]
+    : [];
 }
 
 const UPDATES_TEXT: Record<InstanceUpdates['reason'], string> = {

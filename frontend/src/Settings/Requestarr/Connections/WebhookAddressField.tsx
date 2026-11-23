@@ -48,6 +48,7 @@ function browserAddress() {
 // What to tell the admin about it: that localhost can't be used, or to check a name the browser used.
 function usePrefill(form: SettingsForm) {
   const saved = form.settings?.values[NAME];
+  const typed = NAME in form.pending ? form.pending[NAME] : saved;
   const isProvisioned = !!form.settings?.provisioned;
   const { onChange } = form;
   const browser = browserAddress();
@@ -65,7 +66,9 @@ function usePrefill(form: SettingsForm) {
   }
 
   if (browser.isLocal) {
-    return translate('WebhookAddressLocalhost', { host: browser.host });
+    return typed
+      ? undefined
+      : translate('WebhookAddressLocalhost', { host: browser.host });
   }
 
   return browser.needsCheck ? translate('WebhookAddressCheckThis') : undefined;

@@ -45,7 +45,7 @@ function Failure({ error }: { error?: object | null }) {
   const failure = failureOf(error);
 
   useEffect(() => {
-    ref.current?.scrollIntoView({ block: 'nearest' });
+    ref.current?.scrollIntoView({ block: 'end' });
   }, [failure]);
 
   return failure ? (
