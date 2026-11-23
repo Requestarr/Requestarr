@@ -32,7 +32,7 @@ namespace Requestarr.Http.Imports
 
         // "Post history now", for an import run before posting existed: what isn't posted yet, never twice.
         [HttpPost("/api/v1/requestarr/import/history/post")]
-        public IActionResult PostHistory() => Json(new { queued = _posting.QueueEarlier(), status = _posting.Status() });
+        public IActionResult PostHistory() => Answer(() => _posting.QueueEarlier());
 
         [HttpPost("/api/v1/requestarr/import/history/pause")]
         public IActionResult Pause() => Answer(_posting.Pause);
