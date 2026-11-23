@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
@@ -58,8 +59,8 @@ namespace Requestarr.Core.Users
         private readonly IGuildSetupService _guildSetup;
         private readonly IBackendService _backends;
         private readonly IAuditService _audit;
-        private readonly NzbDrone.Core.Messaging.Events.IEventAggregator _events;
         private readonly IPanelService _panels;
+        private readonly IEventAggregator _events;
         private readonly Logger _logger;
 
         public UserManagementService(IRequestarrUserRepository users,
@@ -72,7 +73,7 @@ namespace Requestarr.Core.Users
                                      IBackendService backends,
                                      IAuditService audit,
                                      IPanelService panels,
-                                     NzbDrone.Core.Messaging.Events.IEventAggregator events,
+                                     IEventAggregator events,
                                      Logger logger)
         {
             _users = users;

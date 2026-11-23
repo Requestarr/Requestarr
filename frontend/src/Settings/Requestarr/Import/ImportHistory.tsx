@@ -20,7 +20,7 @@ interface HistoryStatus {
   posted: number;
 }
 
-// How often the page reads the progress again while history is being posted.
+// How often the page reads the progress again.
 const PROGRESS_SECONDS = 3;
 const SWITCHES = ['importPostChannels', 'importPostFeed'];
 
@@ -59,20 +59,16 @@ function HistorySwitches() {
   );
 }
 
-// Reads the progress again every few seconds while posting or paused.
+// Reads the progress again every few seconds while the page is open: an import started here, or a member onboarded
+// meanwhile, starts posting without the page being told.
 function useHistoryStatus() {
   const status = useRequestarrApi<HistoryStatus>('import/history');
-  const { data, reload } = status;
-  const isActive = !!data && data.state !== 'idle';
+  const { reload } = status;
 
   useEffect(() => {
-    if (!isActive) {
-      return undefined;
-    }
-
     const timer = setInterval(reload, PROGRESS_SECONDS * 1000);
     return () => clearInterval(timer);
-  }, [isActive, reload]);
+  }, [reload]);
 
   return status;
 }

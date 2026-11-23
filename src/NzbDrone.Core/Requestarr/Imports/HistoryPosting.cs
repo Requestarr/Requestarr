@@ -6,7 +6,6 @@ using NLog;
 using NzbDrone.Common.Messaging;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Lifecycle;
-using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
@@ -45,7 +44,8 @@ namespace Requestarr.Core.Imports
         // An import's new requests (IDs above afterRequestId): queued for the feed and their onboarded requesters' channels.
         int QueueImport(int afterRequestId);
 
-        // "Post history now": every imported request not queued yet, for an import run before posting existed.
+        // "Post history now": every imported request not posted where it belongs yet (an import run before posting
+        // existed, or a new server), and whatever was left waiting.
         int QueueEarlier();
 
         void Pause();
@@ -55,9 +55,11 @@ namespace Requestarr.Core.Imports
 
     // Posts imported history in Discord: each member's in their own channel, a few titles to a message, and every
     // request in the admin feed as its normal card marked Imported, oldest first, between a header and a closing post.
-    // Everything is silent and pings nobody. It goes slowly, one post at a time with a pause between, so live notices
-    // never queue behind it, and each post is recorded (HistoryPosts) before the next, so nothing is posted twice.
-    public class HistoryPosting : IHistoryPosting, IExecute<PostHistoryCommand>, IHandle<MemberOnboardedEvent>, IHandle<ApplicationStartedEvent>
+    // Everything is silent and pings nobody. One background worker posts slowly, a pause between posts, so live notices
+    // never queue behind it; it keeps going while anything waits, so rows queued mid-run are posted too. (Servarr's
+    // command queue drops a second push of a command already running, so the import's own command pattern can't be
+    // used here.) Each post is recorded per request, destination and channel before the next: nothing is posted twice.
+    public class HistoryPosting : IHistoryPosting, IHandle<MemberOnboardedEvent>, IHandle<ApplicationStartedEvent>
     {
         public const string PostedAction = "import.history";
 
@@ -74,14 +76,15 @@ namespace Requestarr.Core.Imports
         private readonly IDiscordGuildGateway _gateway;
         private readonly IDiscordGuildConfigRepository _configs;
         private readonly IConfigService _config;
-        private readonly IManageCommandQueue _commands;
         private readonly IAuditService _audit;
         private readonly Logger _logger;
         private readonly object _lock = new();
         private HistoryPostingState _state = HistoryPostingState.Idle;
+        private bool _running;
+        private bool _again;
         private bool _cancelled;
 
-        // The feed's header went out for this batch: a resume after Pause doesn't post it again.
+        // This batch's feed: its header went out (a resume or restart doesn't post it again), and how many cards since.
         private bool _feedStarted;
         private int _feedPosted;
         private int _total;
@@ -94,7 +97,6 @@ namespace Requestarr.Core.Imports
                               IDiscordGuildGateway gateway,
                               IDiscordGuildConfigRepository configs,
                               IConfigService config,
-                              IManageCommandQueue commands,
                               IAuditService audit,
                               Logger logger)
         {
@@ -105,13 +107,13 @@ namespace Requestarr.Core.Imports
             _gateway = gateway;
             _configs = configs;
             _config = config;
-            _commands = commands;
             _audit = audit;
             _logger = logger;
         }
 
-        // Waits between posts; tests make it instant.
+        // Waits between posts, and runs the worker in the background; tests make both immediate.
         public Func<TimeSpan, Task> Wait { get; set; } = Task.Delay;
+        public Func<Func<Task>, Task> Background { get; set; } = work => Task.Run(work);
 
         public HistoryPostingStatus Status()
         {
@@ -121,9 +123,9 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        public int QueueImport(int afterRequestId) => Queue(_requests.All().Where(r => r.Imported && r.Id > afterRequestId).ToList());
+        public int QueueImport(int afterRequestId) => Queue(_requests.All().Where(r => r.Imported && r.Id > afterRequestId).ToList(), true);
 
-        public int QueueEarlier() => Queue(_requests.All().Where(r => r.Imported).ToList());
+        public int QueueEarlier() => Queue(_requests.All().Where(r => r.Imported).ToList(), true);
 
         public void Pause()
         {
@@ -151,83 +153,107 @@ namespace Requestarr.Core.Imports
             Start();
         }
 
+        // While the worker runs it stops at its next post and drops what waits; otherwise that's done here.
         public void Cancel(Actor actor)
         {
-            var waiting = _posts.Waiting();
-            _posts.DeleteMany(waiting);
-
             lock (_lock)
             {
-                _cancelled = _state == HistoryPostingState.Posting;
-
-                if (!_cancelled)
+                if (_running)
                 {
-                    _state = HistoryPostingState.Idle;
-                    _total = _posted;
+                    _cancelled = true;
+                    _state = HistoryPostingState.Posting;
                 }
             }
 
-            _audit.Record(actor, PostedAction, "import", null, $"cancelled with {waiting.Count} posts left");
+            if (!_cancelled)
+            {
+                DropWaiting();
+            }
+
+            _audit.Record(actor, PostedAction, "import", null, "cancelled");
         }
 
         public void Handle(MemberOnboardedEvent message)
         {
             if (_config.ImportPostChannels)
             {
-                Queue(_requests.All().Where(r => r.Imported && r.OwnerUserId == message.UserId).ToList(), feed: false);
+                Queue(_requests.All().Where(r => r.Imported && r.OwnerUserId == message.UserId).ToList(), false);
             }
         }
 
-        // What waited when Requestarr stopped carries on.
+        // What waited when Requestarr stopped carries on, its feed header not posted again.
         public void Handle(ApplicationStartedEvent message)
         {
-            var waiting = _posts.Waiting().Count;
+            var waiting = _posts.Waiting();
 
-            if (waiting > 0)
+            if (waiting.Count == 0)
             {
-                lock (_lock)
-                {
-                    _total = waiting;
-                    _posted = 0;
-                }
-
-                Start();
+                return;
             }
+
+            var batches = waiting.Select(p => p.Queued).ToHashSet();
+            var feedDone = _posts.All().Count(p => p.Destination == HistoryDestination.Feed && p.Posted != null && batches.Contains(p.Queued));
+
+            lock (_lock)
+            {
+                _total = waiting.Count;
+                _feedStarted = feedDone > 0;
+                _feedPosted = feedDone;
+            }
+
+            Start();
         }
 
-        public void Execute(PostHistoryCommand message) => PostAllAsync().GetAwaiter().GetResult();
-
-        // Queues each request once per destination: the feed when it's switched on, the requester's channel when that's
-        // switched on and they're onboarded. How many posts were queued.
-        private int Queue(IReadOnlyCollection<Request> imported, bool feed = true)
+        // Queues each request once per destination and channel: the feed's when it's switched on, the requester's
+        // channel when that's switched on and they're onboarded. How many posts were queued; posting starts either way.
+        private int Queue(IReadOnlyCollection<Request> imported, bool feed)
         {
             var now = DateTime.UtcNow;
             var rows = new List<HistoryPost>();
 
-            if (feed && _config.ImportPostFeed)
+            if (feed && _config.ImportPostFeed && FeedChannel() is { } feedChannel)
             {
-                var known = _posts.Known(HistoryDestination.Feed);
-                rows.AddRange(imported.Where(r => !known.Contains(r.Id)).Select(r => Row(r, HistoryDestination.Feed, now)));
+                var known = _posts.Known(HistoryDestination.Feed, feedChannel);
+                rows.AddRange(imported.Where(r => !known.Contains(r.Id)).Select(r => Row(r, HistoryDestination.Feed, feedChannel, now)));
             }
 
             if (_config.ImportPostChannels)
             {
-                var known = _posts.Known(HistoryDestination.Channel);
-                var onboarded = _users.All().Where(u => u.PrivateChannelId != null && u.Status == UserStatus.Active).Select(u => u.Id).ToHashSet();
-                rows.AddRange(imported.Where(r => !known.Contains(r.Id) && onboarded.Contains(r.OwnerUserId)).Select(r => Row(r, HistoryDestination.Channel, now)));
-            }
-
-            if (rows.Count == 0)
-            {
-                return 0;
+                rows.AddRange(ChannelRows(imported, now));
             }
 
             _posts.InsertMany(rows);
+            Grow(rows.Count);
+            Start();
 
+            return rows.Count;
+        }
+
+        private IEnumerable<HistoryPost> ChannelRows(IEnumerable<Request> imported, DateTime now)
+        {
+            var channels = _users.All().Where(u => u.PrivateChannelId != null && u.Status == UserStatus.Active).ToDictionary(u => u.Id, u => u.PrivateChannelId);
+
+            foreach (var owner in imported.Where(r => channels.ContainsKey(r.OwnerUserId)).GroupBy(r => r.OwnerUserId))
+            {
+                var known = _posts.Known(HistoryDestination.Channel, channels[owner.Key]);
+
+                foreach (var request in owner.Where(r => !known.Contains(r.Id)))
+                {
+                    yield return Row(request, HistoryDestination.Channel, channels[owner.Key], now);
+                }
+            }
+        }
+
+        private static HistoryPost Row(Request request, HistoryDestination destination, string channel, DateTime now) =>
+            new() { RequestId = request.Id, Destination = destination, ChannelId = channel, Queued = now };
+
+        // A new batch once the last one is done (the page keeps the last one's count until then); otherwise these join
+        // the one under way.
+        private void Grow(int rows)
+        {
             lock (_lock)
             {
-                // A new batch once the last one is done; otherwise these join the one under way.
-                if (_state == HistoryPostingState.Idle)
+                if (rows > 0 && _state == HistoryPostingState.Idle && !_running)
                 {
                     _total = 0;
                     _posted = 0;
@@ -235,105 +261,157 @@ namespace Requestarr.Core.Imports
                     _feedPosted = 0;
                 }
 
-                _total += rows.Count;
+                _total += rows;
             }
-
-            Start();
-            return rows.Count;
         }
 
-        private static HistoryPost Row(Request request, HistoryDestination destination, DateTime now) =>
-            new() { RequestId = request.Id, Destination = destination, Queued = now };
-
+        // Wakes the worker, or starts it; a pause holds everything until Resume.
         private void Start()
         {
             lock (_lock)
             {
-                if (_state != HistoryPostingState.Idle)
+                if (_state == HistoryPostingState.Paused || !_posts.Waiting().Any())
                 {
                     return;
                 }
 
                 _state = HistoryPostingState.Posting;
-                _cancelled = false;
-            }
 
-            _commands.Push(new PostHistoryCommand());
-        }
-
-        private async Task PostAllAsync()
-        {
-            var waiting = _posts.Waiting();
-            var requests = _requests.Get(waiting.Select(p => p.RequestId).Distinct()).ToDictionary(r => r.Id);
-
-            foreach (var member in waiting.Where(p => p.Destination == HistoryDestination.Channel && requests.ContainsKey(p.RequestId)).GroupBy(p => requests[p.RequestId].OwnerUserId))
-            {
-                if (!await PostChannelAsync(member.Key, member.ToList(), requests))
+                if (_running)
                 {
-                    Finish(null);
+                    _again = true;
                     return;
                 }
+
+                _running = true;
+                _again = false;
             }
 
-            var feed = waiting.Where(p => p.Destination == HistoryDestination.Feed && requests.ContainsKey(p.RequestId))
-                .OrderBy(p => requests[p.RequestId].Requested).ThenBy(p => p.RequestId).ToList();
-            Finish(await PostFeedAsync(feed, requests));
+            _ = Background(WorkAsync);
+        }
+
+        private async Task WorkAsync()
+        {
+            try
+            {
+                do
+                {
+                    await DrainAsync();
+                }
+                while (KeepGoing());
+            }
+            catch (Exception ex)
+            {
+                // Discord down, say: what waits stays queued, and Post history now (or a restart) carries on.
+                _logger.Warn(ex, "Posting imported history stopped; what waits is posted on the next start");
+                lock (_lock)
+                {
+                    _running = false;
+                    _state = _state == HistoryPostingState.Paused ? _state : HistoryPostingState.Idle;
+                }
+            }
+        }
+
+        // Whether something was queued while the last pass ran; otherwise the worker stops, and the state says why.
+        private bool KeepGoing()
+        {
+            lock (_lock)
+            {
+                if (_again && _state == HistoryPostingState.Posting && !_cancelled)
+                {
+                    _again = false;
+                    return true;
+                }
+
+                _running = false;
+
+                if (_state == HistoryPostingState.Posting)
+                {
+                    _state = HistoryPostingState.Idle;
+                }
+
+                return false;
+            }
+        }
+
+        // Posts what waits, read afresh each pass so rows queued meanwhile go too; members' channels first, then the feed.
+        private async Task DrainAsync()
+        {
+            while (Continuing() && _posts.Waiting() is { Count: > 0 } waiting)
+            {
+                var requests = _requests.Get(waiting.Select(p => p.RequestId).Distinct()).ToDictionary(r => r.Id);
+                var members = waiting.Where(p => p.Destination == HistoryDestination.Channel)
+                    .GroupBy(p => p.ChannelId).ToList();
+
+                foreach (var member in members)
+                {
+                    await PostChannelAsync(member.Key, member.ToList(), requests);
+                }
+
+                var feed = waiting.Where(p => p.Destination == HistoryDestination.Feed)
+                    .OrderBy(p => requests.GetValueOrDefault(p.RequestId)?.Requested).ThenBy(p => p.RequestId).ToList();
+                await PostFeedAsync(feed, requests);
+            }
+
+            Wrap();
         }
 
         // A member's history, oldest first, a few titles to each silent message in their channel.
-        private async Task<bool> PostChannelAsync(int userId, List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
+        private async Task PostChannelAsync(string channelId, List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
         {
-            if (!ulong.TryParse(_users.Find(userId)?.PrivateChannelId, out var channel))
+            if (!ulong.TryParse(channelId, out var channel) || Unsendable(posts, requests))
             {
-                return true;
+                return;
             }
 
             var ordered = posts.OrderBy(p => requests[p.RequestId].Requested).ThenBy(p => p.RequestId).ToList();
 
-            for (var start = 0; start < ordered.Count; start += LinesPerMessage)
+            for (var start = 0; start < ordered.Count && Continuing(); start += LinesPerMessage)
             {
                 var batch = ordered.Skip(start).Take(LinesPerMessage).ToList();
                 var lines = batch.Select(p => DiscordText.HistoryLine(requests[p.RequestId])).Prepend(DiscordText.HistoryChannelHeader);
 
-                if (!await PostAsync(batch, () => _gateway.SendMessageAsync(channel, new InteractionReply { Content = string.Join("\n", lines), Quiet = true })))
-                {
-                    return false;
-                }
+                await PostAsync(batch, () => _gateway.SendMessageAsync(channel, new InteractionReply { Content = string.Join("\n", lines), Quiet = true }));
             }
-
-            return true;
         }
 
-        // The feed: a header, every request's own card marked Imported, oldest first, then a closing post. Whether it got
-        // to the end; posted counts what went out.
-        private async Task<(bool Finished, int Posted, int Total)?> PostFeedAsync(List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
+        // The feed: its header once a batch, then every request's own card marked Imported, oldest first.
+        private async Task PostFeedAsync(List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
         {
-            if (posts.Count == 0 || !ulong.TryParse(_configs.FindByGuild(_gateway.GuildId.ToString())?.FeedChannelId, out var channel))
+            if (posts.Count == 0 || Unsendable(posts, requests) || FeedChannel() is not { } channelId)
             {
-                return null;
+                return;
             }
 
             if (!_feedStarted)
             {
                 var members = posts.Select(p => requests[p.RequestId].OwnerUserId).Distinct().Count();
-                await _gateway.SendMessageAsync(channel, new InteractionReply { Content = DiscordText.HistoryFeedHeader(posts.Count, members), Quiet = true });
+                await Note(channelId, DiscordText.HistoryFeedHeader(posts.Count, members));
                 _feedStarted = true;
             }
 
-            var posted = 0;
-
-            foreach (var post in posts)
+            foreach (var post in posts.TakeWhile(_ => Continuing()))
             {
-                if (!await PostAsync(new[] { post }, () => _feed.PostImportedAsync(requests[post.RequestId])))
+                if (await PostAsync(new[] { post }, () => _feed.PostImportedAsync(requests[post.RequestId])))
                 {
-                    return (false, posted, posts.Count);
+                    _feedPosted++;
                 }
+            }
+        }
 
-                posted++;
-                _feedPosted++;
+        // Rows that can't go out (their request was deleted, or no feed channel is set) are dropped, not left waiting.
+        private bool Unsendable(List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
+        {
+            var gone = posts.Where(p => !requests.ContainsKey(p.RequestId) || (p.Destination == HistoryDestination.Feed && FeedChannel() == null)).ToList();
+
+            if (gone.Count > 0)
+            {
+                _posts.DeleteMany(gone);
+                posts.RemoveAll(gone.Contains);
+                Grow(-gone.Count);
             }
 
-            return (true, posted, posts.Count);
+            return posts.Count == 0;
         }
 
         // One post after the pace's wait, recorded on its rows before the next; false when paused or cancelled first.
@@ -347,11 +425,10 @@ namespace Requestarr.Core.Imports
             }
 
             var id = await send();
-            var now = DateTime.UtcNow;
 
             foreach (var row in rows)
             {
-                row.Posted = now;
+                row.Posted = DateTime.UtcNow;
                 row.MessageId = id == 0 ? null : id.ToString();
             }
 
@@ -373,41 +450,62 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // The feed's closing post (or where it stopped), and the state the Import page shows next.
-        private void Finish((bool Finished, int Posted, int Total)? feed)
+        // After a pass: a cancel drops what waits; a finished feed gets its closing post. A pause leaves everything.
+        private void Wrap()
         {
             bool cancelled;
-            int posted;
 
             lock (_lock)
             {
                 cancelled = _cancelled;
-                posted = _posted;
-
-                if (_state == HistoryPostingState.Posting || cancelled)
-                {
-                    _state = HistoryPostingState.Idle;
-                }
+                _cancelled = false;
             }
 
-            if (feed is { } f && (f.Finished || cancelled))
+            if (cancelled)
             {
-                // Counted over the batch, across any pause: this run may have started part way.
-                var left = f.Total - f.Posted;
-                PostFeedNote(f.Finished ? DiscordText.HistoryFeedDone(_feedPosted) : DiscordText.HistoryFeedStopped(_feedPosted, _feedPosted + left));
-                _feedStarted = false;
+                DropWaiting();
             }
-
-            _audit.Record(Actor.System, PostedAction, "import", null, $"{posted} history posts sent{(cancelled ? ", then cancelled" : string.Empty)}");
-            _logger.Info("Imported history: {0} posts sent", posted);
+            else if (Continuing() && _feedStarted && !_posts.Waiting().Any(p => p.Destination == HistoryDestination.Feed))
+            {
+                PostClosing(DiscordText.HistoryFeedDone(_feedPosted));
+                _audit.Record(Actor.System, PostedAction, "import", null, $"{_posted} history posts sent");
+            }
         }
 
-        private void PostFeedNote(string text)
+        // Cancel: what waits goes, the feed says where it stopped, and the count ends at what was posted.
+        private void DropWaiting()
         {
-            if (ulong.TryParse(_configs.FindByGuild(_gateway.GuildId.ToString())?.FeedChannelId, out var channel))
+            var waiting = _posts.Waiting();
+            _posts.DeleteMany(waiting);
+
+            if (_feedStarted)
             {
-                _gateway.SendMessageAsync(channel, new InteractionReply { Content = text, Quiet = true }).GetAwaiter().GetResult();
+                var left = waiting.Count(p => p.Destination == HistoryDestination.Feed);
+                PostClosing(DiscordText.HistoryFeedStopped(_feedPosted, _feedPosted + left));
+            }
+
+            lock (_lock)
+            {
+                _state = HistoryPostingState.Idle;
+                _total = _posted;
             }
         }
+
+        private void PostClosing(string text)
+        {
+            if (FeedChannel() is { } channel)
+            {
+                Note(channel, text).GetAwaiter().GetResult();
+            }
+
+            _feedStarted = false;
+        }
+
+        private Task<ulong> Note(string channel, string text) =>
+            _gateway.SendMessageAsync(ulong.Parse(channel), new InteractionReply { Content = text, Quiet = true });
+
+        // The admin feed channel of the server the bot is in now; null when it has none.
+        private string FeedChannel() =>
+            _configs.FindByGuild(_gateway.GuildId.ToString())?.FeedChannelId is { } id && ulong.TryParse(id, out _) ? id : null;
     }
 }

@@ -71,11 +71,9 @@ namespace Requestarr.Core.Requests
                 return 0;
             }
 
-            var id = await _gateway.SendMessageAsync(channel, CardFor(request, true));
-            request.FeedMessageId = id.ToString();
-            _requests.SetFields(request, r => r.FeedMessageId);
+            await ReplaceCardAsync(channel, request, CardFor(request, true));
 
-            return id;
+            return ulong.Parse(request.FeedMessageId);
         }
 
         private InteractionReply CardFor(Request request, bool imported)
@@ -140,14 +138,8 @@ namespace Requestarr.Core.Requests
                     card = CardFor(request);
                 }
 
-                if (ulong.TryParse(request.FeedMessageId, out var old) && !await _gateway.DeleteMessageAsync(channel, old))
-                {
-                    // Can't delete it (gone, or no permission): at least it loses its buttons.
-                    await _gateway.EditMessageAsync(channel, old, new InteractionReply { KeepEmbeds = true });
-                }
-
-                request.FeedMessageId = (await _gateway.SendMessageAsync(channel, card)).ToString();
-                _requests.SetFields(request, r => r.FeedMessageId, r => r.PosterUrl);
+                await ReplaceCardAsync(channel, request, card);
+                _requests.SetFields(request, r => r.PosterUrl);
             }
             catch (Exception ex)
             {
@@ -178,6 +170,19 @@ namespace Requestarr.Core.Requests
             config.FeedSeeded = true;
             _configs.Upsert(config);
             _logger.Info("Admin feed seeded with {0} open request(s)", open.Count);
+        }
+
+        // One card per request: the old one goes (or, when it can't be deleted, loses its buttons) and the new one is
+        // kept as the request's card.
+        private async Task ReplaceCardAsync(ulong channel, Request request, InteractionReply card)
+        {
+            if (ulong.TryParse(request.FeedMessageId, out var old) && !await _gateway.DeleteMessageAsync(channel, old))
+            {
+                await _gateway.EditMessageAsync(channel, old, new InteractionReply { KeepEmbeds = true });
+            }
+
+            request.FeedMessageId = (await _gateway.SendMessageAsync(channel, card)).ToString();
+            _requests.SetFields(request, r => r.FeedMessageId);
         }
 
         private DiscordGuildConfig Config() => _configs.FindByGuild(_gateway.GuildId.ToString());

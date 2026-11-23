@@ -6,8 +6,8 @@ using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
-using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
@@ -57,9 +57,8 @@ namespace Requestarr.Core.Test.Imports
                 return (ulong)_sent.Count;
             });
 
-            // The command queue runs the posting at once, as Servarr's would in the background.
-            Mocker.GetMock<IManageCommandQueue>().Setup(q => q.Push(It.IsAny<PostHistoryCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()))
-                .Callback(() => Subject.Execute(new PostHistoryCommand()));
+            // The worker runs at once instead of in the background, with no pause between posts.
+            Subject.Background = work => work();
             Subject.Wait = _ => Task.CompletedTask;
         }
 
@@ -112,6 +111,45 @@ namespace Requestarr.Core.Test.Imports
             Subject.Handle(new MemberOnboardedEvent(_bob.Id));
 
             _sent.Should().ContainSingle().Which.Channel.Should().Be(700UL);
+        }
+
+        [Test]
+        public void a_request_queued_while_posting_goes_out_in_the_same_run()
+        {
+            Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostChannels).Returns(false);
+            Imported(_alice, "First", 3);
+            var queuedLate = false;
+            Subject.Wait = _ =>
+            {
+                if (!queuedLate && _sent.Count == 1)
+                {
+                    queuedLate = true;
+                    Imported(_alice, "Late", 1);
+                    Subject.QueueEarlier();
+                }
+
+                return Task.CompletedTask;
+            };
+
+            Subject.QueueEarlier();
+
+            _sent.Select(s => s.Message.Content).Should().Contain("card Late").And.EndWith(DiscordText.HistoryFeedDone(2));
+            Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().BeEmpty();
+            Subject.Status().State.Should().Be(HistoryPostingState.Idle);
+        }
+
+        [Test]
+        public void a_failed_send_leaves_the_rest_waiting_and_posting_can_start_again()
+        {
+            Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostChannels).Returns(false);
+            Imported(_alice, "One", 3);
+            Mocker.GetMock<IRequestFeed>().Setup(f => f.PostImportedAsync(It.IsAny<Request>())).ThrowsAsync(new System.InvalidOperationException("Discord is down"));
+
+            Subject.QueueEarlier();
+
+            Subject.Status().State.Should().Be(HistoryPostingState.Idle);
+            Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().ContainSingle();
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]

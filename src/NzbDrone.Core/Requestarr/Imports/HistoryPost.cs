@@ -13,12 +13,14 @@ namespace Requestarr.Core.Imports
         Channel = 1
     }
 
-    // One imported request's post to one destination: queued, then posted. A request has at most one per destination
-    // (a unique index), so re-running an import, restarting or "Post history now" never posts it twice.
+    // One imported request's post to one destination's channel: queued, then posted. A request has at most one per
+    // destination and channel (a unique index), so re-running an import, restarting or posting again never posts it
+    // twice, while a new server's feed or a member's new channel there still gets it.
     public class HistoryPost : ModelBase
     {
         public int RequestId { get; set; }
         public HistoryDestination Destination { get; set; }
+        public string ChannelId { get; set; }
         public DateTime Queued { get; set; }
         public DateTime? Posted { get; set; }
         public string MessageId { get; set; }
@@ -28,8 +30,8 @@ namespace Requestarr.Core.Imports
     {
         List<HistoryPost> Waiting();
 
-        // The request IDs that already have a post queued or done for the destination.
-        IReadOnlySet<int> Known(HistoryDestination destination);
+        // The request IDs that already have a post queued or done in the destination's channel.
+        IReadOnlySet<int> Known(HistoryDestination destination, string channelId);
     }
 
     public class HistoryPostRepository : BasicRepository<HistoryPost>, IHistoryPostRepository
@@ -41,6 +43,7 @@ namespace Requestarr.Core.Imports
 
         public List<HistoryPost> Waiting() => Query(p => p.Posted == null).ToList();
 
-        public IReadOnlySet<int> Known(HistoryDestination destination) => Query(p => p.Destination == destination).Select(p => p.RequestId).ToHashSet();
+        public IReadOnlySet<int> Known(HistoryDestination destination, string channelId) =>
+            Query(p => p.Destination == destination && p.ChannelId == channelId).Select(p => p.RequestId).ToHashSet();
     }
 }
