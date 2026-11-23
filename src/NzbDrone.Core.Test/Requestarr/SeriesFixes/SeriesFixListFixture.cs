@@ -39,6 +39,16 @@ namespace Requestarr.Core.Test.SeriesFixes
         }
 
         [Test]
+        public void a_fix_needs_a_reason_and_its_own_tag()
+        {
+            Mocker.GetMock<ISeriesFixRepository>().Setup(r => r.All()).Returns(new List<SeriesFix> { new() { Id = 5, Series = "Other", ShortName = "pokemon" } });
+
+            Subject.Save(null, Input() with { Reason = " " }, Actor.Web("admin")).Problem.Should().StartWith("Say why");
+            Subject.Save(null, Input(shortName: "Pokemon"), Actor.Web("admin")).Problem.Should().Contain("already uses the short name pokemon");
+            Subject.Save(null, Input(7) with { Series = "ポケモン" }, Actor.Web("admin")).Fix.ShortName.Should().Be("tvdb-7");
+        }
+
+        [Test]
         public void a_shipped_fix_can_be_turned_off_but_not_deleted()
         {
             Mocker.GetMock<ISeriesFixRepository>().Setup(r => r.Find(5)).Returns(new SeriesFix { Id = 5, TvdbId = 1, Series = "Pokémon (1997)", Shipped = true });

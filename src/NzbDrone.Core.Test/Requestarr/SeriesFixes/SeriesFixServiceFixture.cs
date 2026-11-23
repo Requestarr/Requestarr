@@ -74,6 +74,17 @@ namespace Requestarr.Core.Test.SeriesFixes
         }
 
         [Test]
+        public async Task a_renamed_show_keeps_its_one_profile()
+        {
+            await Subject.BuildAsync(_sonarr, Pokemon);
+            _fix.Series = "Pokémon";
+
+            await Subject.BuildAsync(_sonarr, Pokemon);
+
+            _profiles.Where(p => p.Name.StartsWith(SeriesFixNames.ProfilePrefix)).Select(p => p.Name).Should().Equal("Requestarr fix: Pokémon");
+        }
+
+        [Test]
         public async Task nothing_is_built_for_a_series_without_a_fix_one_turned_off_or_on_radarr()
         {
             (await Subject.BuildAsync(_sonarr, 12345)).Should().BeNull();

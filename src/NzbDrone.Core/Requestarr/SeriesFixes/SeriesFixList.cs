@@ -57,10 +57,10 @@ namespace Requestarr.Core.SeriesFixes
             var fix = existing ?? new SeriesFix();
             fix.TvdbId = input.TvdbId;
             fix.Series = input.Series.Trim();
-            fix.ShortName = TagSafe(string.IsNullOrWhiteSpace(input.ShortName) ? input.Series : input.ShortName);
+            fix.ShortName = ShortName(input);
             fix.MustContain = mustContain;
             fix.MustNotContain = mustNotContain;
-            fix.Reason = string.IsNullOrWhiteSpace(input.Reason) ? null : input.Reason.Trim();
+            fix.Reason = input.Reason.Trim();
             fix.Enabled = input.Enabled;
             fix = _fixes.Upsert(fix);
 
@@ -106,15 +106,35 @@ namespace Requestarr.Core.SeriesFixes
                 return "Add at least one term the releases must or must not contain.";
             }
 
-            return _fixes.ForSeries(input.TvdbId) is { } other && other.Id != id
-                ? $"{other.Series} already has a fix: change that one."
+            // The reason is how a fix that stops downloads is found: the request's card shows it.
+            if (string.IsNullOrWhiteSpace(input.Reason))
+            {
+                return "Say why, in a few words: it shows on the request's card when the fix is used.";
+            }
+
+            if (_fixes.ForSeries(input.TvdbId) is { } other && other.Id != id)
+            {
+                return $"{other.Series} already has a fix: change that one.";
+            }
+
+            // Each fix has its own Sonarr tag, so two fixes never share terms.
+            var shortName = ShortName(input);
+            return _fixes.All().FirstOrDefault(f => f.Id != id && f.ShortName == shortName) is { } sameTag
+                ? $"{sameTag.Series}'s fix already uses the short name {shortName}: choose another."
                 : null;
         }
 
         private static List<string> Terms(IEnumerable<string> terms) =>
             (terms ?? Enumerable.Empty<string>()).Select(t => t?.Trim()).Where(t => !string.IsNullOrEmpty(t)).Distinct().ToList();
 
-        // Sonarr's tag labels are lowercase letters, digits and dashes.
-        private static string TagSafe(string name) => NotTagSafe.Replace(name.Trim().ToLowerInvariant(), "-").Trim('-');
+        // The name in the fix's Sonarr tag: the one typed, or the series', in Sonarr's tag letters (lowercase letters,
+        // digits and dashes); a name with none of those letters uses the TheTVDB ID.
+        private static string ShortName(SeriesFixInput input)
+        {
+            var typed = string.IsNullOrWhiteSpace(input.ShortName) ? input.Series ?? string.Empty : input.ShortName;
+            var safe = NotTagSafe.Replace(typed.Trim().ToLowerInvariant(), "-").Trim('-');
+
+            return safe.Length > 0 ? safe : $"tvdb-{input.TvdbId}";
+        }
     }
 }
