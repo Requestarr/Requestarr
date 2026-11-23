@@ -513,11 +513,15 @@ namespace Requestarr.Core.Requests
         public static InteractionButton AddSeasonsButton(int requestId) =>
             new() { CustomId = $"{RequestRoutes.AddSeasons}:{requestId}", Label = DiscordText.AddSeasonsLabel, Style = ButtonStyle.Secondary };
 
-        // The admin feed card: small, one per request, only the buttons valid now. removal: the request's
-        // open (or latest) removal, shown at every step.
-        public static InteractionReply FeedCard(Request request, MediaLookupResult item, string owner, string instance, IReadOnlyCollection<string> followers, Removals.RemovalProposal removal = null, int keeps = 0)
+        // The feed card's text: its state, who and where, any removal, seasons, how it was added and its followers.
+        private static List<string> FeedLines(Request request, string owner, string instance, IReadOnlyCollection<string> followers, Removals.RemovalProposal removal, int keeps, bool imported)
         {
             var lines = new List<string> { DiscordText.FeedState(request), DiscordText.FeedMeta(request, owner, instance) };
+
+            if (imported)
+            {
+                lines.Insert(0, DiscordText.ImportedLine(request.Requested));
+            }
 
             if (removal != null)
             {
@@ -541,8 +545,19 @@ namespace Requestarr.Core.Requests
                 lines.Add(DiscordText.FeedFollowers(followers));
             }
 
+            return lines;
+        }
+
+        // The admin feed card: small, one per request, only the buttons valid now. removal: the request's
+        // open (or latest) removal, shown at every step.
+        // imported: an imported request's history post, marked Imported with the day it was asked for, and silent.
+        public static InteractionReply FeedCard(Request request, MediaLookupResult item, string owner, string instance, IReadOnlyCollection<string> followers, Removals.RemovalProposal removal = null, int keeps = 0, bool imported = false)
+        {
+            var lines = FeedLines(request, owner, instance, followers, removal, keeps, imported);
+
             var reply = new InteractionReply
             {
+                Quiet = imported,
                 Embeds = new List<InteractionEmbed>
                 {
                     new()

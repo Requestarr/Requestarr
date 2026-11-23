@@ -16,6 +16,9 @@ namespace Requestarr.Core.Requests
     {
         Task PostAsync(Request request, MediaLookupResult item = null);
 
+        // An imported request's card, marked Imported with the day it was asked for, silent; its message ID.
+        Task<ulong> PostImportedAsync(Request request);
+
         // A removal of a title with no request (never requested through Requestarr): its own card.
         Task PostRemovalAsync(Removals.RemovalProposal removal);
 
@@ -59,7 +62,21 @@ namespace Requestarr.Core.Requests
             _logger = logger;
         }
 
-        public InteractionReply CardFor(Request request)
+        public InteractionReply CardFor(Request request) => CardFor(request, false);
+
+        public async Task<ulong> PostImportedAsync(Request request)
+        {
+            if (!ulong.TryParse(Config()?.FeedChannelId, out var channel))
+            {
+                return 0;
+            }
+
+            await ReplaceCardAsync(channel, request, CardFor(request, true));
+
+            return ulong.Parse(request.FeedMessageId);
+        }
+
+        private InteractionReply CardFor(Request request, bool imported)
         {
             var followers = _subscribers.ForRequest(request.Id).Select(s => _users.Find(s.UserId)?.DisplayName ?? $"user {s.UserId}").ToList();
             var owner = _users.Find(request.OwnerUserId)?.DisplayName ?? $"user {request.OwnerUserId}";
@@ -68,7 +85,7 @@ namespace Requestarr.Core.Requests
             var removal = all.Where(p => p.IsOpen).OrderByDescending(p => p.Id).FirstOrDefault() ?? all.OrderByDescending(p => p.Id).FirstOrDefault();
 
             var instance = _backends.Find(request.BackendId ?? 0);
-            var card = RequestCards.FeedCard(request, null, owner, instance?.Name, followers, removal, removal == null ? 0 : _flags.ForProposal(removal.Id).Count);
+            var card = RequestCards.FeedCard(request, null, owner, instance?.Name, followers, removal, removal == null ? 0 : _flags.ForProposal(removal.Id).Count, imported);
 
             // The feed is the admins' channel: the title's page in Sonarr or Radarr, where a browser can reach it.
             if (TitleLinks.Open(instance, request) is { } open)
@@ -121,14 +138,8 @@ namespace Requestarr.Core.Requests
                     card = CardFor(request);
                 }
 
-                if (ulong.TryParse(request.FeedMessageId, out var old) && !await _gateway.DeleteMessageAsync(channel, old))
-                {
-                    // Can't delete it (gone, or no permission): at least it loses its buttons.
-                    await _gateway.EditMessageAsync(channel, old, new InteractionReply { KeepEmbeds = true });
-                }
-
-                request.FeedMessageId = (await _gateway.SendMessageAsync(channel, card)).ToString();
-                _requests.SetFields(request, r => r.FeedMessageId, r => r.PosterUrl);
+                await ReplaceCardAsync(channel, request, card);
+                _requests.SetFields(request, r => r.PosterUrl);
             }
             catch (Exception ex)
             {
@@ -159,6 +170,19 @@ namespace Requestarr.Core.Requests
             config.FeedSeeded = true;
             _configs.Upsert(config);
             _logger.Info("Admin feed seeded with {0} open request(s)", open.Count);
+        }
+
+        // One card per request: the old one goes (or, when it can't be deleted, loses its buttons) and the new one is
+        // kept as the request's card.
+        private async Task ReplaceCardAsync(ulong channel, Request request, InteractionReply card)
+        {
+            if (ulong.TryParse(request.FeedMessageId, out var old) && !await _gateway.DeleteMessageAsync(channel, old))
+            {
+                await _gateway.EditMessageAsync(channel, old, new InteractionReply { KeepEmbeds = true });
+            }
+
+            request.FeedMessageId = (await _gateway.SendMessageAsync(channel, card)).ToString();
+            _requests.SetFields(request, r => r.FeedMessageId);
         }
 
         private DiscordGuildConfig Config() => _configs.FindByGuild(_gateway.GuildId.ToString());

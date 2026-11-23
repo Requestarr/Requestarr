@@ -809,6 +809,19 @@ and the first-run setup links to it once it's done.
      theirs.
    - **The audit log** records the import and who ran it.
 
+5. **History in Discord.** After the import, its requests are posted in Discord, slowly, in the background, with no
+   pings or notifications. Two switches under **History in Discord**, both on to start, say where:
+   - **Post in members' channels:** each member's imported requests, oldest first, a few to a message, with the day
+     each was asked for and how it stands now (available, not in library, removed). A member who isn't onboarded yet
+     gets theirs when you onboard them.
+   - **Post in the admin feed:** a header ("Posting N imported requests from M members, oldest first."), each
+     request as its usual feed card marked Imported with the day it was asked for, then a closing post.
+
+   The page shows how far it got ("312 of 467 posted") with **Pause**, **Resume** and **Cancel**. Live news (new
+   requests, downloads, removals) never waits behind it. Each post is recorded, so nothing is ever posted twice: not
+   on a second import, a restart or an update. An import run before this existed isn't posted on its own: **Post
+   history now** posts it, with the same rule.
+
 **Running it again is safe.** Requestarr remembers every message it imported, so a second run adds only what's new.
 A title that was Not in library and is in your Sonarr or Radarr now is linked to it on the next run.
 

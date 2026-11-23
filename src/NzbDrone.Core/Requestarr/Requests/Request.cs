@@ -81,6 +81,9 @@ namespace Requestarr.Core.Requests
 
         public AnimeLanguage? Language { get; set; }
 
+        // Written by an import from another bot's history (Imports.ImportService): its history is posted in Discord.
+        public bool Imported { get; set; }
+
         // Download progress, from Sonarr's / Radarr's webhook and the backup poll. TV: the requested
         // seasons whose aired episodes all have files. ProgressSizeLeft / ProgressSince spot a download
         // that stops moving.

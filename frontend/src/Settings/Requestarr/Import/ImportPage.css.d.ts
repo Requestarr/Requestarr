@@ -2,6 +2,8 @@
 // Please do not change this file!
 interface CssExports {
   'help': string;
+  'history': string;
+  'historyButtons': string;
   'note': string;
   'summary': string;
 }

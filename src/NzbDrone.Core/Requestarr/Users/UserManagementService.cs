@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
@@ -59,6 +60,7 @@ namespace Requestarr.Core.Users
         private readonly IBackendService _backends;
         private readonly IAuditService _audit;
         private readonly IPanelService _panels;
+        private readonly IEventAggregator _events;
         private readonly Logger _logger;
 
         public UserManagementService(IRequestarrUserRepository users,
@@ -71,6 +73,7 @@ namespace Requestarr.Core.Users
                                      IBackendService backends,
                                      IAuditService audit,
                                      IPanelService panels,
+                                     IEventAggregator events,
                                      Logger logger)
         {
             _users = users;
@@ -83,6 +86,7 @@ namespace Requestarr.Core.Users
             _backends = backends;
             _audit = audit;
             _panels = panels;
+            _events = events;
             _logger = logger;
         }
 
@@ -150,6 +154,7 @@ namespace Requestarr.Core.Users
 
             var accessSummary = string.Join(", ", rows.Where(r => ContentTypes.IsOffered(r.ContentType)).Select(r => $"{r.ContentType}={r.State}"));
             _audit.Record(actor, "user.add", "user", user.Id.ToString(), $"discord {discordUserId}, role {roleId}, channel {channelId}, access {accessSummary}");
+            _events.PublishEvent(new Imports.MemberOnboardedEvent(user.Id));
 
             return ServiceResult.Ok(DiscordText.UserAdded(member.DisplayName, channelId, rows));
         }

@@ -17,10 +17,40 @@ namespace Requestarr.Http.Imports
         public const string NotAChannelId = "That isn't a channel ID: it's the long number Discord copies with Developer Mode on (right-click the channel, Copy Channel ID).";
 
         private readonly IImportService _imports;
+        private readonly IHistoryPosting _posting;
 
-        public ImportController(IImportService imports)
+        public ImportController(IImportService imports, IHistoryPosting posting)
         {
             _imports = imports;
+            _posting = posting;
+        }
+
+        // Imported history being posted in Discord: "312 of 467 posted", and Pause, Resume and Cancel.
+        [HttpGet("/api/v1/requestarr/import/history")]
+        [Produces("application/json")]
+        public IActionResult History() => Json(_posting.Status());
+
+        // "Post history now", for an import run before posting existed: what isn't posted yet, never twice.
+        [HttpPost("/api/v1/requestarr/import/history/post")]
+        public IActionResult PostHistory() => Answer(() => _posting.QueueEarlier());
+
+        [HttpPost("/api/v1/requestarr/import/history/pause")]
+        public IActionResult Pause() => Answer(_posting.Pause);
+
+        [HttpPost("/api/v1/requestarr/import/history/resume")]
+        public IActionResult Resume() => Answer(_posting.Resume);
+
+        [HttpPost("/api/v1/requestarr/import/history/cancel")]
+        public async Task<IActionResult> Cancel()
+        {
+            var admin = await WebAdmin.ActorAsync(HttpContext);
+            return Answer(() => _posting.Cancel(admin));
+        }
+
+        private IActionResult Answer(Action action)
+        {
+            action();
+            return Json(_posting.Status());
         }
 
         // The read-only invite link for another server, and whether the bot may read other bots' messages.
