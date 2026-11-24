@@ -95,17 +95,12 @@ function historyActions(detail: PortalMemberDetail, posting?: HistoryStatus) {
   }
 }
 
-// The actions a member's card in Discord has, by its name, for the member's status: onboarding someone known only
-// from an import; otherwise suspend or unsuspend, change access, link Plex, their imported history, and remove. None for
-// someone removed.
+// The actions a member's card in Discord has, by its name, for the member's status: onboarding someone known only from an
+// import, or removed; otherwise suspend or unsuspend, change access, link Plex, their imported history, and remove.
 function actionsFor(detail: PortalMemberDetail, posting?: HistoryStatus) {
   const { status } = detail.member;
 
-  if (status === 'removed') {
-    return [];
-  }
-
-  if (isImported(status)) {
+  if (status === 'removed' || isImported(status)) {
     return ['onboard'];
   }
 

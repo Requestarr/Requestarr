@@ -1,3 +1,3 @@
 audience: admins
 kind: changed
-line: **Onboard from a member's page:** it opens the Onboard window for them right there, as on the Members page, instead of the list of everyone to add.
+line: **Onboard from a member's page:** it opens the Onboard window for them right there, as on the Members page, instead of the list of everyone to add. Someone you removed has it too, so you can add them back.

@@ -49,7 +49,7 @@ promoted to them, and a beta heading names the goals' builds it includes.
 - **Saved bot token:** a saved token shows only its last four characters.
 - **Adding the bot for an import:** use the + card beside the servers, since the Invite bot button is gone. A server's card takes the bot out, or adds it back.
 - **Default access in provisioning files:** a media manager whose file leaves out its default access now approves new members' requests automatically, like one added in the web app. Set it in the file to have them wait for you.
-- **Onboard from a member's page:** it opens the Onboard window for them right there, as on the Members page, instead of the list of everyone to add.
+- **Onboard from a member's page:** it opens the Onboard window for them right there, as on the Members page, instead of the list of everyone to add. Someone you removed has it too, so you can add them back.
 
 ## 0.7.0010 (2026-11-22), with 0.7.0004 to 0.7.0010
 
