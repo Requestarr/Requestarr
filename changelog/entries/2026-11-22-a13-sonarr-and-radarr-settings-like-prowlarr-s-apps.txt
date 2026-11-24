@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Sonarr and Radarr settings like Prowlarr's apps:** adding or changing one uses the same window as Prowlarr's apps. Quality profiles and root folders are listed once the address and key work.

@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Requests:** every request with who asked, who follows it, its status and where it went, with Sonarr's toolbar: Options, View, Sort, and Filter with filters you save. Each status is a coloured label, with a legend and totals at the bottom.

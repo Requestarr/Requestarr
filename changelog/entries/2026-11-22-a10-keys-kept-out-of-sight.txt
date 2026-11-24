@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Keys kept out of sight:** the GitHub key for bug reports is set on the server's container, not in the web app. Keys and tokens you save are kept but never shown again.

@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **The web app's logo:** Requestarr's logo replaces the old purple square everywhere, with a coloured bar naming the environment. On your live install the bar shows the version you run.

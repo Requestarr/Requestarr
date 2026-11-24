@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Update cards in the admin channel:** each update is a card with its build number and day, the main change and how many more. Read changes shows the full list privately.

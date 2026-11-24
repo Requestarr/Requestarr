@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Years for imported titles:** a title imported without a year gets it from The Movie Database, so it shows as "Hollow Trees (2026)". Titles already imported are filled in too.

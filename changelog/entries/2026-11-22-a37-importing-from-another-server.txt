@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Importing from another server:** Invite bot asks only to read there. The bot creates nothing and posts nothing in that server, and you can remove it once the import is done.

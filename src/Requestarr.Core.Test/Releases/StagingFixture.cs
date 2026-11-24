@@ -101,7 +101,7 @@ namespace Requestarr.Core.Test.Releases
 
             changelog.Should().NotContain("### Internal").And.NotContain("nothing this time").And.NotContain("`");
             Regex.Matches(changelog, @"^### (.+)$", RegexOptions.Multiline).Select(m => m.Groups[1].Value.Trim()).Distinct().Should().BeEquivalentTo(new[] { "For users", "For admins" });
-            Changelog.Parse(changelog).SelectMany(v => v.Users.Concat(v.Admins)).Should().OnlyContain(l => l.StartsWith("**"), "each line leads with what changed, in bold");
+            Changelog.Parse(changelog).SelectMany(v => v.Users.Concat(v.Admins)).Should().OnlyContain(l => l.Text.StartsWith("**"), "each line leads with what changed, in bold");
 
             var check = Read(".github", "changelog_check.py");
             check.Should().Contain("def self_test").And.Contain("nothing this time").And.Contain("minor fixes");

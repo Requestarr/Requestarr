@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.1.0
+line: **Your request keeps you posted:** its message shows when it's waiting for approval, sent, downloading, stuck and ready to watch, and you can cancel it while it's still waiting for approval.

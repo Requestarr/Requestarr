@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.2.0
+line: **Nothing loaded from outside:** the TMDB logo and the feed card spacer are built into Requestarr and sent with each message, instead of being loaded from GitHub.

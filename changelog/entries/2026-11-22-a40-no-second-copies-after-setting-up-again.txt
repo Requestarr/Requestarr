@@ -1,0 +1,4 @@
+audience: admins
+kind: fixed
+build: 0.7.0010
+line: **No second copies after setting up again:** Requestarr finds its own groups, channels and panels even when its saved data is gone, so a reinstall never doubles them.

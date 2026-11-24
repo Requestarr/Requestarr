@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Bug reports become issues:** reports can be filed on GitHub in the Requestarr organization, with the version and who reported it. It's off unless you turn it on with your own access key.

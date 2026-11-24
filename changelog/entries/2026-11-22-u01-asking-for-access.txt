@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.7.0010
+line: **Asking for access:** friends who aren't members yet can ask for access from the welcome channel, and they hear back privately.

@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Nothing takes over by itself:** turning off or deleting the media manager for all other shows (or movies) warns first, then pauses those requests and lists them in your queue until another is set to take them. Anime keeps going.

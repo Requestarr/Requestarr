@@ -1,0 +1,3 @@
+audience: admins
+kind: new
+line: **Delete, with history kept:** a media manager can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.

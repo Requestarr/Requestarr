@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **The admin portal in the web app:** everything an admin does in Discord's admin channels can be done in the web app too, with the same rules. Discord's messages change as if it had been done there, naming you with "(web app)".

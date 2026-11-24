@@ -26,7 +26,10 @@ namespace Requestarr.Core.Portal
     public record PortalOutages(IReadOnlyList<PortalOutageNow> Now, IReadOnlyList<PortalOutage> History);
 
     // One version's changes, as its update card's Read changes has them; Version is its label (0.7.0004-dev.4f2a9c1).
-    public record PortalVersion(string Version, DateTime? Date, IReadOnlyList<string> Users, IReadOnlyList<string> Admins);
+    // A version's lines for each audience, New first, then Fixed, then Changed.
+    public record PortalVersion(string Version, DateTime? Date, IReadOnlyList<PortalChange> Users, IReadOnlyList<PortalChange> Admins);
+
+    public record PortalChange(ChangeKind Kind, string Text);
 
     // A Sonarr or Radarr, for the web app's pickers: what it's for (requests go by what is asked for), and DefaultAccess,
     // what a new member gets for its type when it's the type's Everything instance.
@@ -101,7 +104,9 @@ namespace Requestarr.Core.Portal
         public IReadOnlyList<ContentType> Types() => ContentTypes.Offered;
 
         public IReadOnlyList<PortalVersion> Changes() =>
-            _announcements.VersionNotes().Select(n => new PortalVersion(n.Shown, n.Version.Date, n.Version.Users, n.Version.Admins)).ToList();
+            _announcements.VersionNotes().Select(n => new PortalVersion(n.Shown, n.Version.Date, Changes(n.Version.Users), Changes(n.Version.Admins))).ToList();
+
+        private static IReadOnlyList<PortalChange> Changes(IEnumerable<ChangelogLine> lines) => lines.Select(l => new PortalChange(l.Kind, l.Text)).ToList();
 
         private PortalInstance Instance(BackendInstance backend)
         {

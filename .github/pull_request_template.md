@@ -3,13 +3,14 @@
 
 
 ## Changelog
-- [ ] `CHANGELOG.md`: this change's lines under `## Unreleased` at the top (no version number: the promotion to staging numbers the build), following the changelog rule:
-  - only **For users** and **For admins**; leave a section out when it has nothing, and leave out work neither sees (tests, build, refactoring)
-  - each line leads with the thing that changed in bold, then what it means for the reader, in plain words
+- [ ] `changelog/entries/`: one entry file per real change (no build: the promotion to staging fills it in), then `python3 .github/changelog_entries.py write` for `CHANGELOG.md`, never edited by hand. Following the changelog rule:
+  - `audience:` users or admins (leave out work neither sees: tests, build, refactoring); `kind:` new, fixed or changed
+  - `line:` leads with the thing that changed in bold, then what it means for the reader, in plain words
   - no code, file names, commands, flags, settings keys or jargon; no "minor fixes" without saying what they fix; no placeholders
-  - short: one to three sentences, at most 50 words after the bold lead and 3,500 characters a build, one line per real change with no cap on how many; a change to something already under Unreleased rewrites its line to where it ended up, never longer
-- [ ] or, when nothing changes for users or admins, no lines and this line in the description: `No changelog: <why>`
+  - short: one to three sentences, at most 50 words after the bold lead; as many entries as there are real changes, with no cap
+  - `replaces:` the entries this reworks, undoes or replaces; `line_if_seen:` what changed, for readers who already had a released one it replaces. An entry not released yet is edited to where it ended up instead; a released one never changes
+- [ ] or, when nothing changes for users or admins, no entries and this line in the description: `No changelog: <why>`
 - [ ] `QA-CHECKLIST.md`: what an admin can test by hand, under `## Unreleased` (nothing when nobody can)
-- [ ] a fix into `staging` only: a new section on top with the next build number instead (`./release.sh next-version`)
+- [ ] a fix into `staging` only: its entries get the next build number (`./release.sh next-version`), listed in `changelog/builds.txt`
 
 `python3 .github/changelog_check.py CHANGELOG.md` runs the same check as CI. See `docs/development.md#changelog`.

@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **A request's page:** opens like Sonarr's series page, with its whole history in plain words and its actions. Approve, deny, already available, cancel, search again, try adding again, add seasons, and every removal step are there.

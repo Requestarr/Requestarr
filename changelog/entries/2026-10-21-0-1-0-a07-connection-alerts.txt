@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.1.0
+line: **Connection alerts:** you're told when Sonarr or Radarr can't be reached and when it's back, with **Announce to users** after 30 minutes.

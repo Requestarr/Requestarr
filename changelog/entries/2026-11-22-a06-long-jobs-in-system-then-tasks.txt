@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Long jobs in System, then Tasks:** an import from Requestrr and onboarding several people at once run as tasks, listed under System, then Tasks while they run, with their messages under Events.

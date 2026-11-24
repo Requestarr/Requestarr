@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.7.0010
+line: **Update cards:** each update in the announcements channel shows its build number and day, with the main change and how many more. Read changes shows you the full list, just for you.

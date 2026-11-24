@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Copyright:** Requestarr's copyright is held by its contributors, with the Servarr team's notice for the code it's built on. System, then Status, shows it.

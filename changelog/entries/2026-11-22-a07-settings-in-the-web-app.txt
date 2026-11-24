@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Settings in the web app:** a server without a provisioning file is set up and run from the web app alone. A first-run setup asks for your sign-in, the Discord bot and a first Sonarr or Radarr, which you can skip.

@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Simpler bot setup:** you paste only the bot's token. Requestarr notices when the bot joins your server, makes its admin role, and lets you pick admins in the web app.

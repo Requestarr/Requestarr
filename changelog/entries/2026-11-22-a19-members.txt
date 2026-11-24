@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Members:** everyone with their Discord picture and @handle, their access, limits and counts, people known only from an import included. It has the same options, sorting, filters and select mode as Requests.

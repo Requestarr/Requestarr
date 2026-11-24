@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.1.0
+line: **Follow instead of asking twice:** if someone already asked for a title, press **Follow** to be told when it's ready, without using your limit.

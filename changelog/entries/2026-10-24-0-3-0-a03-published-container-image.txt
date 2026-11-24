@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.3.0
+line: **Published container image:** Requestarr is now published on GitHub's container registry for x86-64 and ARM servers, so you can pull it instead of building it yourself.

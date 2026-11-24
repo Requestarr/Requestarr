@@ -1,0 +1,3 @@
+audience: admins
+kind: new
+line: **Series fixes:** a ready list of fixes for shows Sonarr grabs the wrong releases for, under Media managers. A fix is set up in Sonarr only when its show is requested, and the request says so. It comes with one: Pokémon (1997) never grabs Pokémon Horizons.

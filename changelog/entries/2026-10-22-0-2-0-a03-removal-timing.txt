@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.2.0
+line: **Removal timing:** votes run 7 days, requesters have 7 days to answer and are reminded on day 5; all three can be changed in your provisioning settings, ready for the admin web portal.

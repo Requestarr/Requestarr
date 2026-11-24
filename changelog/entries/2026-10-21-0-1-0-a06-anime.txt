@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.1.0
+line: **Anime:** sub and dub tags and release profiles on Sonarr, with optional separate sub and dub instances.

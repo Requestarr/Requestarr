@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.2.0
+line: **Remove what you're done with:** press **Remove…** on a request's message to put the title to a vote.

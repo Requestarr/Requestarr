@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.1.0
+line: **Your own channel:** a pinned panel with **My requests**, **My limits**, **Link Plex** and **Help**; link your Plex account there and the admin approves it.

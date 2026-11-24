@@ -1,0 +1,4 @@
+audience: admins
+kind: fixed
+build: 0.7.0010
+line: **No stacked copies for admins:** pressing Pending queue, Users, Help or Read changes again replaces your earlier private answer instead of stacking copies.

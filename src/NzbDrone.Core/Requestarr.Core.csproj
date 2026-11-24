@@ -26,7 +26,8 @@
   </ItemGroup>
   <ItemGroup>
     <!-- What's new on upgrade (Requestarr.Core.Announcements.Changelog). -->
-    <EmbeddedResource Include="..\..\CHANGELOG.md" LogicalName="Requestarr.CHANGELOG.md" />
+    <EmbeddedResource Include="..\..\changelog\entries\*.txt" LogicalName="Requestarr.changelog.entries.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\changelog\builds.txt" LogicalName="Requestarr.changelog.builds.txt" />
     <!-- What QA tests before staging (Requestarr.Core.Qa.QaChecklist). -->
     <EmbeddedResource Include="..\..\QA-CHECKLIST.md" LogicalName="Requestarr.QA-CHECKLIST.md" />
     <!-- Images that travel with Discord messages as attachments (Requestarr.Core.Discord.DiscordAssets). -->

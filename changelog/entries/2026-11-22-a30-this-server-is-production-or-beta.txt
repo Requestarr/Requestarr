@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **This server is Production or Beta:** the first-run setup asks which server this is. Beta shows the BETA strip and names its connection in Sonarr and Radarr Requestarr Beta, so the two can be told apart.

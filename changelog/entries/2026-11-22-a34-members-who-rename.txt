@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Members who rename:** Requestarr knows each member by their Discord ID, so a rename changes nothing about them. Their names follow Discord, and each rename shows in their History.

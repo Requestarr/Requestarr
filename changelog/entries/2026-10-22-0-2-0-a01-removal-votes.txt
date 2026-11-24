@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.2.0
+line: **Removal votes:** press **Delete** on a downloaded title's feed card, or **Remove a title** on the admin panel to search every Sonarr and Radarr library, titles nobody requested included. The requester is asked first, you can force or drop a removal at every stage, and removals show in /admin requests.

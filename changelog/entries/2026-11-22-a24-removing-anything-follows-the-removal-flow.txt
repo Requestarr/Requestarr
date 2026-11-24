@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Removing anything follows the removal flow:** a request that isn't in your library gets the same vote, Keep it and Force removal as any other. When it passes, it leaves Requestarr's lists with nothing to delete.

@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **New home on GitHub:** Requestarr has its own GitHub organization, also called Requestarr. The Status page's links lead there, and beta updates come from there.

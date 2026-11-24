@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **History removal from Discord:** a title your library doesn't have, often from an import, can be put to a removal vote from Discord too. Remove a title finds it, and its feed card has Delete; only Requestarr's lists change.

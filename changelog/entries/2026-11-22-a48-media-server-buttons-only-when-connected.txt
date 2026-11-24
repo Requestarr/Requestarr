@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Media server buttons only when connected:** Link Plex and the welcome channel's media server buttons show only for a media server you've connected, so they're hidden for now.

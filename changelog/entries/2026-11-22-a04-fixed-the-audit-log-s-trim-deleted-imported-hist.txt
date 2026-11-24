@@ -1,0 +1,4 @@
+audience: admins
+kind: fixed
+build: 0.7.0010
+line: **Fixed: the audit log's trim deleted imported history.** The yearly trim went by when each event happened, so imported requests from years ago were deleted. It now goes by when Requestarr wrote each entry.

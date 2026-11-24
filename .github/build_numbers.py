@@ -14,8 +14,9 @@ A numbered dev commit is labelled 0.7.0005-dev, and 0.7.0005-qa on QA; staging a
 build made between goals (a commit without a number) shows the next number and its commit: 0.7.0006-dev.4f2a9c1.
 Versions up to 0.6.0 kept their x.y.z numbers, one per pull request; three of those builds went to testers (below).
 
-CHANGELOG.md and QA-CHECKLIST.md: pull requests add their lines under "## Unreleased"; the staging promotion turns
-it into "## 0.7.0011 (YYYY-MM-DD)", the changelog's heading naming the goals' builds it includes ("## 0.7.0011
+CHANGELOG.md and QA-CHECKLIST.md: pull requests add their lines under "## Unreleased" (the changelog's as entry files,
+CHANGELOG.md written from them: .github/changelog_entries.py); the staging promotion turns it into "## 0.7.0011
+(YYYY-MM-DD)" (for the changelog, by giving every entry without a build that number), the changelog's heading naming the goals' builds it includes ("## 0.7.0011
 (YYYY-MM-DD), with 0.7.0005 to 0.7.0011"). Numbered sections never change after that, unless the owner approves
 rewriting one changelog section, recorded in the pull request's description (check --rewrite; release.sh reads the
 "Rewrite of a numbered version:" line). Its heading stays; the QA checklist's numbered sections never change.
@@ -51,8 +52,13 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import changelog_entries  # noqa: E402
+
 # A line under a QA checklist item that belongs to it ("  - Checked by ...").
 CONTINUATION = "  "
+# A changelog group's heading inside For users or For admins ("#### New").
+KIND_HEADING = "#### "
 UNRELEASED = "Unreleased"
 HEADING = re.compile(r"^## (?:(?P<unreleased>Unreleased)|(?P<version>\d+\.\d+\.\d+)(?: .*)?)$")
 TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d{4,})$")
@@ -65,7 +71,8 @@ EARLIER_BUILDS = 3
 # Released changelog sections the owner approved rewriting, each also recorded in its pull request's description. A
 # merge-back keeps the lower branch's words for these until the promotions carry the rewrite up.
 APPROVED_REWRITES = {
-    (0, 7, 10): 'owner, 2026-11-23: "every note should be like 1-3 sentences not a bible"',
+    (0, 7, 10): 'owner, 2026-11-23: "every note should be like 1-3 sentences not a bible"; and 2026-11-24, one line '
+                '"for each item that changed"',
 }
 FIRST_NUMBERED = (0, 7)
 
@@ -349,7 +356,8 @@ def render(preamble, unreleased, sections):
 
 
 def lines_of(unreleased):
-    return {row for rows in (unreleased or {}).values() for row in rows}
+    """Unreleased's lines (a changelog's New, Fixed and Changed headings aren't lines)."""
+    return {row for rows in (unreleased or {}).values() for row in rows if not row.startswith(KIND_HEADING)}
 
 
 def released_lines(sections):
@@ -456,6 +464,17 @@ def numbered_changes(name, base, head, tested, rewrites=frozenset()):
     if folded and (tested is None or min(folded) <= max(tested, default=(0, 0, 0))):
         return ["%s: only versions testers never had can be folded into Unreleased; %s reached them" % (name, ", ".join(map(text, sorted(folded))))]
     return []
+
+
+def released_entry_changes(base_dir, head_dir, rewrites=frozenset()):
+    """A released entry (one with a build) never changes and is never removed: removing something already released is
+    its own Changed entry, and replaces only hides an entry from readers who never got it. A build the owner approved
+    rewriting (rewrites) may change its entries."""
+    old = changelog_entries.Changelog.load(base_dir).entries
+    new = changelog_entries.Changelog.load(head_dir).entries
+    return ["changelog: %s was released in %s and can't change; add a new entry that replaces it" % (entry_id, text(entry.build))
+            for entry_id, entry in sorted(old.items())
+            if entry.build and entry.build not in rewrites and (entry_id not in new or new[entry_id].text() != entry.text())]
 
 
 def repeated_leads(unreleased):
@@ -763,17 +782,19 @@ def main(argv):
         print(label(args[1], sha, remote_tags(), next_from_git(), released_number(sha)))
         return 0
     if len(args) >= 4 and args[0] == "release":
-        security = SECURITY_LINE if "--security" in args else None
         since = parse_version(args[args.index("--from") + 1]) if "--from" in args else None
         documents = read_dir(args[1])
         number = parse_version(args[2])
-        write_dir(args[1], {"CHANGELOG.md": release(documents["CHANGELOG.md"], number, args[3], security, since),
-                            "QA-CHECKLIST.md": release(documents["QA-CHECKLIST.md"], number, args[3])})
+        security = ("%s-security-update" % args[3], SECURITY_LINE[2:]) if "--security" in args else None
+        changelog_entries.release(args[1], number, args[3], since, security)
+        write_dir(args[1], {"QA-CHECKLIST.md": release(documents["QA-CHECKLIST.md"], number, args[3])})
         return 0
     if len(args) in (4, 5) and args[0] == "merge":
+        # The changelog's entries are merged as files (git's merge, in <out>); CHANGELOG.md is written from them.
         ours, theirs = read_dir(args[1]), read_dir(args[2])
         base = read_dir(args[4]) if len(args) == 5 else None
-        write_dir(args[3], {name: merge(ours[name], theirs[name], base[name] if base else None) for name in FILES})
+        write_dir(args[3], {"QA-CHECKLIST.md": merge(ours["QA-CHECKLIST.md"], theirs["QA-CHECKLIST.md"], base["QA-CHECKLIST.md"] if base else None)})
+        changelog_entries.write_markdown(args[3], changelog_entries.Changelog.load(args[3]).render())
         return 0
     if len(args) >= 4 and args[0] == "check":
         flags = args[4:]
@@ -783,6 +804,8 @@ def main(argv):
         rewrites = frozenset(parse_version(flags[i + 1]) for i, flag in enumerate(flags) if flag == "--rewrite")
         problems = check(args[1], read_dir(args[2]), read_dir(args[3]), upper, number, "--no-changelog" in flags, tested,
                          rewrites)
+        if args[1] in ("change", "staging-fix"):
+            problems += released_entry_changes(args[2], args[3], rewrites)
         for problem in problems:
             print(("::error::" if os.environ.get("GITHUB_ACTIONS") else "") + problem)
         return 1 if problems else 0

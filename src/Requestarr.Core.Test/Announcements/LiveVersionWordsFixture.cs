@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -14,6 +15,7 @@ using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Test.Framework;
 using Requestarr.Core.Users;
 using Requestarr.Test.Common.Categories;
 
@@ -65,7 +67,7 @@ namespace Requestarr.Core.Test.Announcements
                 await leftovers.NoteAsync(admin, users);
 
                 // The version running is the newest released build; the server has announced it already.
-                var shipped = Changelog.Embedded().Replace("\r\n", "\n");
+                var shipped = File.ReadAllText(RepoFiles.Path("CHANGELOG.md")).Replace("\r\n", "\n");
                 var version = Changelog.Parse(shipped).Where(v => v.Date != null && v.HasNews).Max(v => v.Version);
                 var config = new DiscordGuildConfig { AdminChannelId = admin.ToString(), AnnouncementsChannelId = users.ToString(), AnnouncedVersion = version.ToString() };
                 guildSetup.Setup(g => g.GetConfig()).Returns(config);
@@ -82,7 +84,7 @@ namespace Requestarr.Core.Test.Announcements
                 TestContext.Progress.WriteLine($"[before] admin card {adminCard}: \"{oldWords}\"");
 
                 // The next start, on the build with the rewritten words.
-                announcements.ChangelogText = () => shipped;
+                announcements.Changelog = () => ChangelogSource.FromMarkdown(shipped);
                 await announcements.PostVersionNotesAsync();
                 var after = await Card(gateway, admin, adminCard);
                 var fresh = VersionCards.Collapsed(Changelog.Parse(shipped).Single(v => v.Version == version), VersionAudience.Admins, DateTime.UtcNow.Year);
@@ -122,7 +124,7 @@ namespace Requestarr.Core.Test.Announcements
                 Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? "staging" : null
             };
 
-            return new AnnouncementService(gateway, environment, guildSetup, Mock.Of<IDiscordGuildConfigRepository>(), Mock.Of<IRequestarrUserRepository>(), Mock.Of<IUserIdentityRepository>(), LogManager.GetLogger("LiveAnnouncements"))
+            return new AnnouncementService(gateway, environment, guildSetup, Mock.Of<IDiscordGuildConfigRepository>(), Mock.Of<IRequestarrUserRepository>(), Mock.Of<IUserIdentityRepository>(), Mock.Of<NzbDrone.Core.Configuration.IConfigService>(), LogManager.GetLogger("LiveAnnouncements"))
             {
                 CurrentVersion = () => new Version(version.Major, version.Minor, version.Build, 0)
             };

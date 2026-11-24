@@ -1,28 +1,35 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace Requestarr.Core.Announcements
 {
-    // One "## x.y.z (YYYY-MM-DD)" section of CHANGELOG.md. Users: posted to members in these exact words, and to the
-    // admin channel with Admins. A version with nothing for either posts nothing anywhere. Date: the day it was made.
-    public record ChangelogVersion(Version Version, IReadOnlyList<string> Users, IReadOnlyList<string> Admins, DateTime? Date = null)
+    // One line of a version: the entry it comes from, its kind (New, Fixed or Changed) and its words as shown.
+    public record ChangelogLine(string Id, ChangeKind Kind, string Text);
+
+    // One version: its users' lines, posted to members in these exact words, and to the admin channel with its admins'
+    // lines; each list New first, then Fixed, then Changed. A version with nothing for either posts nothing anywhere.
+    // Date: the day it was made.
+    public record ChangelogVersion(Version Version, IReadOnlyList<ChangelogLine> Users, IReadOnlyList<ChangelogLine> Admins, DateTime? Date = null)
     {
         public bool HasNews => Users.Count + Admins.Count > 0;
     }
 
-    // CHANGELOG.md at the repo root is the source of truth for what changed; it is embedded in the build.
-    // Format: "## 0.7.0004 (YYYY-MM-DD)" (up to 0.6.0 "x.y.z"), then "### For users" and "### For admins", each a list of
-    // "- " lines; a section with nothing in it is left out, heading included. "## Unreleased" on top holds what changed
-    // since the last build sent to testers (docs/development.md#versions). Any other section is ignored here (CI's
-    // changelog check refuses it).
+    // A line of CHANGELOG.md's markdown under its audience and kind.
+    public record ChangelogMarkdownLine(VersionAudience Audience, ChangeKind Kind, string Text);
+
+    // A version of CHANGELOG.md's markdown; Version null for Unreleased.
+    public record ChangelogMarkdownSection(Version Version, DateTime? Date, IReadOnlyList<ChangelogMarkdownLine> Lines);
+
+    // CHANGELOG.md's markdown, as the changelog's entries write it (docs/development.md#changelog; Requestarr itself
+    // reads the entries, ChangelogSource): "## 0.7.0004 (YYYY-MM-DD)" (up to 0.6.0 "x.y.z"), then "### For users" and
+    // "### For admins", each with "#### New", "#### Fixed" and "#### Changed" groups of "- " lines (a build from before
+    // kinds has none: its lines read as Changed); "## Unreleased" on top holds what changed since the last build sent to
+    // testers (docs/development.md#versions). Tests and the live checks write the versions a server sees this way.
     public static class Changelog
     {
-        public const string ResourceName = "Requestarr.CHANGELOG.md";
         public const string UsersHeading = "For users";
         public const string AdminsHeading = "For admins";
         public const string UnreleasedHeading = "Unreleased";
@@ -33,66 +40,70 @@ namespace Requestarr.Core.Announcements
         // The day in a heading's brackets, whatever follows them.
         private static readonly Regex HeadingDate = new(@"^\((?<day>\d{4}-\d{2}-\d{2})\)");
 
-        public static string Embedded()
-        {
-            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName);
-
-            if (stream == null)
-            {
-                return string.Empty;
-            }
-
-            using var reader = new StreamReader(stream);
-            return reader.ReadToEnd();
-        }
+        private static readonly Dictionary<string, VersionAudience> Audiences = new() { [UsersHeading] = VersionAudience.Users, [AdminsHeading] = VersionAudience.Admins };
 
         // unreleased: the version a dev or QA build runs as (the next build's number), which its Unreleased lines are
         // read as; null leaves them out, as on staging and production, which only ever run numbered builds.
-        public static IReadOnlyList<ChangelogVersion> Parse(string text, Version unreleased = null)
+        public static IReadOnlyList<ChangelogVersion> Parse(string text, Version unreleased = null) =>
+            ChangelogSource.FromMarkdown(text).Versions(new HashSet<string>(), unreleased);
+
+        // Every version of the markdown, in the order written, and Unreleased (Version null) when it's there.
+        public static IReadOnlyList<ChangelogMarkdownSection> Sections(string text)
         {
-            var versions = new List<ChangelogVersion>();
-            Version version = null;
-            DateTime? date = null;
-            List<string> current = null;
-            var sections = new Dictionary<string, List<string>>();
+            var reader = new MarkdownReader();
 
-            void Flush()
+            foreach (var line in (text ?? string.Empty).Split('\n'))
             {
-                if (version != null)
-                {
-                    versions.Add(new ChangelogVersion(version, Get(UsersHeading), Get(AdminsHeading), date));
-                }
-
-                sections = new Dictionary<string, List<string>>();
-                current = null;
+                reader.Read(line.TrimEnd('\r'));
             }
 
-            List<string> Get(string heading) => sections.TryGetValue(heading, out var lines) ? lines : new List<string>();
+            return reader.Sections;
+        }
 
-            foreach (var raw in (text ?? string.Empty).Split('\n'))
+        // Reads the markdown a line at a time: a version heading starts a section, an audience heading and a kind
+        // heading say what the "- " lines under them are.
+        private sealed class MarkdownReader
+        {
+            private List<ChangelogMarkdownLine> _lines;
+            private VersionAudience? _audience;
+            private ChangeKind _kind = ChangeKind.Changed;
+
+            public List<ChangelogMarkdownSection> Sections { get; } = new();
+
+            public void Read(string line)
             {
-                var line = raw.TrimEnd('\r');
-
                 if (line.StartsWith("## "))
                 {
-                    Flush();
-                    var heading = line.Substring(3);
-                    (version, date) = heading.Trim() == UnreleasedHeading ? (unreleased, null) : ParseHeading(heading);
+                    StartVersion(line.Substring(3).Trim());
                 }
-                else if (line.StartsWith("### ") && version != null)
+                else if (line.StartsWith("### "))
                 {
-                    current = new List<string>();
-                    sections[line.Substring(4).Trim()] = current;
+                    _audience = Audiences.TryGetValue(line.Substring(4).Trim(), out var audience) ? audience : null;
+                    _kind = ChangeKind.Changed;
                 }
-                else if (line.StartsWith("- ") && current != null)
+                else if (line.StartsWith("#### "))
                 {
-                    current.Add(line.Substring(2).Trim());
+                    _kind = Enum.TryParse<ChangeKind>(line.Substring(5).Trim(), out var kind) ? kind : ChangeKind.Changed;
+                }
+                else if (line.StartsWith("- ") && _lines != null && _audience.HasValue)
+                {
+                    _lines.Add(new ChangelogMarkdownLine(_audience.Value, _kind, line.Substring(2).Trim()));
                 }
             }
 
-            Flush();
+            // Any other "## " heading ends the version before it and starts nothing.
+            private void StartVersion(string heading)
+            {
+                var unreleased = heading == UnreleasedHeading;
+                var (version, date) = unreleased ? (null, null) : ParseHeading(heading);
+                _audience = null;
+                _lines = version != null || unreleased ? new List<ChangelogMarkdownLine>() : null;
 
-            return versions.OrderByDescending(v => v.Version).ToList();
+                if (_lines != null)
+                {
+                    Sections.Add(new ChangelogMarkdownSection(version, date, _lines));
+                }
+            }
         }
 
         // "x.y.z (YYYY-MM-DD)", a staging build's with the goals' builds it includes after it ("0.7.0011 (2026-12-01),

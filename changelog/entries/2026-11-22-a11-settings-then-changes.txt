@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Settings, then Changes:** every change to a setting is recorded: who made it, when, and from what to what.

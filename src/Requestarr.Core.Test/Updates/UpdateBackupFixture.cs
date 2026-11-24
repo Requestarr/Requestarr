@@ -193,7 +193,7 @@ namespace Requestarr.Core.Test.Updates
         [Test]
         public void a_build_that_needs_a_new_compose_file_links_it_for_admins_only()
         {
-            var version = new ChangelogVersion(new Version(0, 7, 5), new[] { "**Users:** a line." }, new[] { $"{VersionCards.ComposeLead} the beta's file gains a setting." });
+            var version = new ChangelogVersion(new Version(0, 7, 5), Announcements.ChangelogLines.Of("**Users:** a line."), Announcements.ChangelogLines.Of($"{VersionCards.ComposeLead} the beta's file gains a setting."));
 
             VersionCards.Collapsed(version, VersionAudience.Admins, 2026).Reply.Embeds[0].Description
                 .Should().Contain("This build needs a new compose file").And.Contain("https://github.com/Requestarr/Requestarr/blob/v0.7.0005/deploy/beta/compose.yaml");

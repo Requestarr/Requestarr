@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.2.0
+line: **Vote results:** everyone who was asked sees whether a title was kept or removed, and a removed title can be asked for again any time.

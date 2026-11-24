@@ -53,6 +53,9 @@ namespace Requestarr.Core.Test.Discord.Harness
         // Fails the next channel creation, to exercise rollback.
         public bool FailNextChannelCreate { get; set; }
 
+        // Discord refuses every message sent while it's set.
+        public bool FailSends { get; set; }
+
         // Simulates a bot without the Pin Messages permission.
         public bool CannotPin { get; set; }
 
@@ -239,6 +242,11 @@ namespace Requestarr.Core.Test.Discord.Harness
 
         public Task<ulong> SendMessageAsync(ulong channelId, InteractionReply message)
         {
+            if (FailSends)
+            {
+                throw new InvalidOperationException("Discord refused the message");
+            }
+
             var id = NextId();
             Channels[channelId].Messages.Add(message);
             Channels[channelId].MessageIds.Add(id);

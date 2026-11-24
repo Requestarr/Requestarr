@@ -110,13 +110,17 @@ all_versions() {
     git show "$1:CHANGELOG.md" 2>/dev/null | grep -E '^## [0-9]+\.[0-9]+\.[0-9]+' | sed -E 's/^## +//; s/ .*//' || true
 }
 
-# CHANGELOG.md and QA-CHECKLIST.md as they are at a commit, into a folder (an empty file where one is missing).
+# CHANGELOG.md and QA-CHECKLIST.md as they are at a commit, into a folder (an empty file where one is missing), with the
+# changelog's entries they're written from.
 files_at() {
     local file
     mkdir -p "$2"
     for file in "${files[@]}"; do
         git show "$1:$file" >"$2/$file" 2>/dev/null || : >"$2/$file"
     done
+    if git cat-file -e "$1:changelog" 2>/dev/null; then
+        git archive "$1" changelog | tar -x -C "$2"
+    fi
 }
 
 # Fails if $2 (the branch above) has a commit $1 (the branch below) doesn't.
@@ -422,7 +426,8 @@ promote_staging() {
     branch="release/$number"
     git worktree add -q -b "$branch" "$work/tree" "$target"
     cp "$work/release/CHANGELOG.md" "$work/release/QA-CHECKLIST.md" "$work/tree/"
-    git -C "$work/tree" add "${files[@]}"
+    cp -r "$work/release/changelog" "$work/tree/"
+    git -C "$work/tree" add "${files[@]}" changelog
     git -C "$work/tree" commit -q -m "Build $number: Unreleased becomes $number ($day) in the changelog and QA checklist"
     local release
     release=$(git -C "$work/tree" rev-parse HEAD)
@@ -516,7 +521,7 @@ EOF
         echo "CHANGELOG.md and QA-CHECKLIST.md couldn't be merged: nothing pushed." >&2
         return 1
     fi
-    git -C "$work/tree" add "${files[@]}"
+    git -C "$work/tree" add "${files[@]}" changelog
     git -C "$work/tree" commit -q -m "Merge $from back into $to" >&2
     git -C "$work/tree" push -q origin "$branch" >&2
     git worktree remove --force "$work/tree"

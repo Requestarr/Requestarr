@@ -55,7 +55,7 @@ namespace Requestarr.Core.Test.Announcements
 
         private async Task StartOn(string version)
         {
-            Service.ChangelogText = () => Text;
+            Service.Changelog = () => ChangelogSource.FromMarkdown(Text);
             Service.CurrentVersion = () => new Version(version + ".123");
             await Service.PostVersionNotesAsync();
         }
@@ -183,12 +183,12 @@ namespace Requestarr.Core.Test.Announcements
 - Promoted.
 ";
 
-            Service.ChangelogText = () => qa;
+            Service.Changelog = () => ChangelogSource.FromMarkdown(qa);
             Service.CurrentVersion = () => new Version(0, 2, 3, 1);
             await Service.PostVersionNotesAsync();
             Service.CurrentVersion = () => new Version(0, 2, 6, 1);
             await Service.PostVersionNotesAsync();
-            Service.ChangelogText = () => promoted;
+            Service.Changelog = () => ChangelogSource.FromMarkdown(promoted);
             Service.CurrentVersion = () => new Version(0, 2, 7, 1);
             await Service.PostVersionNotesAsync();
             await Service.PostVersionNotesAsync();
@@ -238,7 +238,7 @@ namespace Requestarr.Core.Test.Announcements
         public async Task a_long_version_is_one_card_and_its_full_card_splits_within_discord_limits()
         {
             var lines = string.Join("\n", Enumerable.Range(1, 200).Select(i => $"- Change number {i} with enough words to take some room in the message."));
-            Service.ChangelogText = () => $"## 0.9.0 (2026-10-25)\n\n### For users\n{lines}\n\n### For admins\n{lines}\n";
+            Service.Changelog = () => ChangelogSource.FromMarkdown($"## 0.9.0 (2026-10-25)\n\n### For users\n{lines}\n\n### For admins\n{lines}\n");
             Service.CurrentVersion = () => new Version(0, 9, 0, 1);
 
             await Service.PostVersionNotesAsync();

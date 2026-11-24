@@ -1,0 +1,4 @@
+audience: admins
+kind: fixed
+build: 0.7.0010
+line: **Titles already in your library:** titles added by hand or by the old Requestrr bot answer "already in the library" with no second copy, and their download events are ignored quietly.

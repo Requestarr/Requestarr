@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Two channel groups:** Requestarr's channels live in Requestarr Admin and Requestarr Users; existing channels move over with their messages kept.

@@ -1,0 +1,5 @@
+audience: admins
+kind: changed
+replaces: 2026-11-22-a30-this-server-is-production-or-beta
+line: **The beta knows it's beta:** the beta image shows the BETA strip and names its connections Requestarr Beta, with nothing to choose.
+line_if_seen: **No Production or Beta to choose:** the beta image says it's beta, so the first-run setup no longer asks.

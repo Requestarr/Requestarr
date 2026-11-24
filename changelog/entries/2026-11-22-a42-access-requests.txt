@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Access requests:** everyone in the server sees a welcome message with Request access. Requests arrive as cards in the admin channel and the pending queue, where you approve with the access you choose or deny with a reason.

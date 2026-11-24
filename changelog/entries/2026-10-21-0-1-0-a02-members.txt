@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.1.0
+line: **Members:** add them from the admin panel's member picker or /admin user; each gets a role, a private channel and a pinned panel. Suspend, unsuspend and remove them; anyone who leaves the server is suspended automatically.

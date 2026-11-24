@@ -5,6 +5,14 @@ What the owner tests on the QA server, in Discord, before a build goes to stagin
 Every pull request adds its items under Unreleased, the way it adds its changelog lines. Each item is a bold name, numbered Steps (at most 5, one short action each), Expect bullets (at most 4, one thing to see each) and a line saying who checks it: the automated checks, naming the check that verifies it (run before every promotion to QA), or the owner, with the reason a person has to (it needs human eyes, the behavior wanted isn't settled, or the automated checks couldn't verify it). No sentence over 20 words and no item over 80; a longer item is two items. Unreleased is what to test since the last build the beta testers got: a change to something an Unreleased item already tests rewrites that item instead of adding another. The promotion to staging gives them the build's number. See docs/development.md#qa-checklist.
 
 ## Unreleased
+- **What's new grouped by kind**
+  - Steps:
+    1. In the web app, open System, then What's new.
+    2. Look at 0.7.0010.
+  - Expect:
+    - Each audience's lines under New, Fixed and Changed, in that order.
+    - One short line per change, many more than before.
+  - Checked automatically: the web app portal pages check.
 - **Imported history in Discord**
   - Steps:
     1. Open Settings, then Import from Requestrr.

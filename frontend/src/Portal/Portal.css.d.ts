@@ -2,7 +2,6 @@
 // Please do not change this file!
 interface CssExports {
   'actions': string;
-  'changes': string;
   'count': string;
   'detail': string;
   'discordId': string;
