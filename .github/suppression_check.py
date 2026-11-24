@@ -9,8 +9,9 @@ change, compared with its base:
     frontend/knip-baseline.json (the pull request that creates a baseline with its check is the exception, and so is
     a Servarr file put back exactly as Prowlarr had it at the import: Servarr's own parts are used, never rebuilt,
     docs/servarr-reuse.md);
-  - turns a rule down in .editorconfig's "Requestarr additions" (a lower severity, or a rule removed), or raises a
-    limit in src/SonarLint.xml.
+  - turns a rule down in .editorconfig's "Requestarr additions" (a lower severity, or a rule removed; a section whose
+    header changes keeps its rules only if it still covers every file it covered), or raises a limit in
+    src/SonarLint.xml.
 
   python3 .github/suppression_check.py <base commit> [<head commit>]
   python3 .github/suppression_check.py --self-test
@@ -102,11 +103,37 @@ def severities(editorconfig):
     return found
 
 
-def lowered(base, head):
+def globs(section):
+    inner = section.strip()[1:-1]
+    return [g for g in (inner[1:-1] if inner.startswith("{") else inner).split(",") if g]
+
+
+def glob_matches(glob, path):
+    pattern = re.escape(glob).replace(r"\*\*", "\0").replace(r"\*", "[^/]*").replace("\0", ".*")
+    return re.fullmatch(pattern, path) is not None
+
+
+def followed(before, after, files):
+    """A section whose header changed, mapped to the head section that shares a pattern with it and still covers
+    every file (in the head commit) its old header covered. A header that only widens, or drops a pattern whose
+    files another pattern now covers, keeps its rules; one that leaves a file out is a removed section."""
+    moved = {}
+    for old in {s for s, _ in before} - {s for s, _ in after}:
+        covered = [f for f in files if any(glob_matches(g, f) for g in globs(old))]
+        for new in sorted({s for s, _ in after}):
+            if set(globs(old)) & set(globs(new)) and all(any(glob_matches(g, f) for g in globs(new)) for f in covered):
+                moved[old] = new
+                break
+    return moved
+
+
+def lowered(base, head, files=()):
     """A rule turned down or removed; and, once the additions exist, a new setting that switches a rule off."""
     before, after = severities(base), severities(head) or {}
     if before is None:
         return []
+    moved = followed(before, after, files)
+    before = {(moved.get(section, section), rule): level for (section, rule), level in before.items()}
     down = ["%s %s: %s -> %s" % (section, rule, level, after.get((section, rule), "removed"))
             for (section, rule), level in sorted(before.items())
             if SEVERITY.get(after.get((section, rule), "none"), 0) < SEVERITY.get(level, 0)]
@@ -150,7 +177,8 @@ def check(base, head):
     if base_knip is not None:
         problems += ["%s gains: %s" % (knip, p) for p in grown_baseline(base_knip, show(head, knip))]
     problems += [".editorconfig turns a Requestarr rule down: " + p
-                 for p in lowered(show(base, ".editorconfig"), show(head, ".editorconfig"))]
+                 for p in lowered(show(base, ".editorconfig"), show(head, ".editorconfig"),
+                                  git("ls-tree", "-r", "--name-only", head).splitlines())]
     problems += ["src/SonarLint.xml raises a limit: " + p
                  for p in raised(show(base, "src/SonarLint.xml"), show(head, "src/SonarLint.xml"))]
     return problems
@@ -190,6 +218,12 @@ def self_test():
          "a new section switching a rule off fails"),
         (lowered("[*.cs]\n", editor + "[{tests}]\ndotnet_diagnostic.S138.severity = none\n") == [],
          "the change that creates the additions may set exemptions"),
+        (lowered(editor, editor.replace("[{a}]", "[{a,src/T/**.cs}]"), ["a", "src/T/x.cs"]) == [],
+         "a section that only widens keeps its rules"),
+        (lowered(editor.replace("[{a}]", "[{a,old/x.cs}]"), editor.replace("[{a}]", "[{a,src/**.cs}]"), ["a", "src/x.cs"]) == [],
+         "a pattern whose file moved under another pattern may go"),
+        (lowered(editor.replace("[{a}]", "[{a,b}]"), editor, ["a", "b"]) != [],
+         "a section that leaves a file out fails"),
         (raised(xml, xml.replace("60", "80")) != [] and raised(xml, xml.replace("60", "40")) == [], "a raised limit fails"),
     ]
     failed = [name for ok, name in cases if not ok]
