@@ -34,13 +34,14 @@ function stopsText(preview: DeletionPreview) {
   return takesAllOther ? allOtherStopsText(app) : undefined;
 }
 
-// The confirm's words, in plain terms: what stays, what goes, the requests still waiting and what stops.
+// The confirm's words, in plain terms: what stops first, then what stays, what goes and the requests still waiting.
 function DeletionMessage({ preview }: { preview: DeletionPreview }) {
   const { name } = preview;
   const stops = stopsText(preview);
 
   return (
     <>
+      {stops && <Alert kind={kinds.WARNING}>{stops}</Alert>}
       <p>{translate('InstanceDeleteMessage', { name })}</p>
       {preview.openRequests > 0 && (
         <p>
@@ -50,7 +51,6 @@ function DeletionMessage({ preview }: { preview: DeletionPreview }) {
           })}
         </p>
       )}
-      {stops && <Alert kind={kinds.WARNING}>{stops}</Alert>}
     </>
   );
 }
