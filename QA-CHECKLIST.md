@@ -25,6 +25,31 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The admin command says what it posts, or that it's done.
     - Nobody gets a ping or a notification.
   - Checked by the owner, needs human eyes: how the cards look in the Discord app; the tests cover each card's text, silence and order.
+- **Onboard page and window**
+  - Steps:
+    1. In Members, press Onboard.
+    2. Tick someone, then press Onboard in the toolbar.
+    3. Press Cancel.
+  - Expect:
+    - Refresh, Onboard, Options and Filter in the toolbar.
+    - A window with each type's access and limit, then Cancel and Onboard.
+    - After Cancel, the person is still ticked.
+  - Checked automatically: the web app add member check.
+- **One Save for access**
+  - Steps:
+    1. Open a member's page in the web app.
+    2. Press Change access.
+  - Expect:
+    - Every type's access and limit in one window.
+    - One Save at the bottom, beside Cancel.
+  - Checked automatically: the web app add member check.
+- **Toolbars on the list pages**
+  - Steps:
+    1. Open Queue, Access requests, Outages, the audit log, then Changes.
+  - Expect:
+    - Each has a toolbar with Refresh.
+    - Options too, except on Changes.
+  - Checked automatically: the web app portal pages check.
 - **Series fixes**
   - Steps:
     1. In the web app, open Settings, then Connections.
@@ -405,34 +430,19 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Steps:
     1. In Members, press Onboard.
     2. Type part of a name in the box at the top.
-    3. Tick someone, then press Onboard in the toolbar.
+    3. Tick someone, then press Set up.
   - Expect:
     - Everyone in the server who isn't a member, with joined date and roles.
     - The list narrows as you type.
-    - A window with each type's access and limit, then Onboard.
+    - A summary of what they'll get, then Confirm.
   - Checked automatically: the web app add member check.
 - **Onboarding from the list**
   - Steps:
-    1. In Onboard, tick someone and press Onboard, then Onboard in the window.
+    1. In Onboard, tick someone, press Set up, then Confirm.
   - Expect:
     - Each person's progress, then who was added and who failed and why.
     - Their role, channel and panel in Discord.
   - Checked automatically: the web app add member check.
-- **One Save for access**
-  - Steps:
-    1. Open a member's page in the web app.
-    2. Press Change access.
-  - Expect:
-    - Every type's access and limit in one window.
-    - One Save at the bottom, beside Cancel.
-  - Checked automatically: the web app add member check.
-- **Toolbars on the list pages**
-  - Steps:
-    1. Open Onboard, Queue, Access requests, Outages, the audit log, then Changes.
-  - Expect:
-    - Each has a toolbar with Refresh.
-    - Options too, except on Changes.
-  - Checked automatically: the web app portal pages check.
 - **Picking members**
   - Steps:
     1. In Members, press Select Members, then tick a member.
@@ -448,7 +458,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     2. Press Onboard, then Cancel.
   - Expect:
     - One window over the list, naming only those who can be onboarded.
-    - What they get, then Onboard; no other pages.
+    - What they get, then Confirm; no other pages.
   - Checked automatically: the web app add member check.
 - **Acting from the web app**
   - Steps:
