@@ -4,11 +4,11 @@ import NotFound from 'Components/NotFound';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import PageSectionContent from 'Components/Page/PageSectionContent';
-import UpdateChanges from 'System/Updates/UpdateChanges';
 import translate from 'Utilities/String/translate';
 import { useDayText } from '../Components/useDateText';
 import { PortalChange, PortalVersion } from '../PortalTypes';
 import usePortal from '../usePortal';
+import styles from '../Portal.css';
 
 // A version's groups, in the order Sonarr's System, Updates page shows New and Fixed.
 const KINDS: { kind: PortalChange['kind']; title: string }[] = [
@@ -17,7 +17,44 @@ const KINDS: { kind: PortalChange['kind']; title: string }[] = [
   { kind: 'changed', title: 'Changed' },
 ];
 
-// One audience's lines, each group with Servarr's update changes list (it reads the bold lead).
+// "**Lead:** the rest": the changelog's bold lead, then its sentence.
+const LEAD = /^\*\*(.+?)\*\*\s*(.*)$/;
+
+function Line({ text }: { text: string }) {
+  const lead = LEAD.exec(text);
+
+  return (
+    <li>
+      {lead ? (
+        <>
+          <strong>{lead[1]}</strong> {lead[2]}
+        </>
+      ) : (
+        text
+      )}
+    </li>
+  );
+}
+
+// One kind's lines under its heading, as Sonarr's update changes are grouped. Servarr's own list shows its lines as
+// plain text, so it can't show a bold lead.
+function Group({ title, lines }: { title: string; lines: PortalChange[] }) {
+  if (!lines.length) {
+    return null;
+  }
+
+  return (
+    <>
+      <h5>{title}</h5>
+      <ul className={styles.changes}>
+        {lines.map(({ text }) => (
+          <Line key={text} text={text} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
 function Section({ title, lines }: { title: string; lines: PortalChange[] }) {
   if (!lines.length) {
     return null;
@@ -27,10 +64,10 @@ function Section({ title, lines }: { title: string; lines: PortalChange[] }) {
     <>
       <h4>{title}</h4>
       {KINDS.map(({ kind, title: group }) => (
-        <UpdateChanges
+        <Group
           key={kind}
           title={translate(group)}
-          changes={lines.filter((l) => l.kind === kind).map((l) => l.text)}
+          lines={lines.filter((line) => line.kind === kind)}
         />
       ))}
     </>
