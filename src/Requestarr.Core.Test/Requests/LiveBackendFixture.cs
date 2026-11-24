@@ -50,11 +50,11 @@ namespace Requestarr.Core.Test.Requests
             {
                 Radarr = new List<BackendInstanceProvisioning>
                 {
-                    new() { Name = "Radarr (test)", Url = RadarrUrl, ApiKey = RadarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true }
+                    new() { Name = "Radarr (test)", Url = RadarrUrl, ApiKey = RadarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true }
                 },
                 Sonarr = new List<BackendInstanceProvisioning>
                 {
-                    new() { Name = "Sonarr (test)", Url = SonarrUrl, ApiKey = SonarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Default = true }
+                    new() { Name = "Sonarr (test)", Url = SonarrUrl, ApiKey = SonarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Default = true }
                 }
             });
         }

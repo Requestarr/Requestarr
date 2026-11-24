@@ -21,11 +21,11 @@ namespace Requestarr.Core.Test.Anime
         {
             Mocker.Resolve<IBackendService>().SyncFromProvisioning(new BackendsProvisioning
             {
-                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr", Url = "http://radarr-test:7878", ApiKey = "k", QualityProfile = "HD-1080p", RootFolder = "/data/media", Default = true } },
+                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr", Url = "http://radarr-test:7878", ApiKey = "k", DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/media", Default = true } },
                 Sonarr = new List<BackendInstanceProvisioning>
                 {
-                    new() { Name = "Sonarr", Url = "http://sonarr-test:8989", ApiKey = "k", QualityProfile = "HD-1080p", RootFolder = "/data/media", Default = true },
-                    new() { Name = "Sonarr Sub", Url = "http://sonarr-sub:8989", ApiKey = "k", QualityProfile = "HD-1080p", RootFolder = "/data/anime-sub", Anime = new() { Priority = "sub" } }
+                    new() { Name = "Sonarr", Url = "http://sonarr-test:8989", ApiKey = "k", DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/media", Default = true },
+                    new() { Name = "Sonarr Sub", Url = "http://sonarr-sub:8989", ApiKey = "k", DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/anime-sub", Anime = new() { Priority = "sub" } }
                 }
             });
             Sonarr.RootFolders.Add("/data/anime-sub");

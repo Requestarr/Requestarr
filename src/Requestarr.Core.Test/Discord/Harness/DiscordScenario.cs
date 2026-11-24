@@ -149,12 +149,12 @@ namespace Requestarr.Core.Test.Discord.Harness
             {
                 Radarr = new List<BackendInstanceProvisioning>
                 {
-                    new() { Name = "Radarr", Url = "http://radarr-test:7878", ApiKey = "k", QualityProfile = "HD-1080p", RootFolder = "/data/media", Default = true },
-                    new() { Name = "Radarr 4K", Url = "http://radarr-4k:7878", ApiKey = "k", QualityProfile = "Any", RootFolder = "/data/media" }
+                    new() { Name = "Radarr", Url = "http://radarr-test:7878", ApiKey = "k", DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/media", Default = true },
+                    new() { Name = "Radarr 4K", Url = "http://radarr-4k:7878", ApiKey = "k", DefaultAccess = "approval", QualityProfile = "Any", RootFolder = "/data/media" }
                 },
                 Sonarr = new List<BackendInstanceProvisioning>
                 {
-                    new() { Name = "Sonarr", Url = "http://sonarr-test:8989", ApiKey = "k", QualityProfile = "HD-1080p", RootFolder = "/data/media", SeriesType = "anime" }
+                    new() { Name = "Sonarr", Url = "http://sonarr-test:8989", ApiKey = "k", DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/media", SeriesType = "anime" }
                 }
             });
         }

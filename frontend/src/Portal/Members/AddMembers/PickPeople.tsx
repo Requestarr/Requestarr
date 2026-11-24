@@ -103,7 +103,7 @@ function usePicks(candidates: Candidate[], shown: Candidate[], kept: string[]) {
     [pickShown, shown]
   );
 
-  // Who was picked before (a member page's Onboard, or Back), once the rows are there.
+  // Who was picked before Back, once the rows are there.
   useEffect(() => {
     pickShown(
       true,
@@ -122,7 +122,7 @@ function usePicks(candidates: Candidate[], shown: Candidate[], kept: string[]) {
 
 interface PickPeopleProps {
   people: PortalServerMember[];
-  // Who's picked to begin with (a member page's Onboard, or the picks before Back), by Discord ID.
+  // Who's picked to begin with (the picks before Back), by Discord ID.
   kept: string[];
   onNext: (picked: PortalServerMember[]) => void;
 }
@@ -158,7 +158,12 @@ function PickList({
   const actions = [
     {
       name: 'setUp',
-      label: translate('PortalSetUpPeople', { count: selection.picked.length }),
+      label:
+        selection.picked.length === 1
+          ? translate('PortalSetUpPerson')
+          : translate('PortalSetUpPeople', {
+              count: selection.picked.length,
+            }),
       isDanger: false,
       isOffered: selection.picked.length > 0,
     },

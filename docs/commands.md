@@ -141,7 +141,7 @@ Opens that member's card, visible only to you, with only what applies to them no
 
 | Member | The card offers |
 |---|---|
-| Not a Requestarr user (or removed) | **Add to Requestarr**: creates their role, private channel and panel. Movies and TV start as needs approval, Music off. |
+| Not a Requestarr user (or removed) | **Add to Requestarr**: creates their role, private channel and panel. Movies and TV start at their media manager's default access for new members, Music off. |
 | Active | One access menu per type (**Movies access**, **TV access**, **Music access**: auto-approve, needs approval, off, set to the current level); **Limits, their requests…** (a type's limit: requests per window and days, 0 removes it; **Their requests**); **Link Plex…**, **Suspend**, **Remove** (asks first). Granting a type with nothing connected yet says privately that they won't see it until an instance connects. |
 | Suspended | The same, with **Unsuspend** instead of Suspend. Unsuspend gives their role back if they rejoined. |
 | Waiting for a Plex link they asked for | Also **Approve Plex link** and **Deny Plex link**. |
