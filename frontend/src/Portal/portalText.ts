@@ -50,6 +50,7 @@ const QUEUE_KINDS: Record<string, string> = {
   trouble: 'PortalQueueTrouble',
   mediaServerLink: 'PortalQueueMediaServerLink',
   instanceDown: 'PortalQueueInstanceDown',
+  noAllOther: 'PortalQueueNoAllOther',
   removal: 'PortalQueueRemoval',
   deleteByHand: 'PortalQueueDeleteByHand',
   accessRequest: 'PortalQueueAccessRequest',

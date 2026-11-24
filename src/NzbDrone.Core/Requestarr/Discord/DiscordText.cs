@@ -1103,6 +1103,17 @@ namespace Requestarr.Core.Discord
         public static string RequestsPaused(ContentType type) =>
             $"{Label(type)} requests are paused right now: the app that downloads them can't be reached. Requestarr keeps trying, and the admin is alerted if it stays down.";
 
+        // While no instance takes a type's other requests (it was turned off or deleted): no server named.
+        public static string RequestsPausedForNow(ContentType type) =>
+            $"{Label(type)} requests are paused for now. The admin knows, and they'll work again once it's sorted.";
+
+        // The purpose that takes a type's requests no other instance is for, in the web app's words.
+        public static string AllOtherLabel(ContentType type) => type == ContentType.Movie ? "All other movies" : "All other shows";
+
+        public static string NoAllOtherWaiting(ContentType type) =>
+            $"⏸️ **No {Backends.BackendImplementations.ForContentType(type)} takes {AllOtherLabel(type).ToLowerInvariant()}**, so those requests are paused. " +
+            $"In the web app, open Settings, then Connections, and set one to {AllOtherLabel(type)}. This stays here until one is.";
+
         public static string TypeNotAvailable(ContentType type) => $"{Label(type)} can't be requested here yet.";
 
         public static string NotConnectedYet(string name, ContentType type) =>

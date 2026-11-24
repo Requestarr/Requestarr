@@ -7,16 +7,15 @@ using NzbDrone.Core.Configuration;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Discord;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Requests;
 
 namespace Requestarr.Core.Settings
 {
-    public record InstanceChoice(int Id, string Name);
-
-    // What deleting an instance would do, for its confirm: the requests still waiting on it, whether it's its type's
-    // main one (requests of that type go to it), and which instances could take over from it.
-    public record InstanceDeletionPreview(string Name, string Implementation, int OpenRequests, bool IsMain, IReadOnlyList<InstanceChoice> TakeOver);
+    // What deleting an instance would do, for its confirm: the requests still waiting on it, whether it takes its type's
+    // other requests (they stop until an admin gives that to another), and whether it's the type's only instance.
+    public record InstanceDeletionPreview(string Name, string Implementation, int OpenRequests, bool TakesAllOther, bool IsLast);
 
     // WebhookProblem: why Requestarr's Connect entry couldn't be removed from it (it couldn't be reached), or null.
     public record InstanceDeleteResult(bool Deleted, string Problem, string WebhookProblem, int OpenRequests);
@@ -24,9 +23,7 @@ namespace Requestarr.Core.Settings
     public interface IInstanceDeletion
     {
         InstanceDeletionPreview Preview(int id);
-
-        // TakeOver: the instance that becomes its type's main one, when this one was.
-        Task<InstanceDeleteResult> DeleteAsync(int id, int? takeOver, Actor actor);
+        Task<InstanceDeleteResult> DeleteAsync(int id, Actor actor);
     }
 
     // Deletes a Sonarr or Radarr, as Sonarr deletes a provider, but keeps its history: its row stays as deleted (gone
@@ -73,29 +70,22 @@ namespace Requestarr.Core.Settings
                 return null;
             }
 
-            var others = Others(instance).Select(o => new InstanceChoice(o.Id, o.Name)).ToList();
+            var takesAllOther = _backends.AllOther(DiscordText.TypeOf(instance))?.Id == instance.Id;
 
-            return new InstanceDeletionPreview(instance.Name, instance.Implementation, OpenRequests(instance).Count, IsMain(instance), others);
+            return new InstanceDeletionPreview(instance.Name, instance.Implementation, OpenRequests(instance).Count, takesAllOther, !Others(instance).Any());
         }
 
-        public async Task<InstanceDeleteResult> DeleteAsync(int id, int? takeOver, Actor actor)
+        public async Task<InstanceDeleteResult> DeleteAsync(int id, Actor actor)
         {
             var instance = _repository.Find(id);
 
-            if (Problem(instance, takeOver) is { } problem)
+            if (Problem(instance) is { } problem)
             {
                 return new InstanceDeleteResult(false, problem, null, 0);
             }
 
-            var heir = takeOver.HasValue ? _repository.Find(takeOver.Value) : null;
             var webhookProblem = await RemoveWebhookAsync(instance);
             var open = OpenRequests(instance);
-
-            if (heir != null && IsMain(instance))
-            {
-                heir.Config.Purpose = InstancePurpose.Everything;
-                _repository.Update(heir);
-            }
 
             foreach (var request in open)
             {
@@ -104,7 +94,7 @@ namespace Requestarr.Core.Settings
                 _requests.Update(request);
             }
 
-            var described = Described(instance, heir, open.Count);
+            var described = Described(instance, open.Count);
             instance.Name = DeletedName(instance);
             instance.Deleted = Clock();
             instance.Enable = false;
@@ -135,19 +125,14 @@ namespace Requestarr.Core.Settings
             return name;
         }
 
-        private string Problem(BackendInstance instance, int? takeOver)
+        private string Problem(BackendInstance instance)
         {
             if (_provisioning.UsesFile)
             {
                 return AppSettingsService.ProvisionedProblem;
             }
 
-            if (instance == null || instance.IsDeleted)
-            {
-                return "That instance no longer exists.";
-            }
-
-            return takeOver.HasValue && Others(instance).All(o => o.Id != takeOver.Value) ? "Choose another instance of the same type to take over." : null;
+            return instance == null || instance.IsDeleted ? "That instance no longer exists." : null;
         }
 
         private async Task<string> RemoveWebhookAsync(BackendInstance instance)
@@ -168,23 +153,13 @@ namespace Requestarr.Core.Settings
         private List<Request> OpenRequests(BackendInstance instance) =>
             _requests.WithStatus(RequestStatus.Pending).Concat(_requests.WithStatus(RequestStatus.Approved)).Where(r => r.BackendId == instance.Id).ToList();
 
-        private bool IsMain(BackendInstance instance) =>
-            _backends.Default(ContentTypeOf(instance)) is { } main && main.Id == instance.Id;
+        // The type's other instances that aren't deleted.
+        private IEnumerable<BackendInstance> Others(BackendInstance instance) =>
+            _repository.All().Where(o => o.Id != instance.Id && o.Implementation == instance.Implementation);
 
-        private List<BackendInstance> Others(BackendInstance instance) =>
-            _repository.All().Where(o => o.Id != instance.Id && o.Implementation == instance.Implementation && o.Enable).OrderBy(o => o.Name).ToList();
-
-        private static Users.ContentType ContentTypeOf(BackendInstance instance) =>
-            instance.Implementation == BackendImplementations.Radarr ? Users.ContentType.Movie : Users.ContentType.Tv;
-
-        private static string Described(BackendInstance instance, BackendInstance heir, int open)
+        private static string Described(BackendInstance instance, int open)
         {
             var parts = new List<string> { $"{instance.Name}: deleted" };
-
-            if (heir != null)
-            {
-                parts.Add($"{heir.Name} takes over");
-            }
 
             if (open > 0)
             {

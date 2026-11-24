@@ -102,12 +102,6 @@ namespace Requestarr.Core.Settings
 
             var others = Others(input.Implementation, id);
             var resolved = input with { Purpose = others.Any() ? input.Purpose : InstancePurpose.Everything };
-
-            if (PurposeProblem(existing, resolved, others) is { } purposeProblem)
-            {
-                return new InstanceSaveResult(null, purposeProblem);
-            }
-
             var instance = existing ?? new BackendInstance { Added = DateTime.UtcNow };
             var before = existing == null ? null : Described(existing);
 
@@ -182,20 +176,9 @@ namespace Requestarr.Core.Settings
         private List<BackendInstance> Others(string implementation, int? id) =>
             _backends.All().Where(b => b.Implementation == implementation && b.Id != id).ToList();
 
-        // A type always keeps an Everything instance: the one that has it gives it up only
-        // when another takes it over (choosing Everything there moves it), never by changing its own purpose or being
-        // turned off while others are still in use.
-        private static string PurposeProblem(BackendInstance existing, InstanceInput input, IReadOnlyList<BackendInstance> others)
-        {
-            var wasEverything = existing is { Enable: true } && existing.Config.Purpose == InstancePurpose.Everything;
-            var givesUp = input.Purpose != InstancePurpose.Everything || !input.Enabled;
-
-            return wasEverything && givesUp && others.Any(o => o.Enable)
-                ? $"{existing.Name} takes everything no other {input.Implementation} is for. To change that, open the {input.Implementation} that should take over and choose Everything there."
-                : null;
-        }
-
-        // Each purpose belongs to one instance per type: saving it here moves it from the instance that had it.
+        // Each purpose belongs to one instance per type: saving it here moves it from the instance that had it. Turning
+        // off the one for all other requests, or giving it another purpose, hands that purpose to nobody: those requests
+        // are paused (BackendService.ForRequest) and the admin queue says so until an admin gives it to another.
         private void TakePurpose(BackendInstance instance, IEnumerable<BackendInstance> others, Actor actor)
         {
             if (!instance.Enable || instance.Config.Purpose == InstancePurpose.Nothing)
@@ -207,13 +190,13 @@ namespace Requestarr.Core.Settings
             {
                 other.Config.Purpose = InstancePurpose.Nothing;
                 _repository.Update(other);
-                _audit.Record(actor, ChangeAction, "instance", other.Id.ToString(), $"{other.Name}: for {Words(instance.Config.Purpose)} moved to {instance.Name}");
+                _audit.Record(actor, ChangeAction, "instance", other.Id.ToString(), $"{other.Name}: for {Words(instance)} moved to {instance.Name}");
             }
         }
 
-        public static string Words(InstancePurpose purpose) => purpose switch
+        public static string Words(BackendInstance instance) => instance.Config.Purpose switch
         {
-            InstancePurpose.Everything => "everything",
+            InstancePurpose.Everything => DiscordText.AllOtherLabel(DiscordText.TypeOf(instance)).ToLowerInvariant(),
             InstancePurpose.Anime => "anime",
             _ => "nothing yet"
         };
@@ -261,7 +244,7 @@ namespace Requestarr.Core.Settings
                 ("quality profile", Shown(settings.QualityProfile)),
                 ("root folder", Shown(settings.RootFolder)),
                 ("series type", Shown(settings.SeriesType)),
-                ("for", Words(settings.Purpose)),
+                ("for", Words(instance)),
                 ("in use", OnOff(instance.Enable)),
                 ("polling only", OnOff(settings.PollingOnly)),
                 ("default access for new members", DiscordText.Label(settings.DefaultAccess)),

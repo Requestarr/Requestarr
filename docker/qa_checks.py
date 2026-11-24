@@ -90,7 +90,7 @@ CHECKS = {
     "live carry-over": Check("live", "LiveQaFixture", "other", ("[promotion]",)),
     "live bug reports": Check("live", "LiveQaFixture", "other", ("[reports]", "[issues]")),
     "live report limit": Check("live", "LiveQaFixture", "other", ("[limit]",)),
-    "live routing by content": Check("live", "LiveRoutingFixture", "requests", ("[route]",)),
+    "live routing by content": Check("live", "LiveRoutingFixture", "requests", ("[route]", "[paused]")),
     "live series fixes": Check("live", "LiveSeriesFixFixture", "requests", ("[fix]",)),
 }
 

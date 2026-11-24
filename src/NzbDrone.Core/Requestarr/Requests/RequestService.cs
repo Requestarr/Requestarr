@@ -265,30 +265,14 @@ namespace Requestarr.Core.Requests
                 return LookupOutcome<TitleState>.Fail(error);
             }
 
-            MediaLookupResult item;
+            var (home, item, problem) = await LookupAtHomeAsync(instance, type, externalId);
 
-            try
+            if (problem != null)
             {
-                item = await Lookup(instance, type, externalId);
-
-                // A title goes where it was sent before, else by what it is (anime to the Anime Sonarr), looked up
-                // again there as that library has it.
-                if (item != null && Home(type, externalId, item.IsAnime) is { } home && home.Id != instance.Id)
-                {
-                    instance = home;
-                    item = await Lookup(instance, type, externalId);
-                }
-            }
-            catch (BackendException ex)
-            {
-                _logger.Warn(ex, "Lookup on {0} failed", instance.Name);
-                return LookupOutcome<TitleState>.Fail(DiscordText.RequestsPaused(type));
+                return LookupOutcome<TitleState>.Fail(problem);
             }
 
-            if (item == null)
-            {
-                return LookupOutcome<TitleState>.Fail(DiscordText.TitleNotFound);
-            }
+            instance = home;
 
             await _metadata.EnrichAsync(type, new[] { item });
 
@@ -314,6 +298,37 @@ namespace Requestarr.Core.Requests
                 Anime = anime is { Enabled: true } ? anime : null,
                 Language = language
             });
+        }
+
+        // The title as the instance its requests go to has it: looked up, then again there when that's another (anime to
+        // the Anime Sonarr). A problem when it isn't found, can't be reached, or its kind is paused (nowhere to go).
+        private async Task<(BackendInstance Instance, MediaLookupResult Item, string Problem)> LookupAtHomeAsync(BackendInstance instance, ContentType type, int externalId)
+        {
+            var at = instance;
+
+            try
+            {
+                var item = await Lookup(at, type, externalId);
+                var home = item == null ? at : Home(type, externalId, item.IsAnime);
+
+                if (home == null)
+                {
+                    return (at, null, DiscordText.RequestsPausedForNow(type));
+                }
+
+                if (home.Id != at.Id)
+                {
+                    at = home;
+                    item = await Lookup(at, type, externalId);
+                }
+
+                return (at, item, item == null ? DiscordText.TitleNotFound : null);
+            }
+            catch (BackendException ex)
+            {
+                _logger.Warn(ex, "Lookup on {0} failed", at.Name);
+                return (at, null, DiscordText.RequestsPaused(type));
+            }
         }
 
         // Where a title's requests go: the instance it was last sent to while that one is still in use (its library has

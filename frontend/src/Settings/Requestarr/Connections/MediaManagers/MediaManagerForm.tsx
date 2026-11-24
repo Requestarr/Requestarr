@@ -196,10 +196,7 @@ function MediaManagerField({ field, locked, onChange, ...extras }: FieldProps) {
       {...fieldExtras(field, extras)}
       {...(field.name === PURPOSE_FIELD && {
         ...extras.purpose.words,
-        selectOptions: purposeChoices(
-          field.selectOptions,
-          extras.purpose.allowsAnime
-        ),
+        selectOptions: purposeChoices(field.selectOptions, extras.purpose),
       })}
       {...locked}
       onChange={onChange}

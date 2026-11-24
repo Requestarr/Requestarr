@@ -5,8 +5,10 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Discord;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Test.Framework;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Anime
 {
@@ -42,6 +44,26 @@ namespace Requestarr.Core.Test.Anime
 
             Sonarr.Adds.Select(a => (a.Url, a.RootFolder)).Should().Equal(("http://sonarr-sub:8989", "/data/anime-sub"));
             RequestStore.All().Single().BackendId.Should().Be(anime.Id, "the title is anime, so the Anime Sonarr takes it, not the member");
+        }
+
+        [Test]
+        public async Task with_the_sonarr_for_all_other_shows_off_regular_shows_are_paused_and_anime_still_goes()
+        {
+            TwoSonarrs();
+            var repo = Mocker.Resolve<IBackendRepository>();
+            var anime = repo.FindByName("Sonarr Sub");
+            anime.Config.Purpose = InstancePurpose.Anime;
+            repo.Update(anime);
+            var main = repo.FindByName("Sonarr");
+            main.Enable = false;
+            repo.Update(main);
+            await Mocker.Resolve<IBackendService>().CheckAllAsync();
+
+            var regular = await Harness.SendAsync(Search(Alice, "tv", $"tvdb:{Severance}"));
+            regular.LastReply.Content.Should().Contain(DiscordText.RequestsPausedForNow(ContentType.Tv), "nothing hands regular shows to the Anime Sonarr");
+
+            await RequestAnime(Alice, "d");
+            RequestStore.All().Single().BackendId.Should().Be(anime.Id);
         }
 
         [Test]

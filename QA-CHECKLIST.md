@@ -35,13 +35,24 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The first anime show goes to the anime Sonarr.
     - The other show and the last anime show go to the first Sonarr.
   - Checked automatically: the live routing by content check.
-- **Handing over everything**
+- **Turning off all other shows**
   - Steps:
-    1. With two Sonarrs, open the one for everything.
-    2. Choose Nothing yet and press Save.
+    1. With two Sonarrs, open the one for All other shows.
+    2. Turn Use this Sonarr off, press Save, then confirm.
+    3. In Discord, request a show that isn't anime, then an anime show.
+    4. Press Pending queue on the admin panel.
   - Expect:
-    - It refuses, and says to choose Everything on the Sonarr that should take over.
-  - Checked by the owner, unsure of the desired behavior: the task said to ask which takes over; is pointing you to the other Sonarr what you want?
+    - The confirm says regular show requests will stop.
+    - The show says TV requests are paused; the anime goes to the anime Sonarr.
+    - The queue lists the paused requests until a Sonarr takes all other shows.
+  - Checked automatically: the live routing by content check.
+- **Imported history in System, Tasks**
+  - Steps:
+    1. Import from Requestrr with the history switches on.
+    2. Open System, then Tasks, while it posts.
+  - Expect:
+    - Post Imported History under Queue, with how many are posted so far.
+  - Checked automatically: the web app requestrr import check.
 - **Media manager wording**
   - Steps:
     1. In the web app, open Settings, then Connections.

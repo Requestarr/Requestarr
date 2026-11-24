@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import ConfirmModal from 'Components/Modal/ConfirmModal';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
@@ -24,6 +25,8 @@ import MediaManagerForm, {
   MEDIA_MANAGERS_SECTION,
   useMediaManagerSettings,
 } from './MediaManagerForm';
+import { MediaManagerItem } from './mediaManagerSettings';
+import { useStopsAllOther } from './purpose';
 
 interface FailedRequest {
   responseJSON?: { errorMessage?: string }[] | { message?: string };
@@ -55,6 +58,34 @@ function Failure({ error }: { error?: object | null }) {
   ) : null;
 }
 
+// Save, asking first in Servarr's confirm when the save leaves its type with nothing for its other requests: the
+// confirm's props come back with the Save handler.
+function useSave(id: number | undefined, item: MediaManagerItem) {
+  const dispatch = useDispatch();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const stops = useStopsAllOther(item, item.implementation.value);
+
+  const save = useCallback(() => {
+    setIsConfirming(false);
+    dispatch(saveMediaManager({ id }));
+  }, [dispatch, id]);
+  const onSavePress = useCallback(
+    () => (stops ? setIsConfirming(true) : save()),
+    [stops, save]
+  );
+  const onCancel = useCallback(() => setIsConfirming(false), []);
+
+  return {
+    onSavePress,
+    confirm: {
+      isOpen: isConfirming,
+      message: stops ?? '',
+      onConfirm: save,
+      onCancel,
+    },
+  };
+}
+
 // OnModalClose closes it (after a save); onCancel asks first when there are changes not saved.
 interface EditMediaManagerModalContentProps {
   id?: number;
@@ -75,6 +106,7 @@ function EditMediaManagerModalContent(
   const { isFetching, error, isSaving, saveError, isTesting, item } = settings;
   const wasSaving = usePrevious(isSaving);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { onSavePress, confirm } = useSave(id, item);
 
   useEffect(() => {
     if (wasSaving && !isSaving && !saveError) {
@@ -82,10 +114,6 @@ function EditMediaManagerModalContent(
     }
   }, [wasSaving, isSaving, saveError, onModalClose]);
 
-  const onSavePress = useCallback(
-    () => dispatch(saveMediaManager({ id })),
-    [dispatch, id]
-  );
   const onTestPress = useCallback(
     () => dispatch(testMediaManager({ id })),
     [dispatch, id]
@@ -132,6 +160,13 @@ function EditMediaManagerModalContent(
         onTest={onTestPress}
         onCancel={onCancel}
         onSave={onSavePress}
+      />
+
+      <ConfirmModal
+        {...confirm}
+        kind={kinds.WARNING}
+        title={translate('InstanceEditTitle', { name: item.name.value })}
+        confirmLabel={translate('Save')}
       />
 
       {id && (

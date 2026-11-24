@@ -58,21 +58,23 @@ namespace Requestarr.Core.Test.Settings
             result.Instance.ApiKeySet.Should().BeTrue();
             result.Instance.Settings.ApiKey.Should().BeNull();
             _instances[0].Config.Purpose.Should().Be(InstancePurpose.Nothing, "each purpose belongs to one instance per type");
-            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", "Sonarr: for everything moved to Sonarr 4K"), Times.Once());
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.ChangeAction, "instance", "1", "Sonarr: for all other shows moved to Sonarr 4K"), Times.Once());
             Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceSettingsService.AddAction, "instance", "2", "Sonarr 4K: Sonarr at http://sonarr4k:8989"), Times.Once());
             Mocker.GetMock<IBackendService>().Verify(b => b.CheckAllAsync(), Times.Once());
         }
 
         [Test]
-        public async Task the_everything_instance_keeps_it_until_another_takes_over_and_anime_is_sonarrs_only()
+        public async Task turning_off_the_instance_for_all_other_shows_hands_it_to_nobody_and_anime_is_sonarrs_only()
         {
             await Subject.SaveAsync(null, Input("Sonarr Anime", "http://anime:8989", "key") with { Purpose = InstancePurpose.Anime }, Admin);
 
-            var givingUp = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989"), Admin);
-            givingUp.Problem.Should().Contain("To change that, open the Sonarr that should take over and choose Everything there");
-
             var turnedOff = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989", isDefault: true) with { Enabled = false }, Admin);
-            turnedOff.Problem.Should().NotBeNull("there would be no Sonarr for everything");
+            turnedOff.Problem.Should().BeNull("regular shows are paused until an admin sets another to take them");
+            _instances.Select(i => (i.Enable, i.Config.Purpose)).Should().Equal((false, InstancePurpose.Everything), (true, InstancePurpose.Anime));
+
+            var givenAnotherPurpose = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989"), Admin);
+            givenAnotherPurpose.Problem.Should().BeNull();
+            _instances[1].Config.Purpose.Should().Be(InstancePurpose.Anime);
 
             var radarr = await Subject.SaveAsync(null, Input("Radarr Anime", "http://radarr:7878", "key", implementation: BackendImplementations.Radarr) with { Purpose = InstancePurpose.Anime }, Admin);
             radarr.Problem.Should().Be("Anime is for Sonarr only.");

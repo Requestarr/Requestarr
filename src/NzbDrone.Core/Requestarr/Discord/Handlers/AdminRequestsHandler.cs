@@ -316,6 +316,11 @@ namespace Requestarr.Core.Discord.Handlers
                     reply.Buttons.Add(ActionButton("check", at, DiscordText.CheckNowLabel, ButtonStyle.Primary));
                     break;
                 }
+
+                // Nothing to press here: it's settled in the web app, by giving the purpose to an instance.
+                case 'n':
+                    lines.Add(DiscordText.NoAllOtherWaiting((ContentType)item.Id));
+                    break;
             }
 
             reply.Buttons.Add(new InteractionButton { CustomId = $"{WalkRoutes.Move}:next:{at}", Label = DiscordText.SkipLabel, Style = ButtonStyle.Secondary });

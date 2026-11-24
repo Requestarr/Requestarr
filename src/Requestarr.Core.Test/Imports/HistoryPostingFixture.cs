@@ -6,6 +6,7 @@ using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
@@ -85,6 +86,32 @@ namespace Requestarr.Core.Test.Imports
             _sent.Where(s => s.Channel == Feed).Select(s => s.Message.Content).Should().Equal(
                 DiscordText.HistoryFeedHeader(3, 2), "card Older", "card Bob's", "card Newer", DiscordText.HistoryFeedDone(3));
             Subject.Status().Should().Be(new HistoryPostingStatus(HistoryPostingState.Idle, 5, 5));
+            Mocker.GetMock<IManageCommandQueue>().Verify(q => q.Push(It.IsAny<PostImportedHistoryCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()), Times.Once());
+        }
+
+        [Test]
+        public void system_tasks_shows_the_run_with_its_progress_until_it_finishes_or_is_paused()
+        {
+            var statuses = new Queue<HistoryPostingStatus>(new[]
+            {
+                new HistoryPostingStatus(HistoryPostingState.Posting, 467, 311),
+                new HistoryPostingStatus(HistoryPostingState.Posting, 467, 312),
+                new HistoryPostingStatus(HistoryPostingState.Paused, 467, 312)
+            });
+            var waits = 0;
+            Mocker.GetMock<IHistoryPosting>().Setup(p => p.Status()).Returns(statuses.Dequeue);
+            var progress = Mocker.Resolve<PostImportedHistoryProgress>();
+            progress.Wait = _ =>
+            {
+                waits++;
+                return Task.CompletedTask;
+            };
+
+            progress.Execute(new PostImportedHistoryCommand());
+
+            (waits, statuses.Count).Should().Be((2, 0), "it follows the run while it posts, and stops once it's paused");
+            PostImportedHistoryProgress.Progress(new HistoryPostingStatus(HistoryPostingState.Posting, 467, 312)).Should().Be("Imported history: 312 of 467 posted");
+            PostImportedHistoryProgress.Progress(new HistoryPostingStatus(HistoryPostingState.Paused, 467, 312)).Should().EndWith("312 of 467 posted, paused");
         }
 
         [Test]

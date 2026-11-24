@@ -28,11 +28,12 @@ namespace Requestarr.Core.Backends
     }
 
     // What a Sonarr or Radarr is for: a request goes to the instance whose purpose matches what is asked for
-    // (BackendService.ForRequest), never by member. Everything: the type's main one, which takes whatever no other purpose
-    // claims; one per type. Anime: Sonarr only, anime shows. Nothing: an extra instance no new request goes to.
+    // (BackendService.ForRequest), never by member. Everything ("All other shows", "All other movies"; stored under its
+    // first name): whatever no other purpose claims, one per type, and while none has it those requests are paused.
+    // Anime: Sonarr only, anime shows. Nothing: an extra instance no new request goes to.
     public enum InstancePurpose
     {
-        [FieldOption("Everything", Hint = "")]
+        [FieldOption("All other", Hint = "")]
         Everything = 0,
 
         [FieldOption("Anime", Hint = "")]
@@ -110,7 +111,7 @@ namespace Requestarr.Core.Backends
 
         private string _seriesType;
 
-        // What it's for (InstancePurpose), Everything unless set: with one instance of a type, it takes everything.
+        // What it's for (InstancePurpose), Everything unless set: with one instance of a type, it takes all its requests.
         public InstancePurpose Purpose { get; set; } = InstancePurpose.Everything;
 
         // The purpose as Servarr's provider form picks it: by number. It isn't saved, so the stored settings keep it by name.

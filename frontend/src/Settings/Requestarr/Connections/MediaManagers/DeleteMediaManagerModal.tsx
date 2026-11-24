@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import Alert from 'Components/Alert';
-import FormGroup from 'Components/Form/FormGroup';
-import FormInputGroup from 'Components/Form/FormInputGroup';
-import FormLabel from 'Components/Form/FormLabel';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
-import { inputTypes, kinds } from 'Helpers/Props';
+import { kinds } from 'Helpers/Props';
 import { fetchMediaManagers } from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
 import { callApi } from '../../requestarrApi';
@@ -16,26 +13,39 @@ interface DeletionPreview {
   name: string;
   implementation: string;
   openRequests: number;
-  isMain: boolean;
-  takeOver: { id: number; name: string }[];
+  takesAllOther: boolean;
+  isLast: boolean;
 }
 
 interface DeleteResult {
   webhookProblem?: string;
 }
 
-// The confirm's words, in plain terms: what stays, what goes, the requests still waiting and who takes over.
-function DeletionMessage(props: {
-  preview: DeletionPreview;
-  takeOver?: number;
-  onTakeOver: (id: number) => void;
-}) {
-  const { preview, takeOver, onTakeOver } = props;
-  const { name, implementation: app } = preview;
-  const onChange = useCallback(
-    ({ value }: { value: number }) => onTakeOver(value),
-    [onTakeOver]
+// What stops when it's gone: everything of its type when it's the only one, else its type's other requests when it
+// takes them (nothing hands them on by itself).
+function stopsText(preview: DeletionPreview) {
+  const { name, implementation: app, takesAllOther, isLast } = preview;
+
+  if (isLast) {
+    return translate('InstanceDeleteLast', { name, app });
+  }
+
+  if (!takesAllOther) {
+    return undefined;
+  }
+
+  return translate(
+    app === 'Radarr'
+      ? 'InstanceAllOtherStopsMovies'
+      : 'InstanceAllOtherStopsShows',
+    { app }
   );
+}
+
+// The confirm's words, in plain terms: what stays, what goes, the requests still waiting and what stops.
+function DeletionMessage({ preview }: { preview: DeletionPreview }) {
+  const { name } = preview;
+  const stops = stopsText(preview);
 
   return (
     <>
@@ -48,23 +58,7 @@ function DeletionMessage(props: {
           })}
         </p>
       )}
-      {preview.isMain && preview.takeOver.length > 0 && (
-        <FormGroup>
-          <FormLabel>{translate('InstanceDeleteTakeOver', { app })}</FormLabel>
-          <FormInputGroup
-            type={inputTypes.SELECT}
-            name="takeOver"
-            value={takeOver}
-            values={preview.takeOver.map((o) => ({ key: o.id, value: o.name }))}
-            onChange={onChange}
-          />
-        </FormGroup>
-      )}
-      {preview.isMain && !preview.takeOver.length && (
-        <Alert kind={kinds.WARNING}>
-          {translate('InstanceDeleteLast', { name, app })}
-        </Alert>
-      )}
+      {stops && <Alert kind={kinds.WARNING}>{stops}</Alert>}
     </>
   );
 }
@@ -77,35 +71,29 @@ interface DeleteMediaManagerModalProps {
 }
 
 // Servarr's delete confirm for a Sonarr or Radarr, as Sonarr's provider modals ask before Delete. It reads what the
-// delete would do first, so it can say how many requests are still waiting and ask which instance takes over.
+// delete would do first, so it can say how many requests are still waiting and what stops.
 function DeleteMediaManagerModal(props: DeleteMediaManagerModalProps) {
   const { id, isOpen, onDeleted, onCancel } = props;
   const dispatch = useDispatch();
   const [preview, setPreview] = useState<DeletionPreview>();
-  const [takeOver, setTakeOver] = useState<number>();
   const action = useApiAction();
   const { run } = action;
 
   useEffect(() => {
     if (isOpen) {
-      callApi<DeletionPreview>(`/mediamanager/${id}/deletion`).then((found) => {
-        setPreview(found);
-        setTakeOver(found.takeOver[0]?.id);
-      });
+      callApi<DeletionPreview>(`/mediamanager/${id}/deletion`).then(setPreview);
     }
   }, [id, isOpen]);
 
   const onConfirm = useCallback(() => {
-    const query = takeOver ? `?takeOver=${takeOver}` : '';
-
     run(
-      () => callApi<DeleteResult>(`/mediamanager/${id}${query}`, 'DELETE'),
+      () => callApi<DeleteResult>(`/mediamanager/${id}`, 'DELETE'),
       (result) => {
         dispatch(fetchMediaManagers());
         onDeleted(result.webhookProblem);
       }
     );
-  }, [run, id, takeOver, dispatch, onDeleted]);
+  }, [run, id, dispatch, onDeleted]);
 
   return (
     <ConfirmModal
@@ -115,11 +103,7 @@ function DeleteMediaManagerModal(props: DeleteMediaManagerModalProps) {
       message={
         preview ? (
           <>
-            <DeletionMessage
-              preview={preview}
-              takeOver={takeOver}
-              onTakeOver={setTakeOver}
-            />
+            <DeletionMessage preview={preview} />
             {action.problem && (
               <Alert kind={kinds.DANGER}>{action.problem}</Alert>
             )}

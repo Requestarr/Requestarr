@@ -94,7 +94,8 @@ namespace Requestarr.Core.Test.Discord.Harness
                 Mocker.Resolve<Requestarr.Core.Admin.PlexLinkSource>(),
                 Mocker.Resolve<Requestarr.Core.Admin.DownInstanceSource>(),
                 Mocker.Resolve<Requestarr.Core.Admin.RemovalSource>(),
-                Mocker.Resolve<Requestarr.Core.Admin.AccessRequestSource>()
+                Mocker.Resolve<Requestarr.Core.Admin.AccessRequestSource>(),
+                Mocker.Resolve<Requestarr.Core.Admin.NoAllOtherSource>()
             }));
             Mocker.SetConstant<Requestarr.Core.Announcements.IAnnouncementService>(Mocker.Resolve<Requestarr.Core.Announcements.AnnouncementService>());
             Mocker.SetConstant<IConnectionMonitor>(Mocker.Resolve<ConnectionMonitor>());

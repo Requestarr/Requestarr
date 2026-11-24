@@ -6,16 +6,19 @@ using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using NzbDrone.Common.Http;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Discord;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Users;
 using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.Requests
 {
-    // Live: which Sonarr takes a request, decided by what is asked for. Two connections, Everything and Anime, both on
-    // the dev stack's TEST Sonarr; real lookups say whether a show is anime. The shows are removed from the test Sonarr
-    // afterwards, pass or fail.
+    // Live: which Sonarr takes a request, decided by what is asked for. Two connections, All other shows and Anime, both
+    // on the dev stack's TEST Sonarr; real lookups say whether a show is anime. With the one for all other shows off,
+    // regular shows are paused (nothing takes over) and the admin queue says so until it's back. The shows are removed
+    // from the test Sonarr afterwards, pass or fail.
     //   set -a; . docker/secrets.env; set +a
     //   dotnet test Requestarr.Core.Test.dll --filter "FullyQualifiedName~LiveRoutingFixture" --logger "console;verbosity=detailed"
     [TestFixture]
@@ -83,6 +86,57 @@ namespace Requestarr.Core.Test.Requests
                 await RemoveFromSonarr(http, OnePiece);
                 await RemoveFromSonarr(http, Severance);
             }
+        }
+
+        [Test]
+        public async Task with_all_other_shows_off_regular_shows_are_paused_anime_still_goes_and_it_recovers()
+        {
+            var http = Mocker.Resolve<IHttpClient>();
+
+            try
+            {
+                await RemoveFromSonarr(http, OnePiece);
+                await RemoveFromSonarr(http, Severance);
+                await AddUser(Alice);
+                await Harness.SendAsync(AdminCommand("user access", Alice).WithOption("type", "tv").WithOption("level", "auto"));
+                await SetAllOther(false);
+
+                var paused = await Harness.SendAsync(FakeInteraction.SelectMenu($"{RequestRoutes.Seasons}:{Severance}", "s1").By(Alice).InGuild(FakeDiscordGuild.Guild).InChannel(ChannelOf(Alice)));
+                Log($"[paused] {Severance}: {paused.LastReply.Content.Replace("\n", " | ")}");
+                paused.LastReply.Content.Should().Contain(DiscordText.RequestsPausedForNow(ContentType.Tv));
+                Mocker.Resolve<IRequestRepository>().All().Should().BeEmpty("nothing hands a regular show to the Anime Sonarr");
+                (await RequestedOn(OnePiece)).Should().Be(AnimeName, "anime still goes to its own Sonarr");
+                (await WaitingOnAdmin()).Should().Contain(DiscordText.NoAllOtherWaiting(ContentType.Tv));
+
+                await SetAllOther(true);
+
+                (await RequestedOn(Severance)).Should().Be(EverythingName, "it works again once that Sonarr is back");
+                (await WaitingOnAdmin()).Should().Be(DiscordText.WalkDone);
+            }
+            finally
+            {
+                await RemoveFromSonarr(http, OnePiece);
+                await RemoveFromSonarr(http, Severance);
+            }
+        }
+
+        // Turns the Sonarr for all other shows on or off, then checks the connections, as a save does.
+        private async Task SetAllOther(bool enabled)
+        {
+            var backends = Mocker.Resolve<IBackendRepository>();
+            var main = backends.All().Single(b => b.Name == EverythingName);
+            main.Enable = enabled;
+            backends.Update(main);
+            await Mocker.Resolve<IBackendService>().CheckAllAsync();
+        }
+
+        // The admin's walk of what waits on them: its first card.
+        private async Task<string> WaitingOnAdmin()
+        {
+            var walk = await Harness.SendAsync(AsAdmin(FakeInteraction.SlashCommand("admin requests")));
+            Log($"[paused] admin queue: {walk.LastReply.Content.Replace("\n", " | ")}");
+
+            return walk.LastReply.Content;
         }
 
         // Requests season 1 of a show as Alice, then names the instance the request went to, as stored.

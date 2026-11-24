@@ -17,14 +17,16 @@ import usePortalAction, { PortalAction } from '../usePortalAction';
 import TitleRemovals from './TitleRemovals';
 import styles from '../Portal.css';
 
-// Pages for the items that have no request: the person asking to join, the instance that's down.
+// Pages for the items that have no request: the person asking to join, the instance that's down, and the connections
+// where an instance is given the purpose nobody has.
 const PAGES: Record<string, string> = {
   accessRequest: '/access-requests',
   instanceDown: '/outages',
+  noAllOther: '/settings/connections',
 };
 
-// The item's title opens the page that acts on it: its request, or the access requests or outages; a member's name
-// opens the member.
+// The item's title opens the page that acts on it: its request, or the access requests, outages or connections; a
+// member's name opens the member.
 function TitleCell({ item }: { item: PortalQueueItem }) {
   const title = item.title ?? '';
   const page = item.requestId

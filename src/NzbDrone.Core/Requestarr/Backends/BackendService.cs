@@ -31,10 +31,17 @@ namespace Requestarr.Core.Backends
         List<BackendInstance> All();
         BackendInstance Find(int id);
         BackendInstance FindByName(string name);
+
+        // The type's instance for all other requests, else its first one turned on: where titles are looked up, and
+        // whose default access new members get. Never where a request goes (ForRequest).
         BackendInstance Default(ContentType type);
 
+        // The type's instance for all other requests (Everything) while it's turned on, or null: those requests are then
+        // paused, never handed to another instance.
+        BackendInstance AllOther(ContentType type);
+
         // Where a request goes, by what is asked for: anime to the Anime Sonarr when one is turned on, everything else
-        // (and anime without one) to the type's Everything instance.
+        // (and anime without one) to the type's instance for all other requests; null while that one is off or deleted.
         BackendInstance ForRequest(ContentType type, bool isAnime);
 
         // What a member gets for a type until an admin sets it: the default access of the type's default instance, or
@@ -96,11 +103,18 @@ namespace Requestarr.Core.Backends
             return candidates.FirstOrDefault(b => b.Config.Purpose == InstancePurpose.Everything) ?? candidates.FirstOrDefault();
         }
 
+        public BackendInstance AllOther(ContentType type)
+        {
+            var implementation = BackendImplementations.ForContentType(type);
+
+            return _repository.All().Where(b => b.Enable && b.Implementation == implementation && b.Config.Purpose == InstancePurpose.Everything).MinBy(b => b.Id);
+        }
+
         public BackendInstance ForRequest(ContentType type, bool isAnime)
         {
             if (type != ContentType.Tv || !isAnime)
             {
-                return Default(type);
+                return AllOther(type);
             }
 
             var anime = _repository.All()
@@ -108,7 +122,7 @@ namespace Requestarr.Core.Backends
                 .OrderBy(b => b.Id)
                 .FirstOrDefault();
 
-            return anime ?? Default(type);
+            return anime ?? AllOther(type);
         }
 
         public AccessState DefaultAccess(ContentType type) => Default(type)?.Config.DefaultAccess ?? AccessState.Off;

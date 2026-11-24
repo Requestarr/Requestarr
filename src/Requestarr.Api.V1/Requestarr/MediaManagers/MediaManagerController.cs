@@ -15,7 +15,7 @@ namespace Requestarr.Api.V1.MediaManagers
 {
     // The Sonarr and Radarr instances on Servarr's provider handlers, as Prowlarr's ApplicationController: list, the
     // schema to add one from, add, change, test, test all, delete, and the choices its fields ask for. Deleting keeps
-    // the instance's history (InstanceDeletion); there's no bulk delete, since each asks what takes over.
+    // the instance's history (InstanceDeletion); there's no bulk delete, since each one's confirm says what it stops.
     [V1ApiController("mediamanager")]
     public class MediaManagerController : ProviderControllerBase<MediaManagerResource, MediaManagerBulkResource, IMediaManager, BackendInstance>,
         IHandle<BackendsCheckedEvent>,
@@ -46,11 +46,9 @@ namespace Requestarr.Api.V1.MediaManagers
         [Produces("application/json")]
         public ActionResult<InstanceDeletionPreview> Deletion(int id) => _deletion.Preview(id) is { } preview ? preview : NotFound();
 
-        // takeOver: the instance that becomes its type's main one, when this one was.
         public override object DeleteProvider(int id)
         {
-            var takeOver = int.TryParse(Request.Query["takeOver"], out var heir) ? heir : (int?)null;
-            var result = _deletion.DeleteAsync(id, takeOver, ActingAdmin.Current).GetAwaiter().GetResult();
+            var result = _deletion.DeleteAsync(id, ActingAdmin.Current).GetAwaiter().GetResult();
 
             if (!result.Deleted)
             {

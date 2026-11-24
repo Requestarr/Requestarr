@@ -12,7 +12,8 @@ using Requestarr.Test.Common;
 namespace Requestarr.Core.Test.Requests
 {
     // A request goes to the Sonarr or Radarr whose purpose matches what is asked for, never by member: anime to the
-    // Anime Sonarr when one is turned on, everything else (and anime without one) to the type's Everything instance.
+    // Anime Sonarr when one is turned on, everything else (and anime without one) to the type's instance for all other
+    // requests. Never handed over by itself: with that one off, those requests go nowhere (they're paused).
     [TestFixture]
     public class RoutingByContentFixture : CoreTest<BackendService>
     {
@@ -46,6 +47,16 @@ namespace Requestarr.Core.Test.Requests
             _anime.Enable = false;
 
             Subject.ForRequest(ContentType.Tv, isAnime: true).Should().BeSameAs(_everything);
+        }
+
+        [Test]
+        public void with_the_all_other_sonarr_turned_off_only_anime_still_goes_somewhere()
+        {
+            _everything.Enable = false;
+
+            Subject.ForRequest(ContentType.Tv, isAnime: false).Should().BeNull();
+            Subject.ForRequest(ContentType.Tv, isAnime: true).Should().BeSameAs(_anime);
+            Subject.Default(ContentType.Tv).Should().BeSameAs(_anime, "titles are still looked up, so anime can be found");
         }
 
         [Test]
