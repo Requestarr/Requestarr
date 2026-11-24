@@ -42,10 +42,14 @@ namespace Requestarr.Core.Discord.Gateway
         public GuildMember Member { get; }
     }
 
-    // A Discord server the bot is in, for the web app's server cards. Ours: the one Requestarr runs in; every other one
-    // it only reads (for an import from Requestrr). Not reachable: Discord says it's unavailable, or Requestarr's own
-    // server is one the bot isn't in any more. The ID is text, since JavaScript can't hold it as a number.
-    public record DiscordServer(string Id, string Name, string IconUrl, bool IsOurs, bool Reachable);
+    // A Discord server the bot is or was in, for the web app's server cards. Ours: the one Requestarr runs in; every other
+    // one it only reads (for an import from Requestrr). Not reachable: Discord says it's unavailable, or the bot isn't in it
+    // any more (not joined), with the invite that adds it back to that server. The ID is text, since JavaScript can't hold
+    // it as a number.
+    public record DiscordServer(string Id, string Name, string IconUrl, bool IsOurs, bool Reachable, bool Joined = true)
+    {
+        public string ReconnectUrl { get; init; }
+    }
 
     // The bot as Discord shows it, once it's connected.
     public record DiscordBotIdentity(string Name, string AvatarUrl);
@@ -55,6 +59,9 @@ namespace Requestarr.Core.Discord.Gateway
         DiscordSocketClient Client { get; }
         DiscordBotState State { get; }
         string LastError { get; }
+
+        // Connected to Discord, whatever came of setting up its server.
+        bool IsOnline { get; }
 
         // Every server the bot is in, Requestarr's first; Requestarr's own server too when the bot isn't in it.
         IReadOnlyList<DiscordServer> Servers { get; }
@@ -132,6 +139,8 @@ namespace Requestarr.Core.Discord.Gateway
         public DiscordBotState State { get; private set; } = DiscordBotState.NotConfigured;
         public string LastError { get; private set; }
 
+        public bool IsOnline => Client?.ConnectionState == ConnectionState.Connected;
+
         public IReadOnlyList<DiscordServer> Servers
         {
             get
@@ -143,9 +152,9 @@ namespace Requestarr.Core.Discord.Gateway
                     .OrderByDescending(s => s.IsOurs).ThenBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
 
-                if (ours != 0 && State == DiscordBotState.Connected && guilds.All(g => g.Id != ours))
+                if (ours != 0 && IsOnline && guilds.All(g => g.Id != ours))
                 {
-                    servers.Insert(0, new DiscordServer(Text(ours), null, null, true, false));
+                    servers.Insert(0, new DiscordServer(Text(ours), null, null, true, false, false));
                 }
 
                 return servers;
@@ -386,7 +395,9 @@ namespace Requestarr.Core.Discord.Gateway
 
             _logger.Info("Discord bot ready in server '{0}'", guild.Name);
             _ready.TrySetResult();
-            ServersChanged();
+
+            // Connected again after a failed setup: the bot was added back to its server.
+            SetState(DiscordBotState.Connected, null);
         }
 
         public async Task<bool> ChooseServerAsync(ulong guildId, Actor actor)

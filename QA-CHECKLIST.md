@@ -63,6 +63,19 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Save asks first: regular show requests will stop until another Sonarr takes them.
     - Delete's confirm says the same.
   - Checked by the owner, couldn't verify: dev's connections are read-only, so the automated checks can't open this window. A screenshot from a throwaway server is in the reply.
+- **Server cards on Import**
+  - Steps:
+    1. In the web app, open Settings, then Import from Requestrr.
+    2. Press Invite bot and add the bot to another server.
+    3. Press that server's card, then Close.
+    4. In Discord, kick the bot from that server.
+    5. Press the card again, then Reconnect, and add it back.
+  - Expect:
+    - Both windows close on their own once the bot is in.
+    - The card's window can show only its channels or remove the bot.
+    - Kicked, the card says Not reachable and stays.
+    - Discord's page has that server already picked.
+  - Checked by the owner, couldn't verify: only a person can add the bot to a server or kick it. The windows were checked with made-up servers.
 - **Imported history in System, Tasks**
   - Steps:
     1. Import from Requestrr with the history switches on.

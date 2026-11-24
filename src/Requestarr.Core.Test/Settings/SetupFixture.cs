@@ -28,7 +28,7 @@ namespace Requestarr.Core.Test.Settings
         }
 
         private void GivenServers(params DiscordServer[] servers) =>
-            Mocker.GetMock<IDiscordClientHost>().SetupGet(h => h.Servers).Returns(servers);
+            Mocker.GetMock<IDiscordServers>().Setup(s => s.All()).Returns(servers);
 
         [Test]
         public void a_new_install_needs_every_step()
@@ -107,9 +107,22 @@ namespace Requestarr.Core.Test.Settings
         public void a_bot_removed_from_requestarrs_server_offers_the_full_invite_again()
         {
             Given(AuthenticationType.Forms, true);
-            GivenServers(new DiscordServer("7", null, null, true, false));
+            GivenServers(new DiscordServer("7", null, null, true, false, false));
 
             Subject.Status().InviteUrl.Should().Contain($"permissions={SetupService.InvitePermissions}");
+        }
+
+        [Test]
+        public void a_server_that_removed_the_bot_has_the_invite_that_adds_it_back_there_with_the_same_permissions()
+        {
+            Given(AuthenticationType.Forms, true);
+            GivenServers(new DiscordServer("7", "Home", null, true, false, false), new DiscordServer("8", "Old bot", null, false, false, false), new DiscordServer("9", "Asleep", null, false, false));
+
+            var servers = Subject.Status().Servers.ToDictionary(s => s.Name, s => s.ReconnectUrl);
+
+            servers["Home"].Should().Contain($"permissions={SetupService.InvitePermissions}").And.EndWith("&guild_id=7&disable_guild_select=true");
+            servers["Old bot"].Should().Contain($"permissions={SetupService.ReadOnlyInvitePermissions}").And.EndWith("&guild_id=8&disable_guild_select=true");
+            servers["Asleep"].Should().BeNull("the bot is still in it");
         }
 
         [Test]

@@ -1,3 +1,3 @@
 audience: admins
 kind: new
-line: **Servers as cards:** each server the bot is in has a card, and the + card adds the bot to another server, for example only to import from Requestrr. A saved token shows only its last four characters.
+line: **Servers as cards:** each server the bot is or was in has a card. Open it to take the bot out, or to add it back where it was removed. The + card adds the bot to another server, for example only to import from Requestrr, and closes once the bot joins.

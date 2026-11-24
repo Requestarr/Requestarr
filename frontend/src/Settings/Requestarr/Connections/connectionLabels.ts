@@ -1,7 +1,11 @@
 import { kinds } from 'Helpers/Props';
 import MediaManager from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
-import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
+import {
+  AppSettings,
+  DiscordServer,
+  SetupStatus,
+} from '../RequestarrSettingsTypes';
 import { CardLabel } from './ConnectionCard';
 import { purposeLabelKey } from './MediaManagers/purpose';
 
@@ -16,6 +20,12 @@ export interface TestOutcome {
 // the rest.
 function connected(): CardLabel {
   return { text: translate('ConnectionConnected'), kind: kinds.SUCCESS };
+}
+
+export function serverReach(server: DiscordServer): CardLabel {
+  return server.reachable
+    ? connected()
+    : { text: translate('ConnectionNotReachable'), kind: kinds.DANGER };
 }
 
 function failing(): CardLabel {

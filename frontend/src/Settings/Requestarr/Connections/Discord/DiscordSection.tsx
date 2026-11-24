@@ -13,21 +13,19 @@ import ConnectionCard, {
   AddConnectionCard,
   CardLabel,
 } from '../ConnectionCard';
-import { discordLabels } from '../connectionLabels';
+import { discordLabels, serverReach } from '../connectionLabels';
 import SettingsConnectionModal from '../SettingsConnectionModal';
 import AddServerModal from './AddServerModal';
 import AdminPicker from './AdminPicker';
 import BetaServer from './BetaServer';
-import ImportOnlyServerModal from './ImportOnlyServerModal';
+import ReconnectServer from './ReconnectServer';
+import ServerModal from './ServerModal';
 import styles from '../Connections.css';
 
 function serverLabels(
   server: DiscordServer,
   settings: AppSettings
 ): CardLabel[] {
-  const reach: CardLabel = server.reachable
-    ? { text: translate('ConnectionConnected'), kind: kinds.SUCCESS }
-    : { text: translate('ConnectionNotReachable'), kind: kinds.DANGER };
   const readOnly: CardLabel[] = server.isOurs
     ? []
     : [{ text: translate('DiscordServerReadOnly'), kind: kinds.DISABLED }];
@@ -35,7 +33,7 @@ function serverLabels(
     ? [{ text: translate('ConnectionProvisioned'), kind: kinds.DISABLED }]
     : [];
 
-  return [reach, ...readOnly, ...provisioned];
+  return [serverReach(server), ...readOnly, ...provisioned];
 }
 
 function ServerCard(props: {
@@ -72,20 +70,20 @@ interface DiscordSectionProps {
 function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [importOnly, setImportOnly] = useState<DiscordServer>();
+  const [openId, setOpenId] = useState<string>();
   const ours = setup.servers.find((server) => server.isOurs);
   const onOpen = useCallback((server: DiscordServer) => {
     if (server.isOurs) {
       setIsEditing(true);
     } else {
-      setImportOnly(server);
+      setOpenId(server.id);
     }
   }, []);
   const onEdit = useCallback(() => setIsEditing(true), []);
   const onEditClose = useCallback(() => setIsEditing(false), []);
   const onAdd = useCallback(() => setIsAdding(true), []);
   const onAddClose = useCallback(() => setIsAdding(false), []);
-  const onImportOnlyClose = useCallback(() => setImportOnly(undefined), []);
+  const onServerClose = useCallback(() => setOpenId(undefined), []);
   const onSavedClose = useCallback(() => {
     setIsEditing(false);
     onSaved();
@@ -126,8 +124,11 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
         onClose={onEditClose}
       >
         <BotStatus setup={setup} />
+        {ours && !ours.joined && (
+          <ReconnectServer server={ours} onJoined={onEditClose} />
+        )}
         {setup.betaFromImage && <BetaServer />}
-        {ours && <AdminPicker isReadOnly={settings.provisioned} />}
+        {ours?.joined && <AdminPicker isReadOnly={settings.provisioned} />}
       </SettingsConnectionModal>
 
       <AddServerModal
@@ -137,10 +138,11 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
         onClose={onAddClose}
       />
 
-      <ImportOnlyServerModal
-        server={importOnly}
-        onClose={onImportOnlyClose}
-        onRemoved={onImportOnlyClose}
+      <ServerModal
+        server={setup.servers.find((server) => server.id === openId)}
+        channelsLabel={translate('DiscordImportRequests')}
+        onClose={onServerClose}
+        onRemoved={onServerClose}
       />
     </div>
   );

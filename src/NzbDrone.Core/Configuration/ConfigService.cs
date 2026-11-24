@@ -216,6 +216,12 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("ChangelogPostedEntries", value ?? string.Empty); }
         }
 
+        public string DiscordKnownServers
+        {
+            get { return GetValue("DiscordKnownServers"); }
+            set { SetValue("DiscordKnownServers", value ?? string.Empty); }
+        }
+
         public bool SetupInstanceSkipped
         {
             get { return GetValueBoolean("SetupInstanceSkipped", false); }

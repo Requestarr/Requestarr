@@ -353,6 +353,7 @@ namespace Requestarr.Core.Test.Qa.Web
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
         {
             const string Invite = "Invite bot";
+            const string InvitePage = "Open Discord's invite page";
             await SignInAsync(browser);
             var recorded = false;
 
@@ -365,6 +366,10 @@ namespace Requestarr.Core.Test.Qa.Web
                 // The invite for another server asks only to read, and adds no commands. The window it opens is caught.
                 await browser.WaitForAsync($"[...document.querySelectorAll('button')].some(b => b.innerText.trim() === '{Invite}')");
                 await browser.RunAsync($"window.open = (url) => {{ window.invited = url; }}; [...document.querySelectorAll('button')].find(b => b.innerText.trim() === '{Invite}').click()");
+                await browser.WaitForAsync($"[...document.querySelectorAll('button')].some(b => b.innerText.trim() === \"{InvitePage}\")");
+                await browser.RunAsync($"[...document.querySelectorAll('button')].find(b => b.innerText.trim() === \"{InvitePage}\").click()");
+                await browser.WaitForAsync("document.body.innerText.includes('Waiting for the bot to join')");
+                await check.ShotAsync(browser, $"import-invite-{theme}");
                 var invite = await browser.EvalAsync<string>("window.invited ?? ''");
                 var asks = invite.Substring(invite.IndexOf("&permissions=", StringComparison.Ordinal) + 1);
                 check.Saw($"import ({theme}): {Invite}, asking {asks}");

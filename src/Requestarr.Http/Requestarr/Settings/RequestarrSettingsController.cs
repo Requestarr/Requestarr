@@ -18,14 +18,16 @@ namespace Requestarr.Http.Settings
         private readonly IAppSettingsService _settings;
         private readonly ISetupService _setup;
         private readonly IDiscordClientHost _discord;
+        private readonly IDiscordServers _servers;
         private readonly IDiscordAdmins _admins;
         private readonly IAvailabilityService _availability;
 
-        public RequestarrSettingsController(IAppSettingsService settings, ISetupService setup, IDiscordClientHost discord, IDiscordAdmins admins, IAvailabilityService availability)
+        public RequestarrSettingsController(IAppSettingsService settings, ISetupService setup, IDiscordClientHost discord, IDiscordServers servers, IDiscordAdmins admins, IAvailabilityService availability)
         {
             _settings = settings;
             _setup = setup;
             _discord = discord;
+            _servers = servers;
             _admins = admins;
             _availability = availability;
         }
@@ -99,14 +101,15 @@ namespace Requestarr.Http.Settings
             return result.Saved ? Json(await _admins.ListAsync()) : Refused(result.Problem);
         }
 
-        // The bot leaves a server it only read (an import from Requestrr is done); never Requestarr's own.
+        // The bot leaves a server it only read (an import from Requestrr is done), or Requestarr forgets one that removed the
+        // bot; never Requestarr's own.
         [HttpPost("/api/v1/requestarr/discord/servers/{id}/leave")]
         [Produces("application/json")]
         public async Task<IActionResult> LeaveServer(string id)
         {
-            if (!ulong.TryParse(id, out var guildId) || !await _discord.LeaveServerAsync(guildId))
+            if (!ulong.TryParse(id, out var guildId) || !await _servers.RemoveAsync(guildId))
             {
-                return Refused("The bot isn't in that server, or it's Requestarr's own server.");
+                return Refused("Requestarr doesn't know that server, or it's Requestarr's own server.");
             }
 
             return Json(_setup.Status());
