@@ -521,7 +521,7 @@ EOF
         echo "CHANGELOG.md and QA-CHECKLIST.md couldn't be merged: nothing pushed." >&2
         return 1
     fi
-    git -C "$work/tree" add "${files[@]}" changelog
+    git -C "$work/tree" add "${files[@]}"
     git -C "$work/tree" commit -q -m "Merge $from back into $to" >&2
     git -C "$work/tree" push -q origin "$branch" >&2
     git worktree remove --force "$work/tree"
