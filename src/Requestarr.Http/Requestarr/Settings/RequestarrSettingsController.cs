@@ -109,7 +109,7 @@ namespace Requestarr.Http.Settings
         {
             if (!ulong.TryParse(id, out var guildId) || !await _servers.RemoveAsync(guildId))
             {
-                return Refused("Requestarr doesn't know that server, or it's Requestarr's own server.");
+                return Refused("The bot isn't connected, Requestarr doesn't know that server, or it's Requestarr's own server.");
             }
 
             return Json(_setup.Status());

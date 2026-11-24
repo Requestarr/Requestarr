@@ -154,7 +154,7 @@ namespace Requestarr.Core.Discord.Gateway
 
                 if (ours != 0 && IsOnline && guilds.All(g => g.Id != ours))
                 {
-                    servers.Insert(0, new DiscordServer(Text(ours), null, null, true, false, false));
+                    servers.Insert(0, new DiscordServer(Text(ours), null, null, IsOurs: true, Reachable: false, Joined: false));
                 }
 
                 return servers;
@@ -396,8 +396,15 @@ namespace Requestarr.Core.Discord.Gateway
             _logger.Info("Discord bot ready in server '{0}'", guild.Name);
             _ready.TrySetResult();
 
-            // Connected again after a failed setup: the bot was added back to its server.
-            SetState(DiscordBotState.Connected, null);
+            // The setup that failed before works now: the bot was added back to its server.
+            if (State == DiscordBotState.Failed && IsOnline)
+            {
+                SetState(DiscordBotState.Connected, null);
+            }
+            else
+            {
+                ServersChanged();
+            }
         }
 
         public async Task<bool> ChooseServerAsync(ulong guildId, Actor actor)
@@ -459,6 +466,7 @@ namespace Requestarr.Core.Discord.Gateway
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "Handling the bot joining server {0} failed", guild.Id);
+                    SetState(DiscordBotState.Failed, ex.Message);
                 }
             });
 

@@ -72,6 +72,7 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [openId, setOpenId] = useState<string>();
   const ours = setup.servers.find((server) => server.isOurs);
+  const open = setup.servers.find((server) => server.id === openId);
   const onOpen = useCallback((server: DiscordServer) => {
     if (server.isOurs) {
       setIsEditing(true);
@@ -88,6 +89,11 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
     setIsEditing(false);
     onSaved();
   }, [onSaved]);
+
+  // Its card went away meanwhile (forgotten in another window): it doesn't open again by itself when it's back.
+  if (openId && !open) {
+    setOpenId(undefined);
+  }
 
   return (
     <div id="discord">
@@ -124,9 +130,7 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
         onClose={onEditClose}
       >
         <BotStatus setup={setup} />
-        {ours && !ours.joined && (
-          <ReconnectServer server={ours} onJoined={onEditClose} />
-        )}
+        {ours && <ReconnectServer server={ours} onJoined={onEditClose} />}
         {setup.betaFromImage && <BetaServer />}
         {ours?.joined && <AdminPicker isReadOnly={settings.provisioned} />}
       </SettingsConnectionModal>
@@ -139,7 +143,7 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
       />
 
       <ServerModal
-        server={setup.servers.find((server) => server.id === openId)}
+        server={open}
         channelsLabel={translate('DiscordImportRequests')}
         onClose={onServerClose}
         onRemoved={onServerClose}

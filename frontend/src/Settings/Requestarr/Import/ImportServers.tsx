@@ -50,6 +50,7 @@ interface ImportServersProps {
 function ImportServers({ setup, shown, onAdd }: ImportServersProps) {
   const history = useHistory();
   const [openId, setOpenId] = useState<string>();
+  const open = setup?.servers.find((server) => server.id === openId);
   const onShowAll = useCallback(
     () => history.replace({ search: '' }),
     [history]
@@ -62,6 +63,11 @@ function ImportServers({ setup, shown, onAdd }: ImportServersProps) {
       onShowAll();
     }
   }, [openId, shown, onClose, onShowAll]);
+
+  // Its card went away meanwhile (forgotten in another window): it doesn't open again by itself when it's back.
+  if (openId && !open) {
+    setOpenId(undefined);
+  }
 
   if (!setup) {
     return null;
@@ -85,7 +91,7 @@ function ImportServers({ setup, shown, onAdd }: ImportServersProps) {
       )}
 
       <ServerModal
-        server={setup.servers.find((server) => server.id === openId)}
+        server={open}
         channelsLabel={translate('ImportShowServerChannels')}
         onClose={onClose}
         onRemoved={onRemoved}

@@ -265,7 +265,7 @@
   "DiscordServerRunsIn": "Requestarr runs in this server, with its channels, roles and commands.",
   "DiscordServerReads": "Requestarr only reads this server, for an import from Requestrr. The bot can view channels and read their history there, and creates and posts nothing.",
   "DiscordWaitingForBot": "Waiting for the bot to join",
-  "DiscordServerRemovedBot": "The bot isn't in {server} any more. Reconnect opens Discord's invite page with that server already picked, and this window closes once the bot is back.",
+  "DiscordServerRemovedBot": "The bot isn't in this server any more. Reconnect opens Discord's invite page with the server already picked, and this window closes once the bot is back.",
   "DiscordReconnect": "Reconnect",
   "DiscordForgetConfirm": "Delete {server}? Its card goes away. Nothing changes in Discord, and you can add the bot there again any time.",
   "DiscordImportRequests": "Import requests",

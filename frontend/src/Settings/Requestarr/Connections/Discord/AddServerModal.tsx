@@ -47,7 +47,7 @@ function AddServerContent({
     setIsWaiting(true);
   }, [url]);
 
-  useBotJoin(setup.servers, onClose);
+  useBotJoin(setup.servers, isWaiting, onClose);
 
   return (
     <ModalContent onModalClose={onClose}>

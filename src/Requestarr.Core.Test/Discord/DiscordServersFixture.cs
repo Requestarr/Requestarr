@@ -80,9 +80,45 @@ namespace Requestarr.Core.Test.Discord
             Mocker.GetMock<IDiscordClientHost>().Setup(h => h.LeaveServerAsync(8)).ReturnsAsync(true);
 
             (await Subject.RemoveAsync(8)).Should().BeTrue();
+
+            // Discord says the bot is out a moment later; anything else happening meanwhile doesn't bring the card back.
+            GivenBotIsIn(Home, Old);
             GivenBotIsIn(Home);
 
             Subject.All().Should().Equal(Home);
+        }
+
+        [Test]
+        public async Task a_server_left_before_can_be_added_again()
+        {
+            GivenBotIsIn(Home, Old);
+            Mocker.GetMock<IDiscordClientHost>().Setup(h => h.LeaveServerAsync(8)).ReturnsAsync(true);
+            await Subject.RemoveAsync(8);
+            GivenBotIsIn(Home);
+            GivenBotIsIn(Home, Old);
+            GivenBotIsIn(Home);
+
+            Subject.All().Should().Equal(Home, Old with { Reachable = false, Joined = false });
+        }
+
+        [Test]
+        public void another_bots_servers_arent_this_ones()
+        {
+            GivenBotIsIn(Home, Old);
+            Mocker.Resolve<IDiscordSettingsStore>().Set(new DiscordSettings { BotToken = "other", ApplicationId = 43, GuildId = 7 });
+            GivenBotIsIn(Home);
+
+            Subject.All().Should().Equal(Home);
+        }
+
+        [Test]
+        public async Task nothing_is_removed_while_the_bot_is_offline()
+        {
+            GivenBotIsIn(Home, Old);
+            GivenBotIsIn(Home);
+            Mocker.GetMock<IDiscordClientHost>().SetupGet(h => h.IsOnline).Returns(false);
+
+            (await Subject.RemoveAsync(8)).Should().BeFalse();
         }
 
         [Test]

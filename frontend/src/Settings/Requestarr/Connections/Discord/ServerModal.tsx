@@ -45,7 +45,7 @@ function RemoveServer({ server, isBusy, onRemove }: RemoveServerProps) {
         title={label}
         message={translate(
           server.joined ? 'DiscordRemoveBotConfirm' : 'DiscordForgetConfirm',
-          { server: server.name ?? server.id }
+          { server: server.name ?? translate('DiscordServerUnknown') }
         )}
         confirmLabel={label}
         isSpinning={isBusy}
@@ -88,9 +88,7 @@ function ServerContent(props: ServerContentProps) {
             server.isOurs ? 'DiscordServerRunsIn' : 'DiscordServerReads'
           )}
         </p>
-        {!server.joined && (
-          <ReconnectServer server={server} onJoined={onClose} />
-        )}
+        <ReconnectServer server={server} onJoined={onClose} />
         {remove.problem && <Alert kind={kinds.DANGER}>{remove.problem}</Alert>}
       </ModalBody>
 

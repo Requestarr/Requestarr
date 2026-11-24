@@ -12,7 +12,8 @@ interface ReconnectServerProps {
   onJoined: () => void;
 }
 
-// A server the bot isn't in any more: why its card is red, and Discord's invite with that server already picked.
+// For a server's window: while the bot isn't in it any more, why its card is red and Discord's invite with that server
+// already picked; nothing while it is. It stays in the window either way, so it notices the bot coming back.
 function ReconnectServer({ server, onJoined }: ReconnectServerProps) {
   const { reconnectUrl } = server;
   const [isWaiting, setIsWaiting] = useState(false);
@@ -21,15 +22,15 @@ function ReconnectServer({ server, onJoined }: ReconnectServerProps) {
     setIsWaiting(true);
   }, [reconnectUrl]);
 
-  useBotJoin([server], onJoined);
+  useBotJoin([server], isWaiting, onJoined);
+
+  if (server.joined) {
+    return null;
+  }
 
   return (
     <>
-      <Alert kind={kinds.WARNING}>
-        {translate('DiscordServerRemovedBot', {
-          server: server.name ?? translate('DiscordServerUnknown'),
-        })}
-      </Alert>
+      <Alert kind={kinds.WARNING}>{translate('DiscordServerRemovedBot')}</Alert>
       {isWaiting && <WaitingForBot />}
       <Button
         kind={kinds.PRIMARY}

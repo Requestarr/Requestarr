@@ -22,12 +22,6 @@ function connected(): CardLabel {
   return { text: translate('ConnectionConnected'), kind: kinds.SUCCESS };
 }
 
-export function serverReach(server: DiscordServer): CardLabel {
-  return server.reachable
-    ? connected()
-    : { text: translate('ConnectionNotReachable'), kind: kinds.DANGER };
-}
-
 function failing(): CardLabel {
   return { text: translate('ConnectionFailing'), kind: kinds.DANGER };
 }
@@ -61,6 +55,12 @@ export function discordLabels(
   settings: AppSettings | undefined
 ): CardLabel[] {
   return [...botStatus(setup), ...provisioned(settings)];
+}
+
+export function serverReach(server: DiscordServer): CardLabel {
+  return server.reachable
+    ? connected()
+    : { text: translate('ConnectionNotReachable'), kind: kinds.DANGER };
 }
 
 // Test All Connections' outcome when it tested this instance, otherwise Requestarr's last check.

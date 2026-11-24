@@ -122,7 +122,9 @@ namespace Requestarr.Core.Settings
         // Discord's invite with the server already picked.
         private static string ReconnectUrl(ulong applicationId, DiscordServer server)
         {
-            var invite = server.IsOurs ? InviteUrl(applicationId, InvitePermissions, InviteScope) : InviteUrl(applicationId, ReadOnlyInvitePermissions, ReadOnlyInviteScope);
+            var invite = server.IsOurs
+                ? InviteUrl(applicationId, InvitePermissions, InviteScope)
+                : InviteUrl(applicationId, ReadOnlyInvitePermissions, ReadOnlyInviteScope);
 
             return invite == null ? null : $"{invite}&guild_id={server.Id}&disable_guild_select=true";
         }
