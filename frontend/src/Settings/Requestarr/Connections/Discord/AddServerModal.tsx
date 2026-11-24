@@ -14,6 +14,8 @@ import { inputTypes, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import readOnlyProps from '../../readOnlyProps';
 import { SetupStatus } from '../../RequestarrSettingsTypes';
+import useBotJoin from './useBotJoin';
+import WaitingForBot from './WaitingForBot';
 
 interface AddServerContentProps {
   setup: SetupStatus;
@@ -22,8 +24,8 @@ interface AddServerContentProps {
 }
 
 // Off: the full invite, for the server Requestarr runs in, offered only while it has none. On: the invite that only
-// reads (view channels, read history), for an import from Requestrr. Either way the new server's card appears on
-// its own once the bot joins.
+// reads (view channels, read history), for an import from Requestrr. Either way the window closes once the bot joins,
+// and the new server's card is there.
 function AddServerContent({
   setup,
   importOnly,
@@ -34,15 +36,18 @@ function AddServerContent({
     (server) => server.isOurs && server.reachable
   );
   const [isImportOnly, setIsImportOnly] = useState(importOnly || !!ours);
+  const [isWaiting, setIsWaiting] = useState(false);
   const url = isImportOnly ? setup.readOnlyInviteUrl : setup.inviteUrl;
   const onChange = useCallback(
     ({ value }: { value: boolean }) => setIsImportOnly(value),
     []
   );
-  const onInvite = useCallback(
-    () => window.open(url, '_blank', 'noopener'),
-    [url]
-  );
+  const onInvite = useCallback(() => {
+    window.open(url, '_blank', 'noopener');
+    setIsWaiting(true);
+  }, [url]);
+
+  useBotJoin(setup.servers, isWaiting, onClose);
 
   return (
     <ModalContent onModalClose={onClose}>
@@ -71,6 +76,7 @@ function AddServerContent({
         )}
 
         <p>{translate('DiscordInviteHelpText')}</p>
+        {isWaiting && <WaitingForBot />}
       </ModalBody>
 
       <ModalFooter>

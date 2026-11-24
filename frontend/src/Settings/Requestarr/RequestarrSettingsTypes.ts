@@ -22,14 +22,17 @@ export type BotState =
   | 'disconnected'
   | 'failed';
 
-// A Discord server the bot is in. Ours: the one Requestarr runs in; any other it only reads, for an import. Its ID
-// is text: it's too long for a browser's numbers.
+// A Discord server the bot is or was in. Ours: the one Requestarr runs in; any other it only reads, for an import.
+// Joined: the bot is in it now; otherwise its reconnectUrl adds it back. Its ID is text: it's too long for a browser's
+// numbers.
 export interface DiscordServer {
   id: string;
   name?: string;
   iconUrl?: string;
   isOurs: boolean;
   reachable: boolean;
+  joined: boolean;
+  reconnectUrl?: string;
 }
 
 interface DiscordBot {

@@ -57,6 +57,7 @@ namespace Requestarr.Core.Settings
         private readonly IConfigService _config;
         private readonly IDiscordSettingsStore _discord;
         private readonly IDiscordClientHost _discordHost;
+        private readonly IDiscordServers _discordServers;
         private readonly IInstanceSettingsService _instances;
         private readonly IAuditRepository _audit;
         private readonly IReleaseEnvironment _environment;
@@ -66,6 +67,7 @@ namespace Requestarr.Core.Settings
                             IConfigService config,
                             IDiscordSettingsStore discord,
                             IDiscordClientHost discordHost,
+                            IDiscordServers discordServers,
                             IInstanceSettingsService instances,
                             IAuditRepository audit,
                             IReleaseEnvironment environment)
@@ -75,6 +77,7 @@ namespace Requestarr.Core.Settings
             _config = config;
             _discord = discord;
             _discordHost = discordHost;
+            _discordServers = discordServers;
             _instances = instances;
             _audit = audit;
             _environment = environment;
@@ -87,7 +90,7 @@ namespace Requestarr.Core.Settings
             var instance = _instances.All().Any(i => i.Settings.Enabled);
             var skipped = _config.SetupInstanceSkipped;
             var applicationId = _discord.Current.ApplicationId;
-            var servers = _discordHost.Servers;
+            var servers = _discordServers.All();
             var hasServer = _discord.Current.GuildId != 0;
             var inServer = servers.Any(s => s.IsOurs && s.Reachable);
             var invite = inServer ? null : InviteUrl(applicationId, InvitePermissions, InviteScope);
@@ -98,8 +101,8 @@ namespace Requestarr.Core.Settings
             return new SetupStatus(needed, adminAccount, discord, instance, skipped, _discordHost.State, _discordHost.LastError, invite, readOnlyInvite)
             {
                 Bot = _discordHost.Bot,
-                Servers = servers,
-                PickServer = !hasServer && servers.Count > 1,
+                Servers = servers.Select(s => s.Joined ? s : s with { ReconnectUrl = ReconnectUrl(applicationId, s) }).ToList(),
+                PickServer = !hasServer && servers.Count(s => s.Joined) > 1,
                 BetaFromImage = _environment.BetaFromImage,
                 Provisioned = _provisioning.UsesFile
             };
@@ -115,6 +118,16 @@ namespace Requestarr.Core.Settings
         // Null until the bot's application ID is known.
         public static string InviteUrl(ulong applicationId, string permissions, string scope) =>
             applicationId == 0 ? null : $"https://discord.com/oauth2/authorize?client_id={applicationId}&permissions={permissions}&integration_type=0&scope={scope}";
+
+        // Discord's invite with the server already picked.
+        private static string ReconnectUrl(ulong applicationId, DiscordServer server)
+        {
+            var invite = server.IsOurs
+                ? InviteUrl(applicationId, InvitePermissions, InviteScope)
+                : InviteUrl(applicationId, ReadOnlyInvitePermissions, ReadOnlyInviteScope);
+
+            return invite == null ? null : $"{invite}&guild_id={server.Id}&disable_guild_select=true";
+        }
 
         public IReadOnlyList<PortalEvent> Changes() =>
             _audit.ForTargetTypes("settings", "instance").Select(e => PortalText.Event(e, new Dictionary<int, string>(), new Dictionary<string, string>())).ToList();

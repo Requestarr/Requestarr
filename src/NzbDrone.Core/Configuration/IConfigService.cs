@@ -48,6 +48,9 @@ namespace NzbDrone.Core.Configuration
         // Requestarr.Core.Announcements.AnnouncementService
         string ChangelogPostedEntries { get; set; }
 
+        // The Discord servers the bot has been in (JSON); read through Requestarr.Core.Discord.Gateway.DiscordServers
+        string DiscordKnownServers { get; set; }
+
         // Whether the first-run setup's Sonarr or Radarr step was skipped; read through Requestarr.Core.Settings.SetupService
         bool SetupInstanceSkipped { get; set; }
 

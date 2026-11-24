@@ -32,7 +32,7 @@ promoted to them, and a beta heading names the goals' builds it includes.
 ### For admins
 
 #### New
-- **Servers as cards:** each server the bot is in has a card, and the + card adds the bot to another server, for example only to import from Requestrr. A saved token shows only its last four characters.
+- **Servers as cards:** each server the bot is or was in has a card. Open it to take the bot out, or to add it back where it was removed. The + card adds the bot to another server, for example only to import from Requestrr, and closes once the bot joins.
 - **Delete, with history kept:** a media manager can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.
 - **Imported history in Discord:** an import from Requestrr posts each member's old requests in their channel and every one in the admin feed, quietly and oldest first. The Import page shows how far it got, can pause or cancel, and has a switch for each.
 - **Imported history in System, then Tasks:** while history is posted, System, then Tasks lists it with how many are posted so far.
@@ -46,6 +46,7 @@ promoted to them, and a beta heading names the goals' builds it includes.
 - **Test shows its result:** Test shows a green check or a red mark, with the reason where you're looking. Test All says every connection passed, or names each one that failed. Leaving with unsaved changes asks first.
 - **Nothing takes over by itself:** turning off or deleting the media manager for all other shows (or movies) warns first, then pauses those requests and lists them in your queue until another is set to take them. Anime keeps going.
 - **Download updates sort themselves out:** Requestarr fills in its own address from your browser and tests it. Each card says whether downloads are reported right away or on a timer, and why.
+- **Saved bot token:** a saved token shows only its last four characters.
 
 ## 0.7.0010 (2026-11-22), with 0.7.0004 to 0.7.0010
 

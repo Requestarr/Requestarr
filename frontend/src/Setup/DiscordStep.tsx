@@ -63,9 +63,11 @@ function ServerPicker({ setup, onSaved }: StepProps) {
       <p>{translate('SetupPickServer')}</p>
       {pick.problem && <Alert kind={kinds.DANGER}>{pick.problem}</Alert>}
       <div className={connectionStyles.cards}>
-        {setup.servers.map((server) => (
-          <PickCard key={server.id} server={server} onPick={onPick} />
-        ))}
+        {setup.servers
+          .filter((server) => server.joined)
+          .map((server) => (
+            <PickCard key={server.id} server={server} onPick={onPick} />
+          ))}
       </div>
     </>
   );
@@ -110,7 +112,7 @@ function Joined({ setup, onSaved }: StepProps) {
 }
 
 function Server({ setup, onSaved }: StepProps) {
-  if (setup.servers.some((server) => server.isOurs)) {
+  if (setup.servers.some((server) => server.isOurs && server.joined)) {
     return <Joined setup={setup} onSaved={onSaved} />;
   }
 

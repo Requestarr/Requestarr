@@ -1,7 +1,11 @@
 import { kinds } from 'Helpers/Props';
 import MediaManager from 'typings/MediaManager';
 import translate from 'Utilities/String/translate';
-import { AppSettings, SetupStatus } from '../RequestarrSettingsTypes';
+import {
+  AppSettings,
+  DiscordServer,
+  SetupStatus,
+} from '../RequestarrSettingsTypes';
 import { CardLabel } from './ConnectionCard';
 import { purposeLabelKey } from './MediaManagers/purpose';
 
@@ -51,6 +55,12 @@ export function discordLabels(
   settings: AppSettings | undefined
 ): CardLabel[] {
   return [...botStatus(setup), ...provisioned(settings)];
+}
+
+export function serverReach(server: DiscordServer): CardLabel {
+  return server.reachable
+    ? connected()
+    : { text: translate('ConnectionNotReachable'), kind: kinds.DANGER };
 }
 
 // Test All Connections' outcome when it tested this instance, otherwise Requestarr's last check.
