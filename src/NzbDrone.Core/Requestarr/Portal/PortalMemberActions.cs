@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Requestarr.Core.Access;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord.Gateway;
+using Requestarr.Core.Imports;
 using Requestarr.Core.MediaServers;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Users;
@@ -30,6 +31,9 @@ namespace Requestarr.Core.Portal
         Task<ServiceResult> UnsuspendAsync(int memberId, Actor admin);
         Task<ServiceResult> RemoveAsync(int memberId, Actor admin);
         ServiceResult LinkPlex(int memberId, string username, Actor admin);
+
+        // Their imported requests in their own channel, once.
+        ServiceResult PostHistory(int memberId, Actor admin);
         Task<ServiceResult> DecideMediaLinkAsync(int linkRequestId, bool approve, Actor admin);
 
         Task<ServiceResult> ApproveAccessAsync(int accessRequestId, IDictionary<ContentType, AccessState> levels, Actor admin);
@@ -51,13 +55,15 @@ namespace Requestarr.Core.Portal
         private readonly IRequestarrUserRepository _members;
         private readonly IRequestRepository _requests;
         private readonly IDiscordGuildGateway _gateway;
+        private readonly IHistoryPosting _history;
 
         public PortalMemberActions(IUserManagementService users,
                                    IAccessRequestService accessRequests,
                                    IUserIdentityRepository identities,
                                    IRequestarrUserRepository members,
                                    IRequestRepository requests,
-                                   IDiscordGuildGateway gateway)
+                                   IDiscordGuildGateway gateway,
+                                   IHistoryPosting history)
         {
             _users = users;
             _accessRequests = accessRequests;
@@ -65,6 +71,7 @@ namespace Requestarr.Core.Portal
             _members = members;
             _requests = requests;
             _gateway = gateway;
+            _history = history;
         }
 
         public async Task<IReadOnlyList<PortalServerMember>> ServerMembersAsync()
@@ -112,6 +119,8 @@ namespace Requestarr.Core.Portal
 
         public ServiceResult LinkPlex(int memberId, string username, Actor admin) =>
             WithDiscord(memberId, id => _users.LinkMediaServer(id, MediaServerProvider.Plex, username, admin));
+
+        public ServiceResult PostHistory(int memberId, Actor admin) => _history.PostMember(memberId, admin);
 
         public Task<ServiceResult> DecideMediaLinkAsync(int linkRequestId, bool approve, Actor admin) =>
             _users.DecideAccessRequestAsync(linkRequestId, approve, admin, PortalActions.NameOf(admin));

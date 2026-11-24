@@ -16,9 +16,9 @@ namespace Requestarr.Core.Test.Discord
     {
         // What a user with every type sees; Linking Plex only while a Plex server is connected, which the admin's view
         // of user help always shows.
-        private static readonly string[] AllUserTopics = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "removals", "news" };
-        private static readonly string[] EveryUserTopic = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "plex", "removals", "news" };
-        private static readonly string[] AllAdminTopics = { "onboarding", "access", "approvals", "feed", "removing", "announcements", "downloads", "limits", "mediaserver", "anime", "channels", "visibility" };
+        private static readonly string[] AllUserTopics = { "request", "seasons", "anime", "follow", "downloads", "mine", "history", "limits", "removals", "news" };
+        private static readonly string[] EveryUserTopic = { "request", "seasons", "anime", "follow", "downloads", "mine", "history", "limits", "plex", "removals", "news" };
+        private static readonly string[] AllAdminTopics = { "onboarding", "history", "access", "approvals", "feed", "removing", "announcements", "downloads", "limits", "mediaserver", "anime", "channels", "visibility" };
 
         private static string[] Topics(InteractionRun run) => run.LastReply.SelectMenu.Options.Select(o => o.Value).ToArray();
 
@@ -47,13 +47,13 @@ namespace Requestarr.Core.Test.Discord
         public async Task topics_a_user_cannot_use_are_not_shown()
         {
             await SetAccess(Alice, "tv", "off");
-            Topics(await UserHelp(Alice)).Should().Equal("request", "follow", "downloads", "mine", "limits", "removals", "news");
+            Topics(await UserHelp(Alice)).Should().Equal("request", "follow", "downloads", "mine", "history", "limits", "removals", "news");
 
             await Harness.SendAsync(AdminCommand("user mediaserver", Alice).WithOption("service", "plex").WithOption("username", "alice_plex"));
             Topics(await UserHelp(Alice)).Should().NotContain("plex");
 
             await SetAccess(Alice, "movie", "off");
-            Topics(await UserHelp(Alice)).Should().Equal("mine", "limits", "removals", "news");
+            Topics(await UserHelp(Alice)).Should().Equal("mine", "history", "limits", "removals", "news");
         }
 
         [Test]
@@ -86,7 +86,7 @@ namespace Requestarr.Core.Test.Discord
             var run = await Harness.SendAsync(FakeInteraction.SlashCommand("help").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
 
             Topics(run).Should().Equal(EveryUserTopic);
-            Topics(run).Should().NotContain(AllAdminTopics.Except(new[] { "limits", "anime", "downloads" }));
+            Topics(run).Should().NotContain(AllAdminTopics.Except(new[] { "limits", "anime", "downloads", "history" }));
             run.LastReply.SelectMenu.Options.Select(o => o.Label).Should().NotContain(HelpCatalog.AdminTopics.Where(t => t.Key != "limits").Select(t => t.Title));
             run.LastReply.SelectMenu.CustomId.Should().Be("help:user");
         }

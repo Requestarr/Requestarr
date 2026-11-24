@@ -554,6 +554,13 @@ namespace Requestarr.Core.Discord
         // carries, and a member's own history, a few titles to a message.
         public const string HistoryChannelHeader = "📜 **Your requests from before**, imported, oldest first:";
 
+        public const string HistoryNone = "There are no imported requests to post.";
+        public const string HistoryAlreadyPosted = "The imported requests are already posted: that happens once.";
+        public const string HistoryNoChannel = "Only an active member has a channel to post imported requests in. Onboard them first.";
+
+        public static string HistoryQueued(int posts, bool paused) =>
+            $"Posting {posts} imported request{(posts == 1 ? string.Empty : "s")}, oldest first, silently.{(paused ? " Posting is paused until an admin resumes it." : string.Empty)}";
+
         public static string HistoryDate(DateTime utc) => $"<t:{new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds()}:D>";
 
         public static string ImportedLine(DateTime requested) => $"Imported{Dot}requested {HistoryDate(requested)}";
@@ -1413,7 +1420,10 @@ namespace Requestarr.Core.Discord
             public const string AdminUser = "Open a member's card: add, access, limits, Plex, suspend, remove";
             public const string AdminRequests = "Go through everything waiting on you, one at a time";
             public const string RequestOne = "Request a movie or TV show";
+            public const string History = "Post your imported requests from before in your channel, once";
             public const string Help = "How to use Requestarr";
+            public const string AdminHistory = "Post imported requests in a member's channel, or everyone's and the feed's";
+            public const string OptionHistoryMember = "One member; leave it out for the whole server";
             public const string AdminHelp = "Help for admins";
             public const string OptionRequestType = "What to request (only types you have access to)";
             public const string OptionRequestQuery = "Title to search for, or tmdb:603 / tvdb:12345";

@@ -17,7 +17,6 @@ namespace NzbDrone.Core.Configuration
         int RemovalVoteDays { get; set; }
         int RemovalRequesterTimeoutDays { get; set; }
         bool RemovalDeleteFiles { get; set; }
-        bool ImportPostChannels { get; set; }
         bool ImportPostFeed { get; set; }
 
         // The Requestarr version that last started on this database (Requestarr.Core.Updates.UpdateBackup reads it

@@ -25,30 +25,42 @@ namespace Requestarr.Core.Imports
         Paused
     }
 
-    // What the Import page shows: "312 of 467 posted", and whether it's posting, paused or done.
+    // What the server's window shows: "312 of 467 posted", and whether it's posting, paused or done.
     public record HistoryPostingStatus(HistoryPostingState State, int Total, int Posted);
+
+    // Whether onboarding someone posts their imported requests in their new channel, or leaves them for later.
+    public enum OnboardHistory
+    {
+        Post,
+        Leave
+    }
 
     // A member was onboarded and has their channel now.
     public class MemberOnboardedEvent : IEvent
     {
-        public MemberOnboardedEvent(int userId)
+        public MemberOnboardedEvent(int userId, OnboardHistory history)
         {
             UserId = userId;
+            History = history;
         }
 
         public int UserId { get; }
+        public OnboardHistory History { get; }
     }
 
     public interface IHistoryPosting
     {
         HistoryPostingStatus Status();
 
-        // An import's new requests (IDs above afterRequestId): queued for the feed and their onboarded requesters' channels.
+        // An import's new requests (IDs above afterRequestId): queued for the feed.
         int QueueImport(int afterRequestId);
 
-        // "Post history now": every imported request not posted where it belongs yet (an import run before posting
-        // existed, or a new server), and whatever was left waiting.
-        int QueueEarlier();
+        // One member's imported requests in their own channel, once: asked for by them (/history) or an admin.
+        ServiceResult PostMember(int userId, Actor actor);
+
+        // The whole server's: every imported request not posted where it belongs yet, in the feed and in its requester's
+        // channel, and whatever was left waiting.
+        ServiceResult PostServer(Actor actor);
 
         void Pause();
         void Resume();
@@ -129,9 +141,36 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        public int QueueImport(int afterRequestId) => Queue(_requests.All().Where(r => r.Imported && r.Id > afterRequestId).ToList(), true);
+        public int QueueImport(int afterRequestId) => Queue(FeedRows(_requests.All().Where(r => r.Imported && r.Id > afterRequestId)));
 
-        public int QueueEarlier() => Queue(_requests.All().Where(r => r.Imported).ToList(), true);
+        public ServiceResult PostMember(int userId, Actor actor)
+        {
+            if (_users.Find(userId) is not { Status: UserStatus.Active, PrivateChannelId: not null })
+            {
+                return ServiceResult.Fail(DiscordText.HistoryNoChannel);
+            }
+
+            var imported = ImportedFor(userId);
+
+            if (imported.Count == 0)
+            {
+                return ServiceResult.Fail(DiscordText.HistoryNone);
+            }
+
+            return Posted(Queue(ChannelRows(imported)), "user", userId.ToString(), actor);
+        }
+
+        public ServiceResult PostServer(Actor actor)
+        {
+            var imported = _requests.All().Where(r => r.Imported).ToList();
+
+            if (imported.Count == 0)
+            {
+                return ServiceResult.Fail(DiscordText.HistoryNone);
+            }
+
+            return Posted(Queue(FeedRows(imported).Concat(ChannelRows(imported))), "import", null, actor);
+        }
 
         public void Pause()
         {
@@ -181,9 +220,9 @@ namespace Requestarr.Core.Imports
 
         public void Handle(MemberOnboardedEvent message)
         {
-            if (_config.ImportPostChannels)
+            if (message.History == OnboardHistory.Post)
             {
-                Queue(_requests.All().Where(r => r.Imported && r.OwnerUserId == message.UserId).ToList(), false);
+                Queue(ChannelRows(ImportedFor(message.UserId)));
             }
         }
 
@@ -212,24 +251,25 @@ namespace Requestarr.Core.Imports
             Start();
         }
 
-        // Queues each request once per destination and channel: the feed's when it's switched on, the requester's
-        // channel when that's switched on and they're onboarded. How many posts were queued; posting starts either way.
-        private int Queue(IReadOnlyCollection<Request> imported, bool feed)
+        private List<Request> ImportedFor(int userId) => _requests.All().Where(r => r.Imported && r.OwnerUserId == userId).ToList();
+
+        // What asking to post came to: everything asked for may be posted already, since it's posted once.
+        private ServiceResult Posted(int queued, string targetType, string targetId, Actor actor)
         {
-            var now = DateTime.UtcNow;
-            var rows = new List<HistoryPost>();
-
-            if (feed && _config.ImportPostFeed && FeedChannel() is { } feedChannel)
+            if (queued == 0)
             {
-                var known = _posts.Known(HistoryDestination.Feed, feedChannel);
-                rows.AddRange(imported.Where(r => !known.Contains(r.Id)).Select(r => Row(r, HistoryDestination.Feed, feedChannel, now)));
+                return ServiceResult.Fail(DiscordText.HistoryAlreadyPosted);
             }
 
-            if (_config.ImportPostChannels)
-            {
-                rows.AddRange(ChannelRows(imported, now));
-            }
+            _audit.Record(actor, PostedAction, targetType, targetId, $"{queued} queued");
 
+            return ServiceResult.Ok(DiscordText.HistoryQueued(queued, Status().State == HistoryPostingState.Paused));
+        }
+
+        // Queues posts not queued before. How many; posting starts either way.
+        private int Queue(IEnumerable<HistoryPost> posts)
+        {
+            var rows = posts.ToList();
             _posts.InsertMany(rows);
             Grow(rows.Count);
             Start();
@@ -237,8 +277,23 @@ namespace Requestarr.Core.Imports
             return rows.Count;
         }
 
-        private IEnumerable<HistoryPost> ChannelRows(IEnumerable<Request> imported, DateTime now)
+        // Each request's post in the admin feed, when that's switched on.
+        private IEnumerable<HistoryPost> FeedRows(IEnumerable<Request> imported)
         {
+            if (!_config.ImportPostFeed || FeedChannel() is not { } feedChannel)
+            {
+                return Enumerable.Empty<HistoryPost>();
+            }
+
+            var known = _posts.Known(HistoryDestination.Feed, feedChannel);
+
+            return imported.Where(r => !known.Contains(r.Id)).Select(r => Row(r, HistoryDestination.Feed, feedChannel, DateTime.UtcNow)).ToList();
+        }
+
+        // Each request's post in its requester's channel, for those who are onboarded.
+        private IEnumerable<HistoryPost> ChannelRows(IEnumerable<Request> imported)
+        {
+            var now = DateTime.UtcNow;
             var channels = _users.All().Where(u => u.PrivateChannelId != null && u.Status == UserStatus.Active).ToDictionary(u => u.Id, u => u.PrivateChannelId);
 
             foreach (var owner in imported.Where(r => channels.ContainsKey(r.OwnerUserId)).GroupBy(r => r.OwnerUserId))

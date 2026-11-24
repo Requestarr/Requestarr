@@ -7,6 +7,7 @@ using NLog;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Imports;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
@@ -35,7 +36,7 @@ namespace Requestarr.Core.Portal
     // and roles. The page asks how it's going; one failure doesn't stop the rest.
     public interface IPortalOnboarding
     {
-        OnboardJob Start(IReadOnlyList<OnboardPerson> people, IReadOnlyList<OnboardAccess> access, Actor admin);
+        OnboardJob Start(IReadOnlyList<OnboardPerson> people, IReadOnlyList<OnboardAccess> access, OnboardHistory history, Actor admin);
 
         // Null once it's forgotten (Requestarr restarted) or never was.
         OnboardJob Find(string id);
@@ -67,9 +68,9 @@ namespace Requestarr.Core.Portal
         // Between two people: Discord limits how quickly a server's channels and roles are created. Tests set it to zero.
         public TimeSpan Pace { get; set; } = TimeSpan.FromSeconds(2);
 
-        public OnboardJob Start(IReadOnlyList<OnboardPerson> people, IReadOnlyList<OnboardAccess> access, Actor admin)
+        public OnboardJob Start(IReadOnlyList<OnboardPerson> people, IReadOnlyList<OnboardAccess> access, OnboardHistory history, Actor admin)
         {
-            var run = new Run(Guid.NewGuid().ToString("N"), people) { Access = access, Admin = admin };
+            var run = new Run(Guid.NewGuid().ToString("N"), people) { Access = access, History = history, Admin = admin };
             _runs[run.Id] = run;
             Forget();
             _commands.Push(new OnboardMembersCommand { RunId = run.Id }, trigger: CommandTrigger.Manual);
@@ -83,7 +84,7 @@ namespace Requestarr.Core.Portal
             if (_runs.TryGetValue(message.RunId ?? string.Empty, out var run))
             {
                 _logger.ProgressInfo("Onboarding {0} people", run.Count);
-                OnboardAllAsync(run, run.Access, run.Admin).GetAwaiter().GetResult();
+                OnboardAllAsync(run).GetAwaiter().GetResult();
             }
         }
 
@@ -91,7 +92,7 @@ namespace Requestarr.Core.Portal
 
         public Task WhenDoneAsync(string id) => id != null && _runs.TryGetValue(id, out var run) ? run.Done : Task.CompletedTask;
 
-        private async Task OnboardAllAsync(Run run, IReadOnlyList<OnboardAccess> access, Actor admin)
+        private async Task OnboardAllAsync(Run run)
         {
             for (var i = 0; i < run.Count; i++)
             {
@@ -102,7 +103,7 @@ namespace Requestarr.Core.Portal
 
                 var person = run.Person(i);
                 run.Set(i, OnboardState.Adding, null);
-                var (done, message) = await OnboardAsync(person, access, admin);
+                var (done, message) = await OnboardAsync(person, run);
                 run.Set(i, done ? OnboardState.Added : OnboardState.Failed, message);
             }
 
@@ -112,7 +113,7 @@ namespace Requestarr.Core.Portal
         // The member card's onboarding with the access picked, then each type's own instance and limit where one was
         // picked. The add going wrong is this person's failure, in Requestarr's words; once added they're Added, and an
         // instance or limit that didn't apply is said beside it (Retry would only find them a member already).
-        private async Task<(bool Done, string Message)> OnboardAsync(OnboardPerson person, IReadOnlyList<OnboardAccess> access, Actor admin)
+        private async Task<(bool Done, string Message)> OnboardAsync(OnboardPerson person, Run run)
         {
             if (!ulong.TryParse(person.DiscordId, out var id))
             {
@@ -123,7 +124,7 @@ namespace Requestarr.Core.Portal
 
             try
             {
-                added = await _users.AddAsync(id, access.ToDictionary(a => a.ContentType, a => a.State), admin);
+                added = await _users.AddAsync(id, run.Access.ToDictionary(a => a.ContentType, a => a.State), run.History, run.Admin);
             }
             catch (Exception ex)
             {
@@ -136,7 +137,7 @@ namespace Requestarr.Core.Portal
                 return (false, added.Message);
             }
 
-            var notSet = access.SelectMany(a => SetOwn(id, a, admin)).ToList();
+            var notSet = run.Access.SelectMany(a => SetOwn(id, a, run.Admin)).ToList();
 
             return (true, string.Join(" ", new[] { added.Message }.Concat(notSet)));
         }
@@ -192,6 +193,8 @@ namespace Requestarr.Core.Portal
             public Task Done => _finished.Task;
 
             public IReadOnlyList<OnboardAccess> Access { get; init; }
+
+            public OnboardHistory History { get; init; }
 
             public Actor Admin { get; init; }
 

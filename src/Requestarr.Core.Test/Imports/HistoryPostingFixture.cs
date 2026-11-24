@@ -19,13 +19,14 @@ using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Imports
 {
-    // Imported history in Discord: each member's in their channel, a few titles to a message, and every request in the
-    // admin feed oldest first between a header and a closing post; silent; never twice; paused and cancelled cleanly.
+    // Imported history in Discord: each member's in their channel, a few titles to a message, when they're onboarded or
+    // it's asked for, and every request in the admin feed oldest first between a header and a closing post; silent; never twice; paused and cancelled cleanly.
     [TestFixture]
     public class HistoryPostingFixture : DbTest<HistoryPosting, HistoryPost>
     {
         private const ulong Feed = 500;
         private const ulong AliceChannel = 600;
+        private static readonly Actor Admin = Actor.Web("admin");
         private readonly List<(ulong Channel, InteractionReply Message)> _sent = new();
         private RequestarrUser _alice;
         private RequestarrUser _bob;
@@ -43,7 +44,6 @@ namespace Requestarr.Core.Test.Imports
 
             var config = Mocker.GetMock<IConfigService>();
             config.SetupGet(c => c.ImportPostFeed).Returns(true);
-            config.SetupGet(c => c.ImportPostChannels).Returns(true);
             Mocker.GetMock<IDiscordGuildGateway>().SetupGet(g => g.GuildId).Returns(1UL);
             Mocker.GetMock<IDiscordGuildConfigRepository>().Setup(c => c.FindByGuild("1")).Returns(new DiscordGuildConfig { FeedChannelId = Feed.ToString() });
             Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.SendMessageAsync(It.IsAny<ulong>(), It.IsAny<InteractionReply>()))
@@ -74,8 +74,8 @@ namespace Requestarr.Core.Test.Imports
             Imported(_bob, "Bob's", 10);
             Mocker.Resolve<IRequestRepository>().Insert(new Request { OwnerUserId = _alice.Id, Title = "Made here", Requested = DateTime.UtcNow });
 
-            Subject.QueueEarlier().Should().Be(5, "three in the feed, and Alice's two in her channel (Bob isn't onboarded)");
-            Subject.QueueEarlier().Should().Be(0, "nothing is ever queued twice");
+            Subject.PostServer(Admin).Message.Should().Be(DiscordText.HistoryQueued(5, false), "three in the feed, and Alice's two in her channel (Bob isn't onboarded)");
+            Subject.PostServer(Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryAlreadyPosted), "nothing is ever queued twice");
 
             _sent.Should().OnlyContain(s => s.Message.Quiet);
             var channel = _sent.Where(s => s.Channel == AliceChannel).Select(s => s.Message.Content).Single();
@@ -94,7 +94,7 @@ namespace Requestarr.Core.Test.Imports
         {
             Imported(_alice, "Heat", 3);
             Subject.Background = _ => Task.CompletedTask;
-            Subject.QueueEarlier();
+            Subject.PostServer(Admin);
             Subject.Pause();
 
             Subject.Resume();
@@ -129,14 +129,59 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
-        public void a_switch_turned_off_leaves_that_destination_out()
+        public void the_feed_switched_off_is_left_out()
         {
             Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostFeed).Returns(false);
             Imported(_alice, "Heat", 3);
 
-            Subject.QueueEarlier().Should().Be(1);
+            Subject.PostServer(Admin).Success.Should().BeTrue();
 
             _sent.Should().ContainSingle().Which.Channel.Should().Be(AliceChannel);
+        }
+
+        [Test]
+        public void an_import_posts_in_the_feed_and_in_nobodys_channel()
+        {
+            Imported(_alice, "Heat", 3);
+
+            Subject.QueueImport(0);
+
+            _sent.Select(s => s.Channel).Should().OnlyContain(c => c == Feed);
+        }
+
+        [Test]
+        public void a_members_history_is_posted_in_their_channel_once()
+        {
+            Imported(_alice, "Heat", 3);
+            Imported(_bob, "Bob's", 10);
+
+            Subject.PostMember(_alice.Id, Admin).Message.Should().Be(DiscordText.HistoryQueued(1, false));
+            Subject.PostMember(_alice.Id, Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryAlreadyPosted));
+
+            _sent.Should().ContainSingle().Which.Channel.Should().Be(AliceChannel);
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, HistoryPosting.PostedAction, "user", _alice.Id.ToString(), "1 queued"), Times.Once());
+        }
+
+        [Test]
+        public void someone_with_no_channel_or_no_imported_requests_is_told_so()
+        {
+            Imported(_bob, "Bob's", 10);
+
+            Subject.PostMember(_bob.Id, Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryNoChannel));
+            Subject.PostMember(_alice.Id, Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryNone));
+            _sent.Should().BeEmpty();
+        }
+
+        [Test]
+        public void onboarding_that_leaves_the_history_out_posts_nothing_until_its_asked_for()
+        {
+            Imported(_alice, "Heat", 3);
+
+            Subject.Handle(new MemberOnboardedEvent(_alice.Id, OnboardHistory.Leave));
+            _sent.Should().BeEmpty();
+
+            Subject.PostMember(_alice.Id, Admin).Success.Should().BeTrue();
+            _sent.Should().ContainSingle();
         }
 
         [Test]
@@ -144,12 +189,12 @@ namespace Requestarr.Core.Test.Imports
         {
             Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostFeed).Returns(false);
             Imported(_bob, "Bob's", 10);
-            Subject.QueueEarlier().Should().Be(0, "Bob has no channel yet");
+            Subject.PostServer(Admin).Success.Should().BeFalse("Bob has no channel yet");
 
             _bob.Status = UserStatus.Active;
             _bob.PrivateChannelId = "700";
             Mocker.Resolve<IRequestarrUserRepository>().Update(_bob);
-            Subject.Handle(new MemberOnboardedEvent(_bob.Id));
+            Subject.Handle(new MemberOnboardedEvent(_bob.Id, OnboardHistory.Post));
 
             _sent.Should().ContainSingle().Which.Channel.Should().Be(700UL);
         }
@@ -157,22 +202,21 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public void a_request_queued_while_posting_goes_out_in_the_same_run()
         {
-            Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostChannels).Returns(false);
-            Imported(_alice, "First", 3);
+            Imported(_bob, "First", 3);
             var queuedLate = false;
             Subject.Wait = _ =>
             {
                 if (!queuedLate && _sent.Count == 1)
                 {
                     queuedLate = true;
-                    Imported(_alice, "Late", 1);
-                    Subject.QueueEarlier();
+                    Imported(_bob, "Late", 1);
+                    Subject.PostServer(Admin);
                 }
 
                 return Task.CompletedTask;
             };
 
-            Subject.QueueEarlier();
+            Subject.PostServer(Admin);
 
             _sent.Select(s => s.Message.Content).Should().Contain("card Late").And.EndWith(DiscordText.HistoryFeedDone(2));
             Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().BeEmpty();
@@ -182,11 +226,10 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public void a_failed_send_leaves_the_rest_waiting_and_posting_can_start_again()
         {
-            Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostChannels).Returns(false);
-            Imported(_alice, "One", 3);
+            Imported(_bob, "One", 3);
             Mocker.GetMock<IRequestFeed>().Setup(f => f.PostImportedAsync(It.IsAny<Request>())).ThrowsAsync(new System.InvalidOperationException("Discord is down"));
 
-            Subject.QueueEarlier();
+            Subject.PostServer(Admin);
 
             Subject.Status().State.Should().Be(HistoryPostingState.Idle);
             Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().ContainSingle();
@@ -196,21 +239,20 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public void cancel_stops_part_way_with_a_closing_post_and_drops_what_waited()
         {
-            Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostChannels).Returns(false);
-            Imported(_alice, "One", 3);
-            Imported(_alice, "Two", 2);
-            Imported(_alice, "Three", 1);
+            Imported(_bob, "One", 3);
+            Imported(_bob, "Two", 2);
+            Imported(_bob, "Three", 1);
             Subject.Wait = _ =>
             {
                 if (_sent.Count == 2)
                 {
-                    Subject.Cancel(Actor.Web("admin"));
+                    Subject.Cancel(Admin);
                 }
 
                 return Task.CompletedTask;
             };
 
-            Subject.QueueEarlier();
+            Subject.PostServer(Admin);
 
             _sent.Select(s => s.Message.Content).Should().Equal(DiscordText.HistoryFeedHeader(3, 1), "card One", DiscordText.HistoryFeedStopped(1, 3));
             Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().BeEmpty();

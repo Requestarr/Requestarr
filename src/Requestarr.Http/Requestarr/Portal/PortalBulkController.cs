@@ -12,7 +12,7 @@ namespace Requestarr.Http.Portal
     // the whole title; Force: no vote).
     public record BulkRequestsBody(List<int> Ids, string Action, string Reason, List<int> Seasons, bool Force);
 
-    // The members picked and what to do to them: suspend, unsuspend, remove-member, or changeAccess (each change in
+    // The members picked and what to do to them: suspend, unsuspend, post-history, remove-member, or changeAccess (each change in
     // Changes, the member's own instance left as it is).
     public record BulkMembersBody(List<int> Ids, string Action, List<AccessBody> Changes);
 
@@ -59,6 +59,7 @@ namespace Requestarr.Http.Portal
         {
             "suspend" => (id, admin) => _members.SuspendAsync(id, admin),
             "unsuspend" => (id, admin) => _members.UnsuspendAsync(id, admin),
+            "post-history" => (id, admin) => Task.FromResult(_members.PostHistory(id, admin)),
             "remove-member" => (id, admin) => _members.RemoveAsync(id, admin),
             "changeAccess" => (id, admin) => Task.FromResult(ChangeAccess(id, body.Changes ?? new List<AccessBody>(), admin)),
             _ => null

@@ -95,12 +95,6 @@ namespace NzbDrone.Core.Configuration
 
         // Imported history posted in Discord (Imports.HistoryPosting): in members' own channels, and in the admin feed.
         // On unless an admin turns them off on the Import page.
-        public bool ImportPostChannels
-        {
-            get { return GetValueBoolean("ImportPostChannels", true); }
-            set { SetValue("ImportPostChannels", value); }
-        }
-
         public bool ImportPostFeed
         {
             get { return GetValueBoolean("ImportPostFeed", true); }
