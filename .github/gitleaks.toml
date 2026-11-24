@@ -8,7 +8,7 @@ useDefault = true
 [allowlist]
 description = "Throwaway test values that look like credentials but are not"
 regexes = [
-  # Fake TMDB read access token (header.payload.signature of nothing) in Item4CastFixture,
+  # Fake TMDB read access token (header.payload.signature of nothing) in TmdbClientFixture,
   # used to test that such a token is sent as a Bearer header.
   '''eyJhbGciOiJIUzI1NiJ9\.eyJhdWQiOiJ4In0\.c2ln''',
 ]

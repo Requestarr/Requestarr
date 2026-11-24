@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NzbDrone.Host\Requestarr.Host.csproj" />
+    <!-- The app loads its platform assembly at start-up; the Linux one comes with Requestarr.Mono.Test. -->
+    <ProjectReference Include="..\NzbDrone.Windows\Requestarr.Windows.csproj" />
+    <ProjectReference Include="..\Requestarr.Test.Common\Requestarr.Test.Common.csproj" />
+    <ProjectReference Include="..\Requestarr.Test.Dummy\Requestarr.Test.Dummy.csproj" />
+  </ItemGroup>
+</Project>

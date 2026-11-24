@@ -285,11 +285,11 @@ indent_size = 2
 # ---------------------------------------------------------------------------------------------------------------------
 # Requestarr additions. Everything above is upstream (Prowlarr) and stays as it is, so upstream merges stay easy.
 # The clean-code checks below apply to Requestarr's own code only: its Requestarr folders, its migrations, and the few
-# files it added beside inherited ones. Inherited code keeps upstream's settings. Warnings fail the build here
+# files it added beside inherited ones, and every test (the kept inherited tests are Requestarr's own now). Inherited code keeps upstream's settings. Warnings fail the build here
 # (TreatWarningsAsErrors). Limits are in src/SonarLint.xml; reasons in docs/development.md#clean-code.
 # A file Requestarr adds outside a Requestarr folder is added to this list in the same pull request.
 # ---------------------------------------------------------------------------------------------------------------------
-[{src/**/Requestarr/**.cs,src/NzbDrone.Core/Datastore/Migration/*.cs,src/Requestarr.Http/Qa/**.cs,src/Requestarr.Http/Webhooks/**.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogo.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogoMapper.cs,src/Requestarr.Http/Frontend/Mappers/WebIcons.cs,src/NzbDrone.Common/Exceptions/RequestarrStartupException.cs,src/Requestarr.Api.V1.Test/Frontend/VersionLogoFixture.cs,src/NzbDrone.Common.Test/ExtensionTests/StringExtensionTests/ForLogFixture.cs}]
+[{src/**/Requestarr/**.cs,src/Requestarr.*Test/**.cs,src/Requestarr.Test.Common/**.cs,src/Requestarr.Test.Dummy/**.cs,src/NzbDrone.Core/Datastore/Migration/*.cs,src/Requestarr.Http/Qa/**.cs,src/Requestarr.Http/Webhooks/**.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogo.cs,src/Requestarr.Http/Frontend/Mappers/VersionLogoMapper.cs,src/Requestarr.Http/Frontend/Mappers/WebIcons.cs,src/NzbDrone.Common/Exceptions/RequestarrStartupException.cs}]
 
 # Unused code: private members, members written but never read, parameters, locals, private fields.
 dotnet_diagnostic.IDE0051.severity = warning

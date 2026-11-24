@@ -17,16 +17,24 @@ The app listens on http://localhost:9797.
 
 ## Tests
 
-The Servarr suites, minus integration and automation tests (the same set CI runs):
+The same set CI runs:
 
 ```bash
 cd _tests/net10.0
 dotnet test Requestarr.Api.V1.Test.dll Requestarr.Common.Test.dll Requestarr.Core.Test.dll Requestarr.Host.Test.dll \
-  Requestarr.Libraries.Test.dll Requestarr.Update.Test.dll Requestarr.Windows.Test.dll \
   "--filter:Category!=ManualTest&Category!=LINUX&Category!=IntegrationTest&Category!=AutomationTest"
 ```
 
-On Linux, swap `Requestarr.Windows.Test.dll` for `Requestarr.Mono.Test.dll` and `LINUX` for `WINDOWS`.
+On Linux, add `Requestarr.Mono.Test.dll` (the Linux platform code the image runs) and swap `LINUX` for `WINDOWS`.
+
+Test projects, one folder each under `src/`, with namespaces that follow the folders (`Requestarr.Core.Test.Requests`):
+
+- `Requestarr.Core.Test`: Requestarr's rules and the base code it runs on (database, configuration, messaging, health checks, providers), grouped by behavior.
+- `Requestarr.Common.Test`, `Requestarr.Host.Test`, `Requestarr.Api.V1.Test`: the shared, host and web code.
+- `Requestarr.Mono.Test`: the Linux platform code; it runs on Linux only.
+- `Requestarr.Test.Common`: the test base classes. `Requestarr.Test.Dummy`: a stand-in process for the process tests.
+
+Tests of inherited code Requestarr doesn't run (release parsing, the self-updater, the Windows and macOS platform code, error reporting) were removed; the code stays. A Servarr test brought in later needs its namespace changed to the folder it lands in.
 
 ## Clean code
 
@@ -101,11 +109,7 @@ The web app uses Sonarr's, Radarr's and Prowlarr's own parts and patterns (`docs
 
 `.github/workflows/image.yml` publishes the container image (see [Published images](#published-images)).
 
-Not run in CI:
-
-- `Requestarr.Integration.Test`: needs a packaged app layout started as a separate process.
-- `Requestarr.Automation.Test`: needs Selenium and a browser against a running app.
-- `Requestarr.Benchmark.Test`: performance measurements, not pass or fail.
+Not run in CI: the live checks, which are tagged `ManualTest` (see the test harness section below).
 
 ## Changelog
 
@@ -486,7 +490,7 @@ run.LastReply.Content.Should().Contain("Dune");
 await harness.SendAsync(FakeInteraction.Button("request-approve:42").By(adminId).WithRoles(adminRoleId));
 ```
 
-See `src/NzbDrone.Core.Test/Requestarr/Discord/Harness`. `FakeRadarr` and `FakeSonarr` stand in for the backends in the same scenarios.
+See `src/Requestarr.Core.Test/Discord/Harness`. `FakeRadarr` and `FakeSonarr` stand in for the backends in the same scenarios.
 
 Live checks are tagged `ManualTest`, so they never run in CI. They read their keys from `docker/secrets.env`, and they only ever use the dev environment: the dev Discord server and bot (`DEV_DISCORD_*`) and the dev stack's test Sonarr and Radarr (`LiveDev` in the test harness). Nothing in them reads the QA server's or the QA stack's values, and a unit test keeps it that way, so automated testing never interrupts the owner's QA.
 

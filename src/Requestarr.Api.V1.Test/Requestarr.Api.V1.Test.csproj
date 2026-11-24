@@ -7,7 +7,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NzbDrone.Core\Requestarr.Core.csproj" />
-    <ProjectReference Include="..\NzbDrone.Test.Common\Requestarr.Test.Common.csproj" />
+    <ProjectReference Include="..\Requestarr.Test.Common\Requestarr.Test.Common.csproj" />
     <ProjectReference Include="..\Requestarr.Http\Requestarr.Http.csproj" />
   </ItemGroup>
 </Project>
