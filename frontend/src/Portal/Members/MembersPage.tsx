@@ -190,10 +190,17 @@ function useOnboard(picked: PortalMember[], onDone: () => void) {
       history.push(getPathWithUrlBase('/members/add'));
     }
   }, [picked, history]);
-  const onOnboardClose = useCallback(() => {
-    setOnboarding([]);
-    onDone();
-  }, [onDone]);
+  const onOnboardClose = useCallback(
+    (hasRun: boolean) => {
+      setOnboarding([]);
+
+      // Cancelled: the picks stay for another go.
+      if (hasRun) {
+        onDone();
+      }
+    },
+    [onDone]
+  );
 
   return { onboarding, onAddPress, onOnboardClose };
 }

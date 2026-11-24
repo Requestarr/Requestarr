@@ -59,8 +59,8 @@ function HistoryField({ value, onChange }: HistoryFieldProps) {
   );
 }
 
-// Each type's access and limit for everyone picked: what the admin changed, until then the type's default access and
-// no limit; and whether their history is posted, until the admin ticks or unticks it what the server's setting says.
+// Each type's access and limit for everyone picked: what the admin changed, until then the type's default access; a
+// limit left alone isn't sent, so someone onboarded again keeps theirs. And whether their history is posted, until the admin ticks or unticks it what the server's setting says.
 function useSetup() {
   const types = usePortal<ContentType[]>('types');
   const instances = usePortal<PortalInstance[]>('instances');
@@ -71,10 +71,9 @@ function useSetup() {
     () =>
       (types.data ?? []).map((type) => ({
         contentType: type,
-        state: defaultAccess(type, instances.data ?? []),
-        limit: 0,
-        days: DEFAULT_DAYS,
-        ...picks[type],
+        state: picks[type]?.state ?? defaultAccess(type, instances.data ?? []),
+        limit: picks[type]?.limit ?? null,
+        days: picks[type]?.days ?? null,
       })),
     [types.data, instances.data, picks]
   );
@@ -146,7 +145,11 @@ function SetUpPeople(props: SetUpPeopleProps) {
             <TypeAccessFields
               key={one.contentType}
               type={one.contentType}
-              access={one}
+              access={{
+                state: one.state,
+                limit: one.limit ?? 0,
+                days: one.days ?? DEFAULT_DAYS,
+              }}
               onChange={setup.onAccessChange}
             />
           ))}

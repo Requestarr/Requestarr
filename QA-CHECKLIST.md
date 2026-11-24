@@ -418,6 +418,21 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Each person's progress, then who was added and who failed and why.
     - Their role, channel and panel in Discord.
   - Checked automatically: the web app add member check.
+- **One Save for access**
+  - Steps:
+    1. Open a member's page in the web app.
+    2. Press Change access.
+  - Expect:
+    - Every type's access and limit in one window.
+    - One Save at the bottom, beside Cancel.
+  - Checked automatically: the web app add member check.
+- **Toolbars on the list pages**
+  - Steps:
+    1. Open Onboard, Queue, Access requests, Outages, the audit log, then Changes.
+  - Expect:
+    - Each has a toolbar with Refresh.
+    - Options too, except on Changes.
+  - Checked automatically: the web app portal pages check.
 - **Picking members**
   - Steps:
     1. In Members, press Select Members, then tick a member.

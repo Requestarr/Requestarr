@@ -19,7 +19,7 @@ import { PortalServerMember } from '../../PortalTypes';
 import styles from './AddMembers.css';
 
 // A server member as a row. Servarr's select state keys rows by a number, and a Discord ID is too long for one, so a
-// row's ID is its place in the server's list.
+// row has a number of its own.
 export type Candidate = PortalServerMember & { id: number };
 
 // What the filter box matches: their name or Discord username, as you type.

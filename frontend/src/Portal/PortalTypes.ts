@@ -242,12 +242,12 @@ export interface PortalServerMember {
   importedRequests: number;
 }
 
-// What everyone picked gets, per content type; a limit of 0 is none.
+// What everyone picked gets, per content type; a limit of 0 is none, null the one they had before (removed members).
 export interface OnboardAccess {
   contentType: ContentType;
   state: AccessState;
-  limit: number;
-  days: number;
+  limit: number | null;
+  days: number | null;
 }
 
 export type OnboardState = 'waiting' | 'adding' | 'added' | 'failed';

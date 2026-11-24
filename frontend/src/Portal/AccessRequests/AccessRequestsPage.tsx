@@ -191,7 +191,11 @@ function AccessRequestsView({ types, round, onDone }: AccessRequestsViewProps) {
 function AccessRequestsPage() {
   const result = usePortal<ContentType[]>('types');
   const [round, setRound] = useState(0);
-  const onRefresh = useCallback(() => setRound((current) => current + 1), []);
+  const { reload } = result;
+  const onRefresh = useCallback(() => {
+    reload();
+    setRound((current) => current + 1);
+  }, [reload]);
 
   return (
     <PageContent title={translate('PortalAccessRequests')}>

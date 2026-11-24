@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { SelectProvider, useSelect } from 'App/SelectContext';
 import AppState from 'App/State/AppState';
@@ -30,8 +36,21 @@ function selectAll(state: AppState) {
   return state.serverMembers.items;
 }
 
+// A number for each person that stays theirs while the page is open, so a pick stays on them when the list is read again.
+function useRowIds() {
+  const ids = useRef(new Map<string, number>());
+
+  return useCallback((discordId: string) => {
+    const id = ids.current.get(discordId) ?? ids.current.size + 1;
+    ids.current.set(discordId, id);
+
+    return id;
+  }, []);
+}
+
 // The people as rows: everyone, and those the filter shows in the page's sort.
 function useCandidates() {
+  const rowId = useRowIds();
   const selector = useMemo(
     () => createClientSideCollectionSelector('serverMembers'),
     []
@@ -39,8 +58,8 @@ function useCandidates() {
   const state: ServerMembersState = useSelector(selector);
   const people = useSelector(selectAll);
   const everyone = useMemo(
-    () => people.map((person, index) => ({ ...person, id: index })),
-    [people]
+    () => people.map((person) => ({ ...person, id: rowId(person.discordId) })),
+    [people, rowId]
   );
   const shown = useMemo(() => {
     const byDiscordId = new Map(everyone.map((c) => [c.discordId, c]));
@@ -112,13 +131,20 @@ function OnboardList({ state, everyone, shown }: OnboardListProps) {
   const picked = usePicked(everyone);
   const [onboarding, setOnboarding] = useState<Who[]>([]);
   const onOnboardPress = useCallback(() => setOnboarding(picked), [picked]);
-  const onOnboardClose = useCallback(() => {
-    setOnboarding([]);
-    selectDispatch({ type: 'unselectAll' });
-    onRefreshPress();
-  }, [selectDispatch, onRefreshPress]);
+  const onOnboardClose = useCallback(
+    (hasRun: boolean) => {
+      setOnboarding([]);
 
-  // Opening the page reads the list again, from before it's read nothing is shown.
+      // Cancelled: the picks stay for another go.
+      if (hasRun) {
+        selectDispatch({ type: 'unselectAll' });
+        onRefreshPress();
+      }
+    },
+    [selectDispatch, onRefreshPress]
+  );
+
+  // Opening the page reads the list again.
   useEffect(() => {
     onRefreshPress();
   }, [onRefreshPress]);
@@ -129,7 +155,7 @@ function OnboardList({ state, everyone, shown }: OnboardListProps) {
         {...state}
         {...handlers}
         isEmpty={!state.totalItems}
-        hasPicks={picked.length > 0}
+        hasPicks={picked.length > 0 && !state.error}
         onOnboardPress={onOnboardPress}
       />
 

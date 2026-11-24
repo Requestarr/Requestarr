@@ -818,8 +818,8 @@ and the first-run setup links to it once it's done.
      (available, not in library, removed). When they type `/history` in their channel, when you press
      **Post History** on their page in the web app (or with members picked on the Members page), or when you run
      `/admin history` with them. And when they're onboarded, if **Post when onboarding** is on (off to start): open
-     Requestarr's server under Settings, Connections, and look under **Imported History**. Onboard in the web app has
-     the same as a tick, starting from that setting; onboarding from Discord and approving an access request follow
+     Requestarr's server under Settings, Connections, and look under **Imported History** (`importedHistory.whenOnboarding`
+     in `provisioning.yml`). Onboard in the web app has the same as a tick, starting from that setting; onboarding from Discord and approving an access request follow
      it. Someone who isn't onboarded has no channel yet.
    - **In the admin feed,** after an import, when **Post in the admin feed** is on: open Requestarr's server under
      Settings, Connections, and look under **Imported History**. A header ("Posting N imported requests from M

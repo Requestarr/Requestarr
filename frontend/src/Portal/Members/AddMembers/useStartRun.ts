@@ -32,6 +32,7 @@ function useStartRun() {
   const [isStarting, setIsStarting] = useState(false);
   const start = useCallback((people: Person[], setup: OnboardSetup) => {
     setIsStarting(true);
+    setRefused(undefined);
     callApi<OnboardJob>('/portal/members/onboard', 'POST', {
       people: people.map(({ discordId, name }) => ({ discordId, name })),
       ...setup,

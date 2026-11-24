@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
 import SpinnerButton from 'Components/Link/SpinnerButton';
@@ -74,17 +74,8 @@ function EditAccessModalContent({
 }: EditAccessModalContentProps) {
   const { data: types, hasError } = usePortal<ContentType[]>('types');
   const [changes, setChanges] = useState<Changes>({});
-  const onAnswer = useCallback(
-    (isDone: boolean) => {
-      onSaved();
-
-      if (isDone) {
-        onModalClose();
-      }
-    },
-    [onSaved, onModalClose]
-  );
-  const { act, isBusy, outcome } = usePortalAction(onAnswer);
+  const { act, isBusy, outcome } = usePortalAction(onSaved);
+  const isDone = outcome?.isDone;
   const onChange = useCallback(
     (type: ContentType, changed: Partial<TypeAccess>) =>
       setChanges((current) => ({
@@ -106,6 +97,12 @@ function EditAccessModalContent({
       onModalClose();
     }
   }, [types, member, changes, act, onModalClose]);
+
+  useEffect(() => {
+    if (isDone) {
+      onModalClose();
+    }
+  }, [isDone, onModalClose]);
 
   return (
     <ModalContent onModalClose={onModalClose}>

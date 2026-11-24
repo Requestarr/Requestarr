@@ -35,9 +35,15 @@ function TypeAccessFields({ type, access, onChange }: TypeAccessFieldsProps) {
     ({ value }: { value: AccessState }) => onChange(type, { state: value }),
     [type, onChange]
   );
-  const onNumberChange = useCallback(
-    ({ name, value }: { name: string; value: number | null }) =>
-      onChange(type, { [name]: value ?? 0 }),
+  // An emptied box reads as it did before anything was typed.
+  const onLimitChange = useCallback(
+    ({ value }: { value: number | null }) =>
+      onChange(type, { limit: value ?? 0 }),
+    [type, onChange]
+  );
+  const onDaysChange = useCallback(
+    ({ value }: { value: number | null }) =>
+      onChange(type, { days: value ?? DEFAULT_DAYS }),
     [type, onChange]
   );
 
@@ -62,7 +68,7 @@ function TypeAccessFields({ type, access, onChange }: TypeAccessFieldsProps) {
           value={access.limit}
           min={0}
           max={MAX_LIMIT}
-          onChange={onNumberChange}
+          onChange={onLimitChange}
         />
       </FormGroup>
 
@@ -74,7 +80,7 @@ function TypeAccessFields({ type, access, onChange }: TypeAccessFieldsProps) {
           value={access.days}
           min={1}
           max={MAX_DAYS}
-          onChange={onNumberChange}
+          onChange={onDaysChange}
         />
       </FormGroup>
     </FieldSet>

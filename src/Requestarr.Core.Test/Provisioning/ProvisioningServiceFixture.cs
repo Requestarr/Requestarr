@@ -6,6 +6,7 @@ using NzbDrone.Core.Authentication;
 using NzbDrone.Core.Configuration;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
+using Requestarr.Core.Imports;
 using Requestarr.Core.Provisioning;
 using Requestarr.Core.Settings;
 using Requestarr.Core.Test.Framework;
@@ -56,6 +57,17 @@ namespace Requestarr.Core.Test.Provisioning
             refused.Error.Should().Contain("auditLog.keepFor");
             Mocker.GetMock<IConfigService>().Object.AuditLogKeepFor.Should().Be(AuditRetention.TwoYears);
             ExceptionVerification.ExpectedErrors(1);
+        }
+
+        [Test]
+        public void should_apply_where_imported_history_goes_by_itself()
+        {
+            Mocker.GetMock<IHistorySettings>().SetupGet(s => s.InFeed).Returns(true);
+            var history = new ImportedHistoryProvisioning { WhenOnboarding = false, InFeed = true };
+            GivenDocument(new ProvisioningDocument { ImportedHistory = history });
+
+            Subject.Apply().Applied.Should().Contain("imported history (not posted when onboarding, posted in the feed)");
+            Mocker.GetMock<IHistorySettings>().Verify(s => s.Apply(history), Times.Once());
         }
 
         [Test]

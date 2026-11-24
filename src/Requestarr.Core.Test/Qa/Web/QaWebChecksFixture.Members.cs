@@ -10,8 +10,8 @@ namespace Requestarr.Core.Test.Qa.Web
     {
         private const string AddMembersFilter = "document.querySelector('input[class*=\"AddMembers-filter\"]')";
 
-        // The test member the run names (QA_CHECKS_TEST_MEMBER, their Discord username): they're onboarded through Add
-        // member, then suspended and unsuspended from the Members list's bar, and the run removes them afterwards.
+        // The test member the run names (QA_CHECKS_TEST_MEMBER, their Discord username): they're onboarded from the Onboard
+        // page, then suspended and unsuspended from the Members list's toolbar, and the run removes them afterwards.
         // Without one, the check changes nothing.
         private static string TestMember => Environment.GetEnvironmentVariable("QA_CHECKS_TEST_MEMBER");
 
@@ -35,6 +35,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.SetThemeAsync(theme);
                 await AddMemberListAsync(browser, check, theme);
                 await MembersListAsync(browser, check, theme);
+                await ChangeAccessWindowAsync(browser, check, theme);
             }
 
             if (!string.IsNullOrEmpty(TestMember))
@@ -132,7 +133,7 @@ namespace Requestarr.Core.Test.Qa.Web
         // Onboard. Cancelled here, so nobody is onboarded.
         private static async Task OnboardWindowAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
-            var onboardable = await PortalAsync<int>(browser, "members", "m => m.filter(x => x.status === 'imported' && x.discordId).length");
+            var onboardable = await PortalAsync<int>(browser, "members", "m => m.filter(x => ['imported', 'removed'].includes(x.status) && x.discordId).length");
 
             if (onboardable == 0)
             {
@@ -148,6 +149,30 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"Onboard with everyone picked ({theme}): one window naming {names} people, the {onboardable} who can be onboarded; still on {await browser.EvalAsync<string>("location.pathname")}");
             names.Should().Be(onboardable, "only the picks it can onboard");
             await check.ShotAsync(browser, $"onboard-window-{theme}");
+            await PressInWindowAsync(browser, "Cancel");
+            await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
+        }
+
+        // Change access on a member's page: one window with every type's access and limit, and one Save for all of it.
+        // Cancelled here, so nothing changes.
+        private static async Task ChangeAccessWindowAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            var member = await PortalAsync<int>(browser, "members", "m => m.find(x => x.status === 'active')?.id ?? 0");
+
+            if (member == 0)
+            {
+                check.Saw($"Change access ({theme}): nobody here is onboarded");
+                return;
+            }
+
+            await browser.GoAsync($"{Url}/members/{member}");
+            await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].some(b => b.innerText.trim() === 'Change access')");
+            await PressToolbarAsync(browser, "Change access");
+            await browser.WaitForAsync("!!document.querySelector('[class*=\"ModalBody\"] legend')");
+            var buttons = await browser.EvalAsync<string[]>("[...document.querySelectorAll('[class*=\"ModalContent\"] button')].map(b => b.innerText.trim()).filter(t => t === 'Cancel' || t.startsWith('Save'))");
+            check.Saw($"Change access ({theme}): {string.Join(", ", buttons)}");
+            buttons.Should().Equal("Cancel", "Save");
+            await check.ShotAsync(browser, $"change-access-{theme}");
             await PressInWindowAsync(browser, "Cancel");
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
         }

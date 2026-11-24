@@ -128,6 +128,13 @@ namespace Requestarr.Core.Test.Qa.Web
                     await OpenFirstAsync(browser, check, page, theme);
                 }
             }
+
+            foreach (var page in new[] { "members/add", "queue", "access-requests", "outages", "audit", "settings/changes" })
+            {
+                await browser.GoAsync($"{Url}/{page}");
+                await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].some(b => b.innerText.trim() === 'Refresh')");
+                check.Saw($"{page}: a toolbar with {string.Join(", ", await browser.EvalAsync<string[]>("[...new Set([...document.querySelectorAll('[class*=\"PageToolbar\"] button')].map(b => b.innerText.trim()).filter(t => t))]"))}");
+            }
         });
 
         // The Requests page's three views, as Sonarr's and Radarr's lists have them, in both themes: Overview (the
