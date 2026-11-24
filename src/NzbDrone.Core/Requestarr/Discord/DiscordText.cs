@@ -1112,7 +1112,7 @@ namespace Requestarr.Core.Discord
 
         public static string NoAllOtherWaiting(ContentType type) =>
             $"⏸️ **No {Backends.BackendImplementations.ForContentType(type)} takes {AllOtherLabel(type).ToLowerInvariant()}**, so those requests are paused. " +
-            $"In the web app, open Settings, then Connections, and set one to {AllOtherLabel(type)}. This stays here until one is.";
+            $"In the web app, open Settings, then Connections (or the provisioning file, where one is used), and set one to {AllOtherLabel(type)}. This stays here until one is.";
 
         public static string TypeNotAvailable(ContentType type) => $"{Label(type)} can't be requested here yet.";
 

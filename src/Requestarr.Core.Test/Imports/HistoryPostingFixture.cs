@@ -90,6 +90,20 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
+        public void a_resume_shows_the_run_under_system_tasks_again_even_while_the_worker_winds_down()
+        {
+            Imported(_alice, "Heat", 3);
+            Subject.Background = _ => Task.CompletedTask;
+            Subject.QueueEarlier();
+            Subject.Pause();
+
+            Subject.Resume();
+
+            Subject.Status().State.Should().Be(HistoryPostingState.Posting);
+            Mocker.GetMock<IManageCommandQueue>().Verify(q => q.Push(It.IsAny<PostImportedHistoryCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()), Times.Exactly(2));
+        }
+
+        [Test]
         public void system_tasks_shows_the_run_with_its_progress_until_it_finishes_or_is_paused()
         {
             var statuses = new Queue<HistoryPostingStatus>(new[]

@@ -20,6 +20,10 @@ namespace Requestarr.Core.Admin
         private readonly IConfigService _config;
         private readonly IEventAggregator _events;
 
+        // The types Handle last saw paused: the panel's count is refreshed whenever that changes, even when a read of the
+        // queue already wrote the start time.
+        private readonly HashSet<ContentType> _paused = new();
+
         public NoAllOtherSource(IBackendService backends, IConfigService config, IEventAggregator events)
         {
             _backends = backends;
@@ -39,10 +43,16 @@ namespace Requestarr.Core.Admin
         {
             var changed = false;
 
-            foreach (var type in Types.Where(type => Missing(type) != Since(type).HasValue))
+            foreach (var type in Types)
             {
-                Write(type, Missing(type) ? Clock() : null);
-                changed = true;
+                var missing = Missing(type);
+
+                if (missing != Since(type).HasValue)
+                {
+                    Write(type, missing ? Clock() : null);
+                }
+
+                changed |= missing ? _paused.Add(type) : _paused.Remove(type);
             }
 
             if (changed)

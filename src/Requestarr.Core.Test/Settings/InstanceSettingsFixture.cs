@@ -81,11 +81,14 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
-        public async Task an_instance_alone_in_its_type_is_for_everything()
+        public async Task a_first_instance_takes_all_its_types_requests_and_one_left_alone_keeps_its_purpose()
         {
             var result = await Subject.SaveAsync(null, Input("Radarr", "http://radarr:7878", "key", implementation: BackendImplementations.Radarr), Admin);
-
             result.Instance.Settings.Purpose.Should().Be(InstancePurpose.Everything);
+
+            _instances[0].Config.Purpose = InstancePurpose.Anime;
+            var leftAlone = await Subject.SaveAsync(1, Input("Sonarr", "http://sonarr:8989") with { Purpose = InstancePurpose.Anime }, Admin);
+            leftAlone.Instance.Settings.Purpose.Should().Be(InstancePurpose.Anime, "the Anime Sonarr left after the other was deleted stays for anime");
         }
 
         [Test]

@@ -44,8 +44,8 @@ namespace Requestarr.Core.Backends
         // (and anime without one) to the type's instance for all other requests; null while that one is off or deleted.
         BackendInstance ForRequest(ContentType type, bool isAnime);
 
-        // What a member gets for a type until an admin sets it: the default access of the type's default instance, or
-        // off when the type has no instance turned on.
+        // What a member gets for a type until an admin sets it: the default access of the type's instance for all other
+        // requests (even while it's off, so a pause changes nobody's access), or off when the type has no instance on.
         AccessState DefaultAccess(ContentType type);
         void SyncFromProvisioning(BackendsProvisioning backends);
         Task<BackendCheckResult> CheckAsync(BackendInstance instance);
@@ -125,7 +125,18 @@ namespace Requestarr.Core.Backends
             return anime ?? AllOther(type);
         }
 
-        public AccessState DefaultAccess(ContentType type) => Default(type)?.Config.DefaultAccess ?? AccessState.Off;
+        public AccessState DefaultAccess(ContentType type)
+        {
+            if (Default(type) is not { } inUse)
+            {
+                return AccessState.Off;
+            }
+
+            var implementation = BackendImplementations.ForContentType(type);
+            var allOther = _repository.All().Where(b => b.Implementation == implementation && b.Config.Purpose == InstancePurpose.Everything).MinBy(b => b.Id);
+
+            return (allOther ?? inUse).Config.DefaultAccess;
+        }
 
         public IBackendApi ApiFor(BackendInstance instance) => instance.Implementation switch
         {

@@ -36,14 +36,16 @@ function purposeOf(instance: { fields: { name: string; value: unknown }[] }) {
     ?.value as number | undefined;
 }
 
-// The card label's words for what an instance is for, once its type has more than one.
+// The card label's words for what an instance is for, once its type has more than one, or when one left alone isn't
+// for all other requests (they're paused until it, or another, is).
 export function purposeLabelKey(item: MediaManager, siblings: MediaManager[]) {
   const sameType = siblings.filter(
     (other) => other.implementation === item.implementation
   );
+  const purpose = purposeOf(item) ?? EVERYTHING;
 
-  return sameType.length > 1
-    ? purposeWords(item.implementation)[purposeOf(item) ?? EVERYTHING]
+  return sameType.length > 1 || purpose !== EVERYTHING
+    ? purposeWords(item.implementation)[purpose]
     : undefined;
 }
 
@@ -92,7 +94,7 @@ export function usePurpose(item: MediaManagerItem, app: string) {
   const words = purposeWords(app);
 
   return {
-    isShown: others.length > 0,
+    isShown: others.length > 0 || (!isNew && chosen !== EVERYTHING),
     words: {
       label: translate('InstancePurpose', { app }),
       helpTexts: [

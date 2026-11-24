@@ -591,7 +591,7 @@ namespace Requestarr.Core.Requests
 
             if (instance == null || !instance.Enable)
             {
-                return ServiceResult.Fail(DiscordText.NoBackend(request.ContentType));
+                return ServiceResult.Fail(Unavailable(instance, request.ContentType));
             }
 
             var current = await TryLookup(instance, request);
@@ -875,7 +875,7 @@ namespace Requestarr.Core.Requests
         {
             if (instance == null || !instance.Enable)
             {
-                return ServiceResult.Fail(DiscordText.NoBackend(ContentType.Tv));
+                return ServiceResult.Fail(Unavailable(instance, ContentType.Tv));
             }
 
             try
@@ -938,7 +938,7 @@ namespace Requestarr.Core.Requests
 
             if (instance == null || !instance.Enable)
             {
-                return ServiceResult.Fail(DiscordText.NoBackend(request.ContentType));
+                return ServiceResult.Fail(Unavailable(instance, request.ContentType));
             }
 
             _audit.Record(admin, "request.retry", "request", request.Id.ToString());
@@ -953,6 +953,10 @@ namespace Requestarr.Core.Requests
                 ? ServiceResult.Ok(DiscordText.RequestSent(request.Label, request.Id, instance.Name))
                 : ServiceResult.Fail(DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason));
         }
+
+        // Why a request's instance can't take it: turned off or deleted pauses its requests; none means none was set up.
+        private static string Unavailable(BackendInstance instance, ContentType type) =>
+            instance == null ? DiscordText.NoBackend(type) : DiscordText.RequestsPausedForNow(type);
 
         // A request whose instance was deleted goes where its kind goes on Retry (anime, which has a language, to the
         // Anime Sonarr), as a new title there.

@@ -6,6 +6,7 @@ using NLog;
 using NzbDrone.Common.Messaging;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Lifecycle;
+using NzbDrone.Core.Messaging;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Audit;
@@ -186,7 +187,9 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // What waited when Requestarr stopped carries on, its feed header not posted again.
+        // What waited when Requestarr stopped carries on, its feed header not posted again. Last, after Servarr's command
+        // queue has requeued what it kept, so System, then Tasks never gets the run twice.
+        [EventHandleOrder(EventHandleOrder.Last)]
         public void Handle(ApplicationStartedEvent message)
         {
             var waiting = _posts.Waiting();
@@ -273,6 +276,9 @@ namespace Requestarr.Core.Imports
         // Wakes the worker, or starts it; a pause holds everything until Resume.
         private void Start()
         {
+            bool follow;
+            bool start;
+
             lock (_lock)
             {
                 if (_state == HistoryPostingState.Paused || !_posts.Waiting().Any())
@@ -280,20 +286,23 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
+                // A resume shows the run under System, then Tasks again, even while the worker is still winding down.
+                follow = _state != HistoryPostingState.Posting;
                 _state = HistoryPostingState.Posting;
-
-                if (_running)
-                {
-                    _again = true;
-                    return;
-                }
-
+                start = !_running;
+                _again = _running;
                 _running = true;
-                _again = false;
             }
 
-            _commands.Push(new PostImportedHistoryCommand());
-            _ = Background(WorkAsync);
+            if (follow)
+            {
+                _commands.Push(new PostImportedHistoryCommand());
+            }
+
+            if (start)
+            {
+                _ = Background(WorkAsync);
+            }
         }
 
         private async Task WorkAsync()

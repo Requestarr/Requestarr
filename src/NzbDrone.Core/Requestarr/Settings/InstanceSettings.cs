@@ -101,7 +101,10 @@ namespace Requestarr.Core.Settings
             }
 
             var others = Others(input.Implementation, id);
-            var resolved = input with { Purpose = others.Any() ? input.Purpose : InstancePurpose.Everything };
+
+            // A first instance of its type takes all its requests; one left alone keeps what it's for until an admin
+            // changes it (it may be the Anime Sonarr after the other was deleted).
+            var resolved = existing == null && !others.Any() ? input with { Purpose = InstancePurpose.Everything } : input;
             var instance = existing ?? new BackendInstance { Added = DateTime.UtcNow };
             var before = existing == null ? null : Described(existing);
 

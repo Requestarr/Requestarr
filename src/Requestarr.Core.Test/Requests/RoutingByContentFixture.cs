@@ -53,10 +53,12 @@ namespace Requestarr.Core.Test.Requests
         public void with_the_all_other_sonarr_turned_off_only_anime_still_goes_somewhere()
         {
             _everything.Enable = false;
+            _everything.Config.DefaultAccess = AccessState.AutoApprove;
 
             Subject.ForRequest(ContentType.Tv, isAnime: false).Should().BeNull();
             Subject.ForRequest(ContentType.Tv, isAnime: true).Should().BeSameAs(_anime);
             Subject.Default(ContentType.Tv).Should().BeSameAs(_anime, "titles are still looked up, so anime can be found");
+            Subject.DefaultAccess(ContentType.Tv).Should().Be(AccessState.AutoApprove, "a pause changes no new member's access");
         }
 
         [Test]
