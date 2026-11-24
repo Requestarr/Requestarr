@@ -68,8 +68,8 @@ namespace Requestarr.Core.Imports
         void Cancel(Actor actor);
     }
 
-    // Posts imported history in Discord: each member's in their own channel, a few titles to a message, and every
-    // request in the admin feed as its normal card marked Imported, oldest first, between a header and a closing post.
+    // Posts imported history in Discord: each member's in their own channel and every request in the admin feed, each as
+    // a card marked Imported, oldest first, the feed's between a header and a closing post.
     // Everything is silent and pings nobody. One background worker posts slowly, a pause between posts, so live notices
     // never queue behind it; it keeps going while anything waits, so rows queued mid-run are posted too. (Servarr's
     // command queue drops a second push of a command already running, so the import's own command pattern can't be
@@ -81,9 +81,6 @@ namespace Requestarr.Core.Imports
 
         // Discord allows 5 messages every 5 seconds a channel; one every 2 seconds leaves live notices plenty of room.
         public static readonly TimeSpan Pace = TimeSpan.FromSeconds(2);
-
-        // Lines a member's history message holds at most, well inside Discord's 2,000 characters.
-        private const int LinesPerMessage = 15;
 
         private readonly IHistoryPostRepository _posts;
         private readonly IRequestRepository _requests;
@@ -485,7 +482,7 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // A member's history, oldest first, a few titles to each silent message in their channel.
+        // A member's history in their channel, oldest first, the batch's first card saying what they are.
         private async Task PostChannelAsync(ulong channel, List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
         {
             if (Unsendable(posts, requests))
@@ -495,13 +492,21 @@ namespace Requestarr.Core.Imports
 
             var ordered = posts.OrderBy(p => requests[p.RequestId].Requested).ThenBy(p => p.RequestId).ToList();
 
-            for (var start = 0; start < ordered.Count && Continuing(); start += LinesPerMessage)
-            {
-                var batch = ordered.Skip(start).Take(LinesPerMessage).ToList();
-                var lines = batch.Select(p => DiscordText.HistoryLine(requests[p.RequestId])).Prepend(DiscordText.HistoryChannelHeader);
+            var hasStarted = IsUnderWay(ordered);
 
-                await PostAsync(batch, () => _gateway.SendMessageAsync(channel, new InteractionReply { Content = string.Join("\n", lines), Quiet = true }));
+            foreach (var post in ordered.TakeWhile(_ => Continuing()))
+            {
+                var card = RequestCards.HistoryCard(requests[post.RequestId], hasStarted ? null : DiscordText.HistoryChannelHeader);
+                hasStarted |= await PostAsync(post, () => _gateway.SendMessageAsync(channel, card));
             }
+        }
+
+        // Whether some of these posts' batch went out in their channel before a pause or a restart.
+        private bool IsUnderWay(List<HistoryPost> posts)
+        {
+            var batches = posts.Select(p => p.Queued).ToHashSet();
+
+            return _posts.All().Any(p => p.Posted != null && p.ChannelId == posts[0].ChannelId && batches.Contains(p.Queued));
         }
 
         // The feed: its header once a batch, then every request's own card marked Imported, oldest first.
@@ -521,7 +526,7 @@ namespace Requestarr.Core.Imports
 
             foreach (var post in posts.TakeWhile(_ => Continuing()))
             {
-                if (await PostAsync(new[] { post }, () => _feed.PostImportedAsync(requests[post.RequestId])))
+                if (await PostAsync(post, () => _feed.PostImportedAsync(requests[post.RequestId])))
                 {
                     _feedPosted++;
                 }
@@ -547,8 +552,8 @@ namespace Requestarr.Core.Imports
             return posts.Count == 0;
         }
 
-        // One post after the pace's wait, recorded on its rows before the next; false when paused or cancelled first.
-        private async Task<bool> PostAsync(IReadOnlyCollection<HistoryPost> rows, Func<Task<ulong>> send)
+        // One post after the pace's wait, recorded on its row before the next; false when paused or cancelled first.
+        private async Task<bool> PostAsync(HistoryPost row, Func<Task<ulong>> send)
         {
             await Wait(Pace);
 
@@ -559,17 +564,13 @@ namespace Requestarr.Core.Imports
 
             var id = await send();
 
-            foreach (var row in rows)
-            {
-                row.Posted = DateTime.UtcNow;
-                row.MessageId = id == 0 ? null : id.ToString();
-            }
-
-            _posts.UpdateMany(rows.ToList());
+            row.Posted = DateTime.UtcNow;
+            row.MessageId = id == 0 ? null : id.ToString();
+            _posts.Update(row);
 
             lock (_lock)
             {
-                _posted += rows.Count;
+                _posted++;
             }
 
             return true;

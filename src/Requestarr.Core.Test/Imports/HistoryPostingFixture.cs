@@ -19,7 +19,7 @@ using Requestarr.Test.Common;
 
 namespace Requestarr.Core.Test.Imports
 {
-    // Imported history in Discord: each member's in their channel, a few titles to a message, when they're onboarded or
+    // Imported history in Discord: each member's in their channel, a card for each request, when they're onboarded or
     // it's asked for, and every request in the admin feed oldest first between a header and a closing post. All silent,
     // never twice, paused and cancelled cleanly.
     [TestFixture]
@@ -78,10 +78,11 @@ namespace Requestarr.Core.Test.Imports
             Subject.PostServer(Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryAlreadyPosted), "nothing is ever queued twice");
 
             _sent.Should().OnlyContain(s => s.Message.Quiet);
-            var channel = _sent.Where(s => s.Channel == AliceChannel).Select(s => s.Message.Content).Single();
-            channel.Should().StartWith(DiscordText.HistoryChannelHeader);
-            channel.IndexOf("Older", StringComparison.Ordinal).Should().BeLessThan(channel.IndexOf("Newer", StringComparison.Ordinal));
-            channel.Should().Contain("not in library");
+            var channel = _sent.Where(s => s.Channel == AliceChannel).Select(s => s.Message).ToList();
+            channel.Select(m => m.Content).Should().Equal(new[] { DiscordText.HistoryChannelHeader, null }, "the first card says what they are");
+            channel.Select(m => m.Embeds.Single().Title).Should().Equal("Older", "Newer");
+            channel[0].Embeds.Single().Description.Should().StartWith("Imported").And.Contain(DiscordText.FinalNotInLibrary);
+            channel.Should().OnlyContain(m => m.Buttons.Count == 0);
 
             _sent.Where(s => s.Channel == Feed).Select(s => s.Message.Content).Should().Equal(
                 DiscordText.HistoryFeedHeader(3, 2), "card Older", "card Bob's", "card Newer", DiscordText.HistoryFeedDone(3));
@@ -310,6 +311,29 @@ namespace Requestarr.Core.Test.Imports
             Subject.Handle(new ApplicationStartedEvent());
 
             _sent.Select(s => s.Message.Content).Should().Equal(DiscordText.HistoryFeedHeader(2, 1), "card One", "card Two", DiscordText.HistoryFeedDone(2));
+        }
+
+        [Test]
+        public void a_members_history_paused_part_way_carries_on_without_saying_again_what_it_is()
+        {
+            Imported(_alice, "One", 3);
+            Imported(_alice, "Two", 2);
+            Subject.Wait = _ =>
+            {
+                if (_sent.Count == 1)
+                {
+                    Subject.Pause();
+                }
+
+                return Task.CompletedTask;
+            };
+            Subject.PostMember(_alice.Id, Admin);
+            _sent.Should().ContainSingle();
+
+            Subject.Wait = _ => Task.CompletedTask;
+            Subject.Resume();
+
+            _sent.Select(s => s.Message.Content).Should().Equal(DiscordText.HistoryChannelHeader, null);
         }
 
         [Test]

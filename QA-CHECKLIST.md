@@ -20,11 +20,11 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. As them, type /history in their channel, twice.
     4. In the admin channel, run /admin history.
   - Expect:
-    - Their channel lists their old requests, a few to a message, once.
+    - Their channel gets a card for each old request, oldest first, once.
     - The feed has a header, cards marked Imported, and a closing post.
     - The admin command says what it posts, or that it's done.
     - Nobody gets a ping or a notification.
-  - Checked by the owner, needs human eyes: how the history reads in the Discord app; the automated run read back each post's text, silence and order.
+  - Checked by the owner, needs human eyes: how the cards look in the Discord app; the tests cover each card's text, silence and order.
 - **Series fixes**
   - Steps:
     1. In the web app, open Settings, then Connections.

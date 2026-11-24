@@ -111,7 +111,7 @@ One message, always the newest in your channel. It welcomes you and shows what y
 
 ### `/history`
 
-Posts your imported requests (what you asked for before Requestarr, when the admin imported it) in your own channel, oldest first, a few to a message, without pinging anyone. It happens once; only you see the answer. It works only in your own channel.
+Posts your imported requests (what you asked for before Requestarr, when the admin imported it) in your own channel, oldest first, a card for each, without pinging anyone. It happens once; only you see the answer. It works only in your own channel.
 
 ### `/help`
 
