@@ -4,6 +4,11 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.10.5" />
+    <PackageReference Include="Dapper" Version="2.1.100" />
+    <PackageReference Include="Diacritical.Net" Version="1.0.5" />
+    <PackageReference Include="Polly" Version="8.9.1" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.15" />
     <ProjectReference Include="..\NzbDrone.Core\Requestarr.Core.csproj" />
     <ProjectReference Include="..\NzbDrone.Common\Requestarr.Common.csproj" />
   </ItemGroup>
