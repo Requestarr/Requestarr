@@ -1,12 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import Button from 'Components/Link/Button';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
-import Modal from 'Components/Modal/Modal';
-import ModalBody from 'Components/Modal/ModalBody';
-import ModalContent from 'Components/Modal/ModalContent';
-import ModalFooter from 'Components/Modal/ModalFooter';
-import ModalHeader from 'Components/Modal/ModalHeader';
 import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
 import { icons, kinds } from 'Helpers/Props';
 import useHistoryPosting, {
@@ -15,14 +9,13 @@ import useHistoryPosting, {
 import translate from 'Utilities/String/translate';
 import TextConfirmModal from '../Components/TextConfirmModal';
 import { isImported } from '../portalText';
-import { ContentType, PortalMemberDetail } from '../PortalTypes';
+import { PortalMemberDetail } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
 import showOutcome from '../showOutcome';
-import usePortal from '../usePortal';
-import usePortalAction, { PortalAction } from '../usePortalAction';
-import AccessRow from './AccessRow';
+import usePortalAction from '../usePortalAction';
 import OnboardModal from './AddMembers/OnboardModal';
 import { Who } from './AddMembers/useStartRun';
+import EditAccessModal from './EditAccessModal';
 
 type Dialog = 'remove' | 'plex' | 'access' | 'cancelHistory' | 'onboard';
 
@@ -33,47 +26,6 @@ function plexPrompt() {
     helpText: translate('PortalPlexUsernameHelpText'),
     confirmLabel: translate('PortalActionLinkPlex'),
   };
-}
-
-interface EditAccessModalProps {
-  detail: PortalMemberDetail;
-  action: PortalAction;
-  isOpen: boolean;
-  onModalClose: () => void;
-}
-
-// Their access, instance and limit for each type, as Sonarr main's Series/Edit/EditSeriesModalContent edits a series;
-// each type is saved on its own, as the member card in Discord does.
-function EditAccessModal({
-  detail,
-  action,
-  isOpen,
-  onModalClose,
-}: EditAccessModalProps) {
-  const { data: offered } = usePortal<ContentType[]>('types');
-  const { member } = detail;
-
-  return (
-    <Modal isOpen={isOpen} onModalClose={onModalClose}>
-      <ModalContent onModalClose={onModalClose}>
-        <ModalHeader>{translate('PortalActionChangeAccess')}</ModalHeader>
-        <ModalBody>
-          {(offered ?? []).map((type) => (
-            <AccessRow
-              key={type}
-              memberId={member.id}
-              type={type}
-              access={member.access.find((a) => a.contentType === type)}
-              action={action}
-            />
-          ))}
-        </ModalBody>
-        <ModalFooter>
-          <Button onPress={onModalClose}>{translate('Close')}</Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
 }
 
 // Posting an active member's imported requests in their channel; while anyone's history is being posted, also pausing,
@@ -160,8 +112,8 @@ function useReportedPosting() {
 
 interface MemberDialogsProps {
   detail: PortalMemberDetail;
-  action: PortalAction;
   dialog?: Dialog;
+  onAccessSaved: () => void;
   onRemove: () => void;
   onCancelHistory: () => void;
   onPlex: (username: string) => void;
@@ -185,8 +137,8 @@ function onboarding({ member }: PortalMemberDetail, dialog?: Dialog): Who[] {
 // The windows a member's actions open: what's asked first, and the changes made in one.
 function MemberDialogs({
   detail,
-  action,
   dialog,
+  onAccessSaved,
   onRemove,
   onCancelHistory,
   onPlex,
@@ -221,9 +173,9 @@ function MemberDialogs({
         onClose={onClose}
       />
       <EditAccessModal
-        detail={detail}
-        action={action}
+        member={member}
         isOpen={dialog === 'access'}
+        onSaved={onAccessSaved}
         onModalClose={onClose}
       />
       <OnboardModal people={onboarding(detail, dialog)} onClose={onOnboarded} />
@@ -295,8 +247,8 @@ function useMemberDetailActions(
   const dialogs = (
     <MemberDialogs
       detail={detail}
-      action={action}
       dialog={dialog}
+      onAccessSaved={onDone}
       onRemove={onRemove}
       onCancelHistory={onCancelHistory}
       onPlex={onPlex}

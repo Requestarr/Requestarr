@@ -36,6 +36,18 @@ namespace Requestarr.Core.Provisioning
 
         // Optional: how long the audit log keeps an entry. Stored as a setting the admin portal can change.
         public AuditLogProvisioning AuditLog { get; set; }
+
+        // Optional: where imported history goes by itself. Stored as settings the admin portal can change.
+        public ImportedHistoryProvisioning ImportedHistory { get; set; }
+    }
+
+    public class ImportedHistoryProvisioning
+    {
+        // In someone's new channel when they're onboarded (default false).
+        public bool? WhenOnboarding { get; set; }
+
+        // In the admin feed, after an import (default true).
+        public bool? InFeed { get; set; }
     }
 
     public class AuditLogProvisioning

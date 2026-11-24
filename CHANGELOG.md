@@ -34,7 +34,7 @@ promoted to them, and a beta heading names the goals' builds it includes.
 #### New
 - **Servers as cards:** each server the bot is or was in has a card. Open it to take the bot out, or to add it back where it was removed. The + card adds the bot to another server, for example only to import from Requestrr, and closes once the bot joins.
 - **Delete, with history kept:** a media manager can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.
-- **Imported history in Discord:** post a member's old requests in their channel when you onboard them, from their page, or with /admin history, which also does the whole server. An import posts them in the admin feed when that's on in the server's window. Quietly, oldest first, and only once.
+- **Imported history in Discord:** post a member's old requests in their channel from their page, when you onboard them, or with /admin history, which also does the whole server. The server's window sets whether onboarding starts with it, off at first, and whether an import posts them in the admin feed.
 - **Imported history in System, then Tasks:** while history is posted, System, then Tasks lists it with how many are posted so far.
 - **Requests go by what's asked for:** each media manager says what it's for: all other shows (or movies), anime or nothing yet, and anime goes to the anime one. This replaces the Default tick box and members' own servers; any you set are dropped, their access and limits kept.
 - **Series fixes:** a ready list of fixes for shows Sonarr grabs the wrong releases for, under Media managers. A fix is set up in Sonarr only when its show is requested, and the request says so. It comes with one: Pokémon (1997) never grabs Pokémon Horizons.
@@ -50,6 +50,9 @@ promoted to them, and a beta heading names the goals' builds it includes.
 - **Adding the bot for an import:** use the + card beside the servers, since the Invite bot button is gone. A server's card takes the bot out, or adds it back.
 - **Default access in provisioning files:** a media manager whose file leaves out its default access now approves new members' requests automatically, like one added in the web app. Set it in the file to have them wait for you.
 - **Onboard from a member's page:** it opens the Onboard window for them right there, as on the Members page, instead of the list of everyone to add. Someone you removed has it too, so you can add them back.
+- **Onboard page and window:** the page has a toolbar with Onboard, Refresh, Options and Filter, and setting people up opens in a window there, laid out like a member's Change access.
+- **One Save for access:** a member's Change access window saves every type's access and limit together, instead of a button for each.
+- **Toolbars on more pages:** the Queue, Access requests, Outages and audit log pages have Refresh and Options in a toolbar, and Changes under Settings has Refresh.
 
 ## 0.7.0010 (2026-11-22), with 0.7.0004 to 0.7.0010
 

@@ -13,6 +13,7 @@ import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import columnsOf from '../Components/columnsOf';
 import PortalList, { visibleCells } from '../Components/PortalList';
+import PortalListToolbar from '../Components/PortalListToolbar';
 import { PortalOutage, PortalOutageNow, PortalOutages } from '../PortalTypes';
 import ActionButton from '../Requests/ActionButton';
 import usePortal from '../usePortal';
@@ -128,19 +129,21 @@ function OutagesPage() {
   const result = usePortal<PortalOutages>('outages?history=false');
   const [round, setRound] = useState(0);
   const { reload } = result;
-  const onActionDone = useCallback(() => {
+  const onRefresh = useCallback(() => {
     reload();
     setRound((current) => current + 1);
   }, [reload]);
   const render = useCallback(
     (data: PortalOutages) => (
-      <OutagesView data={data} round={round} onDone={onActionDone} />
+      <OutagesView data={data} round={round} onDone={onRefresh} />
     ),
-    [round, onActionDone]
+    [round, onRefresh]
   );
 
   return (
     <PageContent title={translate('PortalOutages')}>
+      <PortalListToolbar name="outageHistory" onRefreshPress={onRefresh} />
+
       <PageContentBody>
         {result.isNotFound ? (
           <NotFound message={translate('PortalNotFound')} />

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Messaging;
-using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging;
 using NzbDrone.Core.Messaging.Commands;
@@ -28,9 +27,11 @@ namespace Requestarr.Core.Imports
     // What the server's window shows: "312 of 467 posted", and whether it's posting, paused or done.
     public record HistoryPostingStatus(HistoryPostingState State, int Total, int Posted);
 
-    // Whether onboarding someone posts their imported requests in their new channel, or leaves them for later.
+    // Whether onboarding someone posts their imported requests in their new channel, leaves them for later, or does what
+    // the server's setting says.
     public enum OnboardHistory
     {
+        AsSet,
         Post,
         Leave
     }
@@ -90,7 +91,7 @@ namespace Requestarr.Core.Imports
         private readonly IRequestFeed _feed;
         private readonly IDiscordGuildGateway _gateway;
         private readonly IDiscordGuildConfigRepository _configs;
-        private readonly IConfigService _config;
+        private readonly IHistorySettings _settings;
         private readonly IAuditService _audit;
         private readonly IManageCommandQueue _commands;
         private readonly Logger _logger;
@@ -113,7 +114,7 @@ namespace Requestarr.Core.Imports
                               IRequestFeed feed,
                               IDiscordGuildGateway gateway,
                               IDiscordGuildConfigRepository configs,
-                              IConfigService config,
+                              IHistorySettings settings,
                               IAuditService audit,
                               IManageCommandQueue commands,
                               Logger logger)
@@ -124,7 +125,7 @@ namespace Requestarr.Core.Imports
             _feed = feed;
             _gateway = gateway;
             _configs = configs;
-            _config = config;
+            _settings = settings;
             _audit = audit;
             _commands = commands;
             _logger = logger;
@@ -252,7 +253,7 @@ namespace Requestarr.Core.Imports
 
         public void Handle(MemberOnboardedEvent message)
         {
-            if (message.History == OnboardHistory.Post)
+            if (message.History == OnboardHistory.Post || (message.History == OnboardHistory.AsSet && _settings.WhenOnboarding))
             {
                 Queue(now => ChannelRows(ImportedFor(message.UserId), now));
             }
@@ -314,7 +315,7 @@ namespace Requestarr.Core.Imports
         // Each request's post in the admin feed, when that's switched on.
         private IEnumerable<HistoryPost> FeedRows(IEnumerable<Request> imported, DateTime now)
         {
-            if (!_config.ImportPostFeed || FeedChannel() is not { } feedChannel)
+            if (!_settings.InFeed || FeedChannel() is not { } feedChannel)
             {
                 return Enumerable.Empty<HistoryPost>();
             }

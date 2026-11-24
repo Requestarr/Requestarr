@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Onboard page and window:** the page has a toolbar with Onboard, Refresh, Options and Filter, and setting people up opens in a window there, laid out like a member's Change access.

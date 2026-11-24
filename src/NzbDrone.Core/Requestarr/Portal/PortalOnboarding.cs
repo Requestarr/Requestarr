@@ -149,7 +149,7 @@ namespace Requestarr.Core.Portal
 
             try
             {
-                if (typeAccess.Limit is { } limit and > 0)
+                if (typeAccess.Limit is { } limit)
                 {
                     results.Add(_users.SetQuota(id, typeAccess.ContentType, limit, typeAccess.Days ?? DefaultDays, admin));
                 }

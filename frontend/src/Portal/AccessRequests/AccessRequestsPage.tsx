@@ -9,6 +9,7 @@ import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import PortalList, { visibleCells } from '../Components/PortalList';
+import PortalListToolbar from '../Components/PortalListToolbar';
 import TextConfirmModal, { reasonPrompt } from '../Components/TextConfirmModal';
 import { contentTypeText } from '../portalText';
 import {
@@ -101,10 +102,16 @@ function PausedRow({
   );
 }
 
-// Both lists a page at a time; round counts actions done, so they're read again after each.
-function AccessRequestsView({ types }: { types: ContentType[] }) {
-  const [round, setRound] = useState(0);
-  const onDone = useCallback(() => setRound((current) => current + 1), []);
+interface AccessRequestsViewProps {
+  types: ContentType[];
+
+  // Goes up after each refresh and action, so both lists are read again.
+  round: number;
+  onDone: () => void;
+}
+
+// Both lists a page at a time.
+function AccessRequestsView({ types, round, onDone }: AccessRequestsViewProps) {
   const action = usePortalAction(onDone);
   const [approving, setApproving] = useState<PortalAccessRequest>();
   const [denying, setDenying] = useState<PortalAccessRequest>();
@@ -179,17 +186,17 @@ function AccessRequestsView({ types }: { types: ContentType[] }) {
   );
 }
 
-function renderView(types: ContentType[]) {
-  return <AccessRequestsView types={types} />;
-}
-
 // People asking to join from the welcome channel, and people whose asking is paused: the access request cards and
 // paused notices of the admin channel.
 function AccessRequestsPage() {
   const result = usePortal<ContentType[]>('types');
+  const [round, setRound] = useState(0);
+  const onRefresh = useCallback(() => setRound((current) => current + 1), []);
 
   return (
     <PageContent title={translate('PortalAccessRequests')}>
+      <PortalListToolbar name="accessWaiting" onRefreshPress={onRefresh} />
+
       <PageContentBody>
         {result.isNotFound ? (
           <NotFound message={translate('PortalNotFound')} />
@@ -200,7 +207,13 @@ function AccessRequestsPage() {
             error={result.hasError ? result : undefined}
             errorMessage={translate('PortalLoadError')}
           >
-            {result.data !== undefined && renderView(result.data)}
+            {result.data !== undefined && (
+              <AccessRequestsView
+                types={result.data}
+                round={round}
+                onDone={onRefresh}
+              />
+            )}
           </PageSectionContent>
         )}
       </PageContentBody>

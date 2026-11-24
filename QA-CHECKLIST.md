@@ -405,15 +405,15 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Steps:
     1. In Members, press Onboard.
     2. Type part of a name in the box at the top.
-    3. Tick someone, then press Set up.
+    3. Tick someone, then press Onboard in the toolbar.
   - Expect:
     - Everyone in the server who isn't a member, with joined date and roles.
     - The list narrows as you type.
-    - A summary of what they'll get, then Confirm.
+    - A window with each type's access and limit, then Onboard.
   - Checked automatically: the web app add member check.
 - **Onboarding from the list**
   - Steps:
-    1. In Onboard, tick someone, press Set up, then Confirm.
+    1. In Onboard, tick someone and press Onboard, then Onboard in the window.
   - Expect:
     - Each person's progress, then who was added and who failed and why.
     - Their role, channel and panel in Discord.
@@ -433,7 +433,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     2. Press Onboard, then Cancel.
   - Expect:
     - One window over the list, naming only those who can be onboarded.
-    - What they get, then Confirm; no other pages.
+    - What they get, then Onboard; no other pages.
   - Checked automatically: the web app add member check.
 - **Acting from the web app**
   - Steps:

@@ -10,6 +10,7 @@ import * as portalLists from './portalListActions';
 import * as providerOptions from './providerOptionActions';
 import * as requests from './requestActions';
 import * as requestIndex from './requestIndexActions';
+import * as serverMembers from './serverMemberActions';
 import * as settings from './settingsActions';
 import * as system from './systemActions';
 import * as tags from './tagActions';
@@ -27,6 +28,7 @@ export default [
   memberIndex,
   requests,
   requestIndex,
+  serverMembers,
   settings,
   system,
   tags

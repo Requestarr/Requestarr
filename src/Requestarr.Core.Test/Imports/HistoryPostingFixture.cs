@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
-using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
@@ -44,8 +43,7 @@ namespace Requestarr.Core.Test.Imports
             _alice = users.Insert(new RequestarrUser { DisplayName = "Alice", Status = UserStatus.Active, PrivateChannelId = AliceChannel.ToString(), Added = DateTime.UtcNow });
             _bob = users.Insert(new RequestarrUser { DisplayName = "Bob", Status = UserStatus.Imported, Added = DateTime.UtcNow });
 
-            var config = Mocker.GetMock<IConfigService>();
-            config.SetupGet(c => c.ImportPostFeed).Returns(true);
+            Mocker.GetMock<IHistorySettings>().SetupGet(s => s.InFeed).Returns(true);
             Mocker.GetMock<IDiscordGuildGateway>().SetupGet(g => g.GuildId).Returns(1UL);
             Mocker.GetMock<IDiscordGuildConfigRepository>().Setup(c => c.FindByGuild("1")).Returns(new DiscordGuildConfig { FeedChannelId = Feed.ToString() });
             Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.SendMessageAsync(It.IsAny<ulong>(), It.IsAny<InteractionReply>()))
@@ -133,7 +131,7 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public void the_feed_switched_off_is_left_out()
         {
-            Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostFeed).Returns(false);
+            Mocker.GetMock<IHistorySettings>().SetupGet(s => s.InFeed).Returns(false);
             Imported(_alice, "Heat", 3);
 
             Subject.PostServer(Admin).Success.Should().BeTrue();
@@ -176,6 +174,18 @@ namespace Requestarr.Core.Test.Imports
             _sent.Should().BeEmpty();
         }
 
+        [TestCase(true, 1)]
+        [TestCase(false, 0)]
+        public void onboarding_from_discord_posts_it_as_the_servers_setting_says(bool whenOnboarding, int sent)
+        {
+            Mocker.GetMock<IHistorySettings>().SetupGet(s => s.WhenOnboarding).Returns(whenOnboarding);
+            Imported(_alice, "Heat", 3);
+
+            Subject.Handle(new MemberOnboardedEvent(_alice.Id, OnboardHistory.AsSet));
+
+            _sent.Should().HaveCount(sent);
+        }
+
         [Test]
         public void onboarding_that_leaves_the_history_out_posts_nothing_until_its_asked_for()
         {
@@ -191,7 +201,7 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public void a_member_onboarded_later_gets_their_history_in_their_new_channel()
         {
-            Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostFeed).Returns(false);
+            Mocker.GetMock<IHistorySettings>().SetupGet(s => s.InFeed).Returns(false);
             Imported(_bob, "Bob's", 10);
             Subject.PostServer(Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryNowhere), "Bob has no channel yet, and the feed is off");
 

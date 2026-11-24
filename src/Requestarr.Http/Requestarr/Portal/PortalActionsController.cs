@@ -19,13 +19,8 @@ namespace Requestarr.Http.Portal
     public record RemovalBody(List<int> Seasons, bool Force);
 
     // Add member: the people picked and what each of them gets.
-    // PostHistory: their imported requests go out in their new channels.
-    public record OnboardBody(List<OnboardPerson> People, List<OnboardAccess> Access, bool PostHistory = true);
-
-    public record AccessBody(ContentType ContentType, AccessState State);
-
-    // Limit 0: no limit.
-    public record LimitBody(ContentType ContentType, int Limit, int Days);
+    // PostHistory: whether their imported requests go out in their new channels; left out, as the server's setting says.
+    public record OnboardBody(List<OnboardPerson> People, List<OnboardAccess> Access, bool? PostHistory = null);
 
     public record PlexBody(string Username);
 
@@ -122,7 +117,12 @@ namespace Requestarr.Http.Portal
 
             var access = (body.Access ?? new List<OnboardAccess>()).GroupBy(a => a.ContentType).Select(g => g.Last()).ToList();
 
-            var history = body.PostHistory ? OnboardHistory.Post : OnboardHistory.Leave;
+            var history = body.PostHistory switch
+            {
+                true => OnboardHistory.Post,
+                false => OnboardHistory.Leave,
+                _ => OnboardHistory.AsSet
+            };
 
             return Json(_onboarding.Start(body.People, access, history, await WebAdmin.ActorAsync(HttpContext)));
         }
@@ -132,12 +132,8 @@ namespace Requestarr.Http.Portal
         public IActionResult Onboarding(string id) => _onboarding.Find(id) is { } run ? Json(run) : NotFound();
 
         [HttpPut("/api/v1/portal/members/{id:int}/access")]
-        public Task<IActionResult> SetAccess(int id, [FromBody] AccessBody body) =>
-            body == null ? Missing() : Act(admin => Task.FromResult(_members.SetAccess(id, body.ContentType, body.State, admin)));
-
-        [HttpPut("/api/v1/portal/members/{id:int}/limit")]
-        public Task<IActionResult> SetLimit(int id, [FromBody] LimitBody body) =>
-            body == null ? Missing() : Act(admin => Task.FromResult(_members.SetLimit(id, body.ContentType, body.Limit, body.Days, admin)));
+        public Task<IActionResult> ChangeAccess(int id, [FromBody] List<MemberAccessChange> changes) =>
+            changes == null ? Missing() : Act(admin => Task.FromResult(_members.ChangeAccess(id, changes, admin)));
 
         [HttpPost("/api/v1/portal/members/{id:int}/suspend")]
         public Task<IActionResult> Suspend(int id) => Act(admin => _members.SuspendAsync(id, admin));

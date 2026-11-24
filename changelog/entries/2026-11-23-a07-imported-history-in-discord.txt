@@ -1,3 +1,3 @@
 audience: admins
 kind: new
-line: **Imported history in Discord:** post a member's old requests in their channel when you onboard them, from their page, or with /admin history, which also does the whole server. An import posts them in the admin feed when that's on in the server's window. Quietly, oldest first, and only once.
+line: **Imported history in Discord:** post a member's old requests in their channel from their page, when you onboard them, or with /admin history, which also does the whole server. The server's window sets whether onboarding starts with it, off at first, and whether an import posts them in the admin feed.

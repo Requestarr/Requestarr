@@ -106,7 +106,23 @@ namespace Requestarr.Core.Test.Portal
         {
             Mocker.GetMock<IUserManagementService>().Setup(u => u.SetQuota(111, ContentType.Movie, 3, 7, Admin)).Returns(ServiceResult.Ok("Limit set"));
 
-            Subject.SetLimit(1, ContentType.Movie, 3, 7, Admin).Success.Should().BeTrue();
+            Subject.ChangeAccess(1, new[] { new MemberAccessChange(ContentType.Movie, null, 3) }, Admin).Success.Should().BeTrue();
+            Mocker.GetMock<IUserManagementService>().Verify(u => u.SetAccess(It.IsAny<ulong>(), It.IsAny<ContentType>(), It.IsAny<AccessState>(), It.IsAny<Actor>()), Times.Never());
+        }
+
+        [Test]
+        public void a_refused_change_to_access_does_not_stop_the_others_and_the_answer_says_why()
+        {
+            var users = Mocker.GetMock<IUserManagementService>();
+            users.Setup(u => u.SetAccess(111, ContentType.Movie, AccessState.AutoApprove, Admin)).Returns(ServiceResult.Ok("Movies changed"));
+            users.Setup(u => u.SetQuota(111, ContentType.Movie, 5000, 7, Admin)).Returns(ServiceResult.Fail("Limit too high"));
+            users.Setup(u => u.SetAccess(111, ContentType.Tv, AccessState.Off, Admin)).Returns(ServiceResult.Ok("TV changed"));
+
+            var result = Subject.ChangeAccess(1, new[] { new MemberAccessChange(ContentType.Movie, AccessState.AutoApprove, 5000, 7), new MemberAccessChange(ContentType.Tv, AccessState.Off) }, Admin);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be("Limit too high");
+            users.Verify(u => u.SetAccess(111, ContentType.Tv, AccessState.Off, Admin), Times.Once());
         }
 
         [Test]

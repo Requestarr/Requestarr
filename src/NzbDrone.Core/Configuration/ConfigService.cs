@@ -93,12 +93,18 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("RemovalRequesterTimeoutDays", value); }
         }
 
-        // Imported history posted in the admin feed (Imports.HistoryPosting), on unless an admin turns it off in the server's
-        // window under Connections.
+        // Imported history posted by itself, in the admin feed and when someone is onboarded; read through
+        // Requestarr.Core.Imports.HistorySettings
         public bool ImportPostFeed
         {
             get { return GetValueBoolean("ImportPostFeed", true); }
             set { SetValue("ImportPostFeed", value); }
+        }
+
+        public bool OnboardPostHistory
+        {
+            get { return GetValueBoolean("OnboardPostHistory", false); }
+            set { SetValue("OnboardPostHistory", value); }
         }
 
         // Off until an admin turns it on: a server sharing its Sonarr and Radarr must never lose files to a mistake.

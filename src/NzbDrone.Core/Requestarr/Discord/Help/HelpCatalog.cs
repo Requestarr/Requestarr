@@ -195,7 +195,7 @@ namespace Requestarr.Core.Discord.Help
                 Key = "history",
                 Title = "Imported requests",
                 Summary = "Post people's requests from before",
-                Intro = _ => "After an import, a member's requests from before are posted in their own channel, oldest first and silently, once: when they're onboarded or their access request is approved (the web app's Onboard lets you leave it out), when they type `/history`, or when you post them with `/admin history` or the web app's member page. " +
+                Intro = _ => "After an import, a member's requests from before are posted in their own channel, oldest first and silently, once: when they type `/history`, when they're onboarded if that's switched on for the server in the web app's Connections (the web app's Onboard asks each time), or when you post them with `/admin history` or the web app's member page. " +
                              "`/admin history` without a member does the whole server: everyone's channel, and the admin feed when that's switched on for the server in the web app's Connections. Running it again only posts what's new.",
                 Commands = new[] { "admin history" }
             },

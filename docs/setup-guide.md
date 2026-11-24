@@ -815,10 +815,12 @@ and the first-run setup links to it once it's done.
 5. **History in Discord.** Imported requests are posted in Discord slowly, in the background, with no pings or
    notifications, oldest first, and only once:
    - **In a member's own channel,** a few to a message, with the day each was asked for and how it stands now
-     (available, not in library, removed). When you onboard them (**Imported History** in the Onboard window, on to
-     start; onboarding from Discord and approving an access request always post it), when they type `/history` in their channel, or when you press
-     **Post History** on their page in the web app (or with members picked on the Members page) or run
-     `/admin history` with them. Someone who isn't onboarded has no channel yet.
+     (available, not in library, removed). When they type `/history` in their channel, when you press
+     **Post History** on their page in the web app (or with members picked on the Members page), or when you run
+     `/admin history` with them. And when they're onboarded, if **Post when onboarding** is on (off to start): open
+     Requestarr's server under Settings, Connections, and look under **Imported History**. Onboard in the web app has
+     the same as a tick, starting from that setting; onboarding from Discord and approving an access request follow
+     it. Someone who isn't onboarded has no channel yet.
    - **In the admin feed,** after an import, when **Post in the admin feed** is on: open Requestarr's server under
      Settings, Connections, and look under **Imported History**. A header ("Posting N imported requests from M
      members, oldest first."), each request as its usual feed card marked Imported with the day it was asked for, then
