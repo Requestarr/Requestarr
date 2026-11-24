@@ -195,7 +195,7 @@ backends:
       apiKey: ${RADARR_API_KEY}
       qualityProfile: HD-1080p      # profile name (or ID) in that Radarr
       rootFolder: /movies           # must already exist as a root folder in that Radarr
-      purpose: everything           # everything | anime | nothing: what this instance is for
+      purpose: everything           # everything (All other shows or movies) | anime | nothing
   sonarr:
     - name: Sonarr
       url: http://sonarr:8989
@@ -215,10 +215,10 @@ backends:
 | `qualityProfile` | no | Defaults to the instance's first profile. |
 | `rootFolder` | no | Defaults to the instance's first root folder. |
 | `seriesType` | no | Sonarr only. Applied to every series this instance gets from Requestarr. |
-| `purpose` | no | What the instance is for (section 4.4): `everything` (the type's main one, which takes whatever no other claims), `anime` (Sonarr only: anime shows) or `nothing` (an extra no new request goes to). One instance per purpose per type. The older `default: true` still reads as `everything`. On a server set up in the web app, it's **What this Sonarr is for** (or Radarr) on the instance, shown once a type has more than one. |
+| `purpose` | no | What the instance is for (section 4.4): `everything` (**All other shows** or **All other movies** in the web app: whatever no other instance takes), `anime` (Sonarr only: anime shows) or `nothing` (an extra no new request goes to). One instance per purpose per type. The older `default: true` still reads as `everything`. On a server set up in the web app, it's **What this Sonarr is for** (or Radarr) on the instance, shown once a type has more than one. |
 | `enabled` | no | `false` keeps the instance but stops using it. |
 | `pollingOnly` | no | `true`: no webhook on this instance; downloads are found by the backup poll only (section 4.9). |
-| `defaultAccess` | no | What a new member gets for the type, read from the type's `everything` instance: `off`, `approval` or `auto` (section 5.5). Defaults to `approval`. On a server set up in the web app, it's **Default access for new members** on the instance. |
+| `defaultAccess` | no | What a new member gets for the type, read from the type's `everything` instance (All other shows or movies): `off`, `approval` or `auto` (section 5.5). Defaults to `approval`. On a server set up in the web app, it's **Default access for new members** on the instance. |
 
 On every start, Requestarr checks each instance:
 
@@ -255,10 +255,12 @@ List as many instances per type as you need. Common setups:
 
 A request goes to the Sonarr or Radarr whose purpose matches what is asked for, never by who asks. Members never pick an instance or see which one takes their request; admins see it on the admin feed and in the web app.
 
-- **Anime** (the title's own genres say so) goes to the Sonarr whose purpose is `anime`, when one is turned on, and otherwise to the `everything` Sonarr.
-- **Everything else** goes to the type's `everything` instance.
+- **Anime** (the title's own genres say so) goes to the Sonarr for **Anime**, when one is turned on, and otherwise to the Sonarr for **All other shows**.
+- **The rest** goes to the type's instance for **All other shows** (Sonarr) or **All other movies** (Radarr).
 
-Each purpose belongs to one instance per type. In the web app, choosing a purpose another instance has moves it here, and the instance for everything keeps it until another takes it over. A member's access (their roles and limits) says what they may request, not where it goes.
+Each purpose belongs to one instance per type. In the web app, choosing a purpose another instance has moves it here.
+
+Nothing is handed over by itself. Turning off or deleting the instance for all other shows (or movies), or giving it another purpose, asks first and then stops those requests: members asking are told requests of that type are paused for now. Anime still goes to its own Sonarr. Until another instance is set to take all other shows, the admin queue lists it (`/admin requests` and the web app's **Queue**). A member's access (their roles and limits) says what they may request, not where it goes.
 
 ### 4.5 What happens to a request
 
@@ -562,7 +564,7 @@ Requestarr then:
 
    The panel updates itself when you change their access or link their account. Existing channels get the new panel in place on the next start.
 
-By default, a new user gets, for each type, the **Default access for new members** of the type's instance for everything (4.4). Each Sonarr and Radarr has it in its edit window under **Settings → Connections**: Approved automatically, Needs approval or Off. Instances you had before the setting existed give **needs approval**, as before, and so does an instance in a provisioning file without `defaultAccess` (4.2). A type with no instance turned on is off, and so is music until Lidarr arrives.
+By default, a new user gets, for each type, the **Default access for new members** of the type's instance for all other shows or movies (4.4). Each Sonarr and Radarr has it in its edit window under **Settings → Connections**: Approved automatically, Needs approval or Off. Instances you had before the setting existed give **needs approval**, as before, and so does an instance in a provisioning file without `defaultAccess` (4.2). A type with no instance turned on is off, and so is music until Lidarr arrives.
 
 The card then shows their access, ready to change (5.6).
 

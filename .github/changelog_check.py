@@ -13,9 +13,9 @@ heading is free) is checked for:
   - no placeholders: "nothing this time", "n/a", "TBD" and the like;
   - no summary without substance: a line with "minor fixes", "various improvements" or another summary phrase must say,
     on the same line, what that changes (at least five more words);
-  - short: each line one to three sentences, at most 50 words after its bold lead, at most 8 lines in a section and
-    3,500 characters of lines in a build, so Read changes is one message (the security line the staging promotion
-    may add isn't counted);
+  - short: each line one to three sentences, at most 50 words after its bold lead, and 3,500 characters of lines in a
+    build, so Read changes is one message (the security line the staging promotion may add isn't counted); as many
+    lines as there are real changes, with no cap on how many;
     (owner, 2026-11-23: "every note should be like 1-3 sentences not a bible"); Unreleased says where a thing ended
     up, so a change rewrites its line to the final state instead of adding to it;
   - versions: "## 0.7.0004 (YYYY-MM-DD)", the day the build was made, each once, newest first; versions up to 0.6.0
@@ -54,10 +54,9 @@ SUMMARY_PHRASES = ["minor fixes", "minor improvements", "minor changes", "minor 
                    "fixes", "misc", "miscellaneous", "tweaks", "cleanup", "clean-up", "updates", "changes"]
 FILLER = ["and", "&", "other", "some", "a few", "several", "plus", "more", "lots of", "many"]
 
-# How long a line and a section may be (docs/development.md#changelog).
+# How long a line may be (docs/development.md#changelog).
 MAX_WORDS = 50
 MAX_SENTENCES = 3
-MAX_LINES = 8
 # Discord shows at most 4,000 characters in one message's cards; this leaves room for the headings, the compose file
 # link and the security line (VersionCards.MessageTextLength).
 MAX_CHARACTERS = 3500
@@ -180,8 +179,8 @@ def check(text):
 
 
 def too_big(text):
-    """Problems with a build's size (Unreleased's too): lines in a section, and characters in all its lines. The
-    security line the staging promotion may add isn't counted, so adding it never fails the release."""
+    """Problems with a build's size (Unreleased's too): characters in all its lines. The security line the staging
+    promotion may add isn't counted, so adding it never fails the release."""
     builds = []
     for number, raw in enumerate(text.splitlines(), 1):
         line = raw.rstrip()
@@ -193,8 +192,6 @@ def too_big(text):
             builds[-1][1][-1][2].append(line)
     problems = []
     for heading, sections in builds:
-        problems += [(number, "%d lines in '%s': at most %d; group related changes into one line" % (len(rows), name, MAX_LINES))
-                     for number, name, rows in sections if len(rows) > MAX_LINES]
         size = sum(len(row) + 1 for _, _, rows in sections for row in rows)
         if size > MAX_CHARACTERS:
             problems.append((heading, "%d characters of lines in this build: at most %d, so Read changes is one message" % (size, MAX_CHARACTERS)))
@@ -297,7 +294,7 @@ def self_test():
     expected = ["backticks", "a file name", "a file path", "a command flag", "a settings key", "an environment variable name",
                 "placeholder", "summary without substance", "empty section", "section 'Internal'", "only headings",
                 "appears twice", "newest first", "a version heading", "goes once, on top", "an empty '## Unreleased'",
-                "words after the bold lead", "4 sentences", "9 lines in 'For users'", "characters of lines in this build"]
+                "words after the bold lead", "4 sentences", "characters of lines in this build"]
     missing = [e for e in expected if not any(e in p for _, p in found)]
     headings = sum("a version heading" in p for _, p in found)
     summaries = sum("summary without substance" in p for _, p in found)

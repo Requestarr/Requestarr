@@ -59,10 +59,10 @@ Requestarr.Core.Discord.Gateway.DiscordBotIdentity.AvatarUrl  # sent in the firs
 Requestarr.Core.Discord.Gateway.DiscordBotIdentity.Name  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Discord.Gateway.DiscordServer.IconUrl  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Discord.Gateway.DiscordServer.Id  # sent in the first-run setup's answer, which the web app shows
-Requestarr.Core.Settings.InstanceChoice.Id  # sent in the delete confirm's answer, which the web app shows
 Requestarr.Core.Settings.InstanceDeletionPreview.Implementation  # sent in the delete confirm's answer, which the web app shows
+Requestarr.Core.Settings.InstanceDeletionPreview.Name  # sent in the delete confirm's answer, which the web app shows
+Requestarr.Core.Settings.InstanceDeletionPreview.OpenRequests  # sent in the delete confirm's answer, which the web app shows
+Requestarr.Core.Settings.InstanceDeletionPreview.TakesAllOther  # sent in the delete confirm's answer, which the web app shows
 Requestarr.Http.Settings.SetupBroadcaster  # created by the event wiring: it handles the bot's status events to tell open setup pages
 Requestarr.Core.Settings.InstanceDeleteResult.OpenRequests  # sent in the delete's answer, which the web app shows
 Requestarr.Core.Backends.BackendSettings.PurposeChoice  # a field of the media managers' provider form, read and set through Servarr's schema
-Requestarr.Core.Imports.HistoryPostingStatus.Posted  # sent in the import history answer, which the Import page shows
-Requestarr.Core.Imports.HistoryPostingStatus.Total  # sent in the import history answer, which the Import page shows

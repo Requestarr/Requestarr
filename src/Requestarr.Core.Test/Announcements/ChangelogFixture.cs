@@ -100,8 +100,8 @@ namespace Requestarr.Core.Test.Announcements
             }
         }
 
-        // The changelog's limits (50 words a line, 8 lines a section) keep every released build's Read changes to one
-        // message, with one card for each section.
+        // The changelog's limits (50 words a line, 3,500 characters a build) keep every released build's Read changes
+        // to one message, with one card for each section.
         [Test]
         public void every_released_version_reads_in_one_message_with_one_card_a_section()
         {

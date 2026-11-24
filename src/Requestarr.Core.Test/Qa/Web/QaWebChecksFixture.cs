@@ -423,6 +423,11 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync("[...document.querySelectorAll('tr')].some(r => r.innerText.includes('Import Requestrr'))");
             var task = await browser.EvalAsync<string>("[...document.querySelectorAll('tr')].find(r => r.innerText.includes('Import Requestrr')).innerText.replace(/\\s+/g, ' ').trim()");
             check.Saw($"System, then Tasks: {task}");
+
+            // Posting its history (both switches start on) is listed there too, while it runs and after.
+            await browser.WaitForAsync("[...document.querySelectorAll('tr')].some(r => r.innerText.includes('Post Imported History'))");
+            var posting = await browser.EvalAsync<string>("[...document.querySelectorAll('tr')].find(r => r.innerText.includes('Post Imported History')).innerText.replace(/\\s+/g, ' ').trim()");
+            check.Saw($"System, then Tasks: {posting}");
             await check.ShotAsync(browser, "import-task");
 
             foreach (var theme in Themes)

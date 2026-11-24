@@ -90,6 +90,24 @@ namespace Requestarr.Core.Test.Admin
         }
 
         [Test]
+        public async Task with_no_sonarr_for_all_other_shows_the_walk_says_so_until_one_is_set()
+        {
+            var repo = Mocker.Resolve<IBackendRepository>();
+            var sonarr = repo.All().Single(b => b.Implementation == BackendImplementations.Sonarr);
+            repo.Insert(new BackendInstance { Name = "Sonarr Anime", Implementation = BackendImplementations.Sonarr, Settings = new BackendSettings { Purpose = InstancePurpose.Anime } });
+            sonarr.Enable = false;
+            repo.Update(sonarr);
+
+            var card = (await Walk()).LastReply;
+            card.Content.Should().Contain(DiscordText.NoAllOtherWaiting(ContentType.Tv)).And.Contain("All other shows");
+            card.Buttons.Select(b => b.Label).Should().Equal(DiscordText.SkipLabel);
+
+            sonarr.Enable = true;
+            repo.Update(sonarr);
+            (await Walk()).LastReply.Content.Should().Be(DiscordText.WalkDone);
+        }
+
+        [Test]
         public async Task acting_moves_straight_to_the_next_and_says_what_happened()
         {
             await PendingMovie(Alice, Dune);

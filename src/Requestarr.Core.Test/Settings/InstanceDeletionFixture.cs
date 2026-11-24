@@ -15,7 +15,7 @@ using Requestarr.Core.Users;
 namespace Requestarr.Core.Test.Settings
 {
     // Deleting a Sonarr keeps its history: its row stays as deleted, its requests still name it, those still waiting
-    // need a new home, another instance can take over, and Requestarr's Connect entry is removed when it can be.
+    // need a new home, nothing takes over its purpose by itself, and Requestarr's Connect entry is removed when it can be.
     [TestFixture]
     public class InstanceDeletionFixture : CoreTest<InstanceDeletion>
     {
@@ -47,36 +47,35 @@ namespace Requestarr.Core.Test.Settings
             _api = new Mock<IBackendApi>();
             var backends = Mocker.GetMock<IBackendService>();
             backends.Setup(b => b.ApiFor(It.IsAny<BackendInstance>())).Returns(_api.Object);
-            backends.Setup(b => b.Default(ContentType.Tv)).Returns(() => _main.IsDeleted ? _anime : _main);
+            backends.Setup(b => b.AllOther(ContentType.Tv)).Returns(() => _main.IsDeleted ? null : _main);
 
             Mocker.GetMock<IRequestRepository>().Setup(r => r.WithStatus(It.IsAny<RequestStatus>())).Returns((RequestStatus status) => _requests.Where(r => r.Status == status).ToList());
         }
 
         [Test]
-        public void the_confirm_knows_the_requests_waiting_and_who_can_take_over()
+        public void the_confirm_knows_the_requests_waiting_and_what_stops()
         {
-            var preview = Subject.Preview(1);
-
-            (preview.Name, preview.OpenRequests, preview.IsMain).Should().Be(("Sonarr", 2, true));
-            preview.TakeOver.Select(t => t.Name).Should().Equal("Sonarr Anime");
+            Subject.Preview(1).Should().Be(new InstanceDeletionPreview("Sonarr", BackendImplementations.Sonarr, 2, true, false), "it takes all other shows");
+            Subject.Preview(2).Should().Be(new InstanceDeletionPreview("Sonarr Anime", BackendImplementations.Sonarr, 0, false, false));
         }
 
         [Test]
-        public async Task deleting_keeps_the_history_flags_the_waiting_requests_and_hands_over_the_main_role()
+        public async Task deleting_keeps_the_history_flags_the_waiting_requests_and_hands_nothing_over()
         {
-            var result = await Subject.DeleteAsync(1, 2, Admin);
+            var result = await Subject.DeleteAsync(1, Admin);
 
             result.Should().Be(new InstanceDeleteResult(true, null, null, 2));
             (_main.IsDeleted, _main.Enable, _main.Config.Purpose).Should().Be((true, false, InstancePurpose.Nothing));
             _main.Name.Should().Be("Sonarr (deleted)", "its requests say where they went, and the name is free again");
-            _anime.Config.Purpose.Should().Be(InstancePurpose.Everything, "it takes over");
+            _anime.Config.Purpose.Should().Be(InstancePurpose.Anime, "regular shows are paused until an admin sets one to take them");
+            Subject.Preview(2).IsLast.Should().BeTrue();
 
             _requests.Where(r => r.Id != 12).Should().OnlyContain(r => r.Status == RequestStatus.Failed && r.BackendId == 1 && r.DecisionReason == InstanceDeletion.NeedsNewHome,
                 "they keep where they went until Retry gives them a new home");
             _requests.Single(r => r.Id == 12).Should().Match<Request>(r => r.Status == RequestStatus.Available && r.BackendId == 1, "finished requests keep where they went");
 
             _api.Verify(a => a.RemoveWebhookAsync(_main.Config, It.IsAny<string>()), Times.Once());
-            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceDeletion.DeleteAction, "instance", "1", "Sonarr: deleted; Sonarr Anime takes over; 2 open requests need a new home"), Times.Once());
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, InstanceDeletion.DeleteAction, "instance", "1", "Sonarr: deleted; 2 open requests need a new home"), Times.Once());
         }
 
         [Test]
@@ -84,7 +83,7 @@ namespace Requestarr.Core.Test.Settings
         {
             _api.Setup(a => a.RemoveWebhookAsync(It.IsAny<BackendSettings>(), It.IsAny<string>())).ThrowsAsync(new BackendException("refused"));
 
-            var result = await Subject.DeleteAsync(2, null, Admin);
+            var result = await Subject.DeleteAsync(2, Admin);
 
             result.Deleted.Should().BeTrue();
             result.WebhookProblem.Should().Contain("remove \"Requestarr\" under Sonarr's Settings, then Connect, yourself");
@@ -94,12 +93,10 @@ namespace Requestarr.Core.Test.Settings
         }
 
         [Test]
-        public async Task nothing_is_deleted_where_a_provisioning_file_lists_the_instances_or_for_a_stranger_taking_over()
+        public async Task nothing_is_deleted_where_a_provisioning_file_lists_the_instances()
         {
-            (await Subject.DeleteAsync(1, 99, Admin)).Problem.Should().Contain("Choose another instance");
-
             Mocker.GetMock<IProvisioningService>().SetupGet(p => p.UsesFile).Returns(true);
-            (await Subject.DeleteAsync(1, null, Admin)).Deleted.Should().BeFalse();
+            (await Subject.DeleteAsync(1, Admin)).Deleted.Should().BeFalse();
 
             _main.IsDeleted.Should().BeFalse();
         }

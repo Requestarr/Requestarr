@@ -5,6 +5,7 @@ using Requestarr.Core.Access;
 using Requestarr.Core.Admin;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Discord;
 using Requestarr.Core.MediaServers;
 using Requestarr.Core.Removals;
 using Requestarr.Core.Requests;
@@ -319,6 +320,7 @@ namespace Requestarr.Core.Portal
                 ? new PortalQueueItem(item.Key, "mediaServerLink", item.Since, $"{link.Provider}: {link.Username}", names.GetValueOrDefault(link.UserId), null, link.UserId)
                 : null,
             'i' => _backends.Find(item.Id) is { } instance ? new PortalQueueItem(item.Key, "instanceDown", item.Since, instance.Name, null, null, null) : null,
+            'n' => new PortalQueueItem(item.Key, "noAllOther", item.Since, DiscordText.AllOtherLabel((ContentType)item.Id), null, null, null),
             'x' => _proposals.Find(item.Id) is { } removal ? RemovalItem(item, removal, names, Instances()) : null,
             'a' => _accessRequests.Find(item.Id) is { } access
                 ? new PortalQueueItem(item.Key, "accessRequest", item.Since, access.Note ?? NoNote, access.DisplayName ?? access.Username, null, null)

@@ -6,6 +6,8 @@ using NLog;
 using NzbDrone.Common.Messaging;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Lifecycle;
+using NzbDrone.Core.Messaging;
+using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
@@ -58,7 +60,8 @@ namespace Requestarr.Core.Imports
     // Everything is silent and pings nobody. One background worker posts slowly, a pause between posts, so live notices
     // never queue behind it; it keeps going while anything waits, so rows queued mid-run are posted too. (Servarr's
     // command queue drops a second push of a command already running, so the import's own command pattern can't be
-    // used here.) Each post is recorded per request, destination and channel before the next: nothing is posted twice.
+    // used here; PostImportedHistoryCommand only shows the worker under System, then Tasks.) Each post is recorded per
+    // request, destination and channel before the next: nothing is posted twice.
     public class HistoryPosting : IHistoryPosting, IHandle<MemberOnboardedEvent>, IHandle<ApplicationStartedEvent>
     {
         public const string PostedAction = "import.history";
@@ -77,6 +80,7 @@ namespace Requestarr.Core.Imports
         private readonly IDiscordGuildConfigRepository _configs;
         private readonly IConfigService _config;
         private readonly IAuditService _audit;
+        private readonly IManageCommandQueue _commands;
         private readonly Logger _logger;
         private readonly object _lock = new();
         private HistoryPostingState _state = HistoryPostingState.Idle;
@@ -98,6 +102,7 @@ namespace Requestarr.Core.Imports
                               IDiscordGuildConfigRepository configs,
                               IConfigService config,
                               IAuditService audit,
+                              IManageCommandQueue commands,
                               Logger logger)
         {
             _posts = posts;
@@ -108,6 +113,7 @@ namespace Requestarr.Core.Imports
             _configs = configs;
             _config = config;
             _audit = audit;
+            _commands = commands;
             _logger = logger;
         }
 
@@ -181,7 +187,9 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // What waited when Requestarr stopped carries on, its feed header not posted again.
+        // What waited when Requestarr stopped carries on, its feed header not posted again. Last, after Servarr's command
+        // queue has requeued what it kept, so System, then Tasks never gets the run twice.
+        [EventHandleOrder(EventHandleOrder.Last)]
         public void Handle(ApplicationStartedEvent message)
         {
             var waiting = _posts.Waiting();
@@ -268,6 +276,9 @@ namespace Requestarr.Core.Imports
         // Wakes the worker, or starts it; a pause holds everything until Resume.
         private void Start()
         {
+            bool follow;
+            bool start;
+
             lock (_lock)
             {
                 if (_state == HistoryPostingState.Paused || !_posts.Waiting().Any())
@@ -275,19 +286,23 @@ namespace Requestarr.Core.Imports
                     return;
                 }
 
+                // A resume shows the run under System, then Tasks again, even while the worker is still winding down.
+                follow = _state != HistoryPostingState.Posting;
                 _state = HistoryPostingState.Posting;
-
-                if (_running)
-                {
-                    _again = true;
-                    return;
-                }
-
+                start = !_running;
+                _again = _running;
                 _running = true;
-                _again = false;
             }
 
-            _ = Background(WorkAsync);
+            if (follow)
+            {
+                _commands.Push(new PostImportedHistoryCommand());
+            }
+
+            if (start)
+            {
+                _ = Background(WorkAsync);
+            }
         }
 
         private async Task WorkAsync()

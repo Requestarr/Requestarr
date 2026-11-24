@@ -35,13 +35,33 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The first anime show goes to the anime Sonarr.
     - The other show and the last anime show go to the first Sonarr.
   - Checked automatically: the live routing by content check.
-- **Handing over everything**
+- **Turning off all other shows**
   - Steps:
-    1. With two Sonarrs, open the one for everything.
-    2. Choose Nothing yet and press Save.
+    1. With two Sonarrs, turn off the one for All other shows.
+    2. In Discord, request a show that isn't anime, then an anime show.
+    3. Run /admin requests in the admin channel.
+    4. Turn that Sonarr on and request the show again.
   - Expect:
-    - It refuses, and says to choose Everything on the Sonarr that should take over.
-  - Checked by the owner, unsure of the desired behavior: the task said to ask which takes over; is pointing you to the other Sonarr what you want?
+    - The show says TV requests are paused; the anime goes to the anime Sonarr.
+    - The queue lists the paused requests until a Sonarr takes all other shows.
+    - Then the show is requested as usual.
+  - Checked automatically: the live routing by content check.
+- **Warning before turning off all other shows**
+  - Steps:
+    1. With two Sonarrs, open the one for All other shows.
+    2. Turn Use this Sonarr off and press Save.
+    3. Press Cancel, then Delete.
+  - Expect:
+    - Save asks first: regular show requests will stop until another Sonarr takes them.
+    - Delete's confirm says the same.
+  - Checked by the owner, couldn't verify: dev's connections are read-only, so the automated checks can't open this window. A screenshot from a throwaway server is in the reply.
+- **Imported history in System, Tasks**
+  - Steps:
+    1. Import from Requestrr with the history switches on.
+    2. Open System, then Tasks, while it posts.
+  - Expect:
+    - Post Imported History under Queue, with how many are posted so far.
+  - Checked automatically: the web app requestrr import check.
 - **Media manager wording**
   - Steps:
     1. In the web app, open Settings, then Connections.

@@ -265,29 +265,11 @@ namespace Requestarr.Core.Requests
                 return LookupOutcome<TitleState>.Fail(error);
             }
 
-            MediaLookupResult item;
+            (instance, var item, var problem) = await LookupAtHomeAsync(instance, type, externalId);
 
-            try
+            if (problem != null)
             {
-                item = await Lookup(instance, type, externalId);
-
-                // A title goes where it was sent before, else by what it is (anime to the Anime Sonarr), looked up
-                // again there as that library has it.
-                if (item != null && Home(type, externalId, item.IsAnime) is { } home && home.Id != instance.Id)
-                {
-                    instance = home;
-                    item = await Lookup(instance, type, externalId);
-                }
-            }
-            catch (BackendException ex)
-            {
-                _logger.Warn(ex, "Lookup on {0} failed", instance.Name);
-                return LookupOutcome<TitleState>.Fail(DiscordText.RequestsPaused(type));
-            }
-
-            if (item == null)
-            {
-                return LookupOutcome<TitleState>.Fail(DiscordText.TitleNotFound);
+                return LookupOutcome<TitleState>.Fail(problem);
             }
 
             await _metadata.EnrichAsync(type, new[] { item });
@@ -314,6 +296,37 @@ namespace Requestarr.Core.Requests
                 Anime = anime is { Enabled: true } ? anime : null,
                 Language = language
             });
+        }
+
+        // The title as the instance its requests go to has it: looked up, then again there when that's another (anime to
+        // the Anime Sonarr). A problem when it isn't found, can't be reached, or its kind is paused (nowhere to go).
+        private async Task<(BackendInstance Instance, MediaLookupResult Item, string Problem)> LookupAtHomeAsync(BackendInstance instance, ContentType type, int externalId)
+        {
+            var at = instance;
+
+            try
+            {
+                var item = await Lookup(at, type, externalId);
+                var home = item == null ? at : Home(type, externalId, item.IsAnime);
+
+                if (home == null)
+                {
+                    return (at, null, DiscordText.RequestsPausedForNow(type));
+                }
+
+                if (home.Id != at.Id)
+                {
+                    at = home;
+                    item = await Lookup(at, type, externalId);
+                }
+
+                return (at, item, item == null ? DiscordText.TitleNotFound : null);
+            }
+            catch (BackendException ex)
+            {
+                _logger.Warn(ex, "Lookup on {0} failed", at.Name);
+                return (at, null, DiscordText.RequestsPaused(type));
+            }
         }
 
         // Where a title's requests go: the instance it was last sent to while that one is still in use (its library has
@@ -578,7 +591,7 @@ namespace Requestarr.Core.Requests
 
             if (instance == null || !instance.Enable)
             {
-                return ServiceResult.Fail(DiscordText.NoBackend(request.ContentType));
+                return ServiceResult.Fail(Unavailable(instance, request.ContentType));
             }
 
             var current = await TryLookup(instance, request);
@@ -862,7 +875,7 @@ namespace Requestarr.Core.Requests
         {
             if (instance == null || !instance.Enable)
             {
-                return ServiceResult.Fail(DiscordText.NoBackend(ContentType.Tv));
+                return ServiceResult.Fail(Unavailable(instance, ContentType.Tv));
             }
 
             try
@@ -925,7 +938,7 @@ namespace Requestarr.Core.Requests
 
             if (instance == null || !instance.Enable)
             {
-                return ServiceResult.Fail(DiscordText.NoBackend(request.ContentType));
+                return ServiceResult.Fail(Unavailable(instance, request.ContentType));
             }
 
             _audit.Record(admin, "request.retry", "request", request.Id.ToString());
@@ -940,6 +953,10 @@ namespace Requestarr.Core.Requests
                 ? ServiceResult.Ok(DiscordText.RequestSent(request.Label, request.Id, instance.Name))
                 : ServiceResult.Fail(DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason));
         }
+
+        // Why a request's instance can't take it: turned off or deleted pauses its requests; none means none was set up.
+        private static string Unavailable(BackendInstance instance, ContentType type) =>
+            instance == null ? DiscordText.NoBackend(type) : DiscordText.RequestsPausedForNow(type);
 
         // A request whose instance was deleted goes where its kind goes on Retry (anime, which has a language, to the
         // Anime Sonarr), as a new title there.

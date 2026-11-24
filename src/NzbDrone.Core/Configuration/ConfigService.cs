@@ -198,6 +198,18 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("BotProfileBannerSet", value ?? string.Empty); }
         }
 
+        public string TvAllOtherMissingSince
+        {
+            get { return GetValue("TvAllOtherMissingSince"); }
+            set { SetValue("TvAllOtherMissingSince", value ?? string.Empty); }
+        }
+
+        public string MovieAllOtherMissingSince
+        {
+            get { return GetValue("MovieAllOtherMissingSince"); }
+            set { SetValue("MovieAllOtherMissingSince", value ?? string.Empty); }
+        }
+
         public bool SetupInstanceSkipped
         {
             get { return GetValueBoolean("SetupInstanceSkipped", false); }

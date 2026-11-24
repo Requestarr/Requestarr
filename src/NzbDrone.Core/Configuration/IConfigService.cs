@@ -39,6 +39,11 @@ namespace NzbDrone.Core.Configuration
         string BotProfileAvatarSet { get; set; }
         string BotProfileBannerSet { get; set; }
 
+        // Since when no TV or movie instance takes all other requests (round-trip time), empty while one does; read
+        // through Requestarr.Core.Admin.NoAllOtherSource
+        string TvAllOtherMissingSince { get; set; }
+        string MovieAllOtherMissingSince { get; set; }
+
         // Whether the first-run setup's Sonarr or Radarr step was skipped; read through Requestarr.Core.Settings.SetupService
         bool SetupInstanceSkipped { get; set; }
 
