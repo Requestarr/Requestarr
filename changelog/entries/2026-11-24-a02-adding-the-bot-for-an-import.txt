@@ -1,0 +1,5 @@
+audience: admins
+kind: changed
+replaces: 2026-11-22-a37-importing-from-another-server
+line: **Importing from another server:** the + card on the Import page adds the bot to another server only to read there. It creates and posts nothing in that server, and the server's card takes it out once the import is done.
+line_if_seen: **Adding the bot for an import:** use the + card beside the servers, since the Invite bot button is gone. A server's card takes the bot out, or adds it back.

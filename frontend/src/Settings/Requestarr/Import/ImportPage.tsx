@@ -171,25 +171,23 @@ function ImportContent(props: ImportContentProps) {
   const { columns, onTableOptionChange } = useTableOptions();
   const isImporting = job?.state === 'importing';
   const [isAdding, setIsAdding] = useState(false);
-  const onInvitePress = useCallback(() => setIsAdding(true), []);
+  const onAdd = useCallback(() => setIsAdding(true), []);
   const onAddClose = useCallback(() => setIsAdding(false), []);
 
   return (
     <PageContent title={translate('ImportFromRequestrr')}>
       <ImportToolbar
         columns={columns}
-        canInvite={!!access?.readInviteUrl}
         canImport={!isBusy && !isChanged && job?.state === 'ready'}
         isImporting={isImporting}
         onImportPress={confirm}
-        onInvitePress={onInvitePress}
         onTableOptionChange={onTableOptionChange}
       />
 
       <PageContentBody>
         <ImportAccessNotes access={access} />
 
-        <ImportServers setup={setup} shown={server} onAdd={onInvitePress} />
+        <ImportServers setup={setup} shown={server} onAdd={onAdd} />
 
         <FieldSet legend={<ChannelsLegend />}>
           <ImportChannels

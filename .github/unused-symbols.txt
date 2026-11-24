@@ -32,7 +32,6 @@ Requestarr.Core.Imports.ChannelHistory  # the import's IChannelHistory, made by 
 Requestarr.Core.Imports.HistoryMessage.AuthorId  # part of the Discord message this record mirrors
 Requestarr.Core.Imports.ImportAccess.MessageContent  # sent in the import API's access check, which the Import page shows
 Requestarr.Core.Imports.ImportAccess.PortalUrl  # sent in the import API's access check, which the Import page links to
-Requestarr.Core.Imports.ImportAccess.ReadInviteUrl  # sent in the import API's access check, which the Import page links to
 Requestarr.Core.Imports.ImportPlan.MessagesRead  # sent in the import API's preview, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.ChannelId  # sent in the import API's progress, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.Name  # sent in the import API's progress, which the Import page shows

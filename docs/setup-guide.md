@@ -770,7 +770,7 @@ and the first-run setup links to it once it's done.
 1. **Let the bot read the channels.** Requestarr's bot needs to be in the server where those channels are, and for
    each channel: **View Channel** and **Read Message History**.
    - **Channels in your Requestarr server:** the bot is already there.
-   - **Channels in a different server:** on the Import page, press **Invite bot** in the toolbar. It
+   - **Channels in a different server:** on the Import page, press the **+** card. It
      asks only to view channels and read their history. In any server other than the one you set Requestarr up in,
      the bot only reads: it creates no channels, roles or commands, posts nothing, and ignores what members do there.
    - **The Message Content intent:** Requestrr wrote what happened in each message's text, so the bot needs it to read

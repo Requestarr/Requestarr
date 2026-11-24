@@ -78,7 +78,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
 - **Server cards on Import**
   - Steps:
     1. Open Settings, then Import from Requestrr.
-    2. Press Invite bot and add the bot to another server.
+    2. Press the + card and add the bot to another server.
     3. Kick the bot from that server in Discord.
     4. Press its card, then Reconnect, and add it back.
   - Expect:
