@@ -85,7 +85,7 @@ function ServerContent(props: ServerContentProps) {
       <ModalBody>
         <p>
           {translate(
-            server.isOurs ? 'DiscordImportOnlyOff' : 'DiscordImportOnlyOn'
+            server.isOurs ? 'DiscordServerRunsIn' : 'DiscordServerReads'
           )}
         </p>
         {!server.joined && (
