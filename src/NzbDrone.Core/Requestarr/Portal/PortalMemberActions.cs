@@ -86,7 +86,7 @@ namespace Requestarr.Core.Portal
             var people = _members.All().ToDictionary(u => u.Id);
             var discordOf = _identities.All().Where(i => i.Provider == UserIdentity.DiscordProvider && people.ContainsKey(i.UserId)).ToDictionary(i => i.UserId, i => i.ExternalId);
             var onboarded = people.Values.Where(u => u.Status != UserStatus.Removed && u.PrivateChannelId != null).Select(u => discordOf.GetValueOrDefault(u.Id)).ToHashSet();
-            var imported = _requests.All().Where(r => people.GetValueOrDefault(r.OwnerUserId)?.IsImported == true && discordOf.ContainsKey(r.OwnerUserId))
+            var imported = _requests.All().Where(r => (r.Imported || people.GetValueOrDefault(r.OwnerUserId)?.IsImported == true) && discordOf.ContainsKey(r.OwnerUserId))
                 .GroupBy(r => discordOf[r.OwnerUserId]).ToDictionary(g => g.Key, g => g.Count());
             var roles = await _gateway.GetRoleNamesAsync();
             var everyone = await _gateway.GetMembersAsync();

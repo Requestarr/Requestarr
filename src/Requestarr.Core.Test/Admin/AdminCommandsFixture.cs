@@ -23,7 +23,7 @@ namespace Requestarr.Core.Test.Admin
         };
 
         [Test]
-        public void exactly_request_help_and_admin_are_registered()
+        public void exactly_request_history_help_and_admin_are_registered()
         {
             var commands = DiscordCommandDefinitions.Build().Cast<SlashCommandProperties>().ToDictionary(c => c.Name.Value);
 

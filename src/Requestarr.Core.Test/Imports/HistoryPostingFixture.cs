@@ -6,6 +6,7 @@ using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Discord;
@@ -74,7 +75,7 @@ namespace Requestarr.Core.Test.Imports
             Imported(_bob, "Bob's", 10);
             Mocker.Resolve<IRequestRepository>().Insert(new Request { OwnerUserId = _alice.Id, Title = "Made here", Requested = DateTime.UtcNow });
 
-            Subject.PostServer(Admin).Message.Should().Be(DiscordText.HistoryQueued(5, false), "three in the feed, and Alice's two in her channel (Bob isn't onboarded)");
+            Subject.PostServer(Admin).Message.Should().Be(DiscordText.HistoryQueued(3, false), "three requests: all in the feed, and Alice's two in her channel too (Bob isn't onboarded)");
             Subject.PostServer(Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryAlreadyPosted), "nothing is ever queued twice");
 
             _sent.Should().OnlyContain(s => s.Message.Quiet);
@@ -159,7 +160,7 @@ namespace Requestarr.Core.Test.Imports
             Subject.PostMember(_alice.Id, Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryAlreadyPosted));
 
             _sent.Should().ContainSingle().Which.Channel.Should().Be(AliceChannel);
-            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, HistoryPosting.PostedAction, "user", _alice.Id.ToString(), "1 queued"), Times.Once());
+            Mocker.GetMock<IAuditService>().Verify(a => a.Record(Admin, HistoryPosting.PostedAction, "user", _alice.Id.ToString(), DiscordText.HistoryAudit(1)), Times.Once());
         }
 
         [Test]
@@ -168,6 +169,8 @@ namespace Requestarr.Core.Test.Imports
             Imported(_bob, "Bob's", 10);
 
             Subject.PostMember(_bob.Id, Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryNoChannel));
+            var suspended = Mocker.Resolve<IRequestarrUserRepository>().Insert(new RequestarrUser { DisplayName = "Dan", Status = UserStatus.Suspended, PrivateChannelId = "800", Added = DateTime.UtcNow });
+            Subject.PostMember(suspended.Id, Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistorySuspended));
             Subject.PostMember(_alice.Id, Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryNone));
             _sent.Should().BeEmpty();
         }
@@ -189,7 +192,7 @@ namespace Requestarr.Core.Test.Imports
         {
             Mocker.GetMock<IConfigService>().SetupGet(c => c.ImportPostFeed).Returns(false);
             Imported(_bob, "Bob's", 10);
-            Subject.PostServer(Admin).Success.Should().BeFalse("Bob has no channel yet");
+            Subject.PostServer(Admin).Should().BeEquivalentTo(ServiceResult.Fail(DiscordText.HistoryNowhere), "Bob has no channel yet, and the feed is off");
 
             _bob.Status = UserStatus.Active;
             _bob.PrivateChannelId = "700";
@@ -233,7 +236,62 @@ namespace Requestarr.Core.Test.Imports
 
             Subject.Status().State.Should().Be(HistoryPostingState.Idle);
             Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().ContainSingle();
+
+            Subject.PostServer(Admin).Should().BeEquivalentTo(ServiceResult.Ok(DiscordText.HistoryUnderWay), "asking again carries on with what waited");
+            ExceptionVerification.ExpectedWarns(2);
+        }
+
+        [Test]
+        public void one_members_broken_channel_holds_nobody_else_up()
+        {
+            var carol = Mocker.Resolve<IRequestarrUserRepository>().Insert(new RequestarrUser { DisplayName = "Carol", Status = UserStatus.Active, PrivateChannelId = "700", Added = DateTime.UtcNow });
+            Imported(_alice, "Heat", 3);
+            Imported(carol, "Ronin", 2);
+            Mocker.GetMock<IDiscordGuildGateway>().Setup(g => g.SendMessageAsync(AliceChannel, It.IsAny<InteractionReply>())).ThrowsAsync(new InvalidOperationException("Missing access"));
+
+            Subject.PostServer(Admin);
+
+            _sent.Select(s => s.Channel).Should().Contain(new[] { 700UL, Feed });
+            Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().ContainSingle().Which.ChannelId.Should().Be(AliceChannel.ToString());
+            Subject.Status().State.Should().Be(HistoryPostingState.Idle);
             ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void a_paused_posting_says_so_to_whoever_asks()
+        {
+            Imported(_alice, "Heat", 3);
+            Subject.Background = _ => Task.CompletedTask;
+            Subject.PostMember(_alice.Id, Admin);
+            Subject.Pause();
+
+            Subject.PostMember(_alice.Id, Admin).Should().BeEquivalentTo(ServiceResult.Ok(DiscordText.HistoryPaused));
+        }
+
+        [Test]
+        public void a_restart_part_way_carries_on_without_a_second_feed_header()
+        {
+            Imported(_bob, "One", 3);
+            Imported(_bob, "Two", 2);
+            var isDown = true;
+            Mocker.GetMock<IRequestFeed>().Setup(f => f.PostImportedAsync(It.Is<Request>(r => r.Title == "Two"))).ReturnsAsync((Request r) =>
+            {
+                if (isDown)
+                {
+                    throw new InvalidOperationException("Requestarr stopped");
+                }
+
+                _sent.Add((Feed, new InteractionReply { Content = $"card {r.Title}", Quiet = true }));
+                return (ulong)_sent.Count;
+            });
+            Subject.PostServer(Admin);
+            _sent.Should().HaveCount(2, "the header and one card went out before it stopped");
+            ExceptionVerification.ExpectedWarns(1);
+
+            isDown = false;
+            Subject.Handle(new ApplicationStartedEvent());
+
+            _sent.Select(s => s.Message.Content).Should().Equal(DiscordText.HistoryFeedHeader(2, 1), "card One", "card Two", DiscordText.HistoryFeedDone(2));
         }
 
         [Test]

@@ -58,6 +58,10 @@ function ServerCard(props: {
   );
 }
 
+function renderServerHistory(hasChanges: boolean) {
+  return <ServerHistory isDisabled={hasChanges} />;
+}
+
 interface DiscordSectionProps {
   setup: SetupStatus;
   settings: AppSettings;
@@ -127,7 +131,7 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
           name: ours?.name ?? translate('ConnectionDiscordBot'),
         })}
         sections={DISCORD_SECTIONS}
-        after={ours?.joined && <ServerHistory />}
+        renderAfter={ours?.joined ? renderServerHistory : undefined}
         onSaved={onSavedClose}
         onClose={onEditClose}
       >

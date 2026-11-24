@@ -27,23 +27,27 @@ namespace Requestarr.Core.Discord.Handlers
             (InteractionKind.SlashCommand, "admin history")
         };
 
-        public Task HandleAsync(DiscordInteraction interaction, IInteractionResponder responder)
+        public async Task HandleAsync(DiscordInteraction interaction, IInteractionResponder responder)
         {
             var caller = _callers.Resolve(interaction);
+            var isOwn = interaction.Route == "history";
 
-            return responder.Ephemeral(interaction.Route == "history" ? Own(interaction, caller) : ForAdmin(interaction, caller));
+            if ((isOwn ? caller.UserDenial : caller.AdminDenial) is { } denial)
+            {
+                await responder.Ephemeral(denial);
+                return;
+            }
+
+            // A server with years of requests takes longer than Discord waits for an answer.
+            await responder.DeferAsync(ephemeral: true);
+            await responder.Ephemeral(isOwn ? Own(interaction, caller) : ForAdmin(interaction, caller));
         }
 
         private string Own(DiscordInteraction interaction, CallerContext caller) =>
-            caller.UserDenial ?? _posting.PostMember(caller.User.Id, HandlerSupport.ActorFor(interaction, caller)).Message;
+            _posting.PostMember(caller.User.Id, HandlerSupport.ActorFor(interaction, caller)).Message;
 
         private string ForAdmin(DiscordInteraction interaction, CallerContext caller)
         {
-            if (caller.AdminDenial != null)
-            {
-                return caller.AdminDenial;
-            }
-
             var actor = HandlerSupport.ActorFor(interaction, caller);
 
             if (interaction.GetSnowflake("member") is not { } member)

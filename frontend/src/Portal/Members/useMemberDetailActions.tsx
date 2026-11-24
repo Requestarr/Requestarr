@@ -1,4 +1,5 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useHistory } from 'react-router-dom';
 import Button from 'Components/Link/Button';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
@@ -18,11 +19,12 @@ import TextConfirmModal from '../Components/TextConfirmModal';
 import { isImported } from '../portalText';
 import { ContentType, PortalMemberDetail } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
+import showOutcome from '../showOutcome';
 import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';
 import AccessRow from './AccessRow';
 
-type Dialog = 'remove' | 'plex' | 'access';
+type Dialog = 'remove' | 'plex' | 'access' | 'cancelHistory';
 
 function plexPrompt() {
   return {
@@ -74,8 +76,8 @@ function EditAccessModal({
   );
 }
 
-// Posting an active member's imported requests in their channel, and pausing, resuming or cancelling it while history is
-// being posted.
+// Posting an active member's imported requests in their channel; while anyone's history is being posted, also pausing,
+// resuming or cancelling that.
 function historyActions(detail: PortalMemberDetail, posting?: HistoryStatus) {
   const { status, importedRequests } = detail.member;
 
@@ -85,9 +87,9 @@ function historyActions(detail: PortalMemberDetail, posting?: HistoryStatus) {
 
   switch (posting?.state) {
     case 'posting':
-      return ['pause-history', 'cancel-history'];
+      return ['post-history', 'pause-history', 'cancel-history'];
     case 'paused':
-      return ['resume-history', 'cancel-history'];
+      return ['post-history', 'resume-history', 'cancel-history'];
     default:
       return ['post-history'];
   }
@@ -122,9 +124,9 @@ const ICONS: Record<string, typeof icons.ADD> = {
   unsuspend: icons.RESTORE,
   changeAccess: icons.EDIT,
   'link-plex': icons.EXTERNAL_LINK,
-  'post-history': icons.HISTORY,
+  'post-history': icons.ANNOUNCED,
   'pause-history': icons.PAUSED,
-  'resume-history': icons.HISTORY,
+  'resume-history': icons.ARROW_RIGHT,
   'cancel-history': icons.CLOSE,
   'remove-member': icons.DELETE,
 };
@@ -133,14 +135,82 @@ const ICONS: Record<string, typeof icons.ADD> = {
 const POSTING_ACTIONS: Record<string, string> = {
   'pause-history': 'pause',
   'resume-history': 'resume',
-  'cancel-history': 'cancel',
 };
 
 const DIALOGS: Record<string, Dialog> = {
   changeAccess: 'access',
   'link-plex': 'plex',
   'remove-member': 'remove',
+  'cancel-history': 'cancelHistory',
 };
+
+// Imported history being posted, with why it couldn't be paused, resumed or cancelled in the sidebar's messages.
+function useReportedPosting() {
+  const dispatch = useDispatch();
+  const posting = useHistoryPosting();
+  const { problem } = posting;
+
+  useEffect(() => {
+    if (problem) {
+      showOutcome(dispatch, 'portalAction', {
+        isDone: false,
+        message: problem,
+      });
+    }
+  }, [dispatch, problem]);
+
+  return posting;
+}
+
+interface MemberDialogsProps {
+  detail: PortalMemberDetail;
+  action: PortalAction;
+  dialog?: Dialog;
+  onRemove: () => void;
+  onCancelHistory: () => void;
+  onPlex: (username: string) => void;
+  onClose: () => void;
+}
+
+// The windows a member's actions open: what's asked first, and the changes made in one.
+function MemberDialogs(props: MemberDialogsProps) {
+  const { detail, action, dialog, onClose } = props;
+  const { member } = detail;
+
+  return (
+    <>
+      <ConfirmModal
+        isOpen={dialog === 'remove'}
+        kind={kinds.DANGER}
+        title={translate('PortalActionRemoveMember')}
+        message={translate('PortalRemoveMemberMessage', { name: member.name })}
+        confirmLabel={translate('PortalActionRemoveMember')}
+        onConfirm={props.onRemove}
+        onCancel={onClose}
+      />
+      <ConfirmModal
+        isOpen={dialog === 'cancelHistory'}
+        kind={kinds.DANGER}
+        title={translate('PortalActionCancelHistory')}
+        message={translate('PortalCancelHistoryMessage')}
+        confirmLabel={translate('PortalActionCancelHistory')}
+        onConfirm={props.onCancelHistory}
+        onCancel={onClose}
+      />
+      <TextConfirmModal
+        prompt={dialog === 'plex' ? plexPrompt() : undefined}
+        onConfirm={props.onPlex}
+        onClose={onClose}
+      />
+      <EditAccessModal
+        detail={detail}
+        action={action}
+        isOpen={dialog === 'access'}
+        onModalClose={onClose}
+      />
+    </>
+  );
+}
 
 // A member's page actions as toolbar buttons, as Sonarr main's SeriesDetails has its own: suspend and unsuspend at
 // once; change access, link Plex and remove in their windows; onboarding on Onboard's page with them picked. Returns the
@@ -151,7 +221,8 @@ function useMemberDetailActions(
 ) {
   const history = useHistory();
   const action = usePortalAction(onDone);
-  const posting = useHistoryPosting();
+  const posting = useReportedPosting();
+  const { act: actOnPosting } = posting;
   const [dialog, setDialog] = useState<Dialog>();
   const { member } = detail;
   const path = `members/${member.id}`;
@@ -166,13 +237,17 @@ function useMemberDetailActions(
       } else if (DIALOGS[name]) {
         setDialog(DIALOGS[name]);
       } else if (POSTING_ACTIONS[name]) {
-        posting.act(POSTING_ACTIONS[name]);
+        actOnPosting(POSTING_ACTIONS[name]);
       } else {
         action.act(`${path}/${name}`);
       }
     },
-    [action, history, member.discordId, path, posting]
+    [action, history, member.discordId, path, actOnPosting]
   );
+  const onCancelHistory = useCallback(() => {
+    setDialog(undefined);
+    actOnPosting('cancel');
+  }, [actOnPosting]);
   const onRemove = useCallback(() => {
     setDialog(undefined);
     action.act(`${path}/remove`);
@@ -201,28 +276,15 @@ function useMemberDetailActions(
   ));
 
   const dialogs = (
-    <>
-      <ConfirmModal
-        isOpen={dialog === 'remove'}
-        kind={kinds.DANGER}
-        title={translate('PortalActionRemoveMember')}
-        message={translate('PortalRemoveMemberMessage', { name: member.name })}
-        confirmLabel={translate('PortalActionRemoveMember')}
-        onConfirm={onRemove}
-        onCancel={onClose}
-      />
-      <TextConfirmModal
-        prompt={dialog === 'plex' ? plexPrompt() : undefined}
-        onConfirm={onPlex}
-        onClose={onClose}
-      />
-      <EditAccessModal
-        detail={detail}
-        action={action}
-        isOpen={dialog === 'access'}
-        onModalClose={onClose}
-      />
-    </>
+    <MemberDialogs
+      detail={detail}
+      action={action}
+      dialog={dialog}
+      onRemove={onRemove}
+      onCancelHistory={onCancelHistory}
+      onPlex={onPlex}
+      onClose={onClose}
+    />
   );
 
   return { buttons, dialogs };

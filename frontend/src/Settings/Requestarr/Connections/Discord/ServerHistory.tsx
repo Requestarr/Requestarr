@@ -7,9 +7,9 @@ import translate from 'Utilities/String/translate';
 import useHistoryPosting from '../../useHistoryPosting';
 import styles from './ServerHistory.css';
 
-// The whole server's imported history in Discord, like Sonarr's queue shows a download: Post History, then how far it
-// got ("312 of 467 posted") with Pause, Resume and Cancel.
-function ServerHistory() {
+// The whole server's imported history in Discord, like Sonarr's queue shows a download: Post History (once the switch above
+// it is saved), then how far it got ("312 of 467 posted") with Pause, Resume and Cancel.
+function ServerHistory({ isDisabled }: { isDisabled: boolean }) {
   const { status, problem, act } = useHistoryPosting();
   const onPost = useCallback(() => act('post'), [act]);
   const onPause = useCallback(() => act('pause'), [act]);
@@ -35,7 +35,9 @@ function ServerHistory() {
 
       <div className={styles.buttons}>
         {state === 'idle' && (
-          <Button onPress={onPost}>{translate('HistoryPostServer')}</Button>
+          <Button isDisabled={isDisabled} onPress={onPost}>
+            {translate('HistoryPostServer')}
+          </Button>
         )}
         {state === 'posting' && (
           <Button onPress={onPause}>{translate('HistoryPause')}</Button>

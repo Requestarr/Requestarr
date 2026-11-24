@@ -18,7 +18,7 @@ namespace Requestarr.Core.Discord
         public const string NotAUser = "You haven't been added to Requestarr yet. Ask the admin to add you.";
         public const string Suspended = "Your Requestarr access is suspended. Ask the admin if you think this is a mistake.";
         public const string OwnChannelOnly = "Please use this command in your own request channel.";
-        public const string AdminUseUserCommand = "In the admin channel, use /user mediaserver to link someone's account.";
+        public const string AdminUseUserCommand = "That's for a member's own channel. In the admin channel, use the /admin commands.";
         public const string NotConnected = "Requestarr isn't connected to Discord right now. Try again in a minute.";
 
         // /user add
@@ -556,10 +556,16 @@ namespace Requestarr.Core.Discord
 
         public const string HistoryNone = "There are no imported requests to post.";
         public const string HistoryAlreadyPosted = "The imported requests are already posted: that happens once.";
-        public const string HistoryNoChannel = "Only an active member has a channel to post imported requests in. Onboard them first.";
+        public const string HistoryNoChannel = "They have no channel to post imported requests in yet. Onboard them first.";
+        public const string HistorySuspended = "They're suspended. Unsuspend them first, then post their imported requests.";
+        public const string HistoryNowhere = "There's nowhere to post them yet: nobody with imported requests has a channel, and the admin feed is off for them.";
+        public const string HistoryUnderWay = "The imported requests are still being posted.";
+        public const string HistoryPaused = "The imported requests are waiting: posting is paused until an admin resumes it.";
 
-        public static string HistoryQueued(int posts, bool paused) =>
-            $"Posting {posts} imported request{(posts == 1 ? string.Empty : "s")}, oldest first, silently.{(paused ? " Posting is paused until an admin resumes it." : string.Empty)}";
+        public static string HistoryAudit(int requests) => $"{requests} imported request{(requests == 1 ? string.Empty : "s")} to post";
+
+        public static string HistoryQueued(int requests, bool paused) =>
+            $"Posting {requests} imported request{(requests == 1 ? string.Empty : "s")}, oldest first, silently.{(paused ? " Posting is paused until an admin resumes it." : string.Empty)}";
 
         public static string HistoryDate(DateTime utc) => $"<t:{new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds()}:D>";
 

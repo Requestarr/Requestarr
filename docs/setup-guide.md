@@ -816,7 +816,7 @@ and the first-run setup links to it once it's done.
    notifications, oldest first, and only once:
    - **In a member's own channel,** a few to a message, with the day each was asked for and how it stands now
      (available, not in library, removed). When you onboard them (**Imported History** in the Onboard window, on to
-     start; onboarding from Discord always posts it), when they type `/history` in their channel, or when you press
+     start; onboarding from Discord and approving an access request always post it), when they type `/history` in their channel, or when you press
      **Post History** on their page in the web app (or with members picked on the Members page) or run
      `/admin history` with them. Someone who isn't onboarded has no channel yet.
    - **In the admin feed,** after an import, when **Post in the admin feed** is on: open Requestarr's server under

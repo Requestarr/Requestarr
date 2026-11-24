@@ -17,8 +17,8 @@ interface ContentProps {
   sections: SettingsSection[];
   children?: ReactNode;
 
-  // Shown under the last section, which it belongs to.
-  after?: ReactNode;
+  // Shown under the last section, which it belongs to; told whether a change isn't saved yet.
+  renderAfter?: (hasChanges: boolean) => ReactNode;
   onSaved: () => void;
   onClose: () => void;
 }
@@ -27,7 +27,7 @@ function SettingsConnectionContent({
   title,
   sections,
   children,
-  after,
+  renderAfter,
   onSaved,
   onClose,
 }: ContentProps) {
@@ -60,7 +60,7 @@ function SettingsConnectionContent({
           />
         )}
 
-        {after}
+        {renderAfter?.(form.hasChanges)}
       </ModalBody>
 
       <ConnectionModalFooter

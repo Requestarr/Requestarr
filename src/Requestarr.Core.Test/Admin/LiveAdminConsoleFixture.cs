@@ -151,8 +151,8 @@ namespace Requestarr.Core.Test.Admin
                     Log($"[commands] /{command.Name} default permission={command.DefaultMemberPermissions.RawValue} subcommands=[{string.Join(" ", subs)}]");
                 }
 
-                registered.Select(c => c.Name).Should().BeEquivalentTo("admin", "help", "request");
-                registered.Single(c => c.Name == "admin").Options.Select(o => o.Name).Should().Equal("user", "requests", "help");
+                registered.Select(c => c.Name).Should().BeEquivalentTo("admin", "help", "history", "request");
+                registered.Single(c => c.Name == "admin").Options.Select(o => o.Name).Should().Equal("user", "requests", "history", "help");
 
                 // 2. The admin panel's buttons, read back from the panel (the newest message, not pinned).
                 var adminRest = (IMessageChannel)await host.Client.Rest.GetChannelAsync(adminChannel);

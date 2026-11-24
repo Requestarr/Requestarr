@@ -158,7 +158,7 @@ namespace Requestarr.Core.Test.Admin
 
                 var registered = await guild.GetApplicationCommandsAsync();
                 Log($"[commands] {string.Join(" ", registered.OrderBy(c => c.Name).Select(c => $"/{c.Name}({string.Join(", ", c.Options.Select(o => o.Name))})"))}");
-                registered.Single(c => c.Name == "admin").Options.Select(o => o.Name).Should().Equal("user", "requests", "help");
+                registered.Single(c => c.Name == "admin").Options.Select(o => o.Name).Should().Equal("user", "requests", "history", "help");
 
                 // Two test members, onboarded through their member cards.
                 // Two named test members when there are two; otherwise both requests come from the one.

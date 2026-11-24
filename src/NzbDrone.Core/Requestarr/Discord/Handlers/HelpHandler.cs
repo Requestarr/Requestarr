@@ -5,6 +5,7 @@ using Requestarr.Core.Discord.Help;
 using Requestarr.Core.Discord.Interactions;
 using Requestarr.Core.MediaServers;
 using Requestarr.Core.Metadata;
+using Requestarr.Core.Requests;
 using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Discord.Handlers
@@ -19,9 +20,11 @@ namespace Requestarr.Core.Discord.Handlers
         private readonly IMetadataService _metadata;
         private readonly Backends.IBackendService _backends;
         private readonly IMediaServerConnections _mediaServers;
+        private readonly IRequestRepository _requests;
 
-        public HelpHandler(ICallerResolver callers, IUserMediaAccessRepository access, IMediaServerAccountRepository accounts, IMetadataService metadata, Backends.IBackendService backends, IMediaServerConnections mediaServers)
+        public HelpHandler(ICallerResolver callers, IUserMediaAccessRepository access, IMediaServerAccountRepository accounts, IMetadataService metadata, Backends.IBackendService backends, IMediaServerConnections mediaServers, IRequestRepository requests)
         {
+            _requests = requests;
             _mediaServers = mediaServers;
             _callers = callers;
             _access = access;
@@ -104,7 +107,7 @@ namespace Requestarr.Core.Discord.Handlers
                 var access = _access.GetForUser(user.Id);
                 var types = ContentTypes.Offered.Where(t => _backends.EverConnected(t) && (access.FirstOrDefault(a => a.ContentType == t)?.State ?? _backends.DefaultAccess(t)) != AccessState.Off).ToList();
 
-                return new HelpViewer(types, _accounts.GetForUser(user.Id).Any(), PlexServer: _mediaServers.IsConnected(MediaServers.MediaServerProvider.Plex));
+                return new HelpViewer(types, _accounts.GetForUser(user.Id).Any(), PlexServer: _mediaServers.IsConnected(MediaServers.MediaServerProvider.Plex), Imported: _requests.All().Any(r => r.Imported && r.OwnerUserId == user.Id));
             }
 
             return caller.IsAdmin ? HelpViewer.Everything : null;

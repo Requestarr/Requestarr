@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
@@ -30,7 +29,7 @@ namespace Requestarr.Core.Test.Imports
         {
             var run = await Harness.SendAsync(UserCommand("history", Alice));
 
-            run.Responder.Responses.Single().Ephemeral.Should().BeTrue();
+            run.Responder.Responses.Should().OnlyContain(r => r.Ephemeral);
             run.LastReply.Content.Should().Be("member posted");
             Mocker.GetMock<IHistoryPosting>().Verify(p => p.PostMember(UserOf(Alice).Id, It.IsAny<Actor>()), Times.Once());
         }
@@ -39,9 +38,11 @@ namespace Requestarr.Core.Test.Imports
         public async Task elsewhere_or_as_someone_not_onboarded_it_posts_nothing()
         {
             var elsewhere = await Harness.SendAsync(FakeInteraction.SlashCommand("history").By(Alice).InGuild(FakeDiscordGuild.Guild).InChannel(1));
+            var asAdmin = await Harness.SendAsync(AsAdmin(FakeInteraction.SlashCommand("history")));
             var stranger = await Harness.SendAsync(FakeInteraction.SlashCommand("history").By(Moderator).InGuild(FakeDiscordGuild.Guild).InChannel(1));
 
             elsewhere.LastReply.Content.Should().Be(DiscordText.OwnChannelOnly);
+            asAdmin.LastReply.Content.Should().Be(DiscordText.AdminUseUserCommand);
             stranger.LastReply.Content.Should().Be(DiscordText.NotAUser);
             Mocker.GetMock<IHistoryPosting>().Verify(p => p.PostMember(It.IsAny<int>(), It.IsAny<Actor>()), Times.Never());
         }
@@ -61,7 +62,7 @@ namespace Requestarr.Core.Test.Imports
             var run = await Harness.SendAsync(AsAdmin(FakeInteraction.SlashCommand("admin history")));
 
             run.LastReply.Content.Should().Be("server posted");
-            run.Responder.Responses.Single().Ephemeral.Should().BeTrue();
+            run.Responder.Responses.Should().OnlyContain(r => r.Ephemeral);
         }
 
         [Test]

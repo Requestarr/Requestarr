@@ -755,6 +755,7 @@
   "PortalActionPauseHistory": "Pause History",
   "PortalActionResumeHistory": "Resume History",
   "PortalActionCancelHistory": "Cancel History",
+  "PortalCancelHistoryMessage": "Stop posting imported requests? Everyone's that haven't been posted yet are dropped, not only this member's. Post History starts again with what's left.",
   "PortalActionAvailable": "Already available",
   "PortalActionCancel": "Cancel request",
   "PortalActionChangeAccess": "Change access",

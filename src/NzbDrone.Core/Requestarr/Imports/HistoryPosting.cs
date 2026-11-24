@@ -95,6 +95,7 @@ namespace Requestarr.Core.Imports
         private readonly IManageCommandQueue _commands;
         private readonly Logger _logger;
         private readonly object _lock = new();
+        private readonly object _queueing = new();
         private HistoryPostingState _state = HistoryPostingState.Idle;
         private bool _running;
         private bool _again;
@@ -141,23 +142,38 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        public int QueueImport(int afterRequestId) => Queue(FeedRows(_requests.All().Where(r => r.Imported && r.Id > afterRequestId)));
+        public int QueueImport(int afterRequestId) =>
+            Queue(now => FeedRows(_requests.All().Where(r => r.Imported && r.Id > afterRequestId), now)).Count;
 
         public ServiceResult PostMember(int userId, Actor actor)
         {
-            if (_users.Find(userId) is not { Status: UserStatus.Active, PrivateChannelId: not null })
+            var user = _users.Find(userId);
+            var imported = ImportedFor(userId);
+
+            if (user?.Status == UserStatus.Suspended)
+            {
+                return ServiceResult.Fail(DiscordText.HistorySuspended);
+            }
+
+            if (user is not { Status: UserStatus.Active, PrivateChannelId: not null })
             {
                 return ServiceResult.Fail(DiscordText.HistoryNoChannel);
             }
-
-            var imported = ImportedFor(userId);
 
             if (imported.Count == 0)
             {
                 return ServiceResult.Fail(DiscordText.HistoryNone);
             }
 
-            return Posted(Queue(ChannelRows(imported)), "user", userId.ToString(), actor);
+            var queued = Queue(now => ChannelRows(imported, now));
+
+            if (queued.Count > 0)
+            {
+                _audit.Record(actor, PostedAction, "user", userId.ToString(), DiscordText.HistoryAudit(queued.Count));
+                return Queued(queued);
+            }
+
+            return _posts.Waiting().Any(p => p.ChannelId == user.PrivateChannelId) ? StillPosting() : ServiceResult.Fail(DiscordText.HistoryAlreadyPosted);
         }
 
         public ServiceResult PostServer(Actor actor)
@@ -169,7 +185,20 @@ namespace Requestarr.Core.Imports
                 return ServiceResult.Fail(DiscordText.HistoryNone);
             }
 
-            return Posted(Queue(FeedRows(imported).Concat(ChannelRows(imported))), "import", null, actor);
+            var queued = Queue(now => FeedRows(imported, now).Concat(ChannelRows(imported, now)));
+
+            if (queued.Count > 0)
+            {
+                _audit.Record(actor, PostedAction, "import", null, DiscordText.HistoryAudit(queued.Select(p => p.RequestId).Distinct().Count()));
+                return Queued(queued);
+            }
+
+            if (_posts.Waiting().Any())
+            {
+                return StillPosting();
+            }
+
+            return ServiceResult.Fail(_posts.All().Any() ? DiscordText.HistoryAlreadyPosted : DiscordText.HistoryNowhere);
         }
 
         public void Pause()
@@ -222,7 +251,7 @@ namespace Requestarr.Core.Imports
         {
             if (message.History == OnboardHistory.Post)
             {
-                Queue(ChannelRows(ImportedFor(message.UserId)));
+                Queue(now => ChannelRows(ImportedFor(message.UserId), now));
             }
         }
 
@@ -253,32 +282,35 @@ namespace Requestarr.Core.Imports
 
         private List<Request> ImportedFor(int userId) => _requests.All().Where(r => r.Imported && r.OwnerUserId == userId).ToList();
 
-        // What asking to post came to: everything asked for may be posted already, since it's posted once.
-        private ServiceResult Posted(int queued, string targetType, string targetId, Actor actor)
+        // What's going out now: a request in the feed and in its requester's channel is one request to whoever asked.
+        private ServiceResult Queued(IEnumerable<HistoryPost> posts) =>
+            ServiceResult.Ok(DiscordText.HistoryQueued(posts.Select(p => p.RequestId).Distinct().Count(), Status().State == HistoryPostingState.Paused));
+
+        // Nothing new to queue, but some of it hasn't gone out yet.
+        private ServiceResult StillPosting() =>
+            ServiceResult.Ok(Status().State == HistoryPostingState.Paused ? DiscordText.HistoryPaused : DiscordText.HistoryUnderWay);
+
+        // Queues the posts not queued before, one caller at a time: each is queued once, whoever asks at the same moment.
+        // The rows queued (one time for all of them, so a restart knows them as one batch); posting starts either way.
+        private List<HistoryPost> Queue(Func<DateTime, IEnumerable<HistoryPost>> posts)
         {
-            if (queued == 0)
+            List<HistoryPost> rows;
+
+            lock (_queueing)
             {
-                return ServiceResult.Fail(DiscordText.HistoryAlreadyPosted);
+                rows = posts(DateTime.UtcNow).ToList();
+                var isBatch = !_posts.Waiting().Any();
+                _posts.InsertMany(rows);
+                Grow(rows.Count, isBatch);
             }
 
-            _audit.Record(actor, PostedAction, targetType, targetId, $"{queued} queued");
-
-            return ServiceResult.Ok(DiscordText.HistoryQueued(queued, Status().State == HistoryPostingState.Paused));
-        }
-
-        // Queues posts not queued before. How many; posting starts either way.
-        private int Queue(IEnumerable<HistoryPost> posts)
-        {
-            var rows = posts.ToList();
-            _posts.InsertMany(rows);
-            Grow(rows.Count);
             Start();
 
-            return rows.Count;
+            return rows;
         }
 
         // Each request's post in the admin feed, when that's switched on.
-        private IEnumerable<HistoryPost> FeedRows(IEnumerable<Request> imported)
+        private IEnumerable<HistoryPost> FeedRows(IEnumerable<Request> imported, DateTime now)
         {
             if (!_config.ImportPostFeed || FeedChannel() is not { } feedChannel)
             {
@@ -287,13 +319,12 @@ namespace Requestarr.Core.Imports
 
             var known = _posts.Known(HistoryDestination.Feed, feedChannel);
 
-            return imported.Where(r => !known.Contains(r.Id)).Select(r => Row(r, HistoryDestination.Feed, feedChannel, DateTime.UtcNow)).ToList();
+            return imported.Where(r => !known.Contains(r.Id)).Select(r => Row(r, HistoryDestination.Feed, feedChannel, now));
         }
 
         // Each request's post in its requester's channel, for those who are onboarded.
-        private IEnumerable<HistoryPost> ChannelRows(IEnumerable<Request> imported)
+        private IEnumerable<HistoryPost> ChannelRows(IEnumerable<Request> imported, DateTime now)
         {
-            var now = DateTime.UtcNow;
             var channels = _users.All().Where(u => u.PrivateChannelId != null && u.Status == UserStatus.Active).ToDictionary(u => u.Id, u => u.PrivateChannelId);
 
             foreach (var owner in imported.Where(r => channels.ContainsKey(r.OwnerUserId)).GroupBy(r => r.OwnerUserId))
@@ -310,13 +341,13 @@ namespace Requestarr.Core.Imports
         private static HistoryPost Row(Request request, HistoryDestination destination, string channel, DateTime now) =>
             new() { RequestId = request.Id, Destination = destination, ChannelId = channel, Queued = now };
 
-        // A new batch once the last one is done (the page keeps the last one's count until then); otherwise these join
-        // the one under way.
-        private void Grow(int rows)
+        // A new batch once the last one is done with nothing of it waiting: the page keeps the last one's count until then,
+        // and rows queued before it join the one under way.
+        private void Grow(int rows, bool isBatch)
         {
             lock (_lock)
             {
-                if (rows > 0 && _state == HistoryPostingState.Idle && !_running)
+                if (rows > 0 && isBatch && _state == HistoryPostingState.Idle && !_running)
                 {
                     _total = 0;
                     _posted = 0;
@@ -404,10 +435,13 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // Posts what waits, read afresh each pass so rows queued meanwhile go too; members' channels first, then the feed.
+        // Posts what waits, read afresh each pass so rows queued meanwhile go too; members' channels first, then the feed. A
+        // member's channel that can't be posted in doesn't hold up anyone else: it's tried again on the next run.
         private async Task DrainAsync()
         {
-            while (Continuing() && _posts.Waiting() is { Count: > 0 } waiting)
+            var failed = new HashSet<string>();
+
+            while (Continuing() && _posts.Waiting().Where(p => !failed.Contains(p.ChannelId)).ToList() is { Count: > 0 } waiting)
             {
                 var requests = _requests.Get(waiting.Select(p => p.RequestId).Distinct()).ToDictionary(r => r.Id);
                 var members = waiting.Where(p => p.Destination == HistoryDestination.Channel)
@@ -415,7 +449,10 @@ namespace Requestarr.Core.Imports
 
                 foreach (var member in members)
                 {
-                    await PostChannelAsync(member.Key, member.ToList(), requests);
+                    if (!await TryPostChannelAsync(member.Key, member.ToList(), requests))
+                    {
+                        failed.Add(member.Key);
+                    }
                 }
 
                 var feed = waiting.Where(p => p.Destination == HistoryDestination.Feed)
@@ -424,6 +461,20 @@ namespace Requestarr.Core.Imports
             }
 
             Wrap();
+        }
+
+        private async Task<bool> TryPostChannelAsync(string channelId, List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
+        {
+            try
+            {
+                await PostChannelAsync(channelId, posts, requests);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Posting imported history in channel {0} failed; it's tried again on the next run", channelId);
+                return false;
+            }
         }
 
         // A member's history, oldest first, a few titles to each silent message in their channel.
@@ -478,7 +529,7 @@ namespace Requestarr.Core.Imports
             {
                 _posts.DeleteMany(gone);
                 posts.RemoveAll(gone.Contains);
-                Grow(-gone.Count);
+                Grow(-gone.Count, false);
             }
 
             return posts.Count == 0;

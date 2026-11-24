@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -5,7 +6,9 @@ using NUnit.Framework;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Help;
+using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Discord
 {
@@ -16,7 +19,7 @@ namespace Requestarr.Core.Test.Discord
     {
         // What a user with every type sees; Linking Plex only while a Plex server is connected, which the admin's view
         // of user help always shows.
-        private static readonly string[] AllUserTopics = { "request", "seasons", "anime", "follow", "downloads", "mine", "history", "limits", "removals", "news" };
+        private static readonly string[] AllUserTopics = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "removals", "news" };
         private static readonly string[] EveryUserTopic = { "request", "seasons", "anime", "follow", "downloads", "mine", "history", "limits", "plex", "removals", "news" };
         private static readonly string[] AllAdminTopics = { "onboarding", "history", "access", "approvals", "feed", "removing", "announcements", "downloads", "limits", "mediaserver", "anime", "channels", "visibility" };
 
@@ -47,13 +50,21 @@ namespace Requestarr.Core.Test.Discord
         public async Task topics_a_user_cannot_use_are_not_shown()
         {
             await SetAccess(Alice, "tv", "off");
-            Topics(await UserHelp(Alice)).Should().Equal("request", "follow", "downloads", "mine", "history", "limits", "removals", "news");
+            Topics(await UserHelp(Alice)).Should().Equal("request", "follow", "downloads", "mine", "limits", "removals", "news");
 
             await Harness.SendAsync(AdminCommand("user mediaserver", Alice).WithOption("service", "plex").WithOption("username", "alice_plex"));
             Topics(await UserHelp(Alice)).Should().NotContain("plex");
 
             await SetAccess(Alice, "movie", "off");
-            Topics(await UserHelp(Alice)).Should().Equal("mine", "history", "limits", "removals", "news");
+            Topics(await UserHelp(Alice)).Should().Equal("mine", "limits", "removals", "news");
+        }
+
+        [Test]
+        public async Task someone_with_imported_requests_is_told_how_to_have_them_posted()
+        {
+            Mocker.Resolve<IRequestRepository>().Insert(new Request { OwnerUserId = Users.FindByDiscordId(Alice).Id, Title = "Heat", ContentType = ContentType.Movie, Imported = true, Requested = DateTime.UtcNow });
+
+            Topics(await UserHelp(Alice)).Should().Contain("history");
         }
 
         [Test]
