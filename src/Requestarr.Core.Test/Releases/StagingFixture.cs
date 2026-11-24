@@ -47,7 +47,7 @@ namespace Requestarr.Core.Test.Releases
             image.Should().Contain("branches: [staging, main]").And.Contain("platforms: linux/amd64,linux/arm64").And.Contain("packages: write");
             image.Should().Contain("build_numbers.py image \"$EVENT\" \"$BRANCH\" \"$GITHUB_SHA\"", "the build-number script decides what is published");
             image.Should().Contain("BUILD_NUMBER=${{ steps.tags.outputs.number }}").And.Contain("RELEASE_VERSION=${{ steps.tags.outputs.label }}");
-            image.Should().Contain("git push origin \"refs/tags/$RECORD\"", "each staging publish is recorded as the tag the next number is counted from");
+            image.Should().Contain("  contents: read").And.NotContain("git push", "publishing takes no number: the goal's commit on dev has it");
             image.Should().Contain("docker buildx imagetools create").And.Contain("if: steps.tags.outputs.mode == 'build'", "ship it retags staging's image and never builds");
             dockerfile.Should().Contain($"ENV {ReleaseEnvironment.ReleaseVersionVariable}=$RELEASE_VERSION").And.Contain("-p:RequestarrVersion=\"$BUILD_NUMBER\"");
             Read(".github", "build_numbers.py").Should().Contain("test-[a-z0-9.-]+", "a hand-run publishes only a test tag");
@@ -56,18 +56,18 @@ namespace Requestarr.Core.Test.Releases
         }
 
         [Test]
-        public void staging_has_its_promotion_fix_back_and_drift()
+        public void staging_has_its_promotion_merge_back_and_drift()
         {
             var release = Read("release.sh");
             var build = Read(".github", "workflows", "build.yml");
 
-            release.Should().Contain("promote-staging) shift; promote_staging").And.Contain("merge_into staging qa").And.Contain("merge_into qa dev");
+            release.Should().Contain("promote-staging) shift; promote_staging").And.Contain("merge_into qa dev").And.NotContain("merge_into staging qa", "a fix never goes into staging");
             release.Should().Contain("ship-it) shift; ship_it").And.Contain("numbers release \"$work/release\" \"$number\"");
             release.Should().Contain("drift_pair \"$qa\" \"$staging\"").And.Contain("numbers check \"$kind\"");
             release.Should().Contain("numbers merge \"$work/ours\" \"$work/theirs\"").And.Contain("--dry-run) dry=1");
             release.Should().Contain("hold-staging) shift; hold_staging").And.Contain("staging is held by the owner").And.Contain("rm -f \"$hold\"", "the owner's hold blocks the gate until a promotion on their word lifts it");
-            build.Should().Contain("python3 .github/build_numbers.py --self-test").And.Contain("pull_request:main) below=staging ;;");
-            build.Should().Contain("pull_request:staging) below=qa ;;").And.Contain("HEAD_REF: ${{ github.event.pull_request.head.ref }}");
+            build.Should().Contain("python3 .github/build_numbers.py --self-test").And.Contain("HEAD_REF: ${{ github.event.pull_request.head.ref }}");
+            build.Should().Contain("./release.sh check-promotion \"$BASE_REF\" \"$HEAD_SHA\" \"$HEAD_REF\"", "only a promotion goes into qa, staging or main");
             Read(".github", "workflows", "drift.yml").Should().Contain("staging_ref");
         }
 

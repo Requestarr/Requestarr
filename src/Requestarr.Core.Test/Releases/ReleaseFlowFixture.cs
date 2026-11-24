@@ -7,8 +7,8 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Releases
 {
-    // The release flow: pull requests merge to dev; qa moves only on the owner's word; fixes made in QA
-    // are merged back so dev and qa never drift. Two local stacks side by side: QA (the owner's manual QA, the
+    // The release flow: pull requests merge to dev; qa moves only on the owner's word and takes nothing but
+    // dev's commits, so dev and qa never drift. Two local stacks side by side: QA (the owner's manual QA, the
     // default) and dev (the automated testing on its own Discord server and bot).
     [TestFixture]
     public class ReleaseFlowFixture
@@ -80,6 +80,8 @@ namespace Requestarr.Core.Test.Releases
             release.Should().Contain("git push origin \"$2:refs/heads/$3\"", "a promotion fast-forwards the branch: exactly the commits below, nothing newer");
             release.Should().Contain("Requested by: %s", "every promotion pull request records who asked");
             build.Should().Contain("./release.sh check-changelog").And.Contain("name: Promotion record").And.Contain("changelog, promotion]");
+            build.Should().Contain("name: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'dev checks' || 'build' }}", "a push to dev runs no tests, so it never stands in for the full suite's build");
+            build.Should().NotContain("windows-latest", "only the Linux image ships");
             build.Should().Contain("BODY: ${{ github.event.pull_request.body }}", "the body reaches the shell as data, never as script");
             drift.Should().Contain("branches: [dev, qa, staging]").And.Contain("./release.sh drift");
         }

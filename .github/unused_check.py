@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unused public and internal members in Requestarr's own C# code (docs/development.md#clean-code). CI's Backend job
+"""Unused public and internal members in Requestarr's own C# code (docs/development.md#clean-code). CI's Unused C# code job
 runs it; run it locally with `python3 .github/unused_check.py` (after `dotnet tool restore`).
 
 An analyzer looks at one project at a time, so it can't see a public member nobody uses. Roslynator's command line

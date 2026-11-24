@@ -1,9 +1,8 @@
 name: Drift
 
-# The release branches must never drift: every commit on qa (a fix made in QA, say) must also be on dev, and every
-# commit on staging must be on qa. Fails while one isn't; ./release.sh merge-back fixes that
-# (docs/development.md#release-flow). Not a required check: a fix into qa or staging is drift until it is merged
-# back, which happens in the same task.
+# The release branches must never drift: every commit on qa must also be on dev, and every commit on staging on qa.
+# Every change goes into dev and is promoted up, so the only drift is a staging promotion's release commit, until the
+# promotion merges it back into dev at its end (docs/development.md#release-flow). Not a required check for that reason.
 on:
   push:
     branches: [dev, qa, staging]

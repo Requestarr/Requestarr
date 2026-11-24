@@ -17,7 +17,7 @@ The app listens on http://localhost:9797.
 
 ## Tests
 
-The same set CI runs:
+Every test, as the full suite runs them (which tests run when: [Continuous integration](#continuous-integration)):
 
 ```bash
 cd _tests/net10.0
@@ -25,7 +25,7 @@ dotnet test Requestarr.Api.V1.Test.dll Requestarr.Common.Test.dll Requestarr.Cor
   "--filter:Category!=ManualTest&Category!=LINUX&Category!=IntegrationTest&Category!=AutomationTest"
 ```
 
-On Linux, add `Requestarr.Mono.Test.dll` (the Linux platform code the image runs) and swap `LINUX` for `WINDOWS`.
+On Linux, add `Requestarr.Mono.Test.dll` (the Linux platform code the image runs) and swap `LINUX` for `WINDOWS`. GitHub runs them on Linux only; the few Windows-only tests (category `WINDOWS`) run only here, on Windows.
 
 Test projects, one folder each under `src/`, with namespaces that follow the folders (`Requestarr.Core.Test.Requests`):
 
@@ -94,18 +94,32 @@ The web app uses Sonarr's, Radarr's and Prowlarr's own parts and patterns (`docs
 
 ## Continuous integration
 
-`.github/workflows/build.yml` runs on every push and pull request using standard GitHub-hosted runners. The `build` job is the single required status for `dev`, `qa`, `staging` and `main`, which accept changes only through a pull request with this check passing (see [Release flow](#release-flow)).
+`.github/workflows/build.yml` runs on standard GitHub-hosted runners, on Linux only: the image that ships is. The `build` job is the single required status for `dev`, `qa`, `staging` and `main`, which accept changes only through a pull request with this check passing (see [Release flow](#release-flow)).
+
+**What runs when** (the owner's rule, 2026-11-14 and again 2026-11-24: test only the change on dev, the full suite only on promotion):
+
+| When | Build and code checks | Tests |
+|---|---|---|
+| a pull request into `dev` | yes | Requestarr's own: its Core folders and the API tests |
+| a pull request or push into `qa`, `staging` or `main` (a promotion) | yes | every test project |
+| a run by hand (Actions → Build → Run workflow): the promotion's first step, on `dev` | yes | every test project |
+| a Dependabot pull request: an update can break the inherited code | yes | every test project |
+| a push to `dev` (a merge) | yes, reported as `dev checks` | none: they ran on the pull request |
+| a push to any other branch | no | none: its pull request runs them |
+
+A push to `dev` has its own name so it can never stand in for the full suite's `build` when that commit is promoted. It also keeps the caches (NuGet, yarn, image layers) every pull request starts from.
 
 | Job | Runs |
 |---|---|
-| Backend (Linux) | solution build (`Platform=Posix`); test suites Api.V1, Common, Core, Host, Libraries, Mono, Update, excluding categories ManualTest, IntegrationTest, AutomationTest, WINDOWS |
-| Backend (Windows) | solution build (`Platform=Windows`); test suites Api.V1, Common, Core, Host, Libraries, Update, Windows, excluding categories ManualTest, IntegrationTest, AutomationTest, LINUX |
+| Backend build | solution build with the analyzers (`Platform=Posix`) |
+| Unused C# code | Roslynator's search for unused public and internal members ([Clean code](#clean-code)) |
+| Tests | `.github/run_tests.py own` or `full`, built without the analyzers: the Core tests as several processes side by side, excluding categories ManualTest, IntegrationTest, AutomationTest, WINDOWS. `own` leaves out Core's folders of Servarr's own tests and the Common, Host and Mono projects; the script lists them, and a new Core folder is Requestarr's own until it's listed there |
 | Frontend | `tsc --noEmit`, ESLint (with its suppressions baseline), knip's unused-code check against its baseline, Stylelint, production webpack build (see [Clean code](#clean-code)) |
 | Docker image | full `docker/Dockerfile` build (not pushed) |
-| Changelog | the checkers' self-tests (changelog, QA checklist, QA gate, version rules, knip, suppressions, tool names, app names), the tool-names check ([No tool names](#no-tool-names)), the app-names check ([App names](#app-names)), on pull requests the suppression check ([Clean code](#clean-code)), then `CHANGELOG.md` against the changelog rule; on pull requests also: `CHANGELOG.md` changed, its top version is higher than the base branch's, and into `dev`, `qa` or `staging` it follows the version rules and no other branch has it (see [Changelog](#changelog) and [Versions](#versions)) |
-| Promotion record | pull requests that promote `dev`'s commits into `qa`, or `qa`'s into `staging`: the description has a `Requested by:` line (see [Release flow](#release-flow)) |
+| Changelog | the checkers' self-tests (changelog, QA checklist, QA gate, version rules, knip, suppressions, tool names, app names, test runs), the tool-names check ([No tool names](#no-tool-names)), the app-names check ([App names](#app-names)), on pull requests the suppression check ([Clean code](#clean-code)), then `CHANGELOG.md` against the changelog rule; on pull requests also the rules for the kind of pull request (see [Changelog](#changelog) and [Versions](#versions)) |
+| Promotion record | a pull request into `qa`, `staging` or `main` is a promotion of the branch below it, and its description has a `Requested by:` line; anything else is refused (see [Release flow](#release-flow)) |
 
-`.github/workflows/drift.yml` runs on every push to `dev`, `qa` or `staging`, daily, and by hand (Actions → Drift → Run workflow, with any branches): it fails while `qa` has a commit `dev` doesn't, or `staging` one `qa` doesn't. It isn't a required check, because a fix merged into `qa` or `staging` is drift until it is merged back, in the same task.
+`.github/workflows/drift.yml` runs on every push to `dev`, `qa` or `staging`, daily, and by hand (Actions → Drift → Run workflow, with any branches): it fails while `qa` has a commit `dev` doesn't, or `staging` one `qa` doesn't. It isn't a required check, because a staging promotion's release commit is drift until the promotion merges it back into `dev`, at its end.
 
 `.github/workflows/image.yml` publishes the container image (see [Published images](#published-images)).
 
@@ -148,11 +162,10 @@ Pull requests carry no version number ([Versions](#versions)); every pull reques
 
 **The checks.** CI's `Changelog` job runs `.github/changelog_check.py` (its own self-test first, so a broken rule can't pass silently) and fails a pull request when an entry has an unknown field, a name that isn't lower-case words, an audience other than users or admins, a kind other than new, fixed or changed, no line, or a build that isn't listed; when a line breaks the rule above (code-style text, a placeholder, a summary without substance, over 50 words or three sentences); when `replaces` names an entry that doesn't exist, a chain of them loops, or an entry replaces a released one of another kind without `line_if_seen`; or when `CHANGELOG.md` isn't exactly what the entries write. There's no cap on entries. Run it yourself with `python3 .github/changelog_check.py CHANGELOG.md`. Then `./release.sh check-changelog` (`.github/build_numbers.py check`, which has its own self-test) applies the rules for the kind of pull request:
 
-- **Into `dev`, or a fix into `qa`:** no released entry changes or goes, and no numbered version of `CHANGELOG.md` changes, except a build the owner approved rewriting, recorded on a line of its own in the description with his words: `Rewrite of a numbered version: 0.7.0010, approved by the owner on 2026-11-24: "<his words>"`. The QA checklist's numbered sections never change. The version is also listed in `APPROVED_REWRITES` in `.github/build_numbers.py`, so that until promotions carry the new words up, a merge-back keeps the lower branch's words instead of stopping. That has happened twice, both for 0.7.0010: its lines were cut short on November 23, 2026, and on November 24 the cut was undone into one short entry per real change. No two lines in one part of Unreleased lead with the same bold words, and Unreleased gains at least one line, or the description has a `No changelog:` line and gains none.
-- **A fix into `staging`:** one new build on top, with the next build number ([Versions](#versions)) and its entries (or none, with `No changelog:`), and nothing left without a build.
+- **Into `dev`:** no released entry changes or goes, and no numbered version of `CHANGELOG.md` changes, except a build the owner approved rewriting, recorded on a line of its own in the description with his words: `Rewrite of a numbered version: 0.7.0010, approved by the owner on 2026-11-24: "<his words>"`. The QA checklist's numbered sections never change. The version is also listed in `APPROVED_REWRITES` in `.github/build_numbers.py`, so that until promotions carry the new words up, a merge-back keeps the lower branch's words instead of stopping. That has happened twice, both for 0.7.0010: its lines were cut short on November 23, 2026, and on November 24 the cut was undone into one short entry per real change. No two lines in one part of Unreleased lead with the same bold words, and Unreleased gains at least one line, or the description has a `No changelog:` line and gains none.
 - **The staging promotion's release commit:** every entry without a build gets the next number, and the build is listed (a security entry may be added, below).
 - **A merge-back:** the entries of both branches, merged as files, and `CHANGELOG.md` written from them.
-- **A promotion** of commits already on the branch below was checked there.
+- **A promotion** of commits already on the branch below was checked there. Any other pull request into `qa`, `staging` or `main` is refused.
 
 Until `qa` and `staging` have the entries (the next promotions carry them up), the check reads only their Unreleased lines, a staging promotion refuses before anything moves, and a merge-back refuses when only one side has entries and the other's `CHANGELOG.md` changed (written from the entries, it would lose that change): its lines are added as entries by hand. An entry never `replaces` another that isn't released yet: that one is edited instead.
 
@@ -162,19 +175,18 @@ The QA checklist must have the same numbered versions as the changelog. Unit tes
 
 A version is **MAJOR.MINOR.BUILD**, with BUILD a running four-digit number: **0.7.0004**. A number says which build it is: every finished goal takes one (the owner, 2026-11-20).
 
-1. **BUILD is taken when a goal finishes**, on its commit on dev (`./release.sh number`), and by a fix into staging. QA and staging never take one: they carry the number of the build promoted to them, so a number always points at one tested commit. A number is never reused: a build that turns out bad keeps its number, and the fix takes the next.
+1. **BUILD is taken when a goal finishes**, on its commit on dev (`./release.sh number`). QA and staging never take one: they carry the number of the build promoted to them, so a number always points at one tested commit. A number is never reused: a build that turns out bad keeps its number, and the fix, a goal of its own, takes the next.
    - **Dev** shows a numbered build as `0.7.0005-dev`; a build made between goals (a commit without a number) shows the next number and its commit, `0.7.0006-dev.4f2a9c1`.
-   - **QA** only ever gets a numbered build (`promote-qa` refuses one without a number) and shows `0.7.0005-qa`. A fix into QA is numbered on dev after its merge-back.
+   - **QA** only ever gets a numbered build (`promote-qa` refuses one without a number) and shows `0.7.0005-qa`.
    - **Staging and production** show `0.7.0005`. The staging promotion's changelog heading names the goals' builds it includes: `## 0.7.0011 (2026-12-01), with 0.7.0005 to 0.7.0011`.
 2. **Production ships the file staging built.** "Ship it" never rebuilds: it moves `main` to staging's commit and adds the release tags (`0.7`, `latest`) to the image staging published as `0.7.0004`. The number always points at one tested file.
 3. **MINOR rolls up when the owner declares a build ready for production** ("ship it"). Nothing is rebuilt for it; the next staging build carries the new MINOR and BUILD keeps counting: 0.7.0004 shipped, the next beta is 0.8.0005.
 4. **MAJOR:** 1.0 at the version 1 scope (movies, TV, music and the admin web portal), on the owner's word (`./release.sh number --major "<their words>"`). After that, when admins must act on an upgrade (a settings or provisioning format change, data an older release can't read, a removed workflow): the pull request says what to do in a For admins line led by **Before you upgrade:**, and the next goal's number rolls MAJOR up on its own. MINOR goes to 0 and BUILD starts again: 1.0.0001.
 5. **The beta server is told apart by its BETA strip**, not its number: there is no `-beta` label.
 
-**Where the count lives.** Git tags, one per number: `v0.7.0005` on the goal's commit on dev, or on a staging fix's release commit. `.github/build_numbers.py` is the only thing that takes a number: it reads the tags (`git ls-remote --tags origin`, no login) and the numbered headings already on `qa` and `staging` (a staging fix's number is taken as soon as its release commit is there, so a publish that fails never frees it, and the fix takes the next), and which builds shipped (`main`'s changelog has them). It gives one more than the newest, a minor up once the newest has shipped.
+**Where the count lives.** Git tags, one per number: `v0.7.0005` on the goal's commit on dev. `.github/build_numbers.py` is the only thing that takes a number: it reads the tags (`git ls-remote --tags origin`, no login) and the numbered headings already on `qa` and `staging`, and which builds shipped (`main`'s changelog has them). It gives one more than the newest, a minor up once the newest has shipped.
 - **`./release.sh number [<commit>]`** (`build_numbers.py number`): the last step of every goal. It tags the commit (default: dev's newest) and pushes the tag. Running it again on a numbered commit prints the same number; it refuses a commit that isn't on dev, and one that comes before a numbered commit (numbers only go up along dev).
-- **The staging promotion** writes the carried number into the release commit's changelog heading; the Image workflow builds it, and accepts the number's tag on that commit or the goal's commit before it. A staging fix's new number is tagged by the Image workflow after publishing (a re-run of the same commit keeps its number; another commit can't take a number already tagged).
-- A pull request's check reads the next number as it was before that pull request.
+- **The staging promotion** writes the carried number into the release commit's changelog heading; the Image workflow builds it, and accepts the number's tag on that commit or the goal's commit before it. It never takes a number itself.
 
 **Where the number is stamped.** Nowhere in the source: the build is given it. The Image workflow and the local stacks' scripts pass it (`-p:RequestarrVersion=0.7.0004`, the Dockerfile's `BUILD_NUMBER`), and a build without one (tests, a local build) is 0.0.0. .NET's version is numeric, so it reads 0.7.4; everything people see shows 0.7.0004: the version cards, System → Status, the logo and its hover text, bug reports and the QA checklist. The label (`0.7.0005-dev`, or `0.7.0006-dev.4f2a9c1` between goals; `build_numbers.py label`) is set in the image as `REQUESTARR_RELEASE_VERSION`.
 
@@ -242,16 +254,16 @@ So the first build under build numbers is **0.7.0004** (MINOR 7, the first not u
 
 Every Unreleased item says who checks it; an item in a numbered version without the line is the owner's ("not classified yet"). A change to what an item covers rewrites that item, and its checker line with it.
 
-**The automated checks run before a promotion to QA, never on QA** (the owner's process, in the workspace rules' Testing section): QA is for the owner's manual checks. On dev, at the commit to be promoted, the automation runs the full suite, every live Discord check and its checklist items; QA gets the build only once all of it passed, and its checklist then shows only the owner's items (the automated items never appear there, and nothing the automation checks posts in any QA channel). The evidence goes in the promotion pull request and the reply.
+**The automated checks run before a promotion to QA, never on QA** (the owner's process, in the workspace rules' Testing section): QA is for the owner's manual checks. On dev, at the commit to be promoted, the automation runs the full suite (on GitHub, the Build workflow by hand), every live Discord check and its checklist items; QA gets the build only once all of it passed, and its checklist then shows only the owner's items (the automated items never appear there, and nothing the automation checks posts in any QA channel). The evidence goes in the promotion pull request and the reply.
 
 ```bash
 git switch --detach <commit>                # the commit to be promoted (the checks are built from the checkout)
-python3 docker/qa_checks.py run             # full suite; dev stack at the commit, signed in: web checks; every live check; resets dev
+python3 docker/qa_checks.py run             # full suite on GitHub; dev stack at the commit, signed in: web checks; every live check; resets dev
 python3 docker/qa_checks.py record          # after looking at every screenshot (a mismatch: --fail "Item name=what is wrong"): dev's checklist
 ./release.sh promote-qa '<who asked, in their words>'    # refuses unless that run passed
 ```
 
-`run` builds and runs the full suite as CI does, brings the dev stack up at that commit with sign-in required and a throwaway login for the web app checks (`QaWebChecksFixture`: headless Edge or Chrome over the DevTools protocol, nothing downloaded, light and dark theme), stops it and runs every live check on the dev server with the test Sonarr and Radarr emptied before each (some checks leave their titles there on purpose, and the next would find them already in the library), resets the dev stack and runs the read-back of the running stack. Each live check removes what it posted (made-up versions, fixture items, their cards and bug reports) before it ends. Results, read-backs and screenshots go in `_qa-checks/<commit>/` (not in git). The dev stack shows the dev logo where QA shows QA's; the web checks load QA's own logo files where QA shows them, since the logo is the only part of the web app that differs between environments. A check that was skipped (a key it needs is missing) or logged nothing for its item counts as failing.
+`run` has GitHub run the full suite on the commit (the Build workflow by hand, on `dev`, or on the commit's build number tag once dev has moved on; a run that already passed there, or is still going, is used; `run --only suite` does just this), and meanwhile builds the solution, brings the dev stack up at that commit with sign-in required and a throwaway login for the web app checks (`QaWebChecksFixture`: headless Edge or Chrome over the DevTools protocol, nothing downloaded, light and dark theme), stops it and runs every live check on the dev server with the test Sonarr and Radarr emptied before each (some checks leave their titles there on purpose, and the next would find them already in the library), resets the dev stack and runs the read-back of the running stack. Each live check removes what it posted (made-up versions, fixture items, their cards and bug reports) before it ends. Results, read-backs and screenshots go in `_qa-checks/<commit>/` (not in git). The dev stack shows the dev logo where QA shows QA's; the web checks load QA's own logo files where QA shows them, since the logo is the only part of the web app that differs between environments. A check that was skipped (a key it needs is missing) or logged nothing for its item counts as failing.
 
 The automation then looks at every screenshot against its item's Expect; one that doesn't match is `--fail`. `record` marks the run reviewed and records the results in the dev stack's checklist record (the automation's server; it must run the checked commit; no cards, since dev has no checklist channel): "Passed automatically" with one short line of what the check saw and its screenshots, or failing with a bug report like an admin's **Failing**. QA refuses them. `promote-qa` (and its `--dry-run`) asks `qa_checks.py verify`: a full run for exactly that commit, the full suite passed, every live check passed, every item passed, screenshots looked at. Without a run, a promotion runs the checks first and a dry run says it would; anything failing refuses the promotion until it's fixed on dev and the checks run again. The promotion pull request carries the run's summary (`qa_checks.py summary`). A full run takes about 35 minutes, most of it the live checks.
 
@@ -298,7 +310,7 @@ Four branches, each with its own environment.
 
 QA takes dev's newest numbered build (or the numbered commit named) and shows its number (`0.7.0005-qa`). `--dry-run` prints the commits that would move, the label and whether the automated checks passed on that commit, and changes nothing. It refuses a commit without a build number (a goal's build is numbered when the goal finishes), anything that isn't on `dev`, or that `qa` can't move to without losing a commit. It opens a pull request into `qa` whose description says who asked, in their words (`Requested by: …`), and lists the commits moving. The Promotion record check fails a promotion without that line, and the pull request stays as the record. The automation works with the owner's GitHub account, so GitHub can't tell the owner's approval from the automation's; the rule is that the automation promotes only on the owner's word, and the record says whose. Once `build` passes, `qa` is fast-forwarded to exactly that commit: the same commits as on `dev`, nothing newer, no merge commit. GitHub marks the pull request merged. Before any of this, the automated checks must have passed on dev at that commit, or the promotion runs them first and refuses on any failure ([QA checklist](#qa-checklist)); the pull request carries their summary. Then `.\docker\dev.ps1 up` (or `docker/dev.sh up`) so the QA stack runs `qa`, keeping QA's checklist results and bug reports; its checklist lists only the owner's items. Work on `dev` carries on meanwhile.
 
-**Promote to staging** (when the QA gate is clear, checked at the start of every goal, or when the owner says so). First run the full suite and every live check, and report them ("Testing scope" in the workspace rules: nothing reaches staging without this). Then:
+**Promote to staging** (when the QA gate is clear, checked at the start of every goal, or when the owner says so). Nothing runs again for it when QA's commit passed the checks before its promotion to QA: the reply cites that run, and the promotion's own pull requests run the full suite. Then:
 
 ```bash
 ./release.sh promote-staging 'the QA checklist, completed by <admin>'
@@ -313,9 +325,9 @@ Staging takes QA as it is, as the next build number ([Versions](#versions)):
 
 1. **The release commit.** On top of `qa`, on a branch `release/0.7.0004`: Unreleased becomes `## 0.7.0004 (today)` in `CHANGELOG.md` and `QA-CHECKLIST.md`, word for word. When a security fix in something Requestarr ships was merged since staging's last build (a pull request labelled **security** and **for admins**), its For admins section also says so ([Dependency updates](#dependency-updates)).
 2. **Two pull requests from it,** into `qa` and into `staging`, each with `Requested by:`. Once `build` passes on both, `qa` and then `staging` are fast-forwarded to the release commit, so QA and staging run the same commit.
-3. **`qa` is merged back into `dev`** (the merge-back below), so `dev` has the numbered sections and keeps only its newer lines under Unreleased.
+3. **`qa` is merged back into `dev`** (below), so `dev` has the numbered sections and keeps only its newer lines under Unreleased.
 
-The push to `staging` runs the Image workflow, which builds that number as `ghcr.io/requestarr/requestarr:0.7.0004`, tags the commit `v0.7.0004`, and publishes `:beta` as that same image plus one layer (`docker/beta.Dockerfile`) setting `REQUESTARR_ENVIRONMENT=staging`. That layer is the one deliberate difference between beta and production: the number's tag, and on "ship it" the minor and `latest` tags, stay on the image without it, so production ships exactly what the testers ran. `--dry-run` prints the number, the new section, the versions staging gets and the QA gate's verdict, and changes nothing. Then `.\docker\dev.ps1 up` so the QA stack drops what staging now has from its posts, and on the owner's server the beta project's Build in Container Manager (the setup guide's "Running the beta"). The promotion's reply lists the setup guide's [After installing, check](setup-guide.md#after-installing-check) as owner actions: they need the beta server, so the QA checklist never has them.
+The push to `staging` runs the Image workflow, which builds that number as `ghcr.io/requestarr/requestarr:0.7.0004` and publishes `:beta` as that same image plus one layer (`docker/beta.Dockerfile`) setting `REQUESTARR_ENVIRONMENT=staging`. That layer is the one deliberate difference between beta and production: the number's tag, and on "ship it" the minor and `latest` tags, stay on the image without it, so production ships exactly what the testers ran. `--dry-run` prints the number, the new section, the versions staging gets and the QA gate's verdict, and changes nothing. Then `.\docker\dev.ps1 up` so the QA stack drops what staging now has from its posts, and on the owner's server the beta project's Build in Container Manager (the setup guide's "Running the beta"). The promotion's reply lists the setup guide's [After installing, check](setup-guide.md#after-installing-check) as owner actions: they need the beta server, so the QA checklist never has them.
 
 **Ship it** (staging to `main`, only on the owner's "ship it"):
 
@@ -326,13 +338,15 @@ The push to `staging` runs the Image workflow, which builds that number as `ghcr
 
 Staging's commit must be a published build (its `v0.7.0004` tag on it). A pull request into `main` with `Requested by:`, then a fast-forward of `main` to exactly that commit. Nothing is rebuilt and nothing changes in the changelog: the push to `main` runs the Image workflow, which checks that `:0.7.0004` was built from this commit and adds `:0.7` and `:latest` to that same image. `--dry-run` says what it would retag and the number of the next build sent to testers (a minor up: 0.8.0005).
 
-**A fix found in QA or staging.** Branch from that branch (`qa` or `staging`) and open a pull request into it with only the fix. Into `qa`, the fix adds its lines under QA's Unreleased, like any change. Into `staging`, it is a build sent to testers, so it takes the next number: a new section on top, `## 0.7.0005 (today)` (`./release.sh next-version` prints the number), and its push publishes that build. After it merges, in the same task, merge it back down:
+**A fix for something found in QA or staging** is a change like any other (the owner, 2026-11-24: "fixes are never made directly in qa. ever. all changes should always go back to dev before coming back up to QA"): a pull request into `dev`, then a promotion to QA, and from there to staging. `qa`, `staging` and `main` take nothing but promotions: `build`'s Promotion record job refuses a pull request into them whose commits aren't already on the branch below (`./release.sh check-promotion`; the staging promotion's release commit, which changes only the changelog and the checklist, is the one exception).
+
+**The merge-back.** A staging promotion writes one commit of its own, the release commit, and ends by merging `qa` back into `dev` so dev has it. Only if it stopped before that:
 
 ```bash
 ./release.sh merge-back
 ```
 
-It merges `staging` into `qa` (if `staging` has anything `qa` doesn't), then `qa` into `dev`, each through a pull request merged once `build` passes, and runs the drift check. The merge is made on a branch from the lower one named `merge-back/…`, the changelog's entries are merged as files and `CHANGELOG.md` is written from them, and `QA-CHECKLIST.md` is always rebuilt from both sides, never left to git (a plain merge could carry items still unreleased below into the numbered build above): every numbered version of both, highest first, and under Unreleased the items of either that no build has yet. Any other conflict it leaves to you, saying how. Then `.\docker\dev.ps1 up` updates the QA stack, keeping its data. A fix into `staging` publishes a new `staging` image on its own.
+It merges `qa` into `dev` through a pull request merged once `build` passes, and runs the drift check. It refuses when `qa` has any change a promotion didn't write. The merge is made on a branch from `dev` named `merge-back/…`, the changelog's entries are merged as files and `CHANGELOG.md` is written from them, and `QA-CHECKLIST.md` is always rebuilt from both sides, never left to git (a plain merge could carry items still unreleased below into the numbered build above): every numbered version of both, highest first, and under Unreleased the items of either that no build has yet. Any other conflict it leaves to you, saying how.
 
 **Drift.** `dev` must always contain every commit on `qa`, and `qa` every commit on `staging`:
 
@@ -349,7 +363,7 @@ It lists any commit a lower branch is missing and fails; the Drift workflow runs
 
 | When | Tags |
 |---|---|
-| a push to `staging` (a promotion, or a fix into `staging`) | builds the number on top of the changelog: `beta` and `0.7.0004` ([Versions](#versions)), and tags the commit `v0.7.0004`. It refuses a changelog with Unreleased on top, a number another commit already has, or one that isn't the next. The earlier staging images (`0.3.1`, `0.3.3`, `0.3.4`) keep their tags |
+| a push to `staging` (a promotion) | builds the number on top of the changelog: `beta` and `0.7.0004` ([Versions](#versions)). It refuses a changelog with Unreleased on top, a number no goal's commit took, or another commit's. The earlier staging images (`0.3.1`, `0.3.3`, `0.3.4`) keep their tags |
 | a push to `main` ("ship it") | builds nothing: adds `0.7` and `latest` to the image staging published as `0.7.0004`, after checking it was built from this same commit |
 | Actions → Image → Run workflow on any branch, with a tag starting `test-` | that tag only, labelled `0.7.0004-test.<commit>`, to try the workflow (delete it afterwards from the package's page) |
 
@@ -385,7 +399,7 @@ So each kind sends at most one pull request a week for its patch and minor updat
 **What happens to them** (`.github/workflows/dependency-updates.yml`, `.github/dependency_updates.py`):
 
 - A new update is sorted. Patch and minor get the **automatic update** label. Major updates, and updates Dependabot can't size, get **needs review** and a comment, and wait. A security fix follows the same rule by size, and also gets **security**. It gets **for admins** too when the fix is in something Requestarr ships: the backend, the base images, or a web app package the built app contains (followed through `yarn.lock` from `dependencies`, not `devDependencies`).
-- Automatic updates go one at a time, oldest first. Nothing is committed to an update: it carries no version and no changelog lines (a dependency update changes nothing users or admins see, and the Changelog check knows Dependabot's pull requests), so its own `build` runs on Dependabot's commit like any pull request's. The workflow waits for that `build`, merges the update if it passed (the full build: backend tests on Linux and Windows, the web app, the image, the secret scan and the Changelog check) and starts on the next one. Until build numbers, the workflow added a version commit, and GitHub held the builds of those commits for an approval; that's gone with it.
+- Automatic updates go one at a time, oldest first. Nothing is committed to an update: it carries no version and no changelog lines (a dependency update changes nothing users or admins see, and the Changelog check knows Dependabot's pull requests), so its own `build` runs on Dependabot's commit like any pull request's. The workflow waits for that `build`, merges the update if it passed (with every test project, since an update can break the inherited code; [Continuous integration](#continuous-integration)) and starts on the next one. Until build numbers, the workflow added a version commit, and GitHub held the builds of those commits for an approval; that's gone with it.
 - A security fix labelled **for admins** is named in the next build sent to testers: the staging promotion adds one line to that build's For admins section, "**Security update:** parts Requestarr is built from were updated to fix known security problems, so update when you can."
 - If an automatic update fails `build`, or its build is held for an approval, it is moved to **needs review** with a comment. One that conflicts with `dev` is rebased by Dependabot on its own.
 - The workflow runs when an update opens or changes, when `dev` moves, and every hour as a fallback (GitHub can run scheduled workflows late or skip them). It waits for an update's build itself, because GitHub starts no workflow when a merge it made lands.
