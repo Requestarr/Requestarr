@@ -1,0 +1,15 @@
+# Every build sent to testers: version | the day it was made | notes. "with 0.7.0005 to 0.7.0011": the goals'
+# builds a staging build includes. "flat": a build from before kinds, shown as written, not grouped.
+0.7.0010 | 2026-11-22 | with 0.7.0004 to 0.7.0010
+0.3.4 | 2026-10-24 | flat
+0.3.3 | 2026-10-24 | flat
+0.3.2 | 2026-10-24 | flat
+0.3.1 | 2026-10-24 | flat
+0.3.0 | 2026-10-24 | flat
+0.2.4 | 2026-10-24 | flat
+0.2.3 | 2026-10-24 | flat
+0.2.2 | 2026-10-24 | flat
+0.2.1 | 2026-10-24 | flat
+0.2.0 | 2026-10-22 | flat
+0.1.1 | 2026-10-21 | flat
+0.1.0 | 2026-10-21 | flat

@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Spam protection:** repeated clicks on the welcome buttons make people wait, and if they keep going their access requests are paused. You get one notice, with Unblock.

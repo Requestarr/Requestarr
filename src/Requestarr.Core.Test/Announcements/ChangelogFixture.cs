@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -45,8 +46,8 @@ namespace Requestarr.Core.Test.Announcements
             var versions = Changelog.Parse(Text);
 
             versions.Select(v => v.Version.ToString()).Should().Equal("0.3.0", "0.2.5", "0.2.0", "0.1.0");
-            versions[2].Users.Should().Equal("You can now follow a request from its card.", "Your panel shows your limits.");
-            versions[2].Admins.Should().Equal("New member card layout.");
+            versions[2].Users.Select(l => l.Text).Should().Equal("You can now follow a request from its card.", "Your panel shows your limits.");
+            versions[2].Admins.Select(l => l.Text).Should().Equal("New member card layout.");
             versions[0].Users.Should().BeEmpty();
             versions[1].HasNews.Should().BeFalse("a version with nothing for users or admins has only its heading");
         }
@@ -76,14 +77,17 @@ namespace Requestarr.Core.Test.Announcements
             Changelog.Parse(file, new Version(9, 9, 9)).Count.Should().BeInRange(versions.Count, versions.Count + 1, "Unreleased, when there is one, is the build a dev or QA server runs");
             versions.Select(v => v.Version).Should().OnlyHaveUniqueItems();
             versions.Should().Contain(v => v.HasNews);
-            Changelog.Embedded().Replace("\r", string.Empty).Should().Be(file.Replace("\r", string.Empty), "the build embeds the file");
+            var embedded = ChangelogSource.Embedded();
+            var released = embedded.Entries.Where(e => e.Build != null).Select(e => e.Id).ToHashSet();
+            Shown(embedded.Versions(released, new Version(9, 9, 9))).Should().BeEquivalentTo(Shown(Changelog.Parse(file, new Version(9, 9, 9))), "the build embeds the entries the file is written from");
+            embedded.Entries.Should().HaveCount(Directory.GetFiles(RepoFiles.Path("changelog", "entries"), "*.txt").Length);
         }
 
         [Test]
         public void the_process_and_the_channel_are_documented()
         {
-            File.ReadAllText(RepoFiles.Path("docs", "development.md")).Should().Contain("## Changelog").And.Contain("Add its lines under `## Unreleased`").And.Contain("### For users");
-            File.ReadAllText(RepoFiles.Path(".github", "pull_request_template.md")).Should().Contain("CHANGELOG.md");
+            File.ReadAllText(RepoFiles.Path("docs", "development.md")).Should().Contain("## Changelog").And.Contain("Add its entry files").And.Contain("**For users**");
+            File.ReadAllText(RepoFiles.Path(".github", "pull_request_template.md")).Should().Contain("CHANGELOG.md").And.Contain("changelog/entries/");
             File.ReadAllText(RepoFiles.Path(".github", "workflows", "build.yml")).Should().Contain("name: Changelog").And.Contain("secrets, changelog, promotion]");
             File.ReadAllText(RepoFiles.Path("docs", "setup-guide.md")).Should().Contain("### 5.8 The announcements channel").And.Contain("**Announce to users**").And.Contain("Requestarr Members");
             File.ReadAllText(RepoFiles.Path("docs", "commands.md")).Should().Contain("### Announcements");
@@ -94,25 +98,29 @@ namespace Requestarr.Core.Test.Announcements
         {
             var technical = new[] { "Sonarr", "Radarr", "Lidarr", "API", "webhook", "database", "migration", ".NET", "refactor", "provisioning", "endpoint", "CI" };
 
-            foreach (var line in Changelog.Parse(File.ReadAllText(RepoFiles.Path("CHANGELOG.md"))).SelectMany(v => v.Users))
+            foreach (var line in Changelog.Parse(File.ReadAllText(RepoFiles.Path("CHANGELOG.md"))).SelectMany(v => v.Users.Select(l => l.Text)))
             {
                 technical.Where(word => Regex.IsMatch(line, $@"\b{Regex.Escape(word)}\b", RegexOptions.IgnoreCase)).Should().BeEmpty($"\"{line}\" is for users");
             }
         }
 
-        // The changelog's limits (50 words a line, 3,500 characters a build) keep every released build's Read changes
-        // to one message, with one card for each section.
+        // A build lists every change however many there are (no cap), so a long one's Read changes carries on in more
+        // messages, each within Discord's limits.
         [Test]
-        public void every_released_version_reads_in_one_message_with_one_card_a_section()
+        public void every_released_version_reads_within_discords_limits_however_long()
         {
-            foreach (var version in Changelog.Parse(Changelog.Embedded()).Where(v => v.HasNews && v.Date != null))
+            foreach (var version in ChangelogSource.Embedded().Versions(new HashSet<string>()).Where(v => v.HasNews && v.Date != null))
             {
-                var full = VersionCards.Full(version, VersionAudience.Admins);
-                var sections = (version.Users.Count > 0 ? 1 : 0) + (version.Admins.Count > 0 ? 1 : 0);
-
-                full.Should().ContainSingle($"{version.Version} fits one message");
-                full[0].Cards.Should().HaveCount(sections, $"{version.Version} has one card a section");
+                foreach (var reply in VersionCards.Full(version, VersionAudience.Admins))
+                {
+                    reply.Cards.Should().HaveCountLessThanOrEqualTo(VersionCards.CardsPerMessage);
+                    reply.Cards.Sum(c => c.Text.Length).Should().BeLessThanOrEqualTo(VersionCards.MessageTextLength, $"{version.Version} fits Discord's limits");
+                }
             }
         }
+
+        // Each version's lines as words, wherever the version comes from.
+        private static IEnumerable<string> Shown(IEnumerable<ChangelogVersion> versions) =>
+            versions.SelectMany(v => v.Users.Concat(v.Admins).Select(l => $"{v.Version} {l.Text}"));
     }
 }

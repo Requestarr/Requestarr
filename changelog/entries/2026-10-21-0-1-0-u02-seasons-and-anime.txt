@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.1.0
+line: **Seasons and anime:** choose which TV seasons you want, or all of them including new ones as they air; for anime, choose English dub or subtitles first.

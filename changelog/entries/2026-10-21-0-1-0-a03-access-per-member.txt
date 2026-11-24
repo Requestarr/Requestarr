@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.1.0
+line: **Access per member:** for each type, off, needs approval or auto-approve, a limit per rolling window, and which Sonarr or Radarr their requests go to.

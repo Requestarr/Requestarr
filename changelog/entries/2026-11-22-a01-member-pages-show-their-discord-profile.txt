@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Member pages show their Discord profile:** the header behind a member's name shows their Discord banner, or their profile colour when they have none, with their picture large.

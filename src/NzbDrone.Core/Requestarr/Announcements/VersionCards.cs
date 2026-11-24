@@ -48,7 +48,7 @@ namespace Requestarr.Core.Announcements
 
         private static bool IsComposeLine(string line) => line.StartsWith(ComposeLead, StringComparison.Ordinal);
 
-        private static bool NeedsCompose(ChangelogVersion version) => version.Admins.Any(IsComposeLine);
+        private static bool NeedsCompose(ChangelogVersion version) => version.Admins.Any(l => IsComposeLine(l.Text));
 
         private static string WithComposeLink(string line, Version version) =>
             IsComposeLine(line) ? $"{line} [The new compose file]({ComposeFile(version)})" : line;
@@ -60,7 +60,7 @@ namespace Requestarr.Core.Announcements
         {
             var title = DiscordText.VersionCardTitle(shown ?? Changelog.Display(version.Version), version.Date, thisYear);
             var lines = audience == VersionAudience.Admins ? version.Admins.Concat(version.Users).ToList() : version.Users.ToList();
-            var description = DiscordText.VersionCardSummary(MainChange(lines[0]), lines.Count - 1);
+            var description = DiscordText.VersionCardSummary(MainChange(lines[0].Text), lines.Count - 1);
 
             if (audience == VersionAudience.Admins && NeedsCompose(version))
             {
@@ -91,20 +91,21 @@ namespace Requestarr.Core.Announcements
         private static string ReadChangesPrefix(VersionAudience audience) =>
             $"{VersionCardRoutes.ReadChanges}:{(audience == VersionAudience.Admins ? "a" : "u")}:";
 
-        // The full card, private: one coloured card per section (a long section carries on in more cards, split between
-        // lines), in as many messages as Discord's limits need. Cards show text at a message's size, with headings.
+        // The full card, private: one coloured card per section, its lines under New, Fixed and Changed (a long section
+        // carries on in more cards, split between lines), in as many messages as Discord's limits need. Cards show text
+        // at a message's size, with headings.
         public static IReadOnlyList<InteractionReply> Full(ChangelogVersion version, VersionAudience audience, string shown = null)
         {
             var sections = new List<(string Heading, IReadOnlyList<string> Lines, uint Color)>();
 
             if (version.Users.Count > 0)
             {
-                sections.Add((Changelog.UsersHeading, version.Users, UsersColor));
+                sections.Add((Changelog.UsersHeading, Grouped(version.Users, l => l), UsersColor));
             }
 
             if (audience == VersionAudience.Admins && version.Admins.Count > 0)
             {
-                sections.Add((Changelog.AdminsHeading, version.Admins.Select(l => WithComposeLink(l, version.Version)).ToList(), AdminsColor));
+                sections.Add((Changelog.AdminsHeading, Grouped(version.Admins, l => WithComposeLink(l, version.Version)), AdminsColor));
             }
 
             var title = $"## {DiscordText.VersionCardFullTitle(shown ?? Changelog.Display(version.Version), version.Date)}\n";
@@ -114,7 +115,7 @@ namespace Requestarr.Core.Announcements
             {
                 var first = true;
 
-                foreach (var chunk in Chunks(lines.Select(l => DiscordLimits.Truncate($"- {l}", CardTextLength)), CardTextLength))
+                foreach (var chunk in Chunks(lines.Select(l => DiscordLimits.Truncate(l, CardTextLength)), CardTextLength))
                 {
                     var header = $"{(cards.Count == 0 ? title : string.Empty)}### {heading}{(first ? string.Empty : DiscordText.VersionNotesContinued)}\n";
                     cards.Add(new InteractionCard { Text = header + chunk, Color = color });
@@ -142,6 +143,12 @@ namespace Requestarr.Core.Announcements
             replies.Add(new InteractionReply { Cards = current, Ephemeral = true });
             return replies;
         }
+
+        // A section's lines as the card shows them: each kind's heading, then its lines.
+        private static IReadOnlyList<string> Grouped(IReadOnlyList<ChangelogLine> lines, Func<string, string> words) =>
+            lines.GroupBy(l => l.Kind)
+                .SelectMany(g => g.Select(l => $"- {words(l.Text)}").Prepend($"**{DiscordText.ChangeKindLabel(g.Key)}**"))
+                .ToList();
 
         // A change's bold lead ("**Long TV shows:** you can now…" is "Long TV shows"), or its first few words.
         public static string MainChange(string line)

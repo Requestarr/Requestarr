@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.1.0
+line: **Request movies and TV:** type /request, pick a type, type a title, and press **Request** on the one you want.

@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **No Tags page:** the Tags page is gone, since Requestarr doesn't use tags. Old links to the Discord, Sonarr and Radarr settings open the matching part of Connections.

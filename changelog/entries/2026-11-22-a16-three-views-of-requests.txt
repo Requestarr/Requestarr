@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Three views of requests:** Posters, Overview and Table, as in Sonarr, each with its own options. Every request gets its poster and details once, imported ones included.

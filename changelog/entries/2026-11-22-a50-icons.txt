@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Icons:** the browser tab, home screen icons and tiles use the charcoal arrow.

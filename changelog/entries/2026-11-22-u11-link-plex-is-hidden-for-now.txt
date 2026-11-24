@@ -1,0 +1,4 @@
+audience: users
+kind: changed
+build: 0.7.0010
+line: **Link Plex is hidden for now:** the button comes back once the admin connects a Plex server.

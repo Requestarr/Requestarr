@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.2.0
+line: **What a removal deletes:** the files and the title go from Sonarr or Radarr without being added to the exclusion list; removing seasons deletes their files and stops monitoring them, and the show stays.

@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.3.0
+line: **Clearer what's new posts:** each post shows only the sections that have something in them, and a version with nothing for you or your members posts nothing at all.

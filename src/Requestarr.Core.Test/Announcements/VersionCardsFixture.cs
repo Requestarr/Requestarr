@@ -38,7 +38,7 @@ namespace Requestarr.Core.Test.Announcements
         [SetUp]
         public async Task Posted()
         {
-            Service.ChangelogText = () => Text;
+            Service.Changelog = () => ChangelogSource.FromMarkdown(Text);
             Service.CurrentVersion = () => new Version(0, 2, 0, 7);
             await Service.PostVersionNotesAsync();
         }
@@ -68,7 +68,7 @@ namespace Requestarr.Core.Test.Announcements
         public void the_title_is_the_version_and_its_day_with_the_year_only_when_it_is_not_this_year(int thisYear, string day, string title)
         {
             var date = day == null ? (DateTime?)null : DateTime.Parse(day, CultureInfo.InvariantCulture);
-            var version = new ChangelogVersion(new Version(0, 4, 11), new[] { "**Softer logo:** easier on the eyes." }, Array.Empty<string>(), date);
+            var version = new ChangelogVersion(new Version(0, 4, 11), ChangelogLines.Of("**Softer logo:** easier on the eyes."), ChangelogLines.Of(), date);
 
             VersionCards.Collapsed(version, VersionAudience.Users, thisYear).Title.Should().Be(title);
         }
@@ -76,7 +76,7 @@ namespace Requestarr.Core.Test.Announcements
         [Test]
         public void a_card_with_one_change_names_it_alone_and_a_build_keeps_its_label()
         {
-            var version = new ChangelogVersion(new Version(0, 7, 4), new[] { "**Softer logo:** easier on the eyes." }, Array.Empty<string>(), new DateTime(2026, 11, 14));
+            var version = new ChangelogVersion(new Version(0, 7, 4), ChangelogLines.Of("**Softer logo:** easier on the eyes."), ChangelogLines.Of(), new DateTime(2026, 11, 14));
 
             var card = VersionCards.Collapsed(version, VersionAudience.Users, 2026, "0.7.0004-qa.4f2a9c1");
 
@@ -106,8 +106,8 @@ namespace Requestarr.Core.Test.Announcements
             full.Ephemeral.Should().BeTrue("only the person who pressed it sees it");
             full.Embeds.Should().BeEmpty("cards show text at a message's size");
             full.Cards.Select(c => c.Text).Should().Equal(
-                "## Requestarr 0.2.0 · 22 October 2026\n### For users\n- **Follow:** follow a request from its card.\n- **Limits:** your panel shows your limits.",
-                "### For admins\n- **Member cards:** a clearer layout.");
+                "## Requestarr 0.2.0 · 22 October 2026\n### For users\n**Changed**\n- **Follow:** follow a request from its card.\n- **Limits:** your panel shows your limits.",
+                "### For admins\n**Changed**\n- **Member cards:** a clearer layout.");
             full.Cards.Select(c => c.Color).Should().Equal(VersionCards.UsersColor, VersionCards.AdminsColor);
         }
 

@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.2.0
+line: **Still watching?** If a title you can watch might be removed, you get a message first: press **Keep it** to keep it. One keep is enough, nobody sees who pressed it, and you can take it back.

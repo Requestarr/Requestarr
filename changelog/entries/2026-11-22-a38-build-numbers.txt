@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Build numbers:** every finished piece of work gets the next build number, like 0.7.0005, kept through testing, the beta and the release. A release is that exact build, never rebuilt.

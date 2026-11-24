@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.3.0
+line: **What's new history:** the admin channel keeps a post for every version as a lasting record. A new install posts the full history once when it first starts, oldest first.

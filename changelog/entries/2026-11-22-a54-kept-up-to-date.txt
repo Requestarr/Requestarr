@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Kept up to date:** the parts Requestarr is built from are updated every week, and a build that fixes a security problem says so here.

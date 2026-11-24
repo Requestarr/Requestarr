@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Queue, access requests, outages and audit log:** the Queue is what waits on you, each item opening the page that acts on it. Access requests, Outages and the Audit log each have their own page.

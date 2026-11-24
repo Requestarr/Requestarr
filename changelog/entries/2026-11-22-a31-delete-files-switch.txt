@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Delete files switch:** a setting under Settings, then Requests, decides whether Requestarr may delete anything, and it starts off. While it's off, an agreed removal waits as Delete it yourself until you press I deleted it.

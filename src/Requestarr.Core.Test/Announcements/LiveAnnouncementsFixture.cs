@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -240,7 +241,7 @@ namespace Requestarr.Core.Test.Announcements
                 userNotes.ForEach(t => Log($"[upgrade]   users, read back: \"{t}\""));
 
                 // The build running is the changelog's Unreleased lines, shown under its label.
-                var running = Changelog.Parse(announcements.ChangelogText(), current).SingleOrDefault(v => v.Version == current);
+                var running = Changelog.Parse(File.ReadAllText(RepoFiles.Path("CHANGELOG.md")), current).SingleOrDefault(v => v.Version == current);
                 adminNotes.Should().HaveCount(running?.HasNews == true ? 1 : 0, "only the build running now, and one with nothing for anyone posts nothing");
                 adminNotes.Should().OnlyContain(t => t.StartsWith($"Requestarr {label} | "), "Unreleased has no day yet");
 
@@ -264,11 +265,11 @@ namespace Requestarr.Core.Test.Announcements
                 userNotes.Should().HaveCount(hasUserLines ? 1 : 0, "users only hear about versions with changes for them");
 
                 // The simulated upgrade is to the next build sent to testers, numbered, above every shipped version.
-                var shipped = Regex.Replace(announcements.ChangelogText().Replace("\r\n", "\n"), @"(?ms)^## Unreleased\n.*?(?=^## )", string.Empty);
+                var shipped = Regex.Replace(File.ReadAllText(RepoFiles.Path("CHANGELOG.md")).Replace("\r\n", "\n"), @"(?ms)^## Unreleased\n.*?(?=^## )", string.Empty);
                 var next = new Version(current.Major, current.Minor, current.Build + 1);
                 announcements.CurrentVersion = () => new Version(next.Major, next.Minor, next.Build, 0);
                 var today = DateTime.UtcNow.Date;
-                announcements.ChangelogText = () => $"## {Changelog.Display(next)} ({today:yyyy-MM-dd})\n\n### For users\n- **Live check:** this is how something new is announced to you.\n- **Several changes:** a card names the main one and says how many more.\n\n### For admins\n- **Full list:** admins get every line.\n\n" + shipped;
+                announcements.Changelog = () => ChangelogSource.FromMarkdown($"## {Changelog.Display(next)} ({today:yyyy-MM-dd})\n\n### For users\n- **Live check:** this is how something new is announced to you.\n- **Several changes:** a card names the main one and says how many more.\n\n### For admins\n- **Full list:** admins get every line.\n\n" + shipped);
                 await announcements.PostVersionNotesAsync();
                 await announcements.PostVersionNotesAsync();
                 var adminAfter = await Cards(adminRest, VersionAudience.Admins);
@@ -283,13 +284,13 @@ namespace Requestarr.Core.Test.Announcements
 
                 // 3b. QA's cards: one "since the last beta" card for Unreleased, the rollup testers get next. A version
                 // folded into it loses its card on the next start; nothing else in the channel goes.
-                var embedded = Changelog.Embedded().Replace("\r\n", "\n");
+                var embedded = File.ReadAllText(RepoFiles.Path("CHANGELOG.md")).Replace("\r\n", "\n");
                 stack = "qa";
                 shownAs = Regex.Replace(label, @"-dev(?=\.|$)", "-qa");
                 staged = string.Join(",", Changelog.Parse(embedded).Select(v => v.Version));
                 announcements.CurrentVersion = () => build;
                 var firstNumbered = embedded.IndexOf("\n## 0.", StringComparison.Ordinal) + 1;
-                announcements.ChangelogText = () => embedded.Insert(firstNumbered, "## 0.6.0 (2026-11-13)\n\n### For admins\n- **Folded version:** this card goes once it's folded into Unreleased.\n\n");
+                announcements.Changelog = () => ChangelogSource.FromMarkdown(embedded.Insert(firstNumbered, "## 0.6.0 (2026-11-13)\n\n### For admins\n- **Folded version:** this card goes once it's folded into Unreleased.\n\n"));
                 await announcements.PostVersionNotesAsync();
 
                 // Every other message stays, known by what it says: a panel moves below new posts as a new message.
@@ -297,7 +298,7 @@ namespace Requestarr.Core.Test.Announcements
                 var otherBefore = await Others();
                 var qaBefore = await Cards(adminRest, VersionAudience.Admins);
                 qaBefore.ForEach(t => Log($"[qa] before the fold, admin card: \"{t}\""));
-                announcements.ChangelogText = () => embedded;
+                announcements.Changelog = () => ChangelogSource.FromMarkdown(embedded);
                 await announcements.PostVersionNotesAsync();
                 var qaAdmin = await Cards(adminRest, VersionAudience.Admins);
                 var qaUsers = await Cards(channel, VersionAudience.Users);

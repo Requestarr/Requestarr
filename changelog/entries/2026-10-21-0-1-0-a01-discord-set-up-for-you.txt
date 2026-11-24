@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.1.0
+line: **Discord set up for you:** on first start Requestarr creates the admin channel, the admin feed, the request channels' category, the members role and the announcements channel, and recreates any that are deleted.

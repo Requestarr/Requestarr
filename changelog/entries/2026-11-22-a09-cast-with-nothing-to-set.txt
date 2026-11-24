@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Cast with nothing to set:** cast from The Movie Database works with a key built into Requestarr. To use your own, set it on the server's container; System, then Status, warns if the built-in one stops working.

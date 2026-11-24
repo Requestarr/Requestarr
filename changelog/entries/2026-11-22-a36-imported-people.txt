@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Imported people:** everyone who asked is listed under Members as imported, whether or not they're in your server. No role or channel is made until you onboard them.

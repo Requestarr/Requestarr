@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Keep the audit log for:** choose how long Requestarr keeps its record of who did what, from 90 days to forever, under Settings, then Requests. It starts at 1 year, and requests, members and renames are never removed.

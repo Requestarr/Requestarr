@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Header search:** press / to find a request by title, or a member by name, Discord username, Discord ID or an earlier name. It also finds titles in your library nobody requested, with Start removal right there.

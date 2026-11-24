@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Open in Sonarr or Radarr:** a request whose title is in your library has a button going straight to that title's page. If your browser can't reach an instance at its usual address, set Address in your browser on it.

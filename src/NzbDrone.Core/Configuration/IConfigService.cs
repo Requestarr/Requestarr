@@ -44,6 +44,10 @@ namespace NzbDrone.Core.Configuration
         string TvAllOtherMissingSince { get; set; }
         string MovieAllOtherMissingSince { get; set; }
 
+        // The changelog entries this server has posted in its what's new cards (their IDs, comma-separated); read through
+        // Requestarr.Core.Announcements.AnnouncementService
+        string ChangelogPostedEntries { get; set; }
+
         // Whether the first-run setup's Sonarr or Radarr step was skipped; read through Requestarr.Core.Settings.SetupService
         bool SetupInstanceSkipped { get; set; }
 

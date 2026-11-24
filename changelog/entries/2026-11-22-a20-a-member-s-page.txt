@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **A member's page:** their picture, @handle, Discord ID and status, with what can be done to them: change access and limits, suspend, unsuspend, remove, and link Plex.

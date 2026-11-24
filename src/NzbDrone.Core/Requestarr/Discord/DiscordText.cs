@@ -1152,6 +1152,14 @@ namespace Requestarr.Core.Discord
         public const string ReadChangesLabel = "Read changes";
         public const string VersionNotesContinued = " (continued)";
 
+        // A version's groups of changes, as Sonarr's and Radarr's updates name them.
+        public static string ChangeKindLabel(Announcements.ChangeKind kind) => kind switch
+        {
+            Announcements.ChangeKind.New => "New",
+            Announcements.ChangeKind.Fixed => "Fixed",
+            _ => "Changed"
+        };
+
         // A version's card in the channels: the version and the day it was made, the way Discord readers write dates
         // (the year only when it isn't this one), then its main change and how many more there are.
         public static string VersionCardTitle(string version, DateTime? date, int thisYear)

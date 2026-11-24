@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Moving from Requestrr:** import past requests from Requestrr's old channels under Settings, then Import from Requestrr. You see every request before anything is written, and running it again adds nothing twice.

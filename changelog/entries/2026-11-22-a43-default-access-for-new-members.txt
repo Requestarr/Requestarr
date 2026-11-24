@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Default access for new members:** each media manager says what someone new gets for its type: Off, Needs approval or Approved automatically. Ones you already had keep Needs approval.

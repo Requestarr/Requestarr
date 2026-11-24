@@ -1,0 +1,4 @@
+audience: users
+kind: changed
+build: 0.7.0010
+line: **Easier to read:** the welcome message, the paused notice and Read changes are coloured cards with large headings, at normal message size.

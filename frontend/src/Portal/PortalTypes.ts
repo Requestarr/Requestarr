@@ -276,11 +276,17 @@ export interface PortalLibraryTitle {
   poster: string | null;
 }
 
+// A changelog line and its group, as Sonarr's System, Updates page groups them.
+export interface PortalChange {
+  kind: 'new' | 'fixed' | 'changed';
+  text: string;
+}
+
 export interface PortalVersion {
   version: string;
   date: string | null;
-  users: string[];
-  admins: string[];
+  users: PortalChange[];
+  admins: PortalChange[];
 }
 
 export interface PortalTitleRemoval {

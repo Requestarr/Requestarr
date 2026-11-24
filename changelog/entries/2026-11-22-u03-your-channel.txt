@@ -1,0 +1,4 @@
+audience: users
+kind: changed
+build: 0.7.0010
+line: **Your channel:** your request channel sits with the announcements channel in the Requestarr Users group, and your panel is always its newest message.

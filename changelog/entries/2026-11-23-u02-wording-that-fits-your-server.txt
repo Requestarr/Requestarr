@@ -1,0 +1,3 @@
+audience: users
+kind: changed
+line: **Wording that fits your server:** removal votes and help talk about the library, not apps your server may not use.

@@ -1,38 +1,31 @@
 #!/usr/bin/env python3
-"""Checks CHANGELOG.md against the changelog rule (docs/development.md#changelog). CI's Changelog job runs it on every
-pull request; run it locally with `python3 .github/changelog_check.py CHANGELOG.md`.
+"""Checks the changelog against its rule (docs/development.md#changelog). CI's Changelog job runs it on every pull
+request; run it locally with `python3 .github/changelog_check.py CHANGELOG.md`.
 
-"## Unreleased" (the lines pull requests add until the next build sent to testers, always on top) and every
-"## x.y.zzzz (YYYY-MM-DD)" build (a staging build's may add ", with 0.7.0005 to 0.7.0011"; the text above the first
-heading is free) is checked for:
-  - sections: only "### For users" and "### For admins", each at most once; no "Internal" or any other section;
-  - no empty section: a heading with no "- " line under it;
-  - only headings and "- " lines: no loose text inside a version;
-  - plain words: no code-style text in a line, meaning backticks, file names (provisioning.yml), paths (docker/x),
-    command flags (-Stack, --ref), settings keys (removal.voteDays) or environment variable names (DEV_DISCORD_*);
-  - no placeholders: "nothing this time", "n/a", "TBD" and the like;
-  - no summary without substance: a line with "minor fixes", "various improvements" or another summary phrase must say,
-    on the same line, what that changes (at least five more words);
-  - short: each line one to three sentences, at most 50 words after its bold lead, and 3,500 characters of lines in a
-    build, so Read changes is one message (the security line the staging promotion may add isn't counted); as many
-    lines as there are real changes, with no cap on how many;
-    (owner, 2026-11-23: "every note should be like 1-3 sentences not a bible"); Unreleased says where a thing ended
-    up, so a change rewrites its line to the final state instead of adding to it;
-  - versions: "## 0.7.0004 (YYYY-MM-DD)", the day the build was made, each once, newest first; versions up to 0.6.0
-    keep their "x.y.z" numbers (docs/development.md#versions); Unreleased only on top, never empty.
+The changelog is kept as entries, one small file per change under changelog/entries, with the builds listed in
+changelog/builds.txt (.github/changelog_entries.py says how they're written). This checks:
+  - every entry: its name, only the known fields, an audience (users or admins), a kind (new, fixed or changed), a line,
+    and a build only once it's listed in the builds;
+  - every line (and line_if_seen): plain words, meaning no backticks, file names (provisioning.yml), paths (docker/x),
+    command flags (-Stack, --ref), settings keys (removal.voteDays) or environment variable names (DEV_DISCORD_*); no
+    placeholders ("nothing this time", "n/a", "TBD"); a summary phrase ("minor fixes") only with at least five more words
+    saying what it changes; one to three sentences and at most 50 words after the bold lead (owner, 2026-11-23: "every
+    note should be like 1-3 sentences not a bible");
+  - replaces: every one names an existing entry, no chain loops back, and an entry replacing one testers already have,
+    as a different kind, has line_if_seen saying what changed for them;
+  - CHANGELOG.md is exactly what the entries write (it's generated, never edited by hand).
+There's no cap on how many entries a build or a section has: a big build lists each thing that changed (owner,
+2026-11-24: "if it's a big patch it should have bullets for each item that changed").
 
-`--self-test` runs every rule against built-in samples and fails if one doesn't catch its sample.
+`--self-test` runs every rule against built-in samples, a 20-line section that passes, and the fold cases (never
+posted, posted, a partly posted chain), and fails if one doesn't hold.
 """
-import datetime
 import os
 import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build_numbers import SECURITY_LINE, text as shown  # noqa: E402
-
-SECTIONS = ("For users", "For admins")
-UNRELEASED = "Unreleased"
+import changelog_entries as entries_module  # noqa: E402
 
 EXTENSIONS = "cs|csproj|props|ps1|psm1|cmd|bat|sh|py|ya?ml|json|md|toml|xml|env|txt|ts|tsx|js|css|dll|exe|sln"
 CODE = [
@@ -57,9 +50,6 @@ FILLER = ["and", "&", "other", "some", "a few", "several", "plus", "more", "lots
 # How long a line may be (docs/development.md#changelog).
 MAX_WORDS = 50
 MAX_SENTENCES = 3
-# Discord shows at most 4,000 characters in one message's cards; this leaves room for the headings, the compose file
-# link and the security line (VersionCards.MessageTextLength).
-MAX_CHARACTERS = 3500
 
 LEAD = re.compile(r"^\*\*[^*]+\*\*")
 # A sentence ends at . ! or ? (and any closing quote or bracket) before a space and a capital, a number or a command;
@@ -109,202 +99,145 @@ def check_line(text):
     return problems
 
 
-def check(text):
-    """[(line number, problem)] for a whole CHANGELOG.md."""
+# ---- the entries ------------------------------------------------------------------------------------------------
+
+def loops(entries):
+    """Entries whose chain of replaces comes back to them."""
+    return [entry.id for entry in entries.values() if entry.id in entries_module.ancestors(entry, entries)]
+
+
+def check_entry(entry, entries, builds):
+    """Problems with one entry file."""
     problems = []
-    version = None
-    seen_versions = []
-    section = None
-    section_line = 0
-    section_items = 0
-    seen_sections = set()
-
-    unreleased_line = 0
-    unreleased_items = 0
-
-    def close_section():
-        if section is not None and section_items == 0:
-            problems.append((section_line, "empty section '%s': leave the heading out when there's nothing under it" % section))
-
-    def close_unreleased():
-        if version is UNRELEASED and unreleased_items == 0:
-            problems.append((unreleased_line, "an empty '## Unreleased': leave it out until a pull request adds a line"))
-
-    for number, raw in enumerate(text.splitlines(), 1):
-        line = raw.rstrip()
-        if line.startswith("## "):
-            close_section()
-            section = None
-            seen_sections = set()
-            if line == "## Unreleased":
-                if seen_versions or version is not None:
-                    problems.append((number, "'## Unreleased' goes once, on top"))
-                version, unreleased_line = UNRELEASED, number
-                continue
-            close_unreleased()
-            match = re.fullmatch(r"## ((\d+)\.(\d+)\.(\d+)) \((\d{4})-(\d{2})-(\d{2})\)(?:, with \d+\.\d+\.\d{4,} to \d+\.\d+\.\d{4,})?", line)
-            version = tuple(int(part) for part in match.groups()[1:4]) if match else None
-            if not match or not real_date(*match.groups()[4:]) or shown(version) != match.group(1):
-                problems.append((number, "a version heading is '## 0.7.0004 (YYYY-MM-DD)' (up to 0.6.0 'x.y.z'), the day it was made, and at most the goals' builds it includes (', with 0.7.0005 to 0.7.0011')"))
-                version = None
-                continue
-            if version in seen_versions:
-                problems.append((number, "version %s appears twice" % shown(version)))
-            elif seen_versions and version > seen_versions[-1]:
-                problems.append((number, "versions go newest first: %s is above %s" % (shown(seen_versions[-1]), line[3:])))
-            seen_versions.append(version)
-        elif version is None:
-            continue
-        elif line.startswith("### "):
-            close_section()
-            section = line[4:].strip()
-            section_line = number
-            section_items = 0
-            if section not in SECTIONS:
-                problems.append((number, "section '%s': only 'For users' and 'For admins'; work neither sees is left out" % section))
-            elif section in seen_sections:
-                problems.append((number, "section '%s' appears twice in this version" % section))
-            seen_sections.add(section)
-        elif line.startswith("- "):
-            if section is None:
-                problems.append((number, "a line outside 'For users' or 'For admins'"))
-            section_items += 1
-            unreleased_items += version is UNRELEASED
-            problems.extend((number, p) for p in check_line(line[2:]))
-        elif line.strip():
-            problems.append((number, "only headings and '- ' lines inside a version"))
-    close_section()
-    close_unreleased()
-    return problems + too_big(text)
-
-
-def too_big(text):
-    """Problems with a build's size (Unreleased's too): characters in all its lines. The security line the staging
-    promotion may add isn't counted, so adding it never fails the release."""
-    builds = []
-    for number, raw in enumerate(text.splitlines(), 1):
-        line = raw.rstrip()
-        if line.startswith("## "):
-            builds.append((number, []))
-        elif builds and line.startswith("### "):
-            builds[-1][1].append((number, line[4:].strip(), []))
-        elif builds and builds[-1][1] and line.startswith("- ") and line != SECURITY_LINE:
-            builds[-1][1][-1][2].append(line)
-    problems = []
-    for heading, sections in builds:
-        size = sum(len(row) + 1 for _, _, rows in sections for row in rows)
-        if size > MAX_CHARACTERS:
-            problems.append((heading, "%d characters of lines in this build: at most %d, so Read changes is one message" % (size, MAX_CHARACTERS)))
+    if not entries_module.ID.match(entry.id):
+        problems.append("its name: lower-case letters, digits, dots and dashes, as in 2026-11-24-long-tv-shows")
+    problems += ["an unknown field '%s': only %s" % (name, ", ".join(entries_module.FIELDS)) for name in entry.unknown]
+    problems += ["the field '%s' twice: each field once" % name for name in entry.repeated]
+    if entry.audience not in entries_module.AUDIENCES:
+        problems.append("audience '%s': users or admins" % entry.audience)
+    if entry.kind not in entries_module.KINDS:
+        problems.append("kind '%s': new, fixed or changed" % entry.kind)
+    if entry.build_text and (entry.build is None or entry.build not in builds):
+        problems.append("build '%s' isn't in the builds list: leave it out until the staging promotion fills it in" % entry.build_text)
+    if not entry.line:
+        problems.append("no line: say what changed, with a bold lead")
+    for field, text in (("line", entry.line), ("line_if_seen", entry.line_if_seen)):
+        problems += ["%s: %s" % (field, p) for p in check_line(text)] if text else []
+    for replaced in entry.replaces:
+        if replaced not in entries:
+            problems.append("replaces '%s', which isn't an entry" % replaced)
+        elif replaced == entry.id:
+            problems.append("replaces itself")
+        elif not entries[replaced].build and not entry.build:
+            problems.append("replaces '%s', which isn't released yet: edit that entry to where it ended up instead" % replaced)
+        elif entries[replaced].build and entries[replaced].kind != entry.kind and not entry.line_if_seen:
+            problems.append("replaces '%s', which testers already have, as a different kind: add line_if_seen, what changed for them" % replaced)
     return problems
 
 
-BAD = """# Changelog
-
-## 0.6.3
-
-## 0.6.2 (2026-02-30)
-
-## 0.7.4 (2026-10-03)
-
-## 0.6.0 (2026-10-02)
-
-### For users
-- **Requests:** run `/request` to ask.
-- Set it in provisioning.yml.
-- Edit docker/compose.yaml first.
-- Start it with -Stack dev.
-- Change removal.voteDays to 3.
-- Set DEV_DISCORD_BOT_TOKEN.
-- Nothing this time.
-- Minor fixes.
-- Various improvements and bug fixes.
-- **Too long:** this line goes on and on, word after word, about every small detail of a feature that a reader only needed to hear about once, in a sentence or two, before the setup guide took over with the rest of it, the settings, the windows, the buttons, the menus, the colours and every last label on every page too.
-- **Too many sentences:** one. Two. Three. Four
-
-### For admins
-
-### Internal
-- Refactor.
-
-Loose text.
-
-## 0.6.1 (2026-10-01)
-
-### For users
-- **One:** a.
-- **Two:** b.
-- **Three:** c.
-- **Four:** d.
-- **Five:** e.
-- **Six:** f.
-- **Seven:** g.
-- **Eight:** h.
-- **Nine:** i.
-
-## 0.6.1 (2026-10-01)
-
-## Unreleased
-"""
-
-GOOD = """# Changelog
-
-Text before the first version is free.
-
-## Unreleased
-
-### For users
-- **Build numbers:** each test build now shows which build it is, the same number everywhere you look.
-
-## 0.7.0005 (2026-10-26), with 0.7.0005 to 0.7.0005
-
-### For users
-- **Numbers:** a staging build names the goals' builds it includes.
-
-## 0.7.0004 (2026-10-25)
-
-### For users
-- **Minor fixes:** request messages no longer show a Cancel button after a request is approved.
-- **Long TV shows:** you can now pick any season, not just the 24 most recent.
-
-### For admins
-- **Removals:** Sonarr/Radarr titles nobody requested can be removed too, from /admin requests.
-- Fixed: approving a request sometimes left the old Cancel button working, and the queue count updates after a restart.
-- **Settings in the web app:** build 0.7.0010 is set up from the web app. Settings, then Changes, records who changed what. Is that clear?
-- **A long lead that names the whole feature, its settings page and everything around it:** these few words, e.g. this note, stay well under the limit.
-- **Three:** c.
-- **Four:** d.
-- **Five:** e.
-- **Six:** f.
-
-## 0.6.0 (2026-10-21)
-"""
+def check_changelog(changelog):
+    """[(where, problem)] for every entry and build, and replacement loops."""
+    builds = [b.version for b in changelog.builds]
+    problems = [("changelog/builds.txt", "%s appears twice" % entries_module.shown(v)) for v in sorted(set(builds)) if builds.count(v) > 1]
+    for entry_id, entry in sorted(changelog.entries.items()):
+        problems += [("changelog/entries/%s.txt" % entry_id, p) for p in check_entry(entry, changelog.entries, builds)]
+    problems += [("changelog/entries/%s.txt" % entry_id, "its replaces come back to it: a replacement can't loop") for entry_id in loops(changelog.entries)]
+    return problems
 
 
-def real_date(year, month, day):
-    try:
-        datetime.date(int(year), int(month), int(day))
-        return True
-    except ValueError:
-        return False
+def check_builds_file(text):
+    return [("changelog/builds.txt:%d" % number, "'%s' isn't 'version | YYYY-MM-DD | notes' (notes: with x to y, flat)" % row)
+            for number, build, row in entries_module.parse_builds(text) if build is None]
+
+
+def check(root, path):
+    """[(where, problem)] for the entries under root/changelog and the generated file at path. A branch from before the
+    changelog was kept as entries (until a promotion carries them up) has its Unreleased lines checked as written: its
+    released builds are history there."""
+    if not os.path.isdir(os.path.join(root, "changelog")):
+        with open(path, encoding="utf-8") as handle:
+            rows = re.split(r"(?m)^## \d", handle.read().replace("\r\n", "\n"))[0].split("\n")
+        return [("%s:%d" % (os.path.basename(path), n), p) for n, row in enumerate(rows, 1) if row.startswith("- ") for p in check_line(row[2:])]
+    changelog = entries_module.Changelog.load(root)
+    problems = check_changelog(changelog)
+    builds_path = os.path.join(root, "changelog", "builds.txt")
+    if os.path.exists(builds_path):
+        with open(builds_path, encoding="utf-8") as handle:
+            problems += check_builds_file(handle.read())
+    with open(path, encoding="utf-8") as handle:
+        committed = handle.read().replace("\r\n", "\n")
+    if committed != changelog.render():
+        problems.append((os.path.basename(path), "doesn't match the entries: it's written from them, never by hand; run "
+                                                 "python3 .github/changelog_entries.py write"))
+    return problems
+
+
+# ---- self-test --------------------------------------------------------------------------------------------------
+
+def entry(entry_id, **fields):
+    return entries_module.Entry(entry_id, {name.rstrip("_"): value for name, value in fields.items()})
+
+
+def sample(*items, builds=()):
+    return entries_module.Changelog({e.id: e for e in items}, [entries_module.Build(b, "2026-11-22") for b in builds], "# Changelog\n")
 
 
 def self_test():
-    big = "## 0.5.0 (2025-09-01)\n\n### For admins\n" + "".join("- **Long %d:** %s.\n" % (n, " ".join(["considerably"] * 45)) for n in range(7))
-    found = check(BAD + big)
-    expected = ["backticks", "a file name", "a file path", "a command flag", "a settings key", "an environment variable name",
-                "placeholder", "summary without substance", "empty section", "section 'Internal'", "only headings",
-                "appears twice", "newest first", "a version heading", "goes once, on top", "an empty '## Unreleased'",
-                "words after the bold lead", "4 sentences", "characters of lines in this build"]
-    missing = [e for e in expected if not any(e in p for _, p in found)]
-    headings = sum("a version heading" in p for _, p in found)
-    summaries = sum("summary without substance" in p for _, p in found)
-    good = check(GOOD)
-    for _, p in found:
-        print("  caught: " + p)
-    if missing or summaries != 2 or headings != 3 or good:
-        print("SELF-TEST FAILED: missed %s; summaries caught %d of 2; malformed headings caught %d of 3; good sample problems %s" % (missing, summaries, headings, good))
+    released = (0, 7, 10)
+    bad = sample(
+        entry("Bad Name", audience="users", kind="new", line="**Fine:** a line."),
+        entry("odd-fields", audience="everyone", kind="tweak", line="**Fine:** a line.", colour="blue"),
+        entry("unknown-build", audience="users", kind="new", build="0.7.0099", line="**Fine:** a line."),
+        entry("no-line", audience="users", kind="new"),
+        entry("code", audience="admins", kind="changed", line="**Code:** set removal.voteDays in provisioning.yml."),
+        entry("long", audience="admins", kind="changed", line="**Too long:** " + " ".join(["word"] * 51) + "."),
+        entry("sentences", audience="admins", kind="changed", line="**Too many sentences:** one. Two. Three. Four"),
+        entry("summary", audience="admins", kind="fixed", line="Minor fixes."),
+        entry("dangling", audience="users", kind="new", replaces="nowhere", line="**Fine:** a line."),
+        entry("loop-a", audience="users", kind="new", replaces="loop-b", line="**Fine:** a line."),
+        entry("loop-b", audience="users", kind="new", replaces="loop-a", line="**Fine:** a line."),
+        entry("shipped", audience="users", kind="new", build="0.7.0010", line="**Shipped:** a line."),
+        entry("rework", audience="users", kind="changed", replaces="shipped", line="**Rework:** a line."),
+        entry("draft", audience="users", kind="new", line="**Draft:** a line."),
+        entry("redraft", audience="users", kind="new", replaces="draft", line="**Redraft:** a line."),
+        builds=[released])
+    found = [p for _, p in check_changelog(bad)]
+    expected = ["its name", "unknown field 'colour'", "audience 'everyone'", "kind 'tweak'", "build '0.7.0099'", "no line",
+                "a settings key", "a file name", "words after the bold lead", "4 sentences", "summary without substance",
+                "'nowhere', which isn't an entry", "can't loop", "add line_if_seen", "isn't released yet"]
+    missing = [e for e in expected if not any(e in p for p in found)]
+    bad_rows = check_builds_file("0.7.0010 | 2026-11-22\n0.7.0011 | someday\n")
+
+    # A section of 20 lines passes: there's no cap on how many changes a build lists.
+    big = sample(*[entry("2026-11-24-change-%02d" % n, audience="admins", kind="new", line="**Change %d:** one more thing you can do now." % n) for n in range(20)])
+    good_problems = check_changelog(big)
+    rendered = big.render()
+
+    # Folding: a reader who never got the replaced entry sees the replacing one alone, as New; one who got it sees
+    # line_if_seen; a chain folds all the way; a failed post still counts as never posted.
+    chain = {e.id: e for e in (
+        entry("a", audience="admins", kind="new", line="**A:** first."),
+        entry("b", audience="admins", kind="changed", replaces="a", line="**B:** second.", line_if_seen="**B seen:** second."),
+        entry("c", audience="admins", kind="fixed", replaces="b", line="**C:** third.", line_if_seen="**C seen:** third."))}
+    everything = list(chain.values())
+
+    def fold(posted):
+        return [(e.id, text, kind) for e, text, kind in entries_module.fold(chain, everything, set(posted))]
+
+    folds = [
+        (fold([]), [("c", "**C:** third.", "new")]),
+        (fold(["a"]), [("a", "**A:** first.", "new"), ("c", "**C seen:** third.", "fixed")]),
+        (fold(["a", "b"]), [("a", "**A:** first.", "new"), ("b", "**B seen:** second.", "changed"), ("c", "**C seen:** third.", "fixed")]),
+    ]
+    wrong_folds = [got for got, wanted in folds if got != wanted]
+
+    for problem in found:
+        print("  caught: " + problem)
+    if missing or len(bad_rows) != 1 or good_problems or rendered.count("- **Change") != 20 or wrong_folds:
+        print("SELF-TEST FAILED: missed %s; bad build rows caught %d of 1; 20-line sample problems %s; folds wrong %s"
+              % (missing, len(bad_rows), good_problems, wrong_folds))
         return 1
-    print("Self-test passed: every rule caught its sample, and the good sample passed.")
+    print("Self-test passed: every rule caught its sample, a section of 20 lines passed, and every fold case held.")
     return 0
 
 
@@ -314,18 +247,17 @@ def main(argv):
     if len(argv) != 2:
         print(__doc__)
         return 2
-    path = argv[1]
-    with open(path, encoding="utf-8") as handle:
-        problems = check(handle.read())
-    for number, problem in problems:
+    path = os.path.abspath(argv[1])
+    problems = check(os.path.dirname(path), path)
+    for where, problem in problems:
         if os.environ.get("GITHUB_ACTIONS"):
-            print("::error file=%s,line=%d::%s" % (path, number, problem))
+            print("::error file=%s::%s" % (where.split(":")[0], problem))
         else:
-            print("%s:%d: %s" % (path, number, problem))
+            print("%s: %s" % (where, problem))
     if problems:
         print("%d problem(s): see the changelog rule in docs/development.md#changelog." % len(problems))
         return 1
-    print("%s follows the changelog rule." % path)
+    print("%s follows the changelog rule and matches its %d entries." % (argv[1], len(entries_module.Changelog.load(os.path.dirname(path)).entries)))
     return 0
 
 

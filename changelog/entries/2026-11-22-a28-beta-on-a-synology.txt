@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Beta on a Synology:** the beta is one container from GitHub's registry, installed in Container Manager the way you'd install Sonarr. It uses your production library, so nothing downloads twice.

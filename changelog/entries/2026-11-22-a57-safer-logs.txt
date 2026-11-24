@@ -1,0 +1,4 @@
+audience: admins
+kind: fixed
+build: 0.7.0010
+line: **Safer logs:** a web address or user name with a line break in it can no longer add fake lines to Requestarr's log.

@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Outages:** the down alert, and the notice to users if you announced it, is pinned while the outage lasts and removed after. Every outage is kept in Requestarr's history.

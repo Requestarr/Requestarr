@@ -1,0 +1,3 @@
+audience: users
+kind: new
+line: **Series fixes shown:** when a show is added with a fix for a known mix-up, its request message says so and why.

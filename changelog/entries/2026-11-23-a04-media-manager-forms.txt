@@ -1,0 +1,5 @@
+audience: admins
+kind: changed
+replaces: 2026-11-22-a13-sonarr-and-radarr-settings-like-prowlarr-s-apps
+line: **Media manager forms:** adding or changing a media manager opens its card's window, with plain wording, and lists its quality profiles and root folders once the address and key work. New ones start with Standard series, the Any profile and new members approved automatically.
+line_if_seen: **Clearer media manager forms:** they open in their card's window, with plainer wording. New ones start with Standard series, the Any profile and new members approved automatically.

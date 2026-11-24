@@ -1,0 +1,3 @@
+audience: users
+kind: new
+line: **Your history comes with you:** requests you made with the old bot show in your channel, quietly, once you're set up.

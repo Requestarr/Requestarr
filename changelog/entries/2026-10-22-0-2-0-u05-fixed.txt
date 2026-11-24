@@ -1,0 +1,4 @@
+audience: users
+kind: fixed
+build: 0.2.0
+line: **Fixed:** switching a series between dub and sub always said it was available; the message now says whether it's still on its way, partly there or ready.

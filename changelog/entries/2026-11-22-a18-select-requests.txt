@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Select requests:** pick requests as in Sonarr, then Approve, Deny or Start removal from the toolbar. Each acts on the picks it can and confirms with the list of titles.

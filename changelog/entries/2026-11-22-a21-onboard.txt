@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Onboard:** lists everyone in your Discord server who isn't a member yet, to pick one or many, set up their access together and onboard them, with each one's progress and Retry.

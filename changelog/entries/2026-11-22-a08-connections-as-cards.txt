@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Connections as cards:** Settings, then Connections, holds the Discord bot, each Sonarr and Radarr and the media servers as cards, the way Sonarr's Indexers page does. Each shows whether it's connected, with Test All Connections in the toolbar.

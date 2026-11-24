@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.7.0010
+line: **Access requests paused:** pressing the request button too many times in a short while pauses that person's access requests. An admin can lift the pause, and the message they see says so.

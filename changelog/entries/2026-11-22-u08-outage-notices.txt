@@ -1,0 +1,4 @@
+audience: users
+kind: changed
+build: 0.7.0010
+line: **Outage notices:** while requests are paused, the notice stays pinned at the top of the announcements channel, and it goes away once things work again.

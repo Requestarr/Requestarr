@@ -1,0 +1,4 @@
+audience: admins
+kind: changed
+build: 0.7.0010
+line: **Panels stay at the bottom:** every panel moves below anything new Requestarr posts in its channel, with no pings and no "edited" mark.

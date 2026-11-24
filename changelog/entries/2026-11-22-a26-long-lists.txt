@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Long lists:** Requests and Members are one long list with a letter bar, as in Sonarr. Other lists show 25 at a time with Sonarr's pager, and each list's options choose its columns.

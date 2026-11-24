@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Test shows its result:** Test shows a green check or a red mark, with the reason where you're looking. Test All says every connection passed, or names each one that failed. Leaving with unsaved changes asks first.

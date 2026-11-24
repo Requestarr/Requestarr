@@ -1,0 +1,3 @@
+audience: users
+kind: changed
+line: **Request messages don't name servers:** your request goes where it belongs by what you asked for, so the bot no longer says which server took it.

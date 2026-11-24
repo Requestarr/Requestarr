@@ -210,6 +210,12 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("MovieAllOtherMissingSince", value ?? string.Empty); }
         }
 
+        public string ChangelogPostedEntries
+        {
+            get { return GetValue("ChangelogPostedEntries"); }
+            set { SetValue("ChangelogPostedEntries", value ?? string.Empty); }
+        }
+
         public bool SetupInstanceSkipped
         {
             get { return GetValueBoolean("SetupInstanceSkipped", false); }

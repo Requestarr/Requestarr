@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.2.0
+line: **Your say on the admin's removals:** if the admin wants to remove something you asked for, you're asked first, and no answer by the date shown counts as yes.

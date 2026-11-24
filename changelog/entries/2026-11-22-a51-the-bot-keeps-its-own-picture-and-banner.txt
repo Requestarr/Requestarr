@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **The bot keeps its own picture and banner:** Requestarr gives its bot the Requestarr picture and your environment's banner, and updates them with a release. A picture you chose yourself is kept.

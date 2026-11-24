@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.3.0
+line: **What's new history:** the announcements channel keeps a post for every version, so you can scroll back through everything that has changed.

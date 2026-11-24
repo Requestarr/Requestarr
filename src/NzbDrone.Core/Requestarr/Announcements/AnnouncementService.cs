@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Messaging;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
@@ -60,9 +61,10 @@ namespace Requestarr.Core.Announcements
         private readonly IDiscordGuildConfigRepository _configs;
         private readonly IRequestarrUserRepository _users;
         private readonly IUserIdentityRepository _identities;
+        private readonly IConfigService _config;
         private readonly Logger _logger;
 
-        public AnnouncementService(IDiscordGuildGateway gateway, IReleaseEnvironment environment, IGuildSetupService guildSetup, IDiscordGuildConfigRepository configs, IRequestarrUserRepository users, IUserIdentityRepository identities, Logger logger)
+        public AnnouncementService(IDiscordGuildGateway gateway, IReleaseEnvironment environment, IGuildSetupService guildSetup, IDiscordGuildConfigRepository configs, IRequestarrUserRepository users, IUserIdentityRepository identities, IConfigService config, Logger logger)
         {
             _gateway = gateway;
             _environment = environment;
@@ -70,12 +72,13 @@ namespace Requestarr.Core.Announcements
             _configs = configs;
             _users = users;
             _identities = identities;
+            _config = config;
             _logger = logger;
         }
 
         // Settable so tests (and the live check) can simulate an upgrade.
         public Func<Version> CurrentVersion { get; set; } = () => BuildInfo.Version;
-        public Func<string> ChangelogText { get; set; } = Changelog.Embedded;
+        public Func<ChangelogSource> Changelog { get; set; } = ChangelogSource.Embedded;
 
         public void HandleAsync(DiscordReadyEvent message)
         {
@@ -156,7 +159,7 @@ namespace Requestarr.Core.Announcements
                 return;
             }
 
-            var current = Changelog.Release(CurrentVersion());
+            var current = Announcements.Changelog.Release(CurrentVersion());
             var versions = Versions().Where(v => v.Version <= current).OrderBy(v => v.Version).ToList();
             var mode = _environment.VersionPosts;
 
@@ -175,10 +178,12 @@ namespace Requestarr.Core.Announcements
                 var users = _guildSetup.AnnouncementsChannelId;
 
                 await KeepExactlyAsync(adminChannel, await FindPostsAsync(adminChannel, VersionAudience.Admins), news.Select(v => Card(v, VersionAudience.Admins)).ToList());
+                news.ForEach(v => RecordPosted(v, VersionAudience.Admins));
 
                 if (users.HasValue)
                 {
                     await KeepExactlyAsync(users.Value, await FindPostsAsync(users.Value, VersionAudience.Users), news.Where(v => v.Users.Count > 0).Select(v => Card(v, VersionAudience.Users)).ToList());
+                    news.ForEach(v => RecordPosted(v, VersionAudience.Users));
                 }
 
                 _logger.Info("What's new ({0}): {1}", mode, news.Count == 0 ? "no versions to show" : string.Join(", ", news.Select(v => v.Version)));
@@ -203,8 +208,67 @@ namespace Requestarr.Core.Announcements
             Versions().Where(v => v.HasNews).OrderByDescending(v => v.Version).Select(v => (v, Shown(v))).ToList();
 
         // Dev and QA read Unreleased as the build they run (the next number); staging and production run numbered builds.
-        private IReadOnlyList<ChangelogVersion> Versions() =>
-            Changelog.Parse(ChangelogText(), _environment.VersionPosts == VersionPostMode.Standing ? null : Changelog.Release(CurrentVersion()));
+        // Each version's lines are as this server's readers should see them, given what it has already posted.
+        private IReadOnlyList<ChangelogVersion> Versions()
+        {
+            var current = Announcements.Changelog.Release(CurrentVersion());
+
+            var standing = _environment.VersionPosts == VersionPostMode.Standing;
+
+            return Changelog().Versions(standing ? Posted() : PreviewedAgainst(), standing ? null : current, current);
+        }
+
+        // The entries this server has posted. A server that posted versions before entries were recorded counts every
+        // entry of the versions it announced as posted, once.
+        private HashSet<string> Posted()
+        {
+            var posted = Recorded();
+
+            if (posted.Count == 0 && _guildSetup.GetConfig() is { } config && Announced.Parse(config.AnnouncedVersion) is { IsEmpty: false } announced)
+            {
+                var hasUsers = _guildSetup.AnnouncementsChannelId.HasValue;
+                posted.UnionWith(Changelog().Entries
+                    .Where(e => e.Build != null && announced.Contains(e.Build) && (hasUsers || e.Audience == VersionAudience.Admins))
+                    .Select(e => e.Id));
+                Record(posted);
+            }
+
+            return posted;
+        }
+
+        // Dev and QA show testers' next build: their readers have every released build, whatever this server posted.
+        private HashSet<string> PreviewedAgainst()
+        {
+            var posted = Recorded();
+            posted.UnionWith(Changelog().Entries.Where(e => e.Build != null).Select(e => e.Id));
+            return posted;
+        }
+
+        private HashSet<string> Recorded() =>
+            (_config.ChangelogPostedEntries ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+
+        private void Record(IEnumerable<string> posted) =>
+            _config.ChangelogPostedEntries = string.Join(",", posted.Order(StringComparer.Ordinal));
+
+        // Records the entries a card shows as posted (the run's start has already counted what was posted before the
+        // record existed). A card that couldn't be sent records nothing, so its entries still count as never posted.
+        private void RecordPosted(ChangelogVersion version, VersionAudience audience)
+        {
+            var posted = Recorded();
+            var lines = audience == VersionAudience.Admins ? version.Admins : version.Users;
+
+            var added = false;
+
+            foreach (var line in lines)
+            {
+                added |= posted.Add(line.Id);
+            }
+
+            if (added)
+            {
+                Record(posted);
+            }
+        }
 
         private VersionCard Card(ChangelogVersion version, VersionAudience audience) =>
             VersionCards.Collapsed(version, audience, DateTime.UtcNow.Year, Shown(version));
@@ -214,7 +278,7 @@ namespace Requestarr.Core.Announcements
         private string Shown(ChangelogVersion version)
         {
             var shown = _environment.Shown(version.Version);
-            var unreleased = version.Date == null && version.Version == Changelog.Release(CurrentVersion());
+            var unreleased = version.Date == null && version.Version == Announcements.Changelog.Release(CurrentVersion());
 
             return _environment.VersionPosts == VersionPostMode.NotYetStaged && unreleased ? $"{shown} · {DiscordText.SinceLastBeta}" : shown;
         }
@@ -233,10 +297,12 @@ namespace Requestarr.Core.Announcements
             {
                 var history = versions.Where(v => v.HasNews).ToList();
                 await KeepExactlyAsync(adminChannel, inAdmin, history.Select(v => Card(v, VersionAudience.Admins)).ToList());
+                history.ForEach(v => RecordPosted(v, VersionAudience.Admins));
 
                 if (users.HasValue)
                 {
                     await KeepExactlyAsync(users.Value, inUsers, history.Where(v => v.Users.Count > 0).Select(v => Card(v, VersionAudience.Users)).ToList());
+                    history.ForEach(v => RecordPosted(v, VersionAudience.Users));
                 }
 
                 _logger.Info("What's new: the history is now shown as cards ({0} versions)", history.Count);
@@ -252,16 +318,8 @@ namespace Requestarr.Core.Announcements
             {
                 if (version.HasNews)
                 {
-                    if (!shownAdmin.Contains(version.Version))
-                    {
-                        await SendAsync(adminChannel, Card(version, VersionAudience.Admins));
-                    }
-
-                    if (users.HasValue && version.Users.Count > 0 && !shownUsers.Contains(version.Version))
-                    {
-                        await SendAsync(users.Value, Card(version, VersionAudience.Users));
-                    }
-
+                    await AnnounceAsync(version, adminChannel, VersionAudience.Admins, shownAdmin.Contains(version.Version));
+                    await AnnounceAsync(version, users, VersionAudience.Users, version.Users.Count == 0 || shownUsers.Contains(version.Version));
                     _logger.Info("Announced what's new in {0} ({1} for users, {2} for admins)", version.Version, version.Users.Count, version.Admins.Count);
                 }
 
@@ -281,6 +339,23 @@ namespace Requestarr.Core.Announcements
             var byVersion = versions.DistinctBy(v => v.Version).ToDictionary(v => v.Version);
             await RefreshAsync(adminChannel, inAdmin, byVersion, VersionAudience.Admins);
             await RefreshAsync(users, inUsers, byVersion, VersionAudience.Users);
+        }
+
+        // One version's card in one channel (none when there is no such channel), unless it's there already, and its
+        // lines recorded as posted. The announcements channel's cards hold the users' lines, the admin channel's the rest.
+        private async Task AnnounceAsync(ChangelogVersion version, ulong? channel, VersionAudience audience, bool alreadyThere)
+        {
+            if (!channel.HasValue)
+            {
+                return;
+            }
+
+            if (!alreadyThere)
+            {
+                await SendAsync(channel.Value, Card(version, audience));
+            }
+
+            RecordPosted(version, audience);
         }
 
         // Makes a channel's version cards exactly `wanted`, oldest first: anything else that is a version post (another

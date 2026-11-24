@@ -1,0 +1,3 @@
+audience: users
+kind: changed
+line: **Anime versions in plain words:** the bot now says "English dub" or "subtitled version", and when two people want different versions it says which one is kept.

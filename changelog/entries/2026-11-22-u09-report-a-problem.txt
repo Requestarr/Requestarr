@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.7.0010
+line: **Report a problem:** the bug reports channel has a Report a problem button. Pick the part of Requestarr, say what happened and what you expected, and it reaches the people who build it. Reports are public, and the form says so.

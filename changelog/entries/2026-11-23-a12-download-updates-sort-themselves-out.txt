@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Download updates sort themselves out:** Requestarr fills in its own address from your browser and tests it. Each card says whether downloads are reported right away or on a timer, and why.

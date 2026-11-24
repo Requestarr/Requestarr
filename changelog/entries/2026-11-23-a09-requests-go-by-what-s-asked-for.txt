@@ -1,0 +1,3 @@
+audience: admins
+kind: new
+line: **Requests go by what's asked for:** each media manager says what it's for: all other shows (or movies), anime or nothing yet, and anime goes to the anime one. This replaces the Default tick box and members' own servers; any you set are dropped, their access and limits kept.

@@ -85,7 +85,7 @@ namespace Requestarr.Core.Test.Announcements
 
         private async Task StartOn(string version, string text = Text)
         {
-            Service.ChangelogText = () => text;
+            Service.Changelog = () => ChangelogSource.FromMarkdown(text);
             Service.CurrentVersion = () => new Version(version + ".42");
             await Service.PostVersionNotesAsync();
         }

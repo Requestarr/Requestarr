@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Followers at a glance:** lists show the requester and up to five follower pictures with a count such as 3 following. Pressing it opens the request's Followers list.

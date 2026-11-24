@@ -1,0 +1,4 @@
+audience: users
+kind: changed
+build: 0.7.0010
+line: **Softer logo:** the arrow in Requestarr's logo is a soft charcoal instead of solid black, so it sits more gently next to the teal.

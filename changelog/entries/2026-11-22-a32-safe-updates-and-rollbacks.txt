@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Safe updates and rollbacks:** Requestarr backs up its data before it first starts a newer build, listed under System, then Backup. An older build started on newer data keeps running and says so instead of failing.

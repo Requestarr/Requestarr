@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.7.0010
+line: **Your name stays yours:** when you change your name in Discord, Requestarr calls you by your new name, and a new username renames your request channel to match.

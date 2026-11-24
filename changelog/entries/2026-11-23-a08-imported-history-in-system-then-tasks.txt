@@ -1,0 +1,3 @@
+audience: admins
+kind: new
+line: **Imported history in System, then Tasks:** while history is posted, System, then Tasks lists it with how many are posted so far.

@@ -1,0 +1,4 @@
+audience: users
+kind: new
+build: 0.1.0
+line: **Announcements:** a channel that tells you about new features and about outages that affect everyone.

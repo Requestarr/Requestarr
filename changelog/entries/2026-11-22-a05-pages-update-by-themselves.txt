@@ -1,0 +1,4 @@
+audience: admins
+kind: new
+build: 0.7.0010
+line: **Pages update by themselves:** Requests, Members, the Queue and every other list change as soon as something changes, in Discord or anywhere else, with no refresh, as Sonarr's pages do.

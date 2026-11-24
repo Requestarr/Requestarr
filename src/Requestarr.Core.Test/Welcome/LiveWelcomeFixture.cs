@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -131,8 +132,8 @@ namespace Requestarr.Core.Test.Welcome
 
             // A version with nothing for users or admins posts no card, so the check runs as the newest version with news,
             // with the changelog a build of that version had (no Unreleased lines yet).
-            var numbered = Regex.Replace(Changelog.Embedded().Replace("\r\n", "\n"), @"(?ms)^## Unreleased\n.*?(?=^## )", string.Empty);
-            announcements.ChangelogText = () => numbered;
+            var numbered = Regex.Replace(File.ReadAllText(RepoFiles.Path("CHANGELOG.md")).Replace("\r\n", "\n"), @"(?ms)^## Unreleased\n.*?(?=^## )", string.Empty);
+            announcements.Changelog = () => ChangelogSource.FromMarkdown(numbered);
             var withNews = Changelog.Parse(numbered).Where(v => v.HasNews).Max(v => v.Version);
             announcements.CurrentVersion = () => withNews;
             Mocker.SetConstant<IAnnouncementService>(announcements);
