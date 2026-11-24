@@ -547,6 +547,13 @@ def has_entries(path):
     return os.path.isdir(os.path.join(path, "changelog"))
 
 
+def unmergeable_changelog(dirs, sides, base):
+    """One branch keeps its changelog as entries and the other, without them, changed its CHANGELOG.md since their common
+    base: written from the entries alone, the merge would lose that change."""
+    plain = [side["CHANGELOG.md"] for path, side in zip(dirs, sides) if not has_entries(path)]
+    return len(plain) == 1 and (base is None or plain[0].splitlines() != base["CHANGELOG.md"].splitlines())
+
+
 def entries_release_problems(base_dir, head_dir, number):
     """A release of a changelog kept as entries: exactly what the staging promotion writes from the base's entries (with
     the security entry or without), CHANGELOG.md included."""
@@ -816,19 +823,22 @@ def main(argv):
         since = parse_version(args[args.index("--from") + 1]) if "--from" in args else None
         documents = read_dir(args[1])
         number = parse_version(args[2])
-        released = {"QA-CHECKLIST.md": release(documents["QA-CHECKLIST.md"], number, args[3])}
-        if has_entries(args[1]):
-            security = ("%s-security-update" % args[3], SECURITY_LINE[2:]) if "--security" in args else None
-            changelog_entries.release(args[1], number, args[3], since, security)
-        else:
-            # A branch from before the changelog was kept as entries (until a promotion carries them up).
-            released["CHANGELOG.md"] = release(documents["CHANGELOG.md"], number, args[3], SECURITY_LINE if "--security" in args else None, since)
-        write_dir(args[1], released)
+        if not has_entries(args[1]):
+            # Released without them, the build couldn't be merged back into dev once staging had moved.
+            print("This branch has no changelog entries yet: promote dev to it first, which carries them up.", file=sys.stderr)
+            return 1
+        security = ("%s-security-update" % args[3], SECURITY_LINE[2:]) if "--security" in args else None
+        changelog_entries.release(args[1], number, args[3], since, security)
+        write_dir(args[1], {"QA-CHECKLIST.md": release(documents["QA-CHECKLIST.md"], number, args[3])})
         return 0
     if len(args) in (4, 5) and args[0] == "merge":
         # The changelog's entries are merged as files (git's merge, in <out>); CHANGELOG.md is written from them.
         ours, theirs = read_dir(args[1]), read_dir(args[2])
         base = read_dir(args[4]) if len(args) == 5 else None
+        if unmergeable_changelog(args[1:3], (ours, theirs), base):
+            print("Only one branch keeps its changelog as entries, and the other's CHANGELOG.md has changed: add what it "
+                  "says as entries on the branch that has them, then merge by hand.", file=sys.stderr)
+            return 1
         names = ("QA-CHECKLIST.md",) if has_entries(args[3]) else FILES
         write_dir(args[3], {name: merge(ours[name], theirs[name], base[name] if base else None) for name in names})
         if has_entries(args[3]):

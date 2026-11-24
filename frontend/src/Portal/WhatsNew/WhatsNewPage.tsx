@@ -4,6 +4,7 @@ import NotFound from 'Components/NotFound';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import PageSectionContent from 'Components/Page/PageSectionContent';
+import updateStyles from 'System/Updates/UpdateChanges.css';
 import translate from 'Utilities/String/translate';
 import { useDayText } from '../Components/useDateText';
 import { PortalChange, PortalVersion } from '../PortalTypes';
@@ -36,8 +37,8 @@ function Line({ text }: { text: string }) {
   );
 }
 
-// One kind's lines under its heading, as Sonarr's update changes are grouped. Servarr's own list shows its lines as
-// plain text, so it can't show a bold lead.
+// One kind's lines under its heading, as Sonarr's update changes are grouped, with its heading style. Servarr's own list
+// shows links and code but not bold, so it can't show a bold lead.
 function Group({ title, lines }: { title: string; lines: PortalChange[] }) {
   if (!lines.length) {
     return null;
@@ -45,7 +46,7 @@ function Group({ title, lines }: { title: string; lines: PortalChange[] }) {
 
   return (
     <>
-      <h5>{title}</h5>
+      <div className={updateStyles.title}>{title}</div>
       <ul className={styles.changes}>
         {lines.map(({ text }) => (
           <Line key={text} text={text} />

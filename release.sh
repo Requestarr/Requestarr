@@ -426,12 +426,8 @@ promote_staging() {
     branch="release/$number"
     git worktree add -q -b "$branch" "$work/tree" "$target"
     cp "$work/release/CHANGELOG.md" "$work/release/QA-CHECKLIST.md" "$work/tree/"
-    git -C "$work/tree" add "${files[@]}"
-    # The entries the changelog is written from; qa has none until a promotion carries them up.
-    if [ -d "$work/release/changelog" ]; then
-        cp -r "$work/release/changelog" "$work/tree/"
-        git -C "$work/tree" add changelog
-    fi
+    cp -r "$work/release/changelog" "$work/tree/"
+    git -C "$work/tree" add "${files[@]}" changelog
     git -C "$work/tree" commit -q -m "Build $number: Unreleased becomes $number ($day) in the changelog and QA checklist"
     local release
     release=$(git -C "$work/tree" rev-parse HEAD)
@@ -526,9 +522,6 @@ EOF
         return 1
     fi
     git -C "$work/tree" add "${files[@]}"
-    if [ -d "$work/tree/changelog" ]; then
-        git -C "$work/tree" add changelog
-    fi
     git -C "$work/tree" commit -q -m "Merge $from back into $to" >&2
     git -C "$work/tree" push -q origin "$branch" >&2
     git worktree remove --force "$work/tree"
