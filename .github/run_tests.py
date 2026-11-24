@@ -5,8 +5,8 @@
     python3 .github/run_tests.py full    # a promotion, a run by hand, a Dependabot update: every test project, on Linux
     python3 .github/run_tests.py --self-test
 
-The Core tests take most of the time, so they run as several test processes side by side, each in its own copy of the
-test folder (Core's tests share a database file there). A new Core folder is Requestarr's own until it's listed as inherited.
+The Core tests take most of the time, so they run as several test processes; the processes run side by side, each in its
+own copy of the test folder (Core's tests share a database file there). A new Core folder is Requestarr's own until it's listed as inherited.
 """
 import os
 import re
@@ -18,9 +18,9 @@ from concurrent.futures import ThreadPoolExecutor
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILT = os.path.join(REPO, "_tests", "net10.0")
 # Beside BUILT: some tests find the source by how deep their folder is, and skip themselves when they can't.
-COPY = os.path.join(REPO, "_tests", "core-%d")
+COPY = os.path.join(REPO, "_tests", "run-%d")
 
-# Tests only a person or another platform runs.
+# Every run leaves out the tests only a person or another platform runs.
 ALWAYS = "Category!=ManualTest&Category!=IntegrationTest&Category!=AutomationTest&Category!=WINDOWS"
 CORE = "Requestarr.Core.Test.dll"
 API = "Requestarr.Api.V1.Test.dll"
@@ -78,13 +78,8 @@ def runs(suite):
 
 
 def run_one(number, assembly, test_filter):
-    tests = BUILT
-    if assembly == CORE:
-        tests = COPY % number
-        shutil.rmtree(tests, ignore_errors=True)
-        shutil.copytree(BUILT, tests)
-    result = subprocess.run(["dotnet", "test", assembly, "--filter", test_filter], cwd=tests, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True)
+    result = subprocess.run(["dotnet", "test", assembly, "--filter", test_filter], cwd=COPY % number,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
     print(result.stdout, flush=True)
     return result.returncode, result.stdout
 
@@ -109,10 +104,13 @@ def report(line):
 
 def run(suite):
     planned = runs(suite)
+    for number in range(len(planned)):
+        shutil.rmtree(COPY % number, ignore_errors=True)
+        shutil.copytree(BUILT, COPY % number)
     with ThreadPoolExecutor(os.cpu_count()) as pool:
-        results = list(pool.map(lambda numbered: run_one(numbered[0], *numbered[1]), enumerate(planned)))
+        results = list(pool.map(lambda number: run_one(number, *planned[number]), range(len(planned))))
     report("Tests (%s): %d failed, %d passed, %d skipped" % ((suite,) + totals([output for _, output in results])))
-    wrong = ["%s --filter \"%s\"" % planned[i] for i, result in enumerate(results) if not ran(*result)]
+    wrong = ["%s --filter \"%s\"" % test_run for test_run, result in zip(planned, results) if not ran(*result)]
     for name in wrong:
         print("::error::Failed, or no test ran: " + name)
     return 1 if wrong else 0

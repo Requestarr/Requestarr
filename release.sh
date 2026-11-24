@@ -186,7 +186,7 @@ check_changelog() {
         files_at "$upper" "$work/upper"
         files_at "$base" "$work/base"
     elif [[ "$pr_branch" == release/* ]]; then
-        # The staging promotion's release commit, on top of qa: Unreleased becomes the next number.
+        # The staging promotion's release commit, on top of qa: Unreleased becomes the number QA ran.
         kind=release
         has_ref origin/qa && git merge-base --is-ancestor "$pr_head^" origin/qa \
             || { echo "::error::A release commit sits on top of qa as it is (./release.sh promote-staging makes it)."; rm -rf "$work"; return 1; }
@@ -239,7 +239,7 @@ not_a_promotion() {
 
 # What a commit range changes besides the files a staging promotion's release commit writes.
 beyond_a_release() {
-    git diff --name-only "$1" "$2" | grep -vE '^(CHANGELOG\.md|QA-CHECKLIST\.md|changelog/.*)$' || true
+    git diff --no-renames --name-only "$1" "$2" | grep -vE '^(CHANGELOG\.md|QA-CHECKLIST\.md|changelog/.*)$' || true
 }
 
 check_promotion() {
@@ -261,14 +261,19 @@ check_promotion() {
         || { echo "::error::A promotion to $target needs a 'Requested by:' line naming who asked and their words (./release.sh writes it)."; return 1; }
 }
 
-# Waits for a pull request's checks, then requires the build check (what the branch rules require) to have passed.
-# gh's --required doesn't see checks that repository rulesets require, so build is looked up by name: the pull request's own
-# run, not one by hand on the same commit, which doesn't check the promotion.
+# Waits for the build check (what the branch rules require) on a pull request and requires it to have passed: a pull
+# request's run, not one by hand on the same commit, which checks no promotion. It's only listed once the jobs it sums up
+# have finished, and gh's --required doesn't see checks that repository rulesets require, so it's looked up by name.
 wait_for_build() {
-    sleep 15
-    gh pr checks "$1" --watch --interval 30 >/dev/null 2>&1 || true
-    local state
-    state=$(gh pr checks "$1" --json name,state,event --jq '[.[] | select(.name == "build" and .event == "pull_request")][0].state')
+    local state="" waited
+    for ((waited = 0; waited < 3600; waited += 30)); do
+        sleep 30
+        state=$(gh pr checks "$1" --json name,state,event --jq '[.[] | select(.name == "build" and .event == "pull_request")][0].state // ""' || true)
+        case "$state" in
+            "" | QUEUED | PENDING | WAITING | REQUESTED | IN_PROGRESS) ;;
+            *) break ;;
+        esac
+    done
     echo "build: ${state:-not reported}"
     [ "$state" = "SUCCESS" ]
 }

@@ -107,7 +107,7 @@ The web app uses Sonarr's, Radarr's and Prowlarr's own parts and patterns (`docs
 | a push to `dev` (a merge) | yes, reported as `dev checks` | none: they ran on the pull request |
 | a push to any other branch | no | none: its pull request runs them |
 
-A push to `dev` has its own name so it can never stand in for the full suite's `build` when that commit is promoted. It also keeps the caches (NuGet, yarn, image layers) every pull request starts from.
+A push to `dev` has its own name so it can never stand in for the full suite's `build` when that commit is promoted, and `Promotion record` has its name only on a pull request into `qa`, `staging` or `main`: GitHub keeps required checks per commit, not per pull request, so a check with one name everywhere could answer for another pull request of the same commit. The push also saves the caches every pull request starts from (yarn, image layers); pull requests save no image layers, which took most of their time.
 
 | Job | Runs |
 |---|---|
@@ -211,7 +211,7 @@ So the first build under build numbers is **0.7.0004** (MINOR 7, the first not u
 | That goal finishes | **0.7.0005-dev** | | | |
 | "Promote to QA" (dev's newest numbered build) | | 0.7.0005-qa | | |
 | "QA passed": promote to staging | | | **0.7.0005**, with 0.7.0004 to 0.7.0005 | |
-| A fix found in staging, merged back | | | **0.7.0006** | |
+| A problem found in staging: its fix is a goal on dev, promoted up again | **0.7.0006-dev** | 0.7.0006-qa | **0.7.0006** | |
 | "Ship it" | | | 0.7.0006 | **0.7.0006** (the same image) |
 | The next goal finishes | **0.8.0007-dev** | | | 0.7.0006 |
 
@@ -258,7 +258,7 @@ Every Unreleased item says who checks it; an item in a numbered version without 
 
 ```bash
 git switch --detach <commit>                # the commit to be promoted (the checks are built from the checkout)
-python3 docker/qa_checks.py run             # full suite on GitHub; dev stack at the commit, signed in: web checks; every live check; resets dev
+python3 docker/qa_checks.py run --commit HEAD   # full suite on GitHub; dev stack at the commit, signed in: web checks; every live check; resets dev
 python3 docker/qa_checks.py record          # after looking at every screenshot (a mismatch: --fail "Item name=what is wrong"): dev's checklist
 ./release.sh promote-qa '<who asked, in their words>'    # refuses unless that run passed
 ```
@@ -336,7 +336,7 @@ The push to `staging` runs the Image workflow, which builds that number as `ghcr
 ./release.sh ship-it 'a dry run' --dry-run
 ```
 
-Staging's commit must be a published build (its `v0.7.0004` tag on it). A pull request into `main` with `Requested by:`, then a fast-forward of `main` to exactly that commit. Nothing is rebuilt and nothing changes in the changelog: the push to `main` runs the Image workflow, which checks that `:0.7.0004` was built from this commit and adds `:0.7` and `:latest` to that same image. `--dry-run` says what it would retag and the number of the next build sent to testers (a minor up: 0.8.0005).
+Staging's commit must be a published build (its `v0.7.0004` tag on the commit its release commit sits on). A pull request into `main` with `Requested by:`, then a fast-forward of `main` to exactly that commit. Nothing is rebuilt and nothing changes in the changelog: the push to `main` runs the Image workflow, which checks that `:0.7.0004` was built from this commit and adds `:0.7` and `:latest` to that same image. `--dry-run` says what it would retag and the number of the next build sent to testers (a minor up: 0.8.0005).
 
 **A fix for something found in QA or staging** is a change like any other (the owner, 2026-11-24: "fixes are never made directly in qa. ever. all changes should always go back to dev before coming back up to QA"): a pull request into `dev`, then a promotion to QA, and from there to staging. `qa`, `staging` and `main` take nothing but promotions: `build`'s Promotion record job refuses a pull request into them whose commits aren't already on the branch below (`./release.sh check-promotion`; the staging promotion's release commit, which changes only the changelog and the checklist, is the one exception).
 

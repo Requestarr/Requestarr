@@ -14,10 +14,10 @@ on:
   workflow_dispatch:
 
 # A new push cancels the build it replaces; an edited description waits instead, so it never turns a build that was
-# going to pass into a cancelled one. A run by hand has a group of its own: a push to dev doesn't cancel it.
+# going to pass into a cancelled one. Nothing cancels a run by hand: a promotion may be waiting for it.
 concurrency:
   group: build-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event.action != 'edited' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && github.event.action != 'edited' }}
 
 permissions:
   contents: read
@@ -36,8 +36,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/*.csproj"
       - name: Build, with the analyzers
         run: dotnet build src/Requestarr.sln -c Debug -p:Platform=Posix
 
@@ -50,8 +48,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/*.csproj"
       - name: No unused public or internal members in Requestarr's code (Roslynator)
         run: |
           dotnet restore src/Requestarr.sln -p:Platform=Posix
@@ -71,8 +67,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/*.csproj"
       - name: Build the tests (the backend build has the analyzers)
         run: |
           projects="src/Requestarr.Core.Test src/Requestarr.Api.V1.Test"
@@ -121,7 +115,8 @@ jobs:
           push: false
           tags: requestarr:ci
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Saving the layers takes minutes and most of the cache's space, so only dev's, which every pull request reads.
+          cache-to: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'type=gha,mode=max' || '' }}
 
   # Fails a change that adds a credential. The full history was scanned when this was added.
   secrets:
@@ -206,9 +201,10 @@ jobs:
         run: python3 .github/suppression_check.py "$BASE_SHA" HEAD
 
   # qa, staging and main move only by a promotion (dev's commits, qa's build, staging's build), on the owner's word: any
-  # other pull request into them is refused, and a promotion's records who asked (docs/development.md#release-flow).
+  # other pull request into them is refused, and a promotion's records who asked (docs/development.md#release-flow). Under
+  # its own name only there, so a commit has a passed "Promotion record" only from a promotion.
   promotion:
-    name: Promotion record
+    name: ${{ contains(fromJSON('["qa", "staging", "main"]'), github.base_ref) && 'Promotion record' || 'Not a promotion' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

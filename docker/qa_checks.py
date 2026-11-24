@@ -10,9 +10,10 @@ only once all of it passed; QA's checklist shows only the owner's items, and not
     python3 docker/qa_checks.py --self-test
 
 run: the checkout must be at the commit (the checks are built from it). It has GitHub run the full suite on the commit
-     (the Build workflow by hand, on dev; a run of it that passed or is still going is used), and meanwhile builds the
-     solution, brings the dev stack up at that commit with sign-in required and a throwaway login for the web app checks (headless Edge or Chrome, light and dark theme), seeds the requests they act on ("Automated check: ...") and
-     afterwards removes those and everything the checks did there, audit entries included,
+     (the Build workflow by hand, on dev or the commit's build number tag; a run of it that passed or is still going is
+     used), and meanwhile builds the solution, brings the dev stack up at that commit with sign-in required and a
+     throwaway login for the web app checks (headless Edge or Chrome, light and dark theme), seeds the requests they act
+     on ("Automated check: ...") and afterwards removes those and everything the checks did there, audit entries included,
      stops it and runs every live check on the dev server (the test Sonarr and Radarr emptied before each, so no check
      finds another's titles), resets the dev stack and runs the read-back of the running stack. Results, read-backs and
      screenshots go in DIR (default _qa-checks/<short commit>).
@@ -110,8 +111,11 @@ EVIDENCE_LINES = 25
 SUITE_WORKFLOW = "build.yml"
 SUITE_TOTALS = re.compile(r"Tests \(full\): (\d+) failed, (\d+) passed, (\d+) skipped")
 VERSION_TAG = re.compile(r"v\d+\.\d+\.\d{4,}")
-# How long GitHub may take to list a run it was asked for.
+# How long GitHub may take to list a run it was asked for, and how often a call to it is tried again: the suite's result is
+# read at the end of a long run, which a dropped connection or a log not ready yet mustn't throw away.
 RUN_LISTED_SECONDS = 120
+GH_TRIES = 10
+GH_WAIT_SECONDS = 30
 
 # Every live check: these need the dev stack's bot stopped; the read-back reads the running stack, so it runs last.
 LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
@@ -295,6 +299,17 @@ def gh(*args):
     return subprocess.run(["gh"] + list(args), capture_output=True, text=True, encoding="utf-8", check=True, cwd=REPO).stdout
 
 
+def gh_until(good, *args):
+    """gh's answer once good(answer), tried again while gh fails or it isn't."""
+    for _ in range(GH_TRIES):
+        answer = subprocess.run(["gh"] + list(args), capture_output=True, text=True, encoding="utf-8", cwd=REPO)
+        if answer.returncode == 0 and good(answer.stdout):
+            return answer.stdout
+        print("[qa-checks] gh %s: trying again. %s" % (" ".join(args), answer.stderr.strip()), flush=True)
+        time.sleep(GH_WAIT_SECONDS)
+    sys.exit("GitHub didn't answer: gh %s" % " ".join(args))
+
+
 def suite_runs(commit):
     """The full suite's runs by hand on this commit, newest first."""
     return json.loads(gh("run", "list", "--workflow", SUITE_WORKFLOW, "--event", "workflow_dispatch", "--commit", commit,
@@ -336,15 +351,19 @@ def start_suite(commit):
 
 def finish_suite(run_id, out):
     """Waits for the full suite's run: {passed, failed, skipped, ok, url}. Its output goes in suite.log."""
+    view = ("run", "view", str(run_id))
     result = {"status": ""}
     while result["status"] != "completed":  # watch ends early when the connection drops
         subprocess.run(["gh", "run", "watch", str(run_id), "--interval", "30"], stdout=subprocess.DEVNULL, cwd=REPO)
-        result = json.loads(gh("run", "view", str(run_id), "--json", "status,conclusion,url"))
-    output = gh("run", "view", str(run_id), "--log")
+        time.sleep(5)
+        result = json.loads(gh_until(bool, *view, "--json", "status,conclusion,url"))
+    passed = result["conclusion"] == "success"
+    # A run that passed has its totals in the log; one that failed may have stopped before its tests.
+    output = gh_until(SUITE_TOTALS.search if passed else bool, *view, "--log")
     with open(os.path.join(out, "suite.log"), "w", encoding="utf-8") as log:
         log.write(output)
     counts = suite_counts(output)
-    counts.update(ok=result["conclusion"] == "success" and counts["failed"] == 0 and counts["passed"] > 0, url=result["url"])
+    counts.update(ok=passed and counts["failed"] == 0 and counts["passed"] > 0, url=result["url"])
     print("[qa-checks] full suite: %(passed)d passed, %(failed)d failed, %(skipped)d skipped (%(url)s)" % counts, flush=True)
     return counts
 
@@ -515,13 +534,14 @@ def run(args):
                  % (git("rev-parse", "--short", "HEAD"), commit[:7], commit[:7]))
     out = os.path.abspath(option(args, "--out") or os.path.join(REPO, "_qa-checks", commit[:7]))
     only = option(args, "--only")
+    timings, web, live, suite = [], {}, {}, None
+    if only == "suite":
+        os.makedirs(out, exist_ok=True)
+        return 0 if timed("full suite", timings, lambda: finish_suite(start_suite(commit), out))["ok"] else 1
     # A run starts empty, so nothing an earlier run left can stand in for a check that didn't run this time.
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out, exist_ok=True)
-    timings, web, live, suite = [], {}, {}, None
-    suite_run = start_suite(commit) if only in (None, "suite") else None
-    if only == "suite":
-        return 0 if timed("full suite", timings, lambda: finish_suite(suite_run, out))["ok"] else 1
+    suite_run = start_suite(commit) if only is None else None
     env = dict(os.environ, **secrets_env())
     if only in (None, "live") and not env.get("DISCORD_TEST_MEMBERS"):
         sys.exit("The live checks press buttons as a test member: set DISCORD_TEST_MEMBERS (in your shell or docker/secrets.env) first.")

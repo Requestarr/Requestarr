@@ -25,7 +25,7 @@ rewriting one changelog section, recorded in the pull request's description (che
   python3 .github/build_numbers.py number <commit> [--major] [--dry-run]
         numbers a finished goal's commit on dev: tags it v<the next number> on origin and prints the number; a commit
         that has one prints it again. Refuses a commit that isn't on origin/dev, or one older than a numbered commit.
-        (--major: as next; --dry-run: says which number it would take and tags nothing)
+        (--major: the next major, on the owner's word; --dry-run: says which number it would take and tags nothing)
   python3 .github/build_numbers.py image <event> <branch> <commit> [<test tag>]
         what the Image workflow publishes, from CHANGELOG.md here: key=value lines (mode build or retag, tags, ...)
   python3 .github/build_numbers.py label <dev|qa|test> <commit>

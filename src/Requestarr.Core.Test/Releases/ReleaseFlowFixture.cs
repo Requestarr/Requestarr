@@ -79,7 +79,7 @@ namespace Requestarr.Core.Test.Releases
             release.Should().Contain("git log --format='  %h %s' \"$lower..$upper\"", "drift is any commit on qa that dev doesn't have (and on staging that qa doesn't)");
             release.Should().Contain("git push origin \"$2:refs/heads/$3\"", "a promotion fast-forwards the branch: exactly the commits below, nothing newer");
             release.Should().Contain("Requested by: %s", "every promotion pull request records who asked");
-            build.Should().Contain("./release.sh check-changelog").And.Contain("name: Promotion record").And.Contain("changelog, promotion]");
+            build.Should().Contain("./release.sh check-changelog").And.Contain("&& 'Promotion record' || 'Not a promotion'").And.Contain("changelog, promotion]");
             build.Should().Contain("name: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'dev checks' || 'build' }}", "a push to dev runs no tests, so it never stands in for the full suite's build");
             build.Should().NotContain("windows-latest", "only the Linux image ships");
             build.Should().Contain("BODY: ${{ github.event.pull_request.body }}", "the body reaches the shell as data, never as script");
