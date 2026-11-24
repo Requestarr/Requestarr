@@ -4,7 +4,7 @@
 
 ## Changelog
 - [ ] `changelog/entries/`: one entry file per real change (no build: the promotion to staging fills it in), then `python3 .github/changelog_entries.py write` for `CHANGELOG.md`, never edited by hand. Following the changelog rule:
-  - `audience:` users or admins (leave out work neither sees: tests, build, refactoring); `kind:` new, fixed or changed
+  - `audience:` users or admins, shown under **For users** and **For admins** (leave out work neither sees: tests, build, refactoring); `kind:` new, fixed or changed
   - `line:` leads with the thing that changed in bold, then what it means for the reader, in plain words
   - no code, file names, commands, flags, settings keys or jargon; no "minor fixes" without saying what they fix; no placeholders
   - short: one to three sentences, at most 50 words after the bold lead; as many entries as there are real changes, with no cap

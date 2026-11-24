@@ -86,8 +86,8 @@ namespace Requestarr.Core.Test.Announcements
         [Test]
         public void the_process_and_the_channel_are_documented()
         {
-            File.ReadAllText(RepoFiles.Path("docs", "development.md")).Should().Contain("## Changelog").And.Contain("Add its lines under `## Unreleased`").And.Contain("### For users");
-            File.ReadAllText(RepoFiles.Path(".github", "pull_request_template.md")).Should().Contain("CHANGELOG.md");
+            File.ReadAllText(RepoFiles.Path("docs", "development.md")).Should().Contain("## Changelog").And.Contain("Add its entry files").And.Contain("**For users**");
+            File.ReadAllText(RepoFiles.Path(".github", "pull_request_template.md")).Should().Contain("CHANGELOG.md").And.Contain("changelog/entries/");
             File.ReadAllText(RepoFiles.Path(".github", "workflows", "build.yml")).Should().Contain("name: Changelog").And.Contain("secrets, changelog, promotion]");
             File.ReadAllText(RepoFiles.Path("docs", "setup-guide.md")).Should().Contain("### 5.8 The announcements channel").And.Contain("**Announce to users**").And.Contain("Requestarr Members");
             File.ReadAllText(RepoFiles.Path("docs", "commands.md")).Should().Contain("### Announcements");

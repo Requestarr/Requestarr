@@ -222,11 +222,10 @@ namespace Requestarr.Core.Announcements
         {
             var posted = Recorded();
 
-            if (posted.Count == 0 && _guildSetup.GetConfig() is { } config && !Announced.Parse(config.AnnouncedVersion).IsEmpty)
+            if (posted.Count == 0 && _guildSetup.GetConfig() is { } config && Announced.Parse(config.AnnouncedVersion) is { IsEmpty: false } announced)
             {
-                var announced = Announced.Parse(config.AnnouncedVersion);
                 posted.UnionWith(Changelog().Entries.Where(e => e.Build != null && announced.Contains(e.Build)).Select(e => e.Id));
-                _config.ChangelogPostedEntries = string.Join(",", posted.Order(StringComparer.Ordinal));
+                Record(posted);
             }
 
             return posted;
@@ -235,6 +234,9 @@ namespace Requestarr.Core.Announcements
         private HashSet<string> Recorded() =>
             (_config.ChangelogPostedEntries ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
 
+        private void Record(IEnumerable<string> posted) =>
+            _config.ChangelogPostedEntries = string.Join(",", posted.Order(StringComparer.Ordinal));
+
         // Records the entries a card shows as posted (the run's start has already counted what was posted before the
         // record existed). A card that couldn't be sent records nothing, so its entries still count as never posted.
         private void RecordPosted(ChangelogVersion version, VersionAudience audience)
@@ -242,9 +244,16 @@ namespace Requestarr.Core.Announcements
             var posted = Recorded();
             var lines = audience == VersionAudience.Admins ? version.Admins : version.Users;
 
-            if (lines.Any(l => posted.Add(l.Id)))
+            var added = false;
+
+            foreach (var line in lines)
             {
-                _config.ChangelogPostedEntries = string.Join(",", posted.Order(StringComparer.Ordinal));
+                added |= posted.Add(line.Id);
+            }
+
+            if (added)
+            {
+                Record(posted);
             }
         }
 

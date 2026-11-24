@@ -103,19 +103,7 @@ def check_line(text):
 
 def loops(entries):
     """Entries whose chain of replaces comes back to them."""
-    found = []
-    for entry in entries.values():
-        seen, todo = set(), list(entry.replaces)
-        while todo:
-            entry_id = todo.pop()
-            if entry_id == entry.id:
-                found.append(entry.id)
-                break
-            if entry_id in seen or entry_id not in entries:
-                continue
-            seen.add(entry_id)
-            todo.extend(entries[entry_id].replaces)
-    return found
+    return [entry.id for entry in entries.values() if entry.id in entries_module.ancestors(entry, entries)]
 
 
 def check_entry(entry, entries, builds):

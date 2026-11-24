@@ -57,6 +57,21 @@ namespace Requestarr.Core.Test.Announcements
         }
 
         [Test]
+        public async Task every_line_of_a_posted_card_counts_as_posted()
+        {
+            var also = Entry("a2", ChangeKind.New, First, "**A2:** also first.", null);
+            var rework = Entry("b2", ChangeKind.Changed, Second, "**B2:** final.", "**B2:** what changed.", "a2");
+            Service.Changelog = () => Source(A, also, rework);
+            Service.CurrentVersion = () => new Version(0, 2, 0, 1);
+            await Service.PostVersionNotesAsync();
+
+            Service.CurrentVersion = () => new Version(0, 3, 0, 1);
+            await Service.PostVersionNotesAsync();
+
+            Service.VersionNotes().SelectMany(n => n.Version.Admins).Select(l => l.Text).Should().Equal("**B2:** what changed.", "**A:** first.", "**A2:** also first.");
+        }
+
+        [Test]
         public async Task a_post_that_failed_still_counts_as_never_posted()
         {
             Service.Changelog = () => Source(A, B);

@@ -137,7 +137,8 @@ namespace Requestarr.Core.Announcements
             var fields = (text ?? string.Empty).Split('\n')
                 .Select(row => row.TrimEnd('\r'))
                 .Where(row => row.Contains(':'))
-                .ToDictionary(row => row.Substring(0, row.IndexOf(':')).Trim(), row => row.Substring(row.IndexOf(':') + 1).Trim());
+                .Select(row => row.Split(':', 2))
+                .ToDictionary(parts => parts[0].Trim(), parts => parts[1].Trim());
 
             if (!Audiences.TryGetValue(fields.GetValueOrDefault("audience", string.Empty), out var audience) ||
                 !Kinds.TryGetValue(fields.GetValueOrDefault("kind", string.Empty), out var kind) ||

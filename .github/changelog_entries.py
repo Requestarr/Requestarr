@@ -69,15 +69,18 @@ class Build:
     def __init__(self, version, day, flat=False, included_from=None):
         self.version, self.day, self.flat, self.included_from = version, day, flat, included_from
 
-    def heading(self):
-        heading = "%s (%s)" % (shown(self.version), self.day)
+    def includes(self):
+        """The goals' builds this one includes ("with 0.7.0005 to 0.7.0011"), or None."""
         if self.included_from and self.included_from != self.version:
-            heading += ", with %s to %s" % (shown(self.included_from), shown(self.version))
-        return heading
+            return "with %s to %s" % (shown(self.included_from), shown(self.version))
+        return None
+
+    def heading(self):
+        heading, includes = "%s (%s)" % (shown(self.version), self.day), self.includes()
+        return "%s, %s" % (heading, includes) if includes else heading
 
     def row(self):
-        notes = ["with %s to %s" % (shown(self.included_from), shown(self.version))] if self.included_from and self.included_from != self.version else []
-        notes += [FLAT] if self.flat else []
+        notes = [note for note in (self.includes(), FLAT if self.flat else None) if note]
         return " | ".join([shown(self.version), self.day] + notes)
 
 
