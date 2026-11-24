@@ -57,8 +57,6 @@ Requestarr.Core.Discord.DiscordAdminCandidate.Avatar  # sent in the admins' answ
 Requestarr.Core.Discord.DiscordAdminCandidate.Username  # sent in the admins' answer, which the web app shows
 Requestarr.Core.Discord.Gateway.DiscordBotIdentity.AvatarUrl  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Discord.Gateway.DiscordBotIdentity.Name  # sent in the first-run setup's answer, which the web app shows
-Requestarr.Core.Discord.Gateway.DiscordServer.IconUrl  # sent in the first-run setup's answer, which the web app shows
-Requestarr.Core.Discord.Gateway.DiscordServer.Id  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Settings.InstanceDeletionPreview.Implementation  # sent in the delete confirm's answer, which the web app shows
 Requestarr.Core.Settings.InstanceDeletionPreview.Name  # sent in the delete confirm's answer, which the web app shows
 Requestarr.Core.Settings.InstanceDeletionPreview.OpenRequests  # sent in the delete confirm's answer, which the web app shows
