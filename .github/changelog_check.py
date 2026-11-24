@@ -112,6 +112,7 @@ def check_entry(entry, entries, builds):
     if not entries_module.ID.match(entry.id):
         problems.append("its name: lower-case letters, digits, dots and dashes, as in 2026-11-24-long-tv-shows")
     problems += ["an unknown field '%s': only %s" % (name, ", ".join(entries_module.FIELDS)) for name in entry.unknown]
+    problems += ["the field '%s' twice: each field once" % name for name in entry.repeated]
     if entry.audience not in entries_module.AUDIENCES:
         problems.append("audience '%s': users or admins" % entry.audience)
     if entry.kind not in entries_module.KINDS:
@@ -127,6 +128,8 @@ def check_entry(entry, entries, builds):
             problems.append("replaces '%s', which isn't an entry" % replaced)
         elif replaced == entry.id:
             problems.append("replaces itself")
+        elif not entries[replaced].build and not entry.build:
+            problems.append("replaces '%s', which isn't released yet: edit that entry to where it ended up instead" % replaced)
         elif entries[replaced].build and entries[replaced].kind != entry.kind and not entry.line_if_seen:
             problems.append("replaces '%s', which testers already have, as a different kind: add line_if_seen, what changed for them" % replaced)
     return problems
@@ -148,7 +151,13 @@ def check_builds_file(text):
 
 
 def check(root, path):
-    """[(where, problem)] for the entries under root/changelog and the generated file at path."""
+    """[(where, problem)] for the entries under root/changelog and the generated file at path. A branch from before the
+    changelog was kept as entries (until a promotion carries them up) has its Unreleased lines checked as written: its
+    released builds are history there."""
+    if not os.path.isdir(os.path.join(root, "changelog")):
+        with open(path, encoding="utf-8") as handle:
+            rows = re.split(r"(?m)^## \d", handle.read().replace("\r\n", "\n"))[0].split("\n")
+        return [("%s:%d" % (os.path.basename(path), n), p) for n, row in enumerate(rows, 1) if row.startswith("- ") for p in check_line(row[2:])]
     changelog = entries_module.Changelog.load(root)
     problems = check_changelog(changelog)
     builds_path = os.path.join(root, "changelog", "builds.txt")
@@ -189,11 +198,13 @@ def self_test():
         entry("loop-b", audience="users", kind="new", replaces="loop-a", line="**Fine:** a line."),
         entry("shipped", audience="users", kind="new", build="0.7.0010", line="**Shipped:** a line."),
         entry("rework", audience="users", kind="changed", replaces="shipped", line="**Rework:** a line."),
+        entry("draft", audience="users", kind="new", line="**Draft:** a line."),
+        entry("redraft", audience="users", kind="new", replaces="draft", line="**Redraft:** a line."),
         builds=[released])
     found = [p for _, p in check_changelog(bad)]
     expected = ["its name", "unknown field 'colour'", "audience 'everyone'", "kind 'tweak'", "build '0.7.0099'", "no line",
                 "a settings key", "a file name", "words after the bold lead", "4 sentences", "summary without substance",
-                "'nowhere', which isn't an entry", "can't loop", "add line_if_seen"]
+                "'nowhere', which isn't an entry", "can't loop", "add line_if_seen", "isn't released yet"]
     missing = [e for e in expected if not any(e in p for p in found)]
     bad_rows = check_builds_file("0.7.0010 | 2026-11-22\n0.7.0011 | someday\n")
 

@@ -49,8 +49,10 @@ next reads the tags with `git ls-remote --tags origin` (no login) and which buil
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import changelog_entries  # noqa: E402
@@ -504,7 +506,7 @@ def check_change(base, head, no_changelog, tested=None, rewrites=frozenset()):
     return problems
 
 
-def check_numbered(base, head, number, no_changelog, released):
+def check_numbered(base, head, number, no_changelog, released, entries=False):
     """A release (Unreleased renamed) or a fix into staging (a new section): exactly one new numbered section, the next
     number, and no Unreleased left."""
     problems = []
@@ -516,16 +518,17 @@ def check_numbered(base, head, number, no_changelog, released):
         if set(sections) - set(old) != {number} or any(sections.get(v) != s for v, s in old.items()):
             problems.append("%s: the only change is a new section for the next build, %s" % (name, text(number)))
     if released:
-        problems += check_release_body(base, head, number)
+        problems += check_release_body(base, head, number, ("CHANGELOG.md",) if entries else ())
     elif not no_changelog and not released_lines({number: parse(head["CHANGELOG.md"])[2].get(number, "")}):
         problems.append("a fix into staging says what changed in its section, or its description says 'No changelog: <why>'")
     return problems
 
 
-def check_release_body(base, head, number):
-    """A release keeps Unreleased word for word (the security line may be added)."""
+def check_release_body(base, head, number, skip=()):
+    """A release keeps Unreleased word for word (the security line may be added). skip: files checked another way (a
+    changelog kept as entries: entries_release_problems)."""
     problems = []
-    for name in FILES:
+    for name in (n for n in FILES if n not in skip):
         sections = parse(head[name])[2]
         if number not in sections:
             continue
@@ -538,6 +541,34 @@ def check_release_body(base, head, number):
             problems.append("%s: the new section is Unreleased as it was, renamed %s (YYYY-MM-DD), the changelog's "
                             "with the goals' builds it includes" % (name, text(number)))
     return problems
+
+
+def has_entries(path):
+    return os.path.isdir(os.path.join(path, "changelog"))
+
+
+def entries_release_problems(base_dir, head_dir, number):
+    """A release of a changelog kept as entries: exactly what the staging promotion writes from the base's entries (with
+    the security entry or without), CHANGELOG.md included."""
+    head = changelog_entries.Changelog.load(head_dir)
+    build = next((b for b in head.builds if b.version == number), None)
+    if build is None:
+        return ["changelog: the release lists build %s in its builds" % text(number)]
+    with open(os.path.join(head_dir, "CHANGELOG.md"), encoding="utf-8") as handle:
+        committed = handle.read().replace("\r\n", "\n")
+    wanted = {e.id: e.text() for e in head.entries.values()}
+    for security in (None, ("%s-security-update" % build.day, SECURITY_LINE[2:])):
+        work = tempfile.mkdtemp()
+        try:
+            shutil.copytree(os.path.join(base_dir, "changelog"), os.path.join(work, "changelog"))
+            changelog_entries.release(work, number, build.day, build.included_from, security)
+            expected = changelog_entries.Changelog.load(work)
+            if {e.id: e.text() for e in expected.entries.values()} == wanted and expected.render() == committed:
+                return []
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+    return ["changelog: the release gives every entry without a build %s (a security entry may be added) and writes "
+            "CHANGELOG.md from them, nothing else" % text(number)]
 
 
 def check_merge_back(base, upper, head):
@@ -558,11 +589,11 @@ def check_merge_back(base, upper, head):
     return sorted(set(problems))
 
 
-def check(kind, base, head, upper=None, number=None, no_changelog=False, tested=None, rewrites=frozenset()):
+def check(kind, base, head, upper=None, number=None, no_changelog=False, tested=None, rewrites=frozenset(), entries=False):
     if kind == "change":
         return check_change(base, head, no_changelog, tested, rewrites)
     if kind in ("release", "staging-fix"):
-        return check_numbered(base, head, number, no_changelog, kind == "release")
+        return check_numbered(base, head, number, no_changelog, kind == "release", entries)
     if kind == "merge-back":
         return check_merge_back(base, upper, head)
     raise ValueError("unknown kind %r" % kind)
@@ -785,16 +816,23 @@ def main(argv):
         since = parse_version(args[args.index("--from") + 1]) if "--from" in args else None
         documents = read_dir(args[1])
         number = parse_version(args[2])
-        security = ("%s-security-update" % args[3], SECURITY_LINE[2:]) if "--security" in args else None
-        changelog_entries.release(args[1], number, args[3], since, security)
-        write_dir(args[1], {"QA-CHECKLIST.md": release(documents["QA-CHECKLIST.md"], number, args[3])})
+        released = {"QA-CHECKLIST.md": release(documents["QA-CHECKLIST.md"], number, args[3])}
+        if has_entries(args[1]):
+            security = ("%s-security-update" % args[3], SECURITY_LINE[2:]) if "--security" in args else None
+            changelog_entries.release(args[1], number, args[3], since, security)
+        else:
+            # A branch from before the changelog was kept as entries (until a promotion carries them up).
+            released["CHANGELOG.md"] = release(documents["CHANGELOG.md"], number, args[3], SECURITY_LINE if "--security" in args else None, since)
+        write_dir(args[1], released)
         return 0
     if len(args) in (4, 5) and args[0] == "merge":
         # The changelog's entries are merged as files (git's merge, in <out>); CHANGELOG.md is written from them.
         ours, theirs = read_dir(args[1]), read_dir(args[2])
         base = read_dir(args[4]) if len(args) == 5 else None
-        write_dir(args[3], {"QA-CHECKLIST.md": merge(ours["QA-CHECKLIST.md"], theirs["QA-CHECKLIST.md"], base["QA-CHECKLIST.md"] if base else None)})
-        changelog_entries.write_markdown(args[3], changelog_entries.Changelog.load(args[3]).render())
+        names = ("QA-CHECKLIST.md",) if has_entries(args[3]) else FILES
+        write_dir(args[3], {name: merge(ours[name], theirs[name], base[name] if base else None) for name in names})
+        if has_entries(args[3]):
+            changelog_entries.write_markdown(args[3], changelog_entries.Changelog.load(args[3]).render())
         return 0
     if len(args) >= 4 and args[0] == "check":
         flags = args[4:]
@@ -802,10 +840,13 @@ def main(argv):
         number = parse_version(flags[flags.index("--number") + 1]) if "--number" in flags else None
         tested = tested_versions() if args[1] == "change" else None
         rewrites = frozenset(parse_version(flags[i + 1]) for i, flag in enumerate(flags) if flag == "--rewrite")
+        entries = has_entries(args[3]) and has_entries(args[2])
         problems = check(args[1], read_dir(args[2]), read_dir(args[3]), upper, number, "--no-changelog" in flags, tested,
-                         rewrites)
-        if args[1] in ("change", "staging-fix"):
+                         rewrites, entries)
+        if entries and args[1] in ("change", "staging-fix"):
             problems += released_entry_changes(args[2], args[3], rewrites)
+        if entries and args[1] == "release":
+            problems += entries_release_problems(args[2], args[3], number)
         for problem in problems:
             print(("::error::" if os.environ.get("GITHUB_ACTIONS") else "") + problem)
         return 1 if problems else 0

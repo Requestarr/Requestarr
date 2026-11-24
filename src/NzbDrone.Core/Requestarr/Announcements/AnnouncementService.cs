@@ -213,7 +213,9 @@ namespace Requestarr.Core.Announcements
         {
             var current = Announcements.Changelog.Release(CurrentVersion());
 
-            return Changelog().Versions(Posted(), _environment.VersionPosts == VersionPostMode.Standing ? null : current, current);
+            var standing = _environment.VersionPosts == VersionPostMode.Standing;
+
+            return Changelog().Versions(standing ? Posted() : PreviewedAgainst(), standing ? null : current, current);
         }
 
         // The entries this server has posted. A server that posted versions before entries were recorded counts every
@@ -224,10 +226,21 @@ namespace Requestarr.Core.Announcements
 
             if (posted.Count == 0 && _guildSetup.GetConfig() is { } config && Announced.Parse(config.AnnouncedVersion) is { IsEmpty: false } announced)
             {
-                posted.UnionWith(Changelog().Entries.Where(e => e.Build != null && announced.Contains(e.Build)).Select(e => e.Id));
+                var hasUsers = _guildSetup.AnnouncementsChannelId.HasValue;
+                posted.UnionWith(Changelog().Entries
+                    .Where(e => e.Build != null && announced.Contains(e.Build) && (hasUsers || e.Audience == VersionAudience.Admins))
+                    .Select(e => e.Id));
                 Record(posted);
             }
 
+            return posted;
+        }
+
+        // Dev and QA show testers' next build: their readers have every released build, whatever this server posted.
+        private HashSet<string> PreviewedAgainst()
+        {
+            var posted = Recorded();
+            posted.UnionWith(Changelog().Entries.Where(e => e.Build != null).Select(e => e.Id));
             return posted;
         }
 
@@ -305,8 +318,8 @@ namespace Requestarr.Core.Announcements
             {
                 if (version.HasNews)
                 {
-                    await AnnounceAsync(version, adminChannel, shownAdmin.Contains(version.Version));
-                    await AnnounceAsync(version, users, version.Users.Count == 0 || shownUsers.Contains(version.Version));
+                    await AnnounceAsync(version, adminChannel, VersionAudience.Admins, shownAdmin.Contains(version.Version));
+                    await AnnounceAsync(version, users, VersionAudience.Users, version.Users.Count == 0 || shownUsers.Contains(version.Version));
                     _logger.Info("Announced what's new in {0} ({1} for users, {2} for admins)", version.Version, version.Users.Count, version.Admins.Count);
                 }
 
@@ -330,14 +343,12 @@ namespace Requestarr.Core.Announcements
 
         // One version's card in one channel (none when there is no such channel), unless it's there already, and its
         // lines recorded as posted. The announcements channel's cards hold the users' lines, the admin channel's the rest.
-        private async Task AnnounceAsync(ChangelogVersion version, ulong? channel, bool alreadyThere)
+        private async Task AnnounceAsync(ChangelogVersion version, ulong? channel, VersionAudience audience, bool alreadyThere)
         {
             if (!channel.HasValue)
             {
                 return;
             }
-
-            var audience = channel == _guildSetup.AnnouncementsChannelId ? VersionAudience.Users : VersionAudience.Admins;
 
             if (!alreadyThere)
             {

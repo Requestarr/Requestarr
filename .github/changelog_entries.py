@@ -57,6 +57,7 @@ class Entry:
         self.line = fields.get("line", "")
         self.line_if_seen = fields.get("line_if_seen", "")
         self.unknown = [name for name in fields if name not in FIELDS]
+        self.repeated = []
 
     def text(self):
         """The entry file's contents, its fields in their usual order."""
@@ -85,12 +86,16 @@ class Build:
 
 
 def parse_entry(entry_id, text):
-    fields = {}
+    fields, repeated = {}, []
     for row in text.replace("\r\n", "\n").split("\n"):
         if row.strip():
             name, _, value = row.partition(":")
+            if name.strip() in fields:
+                repeated.append(name.strip())
             fields[name.strip()] = value.strip()
-    return Entry(entry_id, fields)
+    entry = Entry(entry_id, fields)
+    entry.repeated = repeated
+    return entry
 
 
 def parse_builds(text):

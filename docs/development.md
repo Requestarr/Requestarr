@@ -154,6 +154,8 @@ Pull requests carry no version number ([Versions](#versions)); every pull reques
 - **A merge-back:** the entries of both branches, merged as files, and `CHANGELOG.md` written from them.
 - **A promotion** of commits already on the branch below was checked there.
 
+Until `qa` and `staging` have the entries (the next promotions carry them up), a release or merge-back there works on `CHANGELOG.md` as before, and the check reads only its Unreleased lines. An entry never `replaces` another that isn't released yet: that one is edited instead.
+
 The QA checklist must have the same numbered versions as the changelog. Unit tests check that the build embeds every entry and shows what `CHANGELOG.md` says, how replaced entries fold (never posted, posted, a partly posted chain, a failed post), that a long build's Read changes stays within Discord's limits, and that **For users** lines avoid technical words. The pull request template has the same checklist.
 
 ## Versions

@@ -116,6 +116,8 @@ UpdateLogs/
 */test-results/*
 src/UI/.idea/*
 *log.txt
+# Changelog entries are never logs, whatever their names end in.
+!changelog/entries/*.txt
 node_modules/
 _output*
 _artifacts

@@ -131,14 +131,16 @@ namespace Requestarr.Core.Announcements
         private static IReadOnlyList<ChangelogLine> Ordered(IEnumerable<ChangelogLine> lines) =>
             lines.OrderBy(l => l.Kind).ThenBy(l => l.Id, StringComparer.Ordinal).ToList();
 
-        // "name: value" a line; null for a file that isn't an entry (the changelog check refuses one).
+        // "name: value" a line (a field given twice keeps its last value); null for a file that isn't an entry (the
+        // changelog check refuses both).
         public static ChangelogEntry ParseEntry(string id, string text)
         {
             var fields = (text ?? string.Empty).Split('\n')
                 .Select(row => row.TrimEnd('\r'))
                 .Where(row => row.Contains(':'))
                 .Select(row => row.Split(':', 2))
-                .ToDictionary(parts => parts[0].Trim(), parts => parts[1].Trim());
+                .GroupBy(parts => parts[0].Trim())
+                .ToDictionary(g => g.Key, g => g.Last()[1].Trim());
 
             if (!Audiences.TryGetValue(fields.GetValueOrDefault("audience", string.Empty), out var audience) ||
                 !Kinds.TryGetValue(fields.GetValueOrDefault("kind", string.Empty), out var kind) ||

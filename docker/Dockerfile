@@ -20,6 +20,7 @@ ARG TARGETARCH
 ARG BUILD_NUMBER=0.0.0
 WORKDIR /src
 COPY .editorconfig LICENSE CHANGELOG.md QA-CHECKLIST.md ./
+COPY changelog/ changelog/
 COPY src/ src/
 # global.json pins the local SDK patch; the image's 10.0 SDK is used as-is.
 RUN case "$TARGETARCH" in arm64) RID=linux-arm64 ;; *) RID=linux-x64 ;; esac \

@@ -93,11 +93,10 @@ namespace Requestarr.Core.Test.Announcements
                 after.EmbedDescription.Should().Be(fresh.Description);
                 Said(after).Should().NotBe(oldWords);
 
-                // Read changes for that version: one message, one card a section, as Discord takes it.
+                // Read changes for that version: every line, in as many messages as Discord's limits need, as Discord takes it.
                 var full = announcements.FullCard(VersionAudience.Admins, version);
                 TestContext.Progress.WriteLine($"[read changes] {full.Count} message(s), cards {string.Join(", ", full.Select(r => r.Cards.Count))}, text {string.Join(", ", full.Select(r => r.Cards.Sum(c => c.Text.Length)))} characters");
-                full.Should().ContainSingle();
-                full[0].Cards.Should().HaveCount(2);
+                full.Should().OnlyContain(r => r.Cards.Count <= VersionCards.CardsPerMessage && r.Cards.Sum(c => c.Text.Length) <= VersionCards.MessageTextLength);
                 var posted = await gateway.SendMessageAsync(admin, new InteractionReply { Cards = full[0].Cards });
                 var shown = await ((IMessageChannel)await host.Client.Rest.GetChannelAsync(admin)).GetMessageAsync(posted);
                 var texts = Texts(shown);
@@ -106,7 +105,7 @@ namespace Requestarr.Core.Test.Announcements
                     TestContext.Progress.WriteLine($"[read changes as Discord shows it]\n{text}");
                 }
 
-                texts.Should().HaveCount(2).And.OnlyContain(t => !t.Contains("Test card"));
+                texts.Should().HaveCount(full[0].Cards.Count).And.OnlyContain(t => !t.Contains("Test card"));
             }
             finally
             {
