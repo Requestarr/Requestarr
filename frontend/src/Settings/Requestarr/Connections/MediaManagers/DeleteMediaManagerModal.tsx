@@ -7,6 +7,7 @@ import { fetchMediaManagers } from 'Store/Actions/settingsActions';
 import translate from 'Utilities/String/translate';
 import { callApi } from '../../requestarrApi';
 import useApiAction from '../../useApiAction';
+import { allOtherStopsText } from './purpose';
 
 // What deleting it would do (InstanceDeletionPreview on the server).
 interface DeletionPreview {
@@ -30,16 +31,7 @@ function stopsText(preview: DeletionPreview) {
     return translate('InstanceDeleteLast', { name, app });
   }
 
-  if (!takesAllOther) {
-    return undefined;
-  }
-
-  return translate(
-    app === 'Radarr'
-      ? 'InstanceAllOtherStopsMovies'
-      : 'InstanceAllOtherStopsShows',
-    { app }
-  );
+  return takesAllOther ? allOtherStopsText(app) : undefined;
 }
 
 // The confirm's words, in plain terms: what stays, what goes, the requests still waiting and what stops.

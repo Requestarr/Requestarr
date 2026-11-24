@@ -128,6 +128,16 @@ export function purposeChoices<T extends { value: number; name?: string }>(
     }));
 }
 
+// The warning that a type's other requests stop until another instance is set to take them.
+export function allOtherStopsText(app: string) {
+  return translate(
+    app === RADARR
+      ? 'InstanceAllOtherStopsMovies'
+      : 'InstanceAllOtherStopsShows',
+    { app }
+  );
+}
+
 // What the confirm says before a save leaves the type with nothing for its other requests: the saved instance takes
 // them, others of its type exist, and it's being turned off or given another purpose. Undefined when nothing stops.
 export function useStopsAllOther(item: MediaManagerItem, app: string) {
@@ -142,10 +152,5 @@ export function useStopsAllOther(item: MediaManagerItem, app: string) {
     return undefined;
   }
 
-  return translate(
-    app === RADARR
-      ? 'InstanceAllOtherStopsMovies'
-      : 'InstanceAllOtherStopsShows',
-    { app }
-  );
+  return allOtherStopsText(app);
 }

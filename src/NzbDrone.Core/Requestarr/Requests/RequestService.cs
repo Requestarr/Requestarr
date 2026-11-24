@@ -265,14 +265,12 @@ namespace Requestarr.Core.Requests
                 return LookupOutcome<TitleState>.Fail(error);
             }
 
-            var (home, item, problem) = await LookupAtHomeAsync(instance, type, externalId);
+            (instance, var item, var problem) = await LookupAtHomeAsync(instance, type, externalId);
 
             if (problem != null)
             {
                 return LookupOutcome<TitleState>.Fail(problem);
             }
-
-            instance = home;
 
             await _metadata.EnrichAsync(type, new[] { item });
 
