@@ -54,7 +54,7 @@ namespace Requestarr.Core.Test.Requests
         }
 
         private static BackendInstanceProvisioning Connection(string name, string purpose) =>
-            new() { Name = name, Url = SonarrUrl, ApiKey = SonarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Purpose = purpose };
+            new() { Name = name, Url = SonarrUrl, ApiKey = SonarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Purpose = purpose };
 
         [Test]
         public async Task anime_goes_to_the_anime_sonarr_the_rest_to_everything_and_to_everything_with_anime_off()

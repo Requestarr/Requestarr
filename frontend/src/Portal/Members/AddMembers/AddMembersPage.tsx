@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import Alert from 'Components/Alert';
 import NotFound from 'Components/NotFound';
 import PageContent from 'Components/Page/PageContent';
@@ -16,16 +15,11 @@ import SetUpPeople from './SetUpPeople';
 import useStartRun, { NO_SETUP, OnboardSetup } from './useStartRun';
 import styles from '../../Portal.css';
 
-interface StepsProps {
-  people: PortalServerMember[];
-  pick: string | null;
-}
-
 // Pick, set up, then watch it happen; Retry starts a new run with the same setup for those who failed.
-function Steps({ people, pick }: StepsProps) {
+function Steps({ people }: { people: PortalServerMember[] }) {
   const [picked, setPicked] = useState<PortalServerMember[]>();
   // Who was picked before Back, picked again on the list.
-  const [kept, setKept] = useState<string[]>(pick ? pick.split(',') : []);
+  const [kept, setKept] = useState<string[]>([]);
   const [setup, setSetup] = useState<OnboardSetup>(NO_SETUP);
   const { runId, refused, isStarting, start } = useStartRun();
   const onBack = useCallback(() => {
@@ -87,11 +81,6 @@ function Steps({ people, pick }: StepsProps) {
 // paced for Discord, with each person's progress.
 function AddMembersPage() {
   const result = usePortal<PortalServerMember[]>('server-members');
-  const pick = new URLSearchParams(useLocation().search).get('pick');
-  const renderSteps = useCallback(
-    (people: PortalServerMember[]) => <Steps people={people} pick={pick} />,
-    [pick]
-  );
 
   return (
     <PageContent title={translate('PortalActionOnboard')}>
@@ -105,7 +94,7 @@ function AddMembersPage() {
             error={result.hasError ? result : undefined}
             errorMessage={translate('PortalLoadError')}
           >
-            {result.data !== undefined && renderSteps(result.data)}
+            {result.data !== undefined && <Steps people={result.data} />}
           </PageSectionContent>
         )}
       </PageContentBody>

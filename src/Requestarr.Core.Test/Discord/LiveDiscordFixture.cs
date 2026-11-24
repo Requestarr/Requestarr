@@ -59,8 +59,8 @@ namespace Requestarr.Core.Test.Discord
             Mocker.SetConstant<Requestarr.Core.Backends.IBackendService>(Mocker.Resolve<Requestarr.Core.Backends.BackendService>());
             Mocker.Resolve<Requestarr.Core.Backends.IBackendService>().SyncFromProvisioning(new Requestarr.Core.Provisioning.BackendsProvisioning
             {
-                Radarr = new List<Requestarr.Core.Provisioning.BackendInstanceProvisioning> { new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = LiveDev.RadarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true } },
-                Sonarr = new List<Requestarr.Core.Provisioning.BackendInstanceProvisioning> { new() { Name = "Sonarr (test)", Url = LiveDev.SonarrUrl, ApiKey = LiveDev.SonarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Default = true } }
+                Radarr = new List<Requestarr.Core.Provisioning.BackendInstanceProvisioning> { new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = LiveDev.RadarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true } },
+                Sonarr = new List<Requestarr.Core.Provisioning.BackendInstanceProvisioning> { new() { Name = "Sonarr (test)", Url = LiveDev.SonarrUrl, ApiKey = LiveDev.SonarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Default = true } }
             });
             Mocker.Resolve<Requestarr.Core.Backends.IBackendService>().CheckAllAsync().GetAwaiter().GetResult();
             Mocker.SetConstant<Requestarr.Core.Requests.IRequestRepository>(Mocker.Resolve<Requestarr.Core.Requests.RequestRepository>());

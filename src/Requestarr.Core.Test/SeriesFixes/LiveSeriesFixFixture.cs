@@ -47,7 +47,7 @@ namespace Requestarr.Core.Test.SeriesFixes
             {
                 Sonarr = new List<BackendInstanceProvisioning>
                 {
-                    new() { Name = "Sonarr (test)", Url = SonarrUrl, ApiKey = SonarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Purpose = "everything" }
+                    new() { Name = "Sonarr (test)", Url = SonarrUrl, ApiKey = SonarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Purpose = "everything" }
                 }
             });
         }

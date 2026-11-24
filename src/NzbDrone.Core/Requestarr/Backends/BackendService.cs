@@ -172,7 +172,7 @@ namespace Requestarr.Core.Backends
                     SeriesType = entry.SeriesType,
                     Purpose = purpose,
                     PollingOnly = entry.PollingOnly,
-                    DefaultAccess = Discord.Handlers.HandlerSupport.ParseLevel(entry.DefaultAccess?.Trim()) ?? AccessState.NeedsApproval,
+                    DefaultAccess = Discord.Handlers.HandlerSupport.ParseLevel(entry.DefaultAccess?.Trim()) ?? AccessState.AutoApprove,
                     AnimeEnabled = entry.Anime?.Enabled ?? true,
                     AnimePriority = Anime.AnimeDefaults.PriorityKey(Anime.AnimeDefaults.ParsePriority(entry.Anime?.Priority)),
                     DubRequired = entry.Anime?.Dub?.Required,

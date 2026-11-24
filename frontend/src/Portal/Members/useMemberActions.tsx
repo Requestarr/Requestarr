@@ -1,9 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { useHistory } from 'react-router-dom';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
 import { kinds } from 'Helpers/Props';
-import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import runBulkAction from '../Components/runBulkAction';
 import { PortalMember } from '../PortalTypes';
@@ -34,10 +32,8 @@ function useReport(onDone: () => void, onBarDone: () => void) {
 }
 
 // Runs a member action from their row (run: suspend and unsuspend at once) or from the select bar (ask: always asks
-// first, naming everyone picked); remove after asking; change access in its dialog; onboard on Add member's setup
-// step.
+// first, naming everyone picked); remove after asking; change access in its dialog.
 function useMemberActions(onDone: () => void, onBarDone: () => void = onDone) {
-  const history = useHistory();
   const [asking, setAsking] = useState<Asking>();
   const [isBusy, setIsBusy] = useState(false);
   const report = useReport(onDone, onBarDone);
@@ -61,17 +57,13 @@ function useMemberActions(onDone: () => void, onBarDone: () => void = onDone) {
 
   const run = useCallback(
     (members: PortalMember[], action: string) => {
-      if (action === 'onboard') {
-        const picks = members.map((member) => member.discordId).join(',');
-
-        history.push(getPathWithUrlBase(`/members/add?pick=${picks}`));
-      } else if (action.endsWith('suspend')) {
+      if (action.endsWith('suspend')) {
         perform({ action, members, fromBar: false });
       } else {
         setAsking({ action, members, fromBar: false });
       }
     },
-    [history, perform]
+    [perform]
   );
   const ask = useCallback(
     (members: PortalMember[], action: string) =>

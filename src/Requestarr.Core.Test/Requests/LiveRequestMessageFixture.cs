@@ -75,7 +75,7 @@ namespace Requestarr.Core.Test.Requests
             {
                 Radarr = new List<BackendInstanceProvisioning>
                 {
-                    new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = radarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true }
+                    new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = radarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true }
                 }
             });
             Mocker.Resolve<IBackendService>().CheckAllAsync().GetAwaiter().GetResult();

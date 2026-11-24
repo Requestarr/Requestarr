@@ -155,7 +155,7 @@ namespace Requestarr.Core.Test.Portal
             Mocker.SetConstant<IBackendService>(Mocker.Resolve<BackendService>());
             Mocker.Resolve<IBackendService>().SyncFromProvisioning(new BackendsProvisioning
             {
-                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = LiveDev.RadarrKey, QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true } }
+                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = LiveDev.RadarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true } }
             });
             Mocker.Resolve<IBackendService>().CheckAllAsync().GetAwaiter().GetResult();
             Mocker.SetConstant<ITmdbSettingsStore>(new TmdbSettingsStore());

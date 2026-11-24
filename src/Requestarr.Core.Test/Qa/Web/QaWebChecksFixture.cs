@@ -615,14 +615,14 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"edit modal ({theme}): quality profile and root folder loaded from Sonarr (HD-1080p, /data/tv)");
             await check.ShotAsync(browser, $"settings-connections-edit-{theme}");
 
-            // The test stacks' provisioning file sets no default access, so their instances give new members what they got
-            // before. The chosen one is read from Servarr's drop-down (or a plain select's selected option).
+            // The test stacks' provisioning file sets no default access, so their instances give new members what a new one
+            // does. The chosen one is read from Servarr's drop-down (or a plain select's selected option).
             var defaultAccess = await browser.EvalAsync<string>(
                 "(() => { const g = [...document.querySelectorAll('[class*=\"ModalBody\"] [class*=\"FormGroup-group\"]')].find(e => e.innerText.startsWith('Default access for new members')); " +
                 "g?.scrollIntoView(); const chosen = g?.querySelector('select')?.selectedOptions[0]?.text ?? g?.querySelector('[class*=\"EnhancedSelectInputSelectedValue-selectedValue\"]')?.innerText.trim() ?? 'nothing chosen'; " +
                 "return g ? `${chosen}: ${g.querySelector('[class*=\"FormInputHelpText\"]')?.innerText ?? ''}` : ''; })()");
             check.Saw($"edit modal ({theme}): default access for new members {defaultAccess}");
-            defaultAccess.Should().StartWith("Needs approval:").And.Contain("media manager");
+            defaultAccess.Should().StartWith("Approved automatically:").And.Contain("for each person");
             await check.ShotAsync(browser, $"settings-connections-default-access-{theme}");
             await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.includes('Cancel')).click()");
         }

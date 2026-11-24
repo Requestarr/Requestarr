@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { useHistory } from 'react-router-dom';
 import Button from 'Components/Link/Button';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
 import Modal from 'Components/Modal/Modal';
@@ -13,7 +12,6 @@ import { icons, kinds } from 'Helpers/Props';
 import useHistoryPosting, {
   HistoryStatus,
 } from 'Settings/Requestarr/useHistoryPosting';
-import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import TextConfirmModal from '../Components/TextConfirmModal';
 import { isImported } from '../portalText';
@@ -23,8 +21,10 @@ import showOutcome from '../showOutcome';
 import usePortal from '../usePortal';
 import usePortalAction, { PortalAction } from '../usePortalAction';
 import AccessRow from './AccessRow';
+import OnboardModal from './AddMembers/OnboardModal';
+import { Who } from './AddMembers/useStartRun';
 
-type Dialog = 'remove' | 'plex' | 'access' | 'cancelHistory';
+type Dialog = 'remove' | 'plex' | 'access' | 'cancelHistory' | 'onboard';
 
 function plexPrompt() {
   return {
@@ -95,17 +95,12 @@ function historyActions(detail: PortalMemberDetail, posting?: HistoryStatus) {
   }
 }
 
-// The actions a member's card in Discord has, by its name, for the member's status: onboarding someone known only
-// from an import; otherwise suspend or unsuspend, change access, link Plex, their imported history, and remove. None for
-// someone removed.
+// The actions a member's card in Discord has, by its name, for the member's status: onboarding someone known only from an
+// import, or removed; otherwise suspend or unsuspend, change access, link Plex, their imported history, and remove.
 function actionsFor(detail: PortalMemberDetail, posting?: HistoryStatus) {
   const { status } = detail.member;
 
-  if (status === 'removed') {
-    return [];
-  }
-
-  if (isImported(status)) {
+  if (status === 'removed' || isImported(status)) {
     return ['onboard'];
   }
 
@@ -142,6 +137,7 @@ const DIALOGS: Record<string, Dialog> = {
   'link-plex': 'plex',
   'remove-member': 'remove',
   'cancel-history': 'cancelHistory',
+  onboard: 'onboard',
 };
 
 // Imported history being posted, with why it couldn't be paused, resumed or cancelled in the sidebar's messages.
@@ -169,7 +165,21 @@ interface MemberDialogsProps {
   onRemove: () => void;
   onCancelHistory: () => void;
   onPlex: (username: string) => void;
+  onOnboarded: () => void;
   onClose: () => void;
+}
+
+// Who the Onboard window is for: this member, while it's open.
+function onboarding({ member }: PortalMemberDetail, dialog?: Dialog): Who[] {
+  return dialog === 'onboard' && member.discordId
+    ? [
+        {
+          discordId: member.discordId,
+          name: member.name,
+          importedRequests: member.importedRequests,
+        },
+      ]
+    : [];
 }
 
 // The windows a member's actions open: what's asked first, and the changes made in one.
@@ -180,6 +190,7 @@ function MemberDialogs({
   onRemove,
   onCancelHistory,
   onPlex,
+  onOnboarded,
   onClose,
 }: MemberDialogsProps) {
   const { member } = detail;
@@ -215,32 +226,32 @@ function MemberDialogs({
         isOpen={dialog === 'access'}
         onModalClose={onClose}
       />
+      <OnboardModal people={onboarding(detail, dialog)} onClose={onOnboarded} />
     </>
   );
 }
 
 // A member's page actions as toolbar buttons, as Sonarr main's SeriesDetails has its own: suspend and unsuspend at
-// once; change access, link Plex and remove in their windows; onboarding on Onboard's page with them picked. Returns the
-// buttons for the page's toolbar section to hold directly, and the windows.
+// once; change access, link Plex, remove and onboard in their windows. Returns the buttons for the page's toolbar section
+// to hold directly, and the windows.
 function useMemberDetailActions(
   detail: PortalMemberDetail,
   onDone: () => void
 ) {
-  const history = useHistory();
   const action = usePortalAction(onDone);
   const { status: postingStatus, act: actOnPosting } = useReportedPosting();
   const [dialog, setDialog] = useState<Dialog>();
   const { member } = detail;
   const path = `members/${member.id}`;
   const onClose = useCallback(() => setDialog(undefined), []);
+  const onOnboarded = useCallback(() => {
+    setDialog(undefined);
+    onDone();
+  }, [onDone]);
 
   const onPress = useCallback(
     (name: string) => {
-      if (name === 'onboard') {
-        history.push(
-          getPathWithUrlBase(`/members/add?pick=${member.discordId}`)
-        );
-      } else if (DIALOGS[name]) {
+      if (DIALOGS[name]) {
         setDialog(DIALOGS[name]);
       } else if (POSTING_ACTIONS[name]) {
         actOnPosting(POSTING_ACTIONS[name]);
@@ -248,7 +259,7 @@ function useMemberDetailActions(
         action.act(`${path}/${name}`);
       }
     },
-    [action, history, member.discordId, path, actOnPosting]
+    [action, path, actOnPosting]
   );
   const onCancelHistory = useCallback(() => {
     setDialog(undefined);
@@ -289,6 +300,7 @@ function useMemberDetailActions(
       onRemove={onRemove}
       onCancelHistory={onCancelHistory}
       onPlex={onPlex}
+      onOnboarded={onOnboarded}
       onClose={onClose}
     />
   );

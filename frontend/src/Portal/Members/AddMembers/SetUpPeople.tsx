@@ -88,9 +88,14 @@ function TypeFields({ access, onChange }: TypeFieldsProps) {
 }
 
 // "Onboard 6 people: Movies needs approval, TV needs approval".
-function summary(count: number, access: OnboardAccess[]) {
+function summary(people: Who[], access: OnboardAccess[]) {
+  const who =
+    people.length === 1
+      ? people[0].name
+      : translate('PortalOnboardPeople', { count: people.length });
+
   return translate('PortalOnboardSummary', {
-    count,
+    who,
     access: access
       .filter((a) => a.state !== 'off')
       .map((a) => {
@@ -189,7 +194,7 @@ function SetUpPeople({
       {people.some((person) => person.importedRequests > 0) && (
         <HistoryField value={postHistory} onChange={setPostHistory} />
       )}
-      <p className={styles.summary}>{summary(people.length, access)}</p>
+      <p className={styles.summary}>{summary(people, access)}</p>
       <div className={styles.buttons}>
         <Button onPress={onBack}>{backLabel}</Button>
         <Button

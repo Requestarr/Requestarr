@@ -36,16 +36,16 @@ namespace Requestarr.Core.Test.MediaManagers
         }
 
         [Test]
-        public void provisioning_sets_the_default_access_for_new_members_and_approval_when_left_out()
+        public void provisioning_sets_the_default_access_for_new_members_and_auto_approve_when_left_out()
         {
             Backends.SyncFromProvisioning(new BackendsProvisioning
             {
-                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr", Url = "http://r", ApiKey = "k", DefaultAccess = "auto" } },
+                Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr", Url = "http://r", ApiKey = "k", DefaultAccess = "approval" } },
                 Sonarr = new List<BackendInstanceProvisioning> { new() { Name = "Sonarr", Url = "http://s", ApiKey = "k" } }
             });
 
-            Backends.DefaultAccess(ContentType.Movie).Should().Be(AccessState.AutoApprove);
-            Backends.DefaultAccess(ContentType.Tv).Should().Be(AccessState.NeedsApproval);
+            Backends.DefaultAccess(ContentType.Movie).Should().Be(AccessState.NeedsApproval);
+            Backends.DefaultAccess(ContentType.Tv).Should().Be(AccessState.AutoApprove);
             Backends.DefaultAccess(ContentType.Music).Should().Be(AccessState.Off, "no instance for music");
         }
 
