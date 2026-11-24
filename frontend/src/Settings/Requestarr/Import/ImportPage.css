@@ -13,12 +13,3 @@
 .summary {
   margin: 20px 0;
 }
-
-.history {
-  margin: 10px 0;
-}
-
-.historyButtons {
-  display: flex;
-  gap: 10px;
-}

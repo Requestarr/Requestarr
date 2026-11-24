@@ -21,7 +21,7 @@ promoted to them, and a beta heading names the goals' builds it includes.
 ### For users
 
 #### New
-- **Your history comes with you:** requests you made with the old bot show in your channel, quietly, once you're set up.
+- **Your history comes with you:** requests you made with the old bot can show in your channel, once. Type /history there if they don't.
 - **Series fixes shown:** when a show is added with a fix for a known mix-up, its request message says so and why.
 
 #### Changed
@@ -34,7 +34,7 @@ promoted to them, and a beta heading names the goals' builds it includes.
 #### New
 - **Servers as cards:** each server the bot is or was in has a card. Open it to take the bot out, or to add it back where it was removed. The + card adds the bot to another server, for example only to import from Requestrr, and closes once the bot joins.
 - **Delete, with history kept:** a media manager can now be deleted. Its requests keep showing where they went, and any still waiting are flagged for a new home.
-- **Imported history in Discord:** an import from Requestrr posts each member's old requests in their channel and every one in the admin feed, quietly and oldest first. The Import page shows how far it got, can pause or cancel, and has a switch for each.
+- **Imported history in Discord:** post a member's old requests in their channel when you onboard them, from their page, or with /admin history, which also does the whole server. An import posts them in the admin feed when that's on in the server's window. Quietly, oldest first, and only once.
 - **Imported history in System, then Tasks:** while history is posted, System, then Tasks lists it with how many are posted so far.
 - **Requests go by what's asked for:** each media manager says what it's for: all other shows (or movies), anime or nothing yet, and anime goes to the anime one. This replaces the Default tick box and members' own servers; any you set are dropped, their access and limits kept.
 - **Series fixes:** a ready list of fixes for shows Sonarr grabs the wrong releases for, under Media managers. A fix is set up in Sonarr only when its show is requested, and the request says so. It comes with one: Pokémon (1997) never grabs Pokémon Horizons.

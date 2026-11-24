@@ -174,7 +174,13 @@ function useOnboard(picked: PortalMember[], onDone: () => void) {
   const onAddPress = useCallback(() => {
     const onboardable = picked.flatMap((member) =>
       member.discordId && memberActions(member).includes('onboard')
-        ? [{ discordId: member.discordId, name: member.name }]
+        ? [
+            {
+              discordId: member.discordId,
+              name: member.name,
+              importedRequests: member.importedRequests,
+            },
+          ]
         : []
     );
 

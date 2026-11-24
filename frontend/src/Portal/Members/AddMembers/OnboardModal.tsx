@@ -9,10 +9,10 @@ import ModalHeader from 'Components/Modal/ModalHeader';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import { plainText } from '../../portalText';
-import { OnboardAccess, OnboardResult } from '../../PortalTypes';
+import { OnboardResult } from '../../PortalTypes';
 import OnboardProgress from './OnboardProgress';
 import SetUpPeople from './SetUpPeople';
-import useStartRun, { Who } from './useStartRun';
+import useStartRun, { NO_SETUP, OnboardSetup, Who } from './useStartRun';
 
 interface OnboardModalContentProps {
   people: Who[];
@@ -20,18 +20,18 @@ interface OnboardModalContentProps {
 }
 
 function OnboardModalContent({ people, onClose }: OnboardModalContentProps) {
-  const [access, setAccess] = useState<OnboardAccess[]>([]);
+  const [setup, setSetup] = useState<OnboardSetup>(NO_SETUP);
   const { runId, refused, isStarting, start } = useStartRun();
   const onConfirm = useCallback(
-    (chosen: OnboardAccess[]) => {
-      setAccess(chosen);
+    (chosen: OnboardSetup) => {
+      setSetup(chosen);
       start(people, chosen);
     },
     [people, start]
   );
   const onRetry = useCallback(
-    (failed: OnboardResult[]) => start(failed, access),
-    [access, start]
+    (failed: OnboardResult[]) => start(failed, setup),
+    [setup, start]
   );
 
   return (

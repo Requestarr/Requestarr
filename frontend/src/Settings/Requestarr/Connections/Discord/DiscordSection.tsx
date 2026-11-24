@@ -19,6 +19,7 @@ import AddServerModal from './AddServerModal';
 import AdminPicker from './AdminPicker';
 import BetaServer from './BetaServer';
 import ReconnectServer from './ReconnectServer';
+import ServerHistory from './ServerHistory';
 import ServerModal from './ServerModal';
 import styles from '../Connections.css';
 
@@ -126,6 +127,7 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
           name: ours?.name ?? translate('ConnectionDiscordBot'),
         })}
         sections={DISCORD_SECTIONS}
+        after={ours?.joined && <ServerHistory />}
         onSaved={onSavedClose}
         onClose={onEditClose}
       >

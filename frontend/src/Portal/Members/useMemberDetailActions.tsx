@@ -9,6 +9,9 @@ import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
 import { icons, kinds } from 'Helpers/Props';
+import useHistoryPosting, {
+  HistoryStatus,
+} from 'Settings/Requestarr/useHistoryPosting';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import translate from 'Utilities/String/translate';
 import TextConfirmModal from '../Components/TextConfirmModal';
@@ -71,9 +74,29 @@ function EditAccessModal({
   );
 }
 
+// Posting an active member's imported requests in their channel, and pausing, resuming or cancelling it while history is
+// being posted.
+function historyActions(detail: PortalMemberDetail, posting?: HistoryStatus) {
+  const { status, importedRequests } = detail.member;
+
+  if (status !== 'active' || !importedRequests) {
+    return [];
+  }
+
+  switch (posting?.state) {
+    case 'posting':
+      return ['pause-history', 'cancel-history'];
+    case 'paused':
+      return ['resume-history', 'cancel-history'];
+    default:
+      return ['post-history'];
+  }
+}
+
 // The actions a member's card in Discord has, by its name, for the member's status: onboarding someone known only
-// from an import; otherwise suspend or unsuspend, change access, link Plex, and remove. None for someone removed.
-function actionsFor(detail: PortalMemberDetail) {
+// from an import; otherwise suspend or unsuspend, change access, link Plex, their imported history, and remove. None for
+// someone removed.
+function actionsFor(detail: PortalMemberDetail, posting?: HistoryStatus) {
   const { status } = detail.member;
 
   if (status === 'removed') {
@@ -88,6 +111,7 @@ function actionsFor(detail: PortalMemberDetail) {
     status === 'suspended' ? 'unsuspend' : 'suspend',
     'changeAccess',
     'link-plex',
+    ...historyActions(detail, posting),
     'remove-member',
   ];
 }
@@ -98,7 +122,18 @@ const ICONS: Record<string, typeof icons.ADD> = {
   unsuspend: icons.RESTORE,
   changeAccess: icons.EDIT,
   'link-plex': icons.EXTERNAL_LINK,
+  'post-history': icons.HISTORY,
+  'pause-history': icons.PAUSED,
+  'resume-history': icons.HISTORY,
+  'cancel-history': icons.CLOSE,
   'remove-member': icons.DELETE,
+};
+
+// What's done to the posting itself, whoever's history it is.
+const POSTING_ACTIONS: Record<string, string> = {
+  'pause-history': 'pause',
+  'resume-history': 'resume',
+  'cancel-history': 'cancel',
 };
 
 const DIALOGS: Record<string, Dialog> = {
@@ -116,6 +151,7 @@ function useMemberDetailActions(
 ) {
   const history = useHistory();
   const action = usePortalAction(onDone);
+  const posting = useHistoryPosting();
   const [dialog, setDialog] = useState<Dialog>();
   const { member } = detail;
   const path = `members/${member.id}`;
@@ -129,11 +165,13 @@ function useMemberDetailActions(
         );
       } else if (DIALOGS[name]) {
         setDialog(DIALOGS[name]);
+      } else if (POSTING_ACTIONS[name]) {
+        posting.act(POSTING_ACTIONS[name]);
       } else {
         action.act(`${path}/${name}`);
       }
     },
-    [action, history, member.discordId, path]
+    [action, history, member.discordId, path, posting]
   );
   const onRemove = useCallback(() => {
     setDialog(undefined);
@@ -151,7 +189,7 @@ function useMemberDetailActions(
     [action, path]
   );
 
-  const buttons = actionsFor(detail).map((name) => (
+  const buttons = actionsFor(detail, posting.status).map((name) => (
     <PageToolbarButton
       key={name}
       label={actionLabel(name)}

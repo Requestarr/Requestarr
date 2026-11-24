@@ -15,12 +15,13 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app portal pages check.
 - **Imported history in Discord**
   - Steps:
-    1. Open Settings, then Import from Requestrr.
-    2. Leave both history switches on and import.
-    3. Onboard someone who had old requests.
+    1. Import from Requestrr, with Post in the admin feed on.
+    2. Onboard someone with old requests, history left out.
+    3. As them, type /history in their channel, twice.
+    4. In the admin channel, run /admin history.
   - Expect:
-    - Their channel lists their old requests, a few to a message.
-    - The admin feed has a header, their cards marked Imported, and a closing post.
+    - Their channel lists their old requests, a few to a message, once.
+    - The feed has a header, cards marked Imported, and a closing post.
     - Nobody gets a ping or a notification.
   - Checked by the owner, needs human eyes: how the history reads in the Discord app; the automated run read back each post's text, silence and order.
 - **Series fixes**
@@ -76,7 +77,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked by the owner, couldn't verify: only a person can add the bot to a server or kick it. The windows were checked with made-up servers.
 - **Imported history in System, Tasks**
   - Steps:
-    1. Import from Requestrr with the history switches on.
+    1. In Connections, open Requestarr's server and press Post History.
     2. Open System, then Tasks, while it posts.
   - Expect:
     - Post Imported History under Queue, with how many are posted so far.

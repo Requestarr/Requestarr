@@ -19,7 +19,6 @@ import useRequestarrApi from '../useRequestarrApi';
 import useSetupStatus from '../useSetupStatus';
 import ImportAccessNotes from './ImportAccessNotes';
 import ImportChannels, { PickableChannel } from './ImportChannels';
-import ImportHistory from './ImportHistory';
 import ImportPreview from './ImportPreview';
 import ImportServers from './ImportServers';
 import ImportToolbar from './ImportToolbar';
@@ -206,8 +205,6 @@ function ImportContent(props: ImportContentProps) {
         {job && <Outcome job={job} />}
         {job?.warning && <Alert kind={kinds.WARNING}>{job.warning}</Alert>}
         {job?.plan && <ImportPreview plan={job.plan} />}
-
-        <ImportHistory />
       </PageContentBody>
 
       {setup && (

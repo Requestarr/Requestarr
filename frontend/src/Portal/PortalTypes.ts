@@ -140,6 +140,7 @@ export interface PortalMember {
   firstRequest: string | null;
   lastRequest: string | null;
   byType: { contentType: ContentType; count: number }[];
+  importedRequests: number;
 }
 
 export interface PortalMemberDetail {

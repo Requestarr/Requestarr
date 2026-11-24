@@ -16,6 +16,9 @@ interface ContentProps {
   title: string;
   sections: SettingsSection[];
   children?: ReactNode;
+
+  // Shown under the last section, which it belongs to.
+  after?: ReactNode;
   onSaved: () => void;
   onClose: () => void;
 }
@@ -24,6 +27,7 @@ function SettingsConnectionContent({
   title,
   sections,
   children,
+  after,
   onSaved,
   onClose,
 }: ContentProps) {
@@ -55,6 +59,8 @@ function SettingsConnectionContent({
             showAdvanced={showAdvanced}
           />
         )}
+
+        {after}
       </ModalBody>
 
       <ConnectionModalFooter

@@ -1,0 +1,8 @@
+.progress {
+  margin: 10px 0;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+}

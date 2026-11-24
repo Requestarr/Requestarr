@@ -140,7 +140,7 @@ namespace Requestarr.Core.Test.Discord
         [Test]
         public void admin_help_describes_exactly_the_admin_commands()
         {
-            HelpCatalog.AdminTopics.SelectMany(t => t.Commands).Distinct().Should().BeEquivalentTo("admin user", "admin requests");
+            HelpCatalog.AdminTopics.SelectMany(t => t.Commands).Distinct().Should().BeEquivalentTo("admin user", "admin history", "admin requests");
             HelpCatalog.AdminTopics.SelectMany(t => t.Buttons).Should().Contain(PanelButtons.Members);
         }
 

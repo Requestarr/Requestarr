@@ -1,3 +1,3 @@
 audience: admins
 kind: new
-line: **Imported history in Discord:** an import from Requestrr posts each member's old requests in their channel and every one in the admin feed, quietly and oldest first. The Import page shows how far it got, can pause or cancel, and has a switch for each.
+line: **Imported history in Discord:** post a member's old requests in their channel when you onboard them, from their page, or with /admin history, which also does the whole server. An import posts them in the admin feed when that's on in the server's window. Quietly, oldest first, and only once.

@@ -8,16 +8,12 @@ import PageSectionContent from 'Components/Page/PageSectionContent';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import { plainText } from '../../portalText';
-import {
-  OnboardAccess,
-  OnboardResult,
-  PortalServerMember,
-} from '../../PortalTypes';
+import { OnboardResult, PortalServerMember } from '../../PortalTypes';
 import usePortal from '../../usePortal';
 import OnboardProgress from './OnboardProgress';
 import PickPeople from './PickPeople';
 import SetUpPeople from './SetUpPeople';
-import useStartRun from './useStartRun';
+import useStartRun, { NO_SETUP, OnboardSetup } from './useStartRun';
 import styles from '../../Portal.css';
 
 interface StepsProps {
@@ -30,22 +26,22 @@ function Steps({ people, pick }: StepsProps) {
   const [picked, setPicked] = useState<PortalServerMember[]>();
   // Who was picked before Back, picked again on the list.
   const [kept, setKept] = useState<string[]>(pick ? pick.split(',') : []);
-  const [access, setAccess] = useState<OnboardAccess[]>([]);
+  const [setup, setSetup] = useState<OnboardSetup>(NO_SETUP);
   const { runId, refused, isStarting, start } = useStartRun();
   const onBack = useCallback(() => {
     setKept((picked ?? []).map((person) => person.discordId));
     setPicked(undefined);
   }, [picked]);
   const onConfirm = useCallback(
-    (chosen: OnboardAccess[]) => {
-      setAccess(chosen);
+    (chosen: OnboardSetup) => {
+      setSetup(chosen);
       start(picked ?? [], chosen);
     },
     [picked, start]
   );
   const onRetry = useCallback(
-    (failed: OnboardResult[]) => start(failed, access),
-    [access, start]
+    (failed: OnboardResult[]) => start(failed, setup),
+    [setup, start]
   );
 
   if (runId) {
