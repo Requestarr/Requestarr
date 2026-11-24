@@ -1,10 +1,11 @@
 # Requestarr command reference
 
-Requestarr registers exactly three Discord commands:
+Requestarr registers exactly four Discord commands:
 
 - **`/request`** for everyone.
+- **`/history`** for everyone.
 - **`/help`** for everyone.
-- **`/admin`** for admins only: `/admin user`, `/admin requests` and `/admin help`. It's hidden from members without Manage Server.
+- **`/admin`** for admins only: `/admin user`, `/admin requests`, `/admin history` and `/admin help`. It's hidden from members without Manage Server.
 
 Everything else is a button, on a panel or on a card. Each panel is always the newest message in its channel; when Requestarr posts something there, the panel moves below it.
 
@@ -108,6 +109,10 @@ One message, always the newest in your channel. It welcomes you and shows what y
 | **Link Plex** | Opens a form for your Plex username and sends an access request to the admin. It's there only while the admin has a Plex server connected, and disappears once your account is linked. |
 | **Help** | Opens help, the same as `/help`. |
 
+### `/history`
+
+Posts your imported requests (what you asked for before Requestarr, when the admin imported it) in your own channel, oldest first, a few to a message, without pinging anyone. It happens once; only you see the answer. It works only in your own channel.
+
 ### `/help`
 
 Opens help that only you can see. It starts with a short overview, then you pick topics from a menu, with **Back** to return. Topics:
@@ -118,6 +123,7 @@ Opens help that only you can see. It starts with a short overview, then you pick
 - following an existing request
 - downloads and availability
 - my requests and cancelling
+- your requests from before (when you have imported ones)
 - limits
 - linking Plex
 - removing and keeping titles
@@ -127,7 +133,7 @@ You only see topics you can use: no seasons or anime topic without TV access, no
 
 ## For admins
 
-There are three admin commands, all under `/admin`, visible only to members with Manage Server, and working only in `#requestarr-admin`. Everything else is a button, menu or short form on the admin panel, on the cards these commands open, on approval cards and on the admin feed. Every click is checked again on the server; what you see is only a hint.
+There are four admin commands, all under `/admin`, visible only to members with Manage Server, and working only in `#requestarr-admin`. Everything else is a button, menu or short form on the admin panel, on the cards these commands open, on approval cards and on the admin feed. Every click is checked again on the server; what you see is only a hint.
 
 ### `/admin user member:@someone`
 
@@ -158,11 +164,21 @@ A member's own requests open as request cards from **Their requests** on their c
 
 The admin channel is for admin actions, not your own requests: `/request …` there only points you to your own request channel. To get one, press **Request access** in `#requestarr-welcome` like everyone else; as an admin you're added straight away, with the types you pick on automatic approval and the rest off, and your requests are made from your channel like any member's. Request messages already posted in the admin channel keep their buttons.
 
+### `/admin history [member:@someone]`
+
+Posts imported requests, oldest first and silently, each once:
+
+- **With a member:** theirs, in their own channel.
+- **Without one:** the whole server's, in everyone's channel, and in the admin feed when that's switched on (the server's window under Connections in the web app).
+
+Running it again only posts what's new. The web app's member page, the Members page and the server's window have the same as **Post History**.
+
 ### `/admin help`
 
 Admin help, only you can see it, in `#requestarr-admin` only. Topics:
 
 - members: adding and managing
+- imported requests
 - access requests and the welcome channel: the form, approving and denying, the cooldown, spam protection and blocks
 - approvals and the queue
 - the admin feed

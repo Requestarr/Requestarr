@@ -118,6 +118,7 @@ namespace Requestarr.Core.Test.Discord.Harness
                 Mocker.Resolve<ApprovalHandler>(),
                 Mocker.Resolve<PanelHandler>(),
                 Mocker.Resolve<HelpHandler>(),
+                Mocker.Resolve<HistoryHandler>(),
                 Mocker.Resolve<SeasonsHandler>(),
                 Mocker.Resolve<AdminRequestsHandler>(),
                 Mocker.Resolve<OutageHandler>(),

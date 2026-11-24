@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Imports;
 using Requestarr.Core.Portal;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Users;
@@ -18,7 +19,8 @@ namespace Requestarr.Http.Portal
     public record RemovalBody(List<int> Seasons, bool Force);
 
     // Add member: the people picked and what each of them gets.
-    public record OnboardBody(List<OnboardPerson> People, List<OnboardAccess> Access);
+    // PostHistory: their imported requests go out in their new channels.
+    public record OnboardBody(List<OnboardPerson> People, List<OnboardAccess> Access, bool PostHistory = true);
 
     public record AccessBody(ContentType ContentType, AccessState State);
 
@@ -120,7 +122,9 @@ namespace Requestarr.Http.Portal
 
             var access = (body.Access ?? new List<OnboardAccess>()).GroupBy(a => a.ContentType).Select(g => g.Last()).ToList();
 
-            return Json(_onboarding.Start(body.People, access, await WebAdmin.ActorAsync(HttpContext)));
+            var history = body.PostHistory ? OnboardHistory.Post : OnboardHistory.Leave;
+
+            return Json(_onboarding.Start(body.People, access, history, await WebAdmin.ActorAsync(HttpContext)));
         }
 
         [HttpGet("/api/v1/portal/members/onboard/{id}")]
@@ -146,6 +150,9 @@ namespace Requestarr.Http.Portal
 
         [HttpPost("/api/v1/portal/members/{id:int}/plex")]
         public Task<IActionResult> LinkPlex(int id, [FromBody] PlexBody body) => Act(admin => Task.FromResult(_members.LinkPlex(id, body?.Username, admin)));
+
+        [HttpPost("/api/v1/portal/members/{id:int}/post-history")]
+        public Task<IActionResult> PostHistory(int id) => Act(admin => Task.FromResult(_members.PostHistory(id, admin)));
 
         [HttpPost("/api/v1/portal/media-links/{id:int}/approve")]
         public Task<IActionResult> ApproveMediaLink(int id) => Act(admin => _members.DecideMediaLinkAsync(id, true, admin));

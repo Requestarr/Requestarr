@@ -30,9 +30,14 @@ namespace Requestarr.Http.Imports
         [Produces("application/json")]
         public IActionResult History() => Json(_posting.Status());
 
-        // "Post history now", for an import run before posting existed: what isn't posted yet, never twice.
+        // The whole server's imported requests: what isn't posted yet, never twice.
         [HttpPost("/api/v1/requestarr/import/history/post")]
-        public IActionResult PostHistory() => Answer(() => _posting.QueueEarlier());
+        public async Task<IActionResult> PostHistory()
+        {
+            var result = _posting.PostServer(await WebAdmin.ActorAsync(HttpContext));
+
+            return result.Success ? Json(_posting.Status()) : Conflict(new { message = result.Message });
+        }
 
         [HttpPost("/api/v1/requestarr/import/history/pause")]
         public IActionResult Pause() => Answer(_posting.Pause);

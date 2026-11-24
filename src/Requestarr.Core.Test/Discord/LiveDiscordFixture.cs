@@ -191,7 +191,7 @@ namespace Requestarr.Core.Test.Discord
                 var registered = (await host.Client.Rest.GetGuildApplicationCommands(guild.Id)).OrderBy(c => c.Name).ToList();
                 var global = await host.Client.Rest.GetGlobalApplicationCommands();
                 Log($"[commands] registered on the server: {string.Join(", ", registered.Select(c => "/" + c.Name))}; global: {global.Count}");
-                registered.Select(c => c.Name).Should().BeEquivalentTo("admin", "help", "request");
+                registered.Select(c => c.Name).Should().BeEquivalentTo("admin", "help", "history", "request");
                 global.Should().BeEmpty();
 
                 foreach (var command in registered)

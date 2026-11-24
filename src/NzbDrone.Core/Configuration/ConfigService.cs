@@ -93,14 +93,8 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("RemovalRequesterTimeoutDays", value); }
         }
 
-        // Imported history posted in Discord (Imports.HistoryPosting): in members' own channels, and in the admin feed.
-        // On unless an admin turns them off on the Import page.
-        public bool ImportPostChannels
-        {
-            get { return GetValueBoolean("ImportPostChannels", true); }
-            set { SetValue("ImportPostChannels", value); }
-        }
-
+        // Imported history posted in the admin feed (Imports.HistoryPosting), on unless an admin turns it off in the server's
+        // window under Connections.
         public bool ImportPostFeed
         {
             get { return GetValueBoolean("ImportPostFeed", true); }

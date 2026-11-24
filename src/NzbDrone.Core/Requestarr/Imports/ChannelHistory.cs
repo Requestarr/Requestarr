@@ -20,10 +20,9 @@ namespace Requestarr.Core.Imports
     public record ImportChannel([property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] ulong Id, string Server, string Name, bool CanRead, string Problem, bool HasSourceReplies = false,
                                 string ServerId = null);
 
-    // What the Import page shows above the channels: the link that adds the bot to another server only to read it,
-    // whether the bot may read other bots' messages (unknown while it isn't connected), and the Developer Portal page
-    // where that's turned on. The links are null until the bot's application ID is known.
-    public record ImportAccess(string ReadInviteUrl, bool? MessageContent, string PortalUrl);
+    // What the Import page shows above the channels: whether the bot may read other bots' messages (unknown while it isn't
+    // connected), and the Developer Portal page where that's turned on (null until the bot's application ID is known).
+    public record ImportAccess(bool? MessageContent, string PortalUrl);
 
     // Reading old request channels: in any server the bot is in, through Discord's API. Only reads: nothing is posted,
     // edited or reacted to. Discord.Net waits out Discord's rate limits between pages.
@@ -286,7 +285,7 @@ namespace Requestarr.Core.Imports
             var messageContent = Recorded() != null ? true : await _discord.MessageContentAsync();
             var portal = ApplicationId == 0 ? null : $"https://discord.com/developers/applications/{ApplicationId}/bot";
 
-            return new ImportAccess(ReadInviteUrl, messageContent, portal);
+            return new ImportAccess(messageContent, portal);
         }
 
         public Task<ImportChannel> DescribeAsync(ulong channelId) =>

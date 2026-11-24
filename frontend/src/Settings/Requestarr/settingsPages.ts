@@ -28,6 +28,10 @@ export const DISCORD_SECTIONS: SettingsSection[] = [
       ['botProfileTakeOver', 'check'],
     ],
   },
+  {
+    legend: 'SettingsImportedHistory',
+    fields: [['importPostFeed', 'check']],
+  },
 ];
 
 export const REQUEST_SECTIONS: SettingsSection[] = [

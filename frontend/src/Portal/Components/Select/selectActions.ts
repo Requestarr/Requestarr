@@ -31,6 +31,7 @@ const ICONS: Record<string, IconDefinition> = {
   suspend: icons.PAUSED,
   unsuspend: icons.RESTORE,
   changeAccess: icons.EDIT,
+  'post-history': icons.ANNOUNCED,
   'remove-member': icons.DELETE,
 };
 

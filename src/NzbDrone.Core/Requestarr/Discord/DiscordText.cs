@@ -18,7 +18,7 @@ namespace Requestarr.Core.Discord
         public const string NotAUser = "You haven't been added to Requestarr yet. Ask the admin to add you.";
         public const string Suspended = "Your Requestarr access is suspended. Ask the admin if you think this is a mistake.";
         public const string OwnChannelOnly = "Please use this command in your own request channel.";
-        public const string AdminUseUserCommand = "In the admin channel, use /user mediaserver to link someone's account.";
+        public const string AdminUseUserCommand = "That's for a member's own channel. In the admin channel, use the /admin commands.";
         public const string NotConnected = "Requestarr isn't connected to Discord right now. Try again in a minute.";
 
         // /user add
@@ -553,6 +553,19 @@ namespace Requestarr.Core.Discord
         // Imported history (Imports.HistoryPosting): the feed's header and closing posts, the line an imported feed card
         // carries, and a member's own history, a few titles to a message.
         public const string HistoryChannelHeader = "📜 **Your requests from before**, imported, oldest first:";
+
+        public const string HistoryNone = "There are no imported requests to post.";
+        public const string HistoryAlreadyPosted = "The imported requests are already posted: that happens once.";
+        public const string HistoryNoChannel = "They have no channel to post imported requests in yet. Onboard them first.";
+        public const string HistorySuspended = "They're suspended. Unsuspend them first, then post their imported requests.";
+        public const string HistoryNowhere = "There's nowhere to post them yet: nobody with imported requests has a channel, and the admin feed is off for them.";
+        public const string HistoryUnderWay = "The imported requests are still being posted.";
+        public const string HistoryPaused = "The imported requests are waiting: posting is paused until an admin resumes it.";
+
+        public static string HistoryAudit(int requests) => $"{Plural(requests, "imported request")} to post";
+
+        public static string HistoryQueued(int requests, bool paused) =>
+            $"Posting {Plural(requests, "imported request")}, oldest first, silently.{(paused ? " Posting is paused until an admin resumes it." : string.Empty)}";
 
         public static string HistoryDate(DateTime utc) => $"<t:{new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds()}:D>";
 
@@ -1413,7 +1426,10 @@ namespace Requestarr.Core.Discord
             public const string AdminUser = "Open a member's card: add, access, limits, Plex, suspend, remove";
             public const string AdminRequests = "Go through everything waiting on you, one at a time";
             public const string RequestOne = "Request a movie or TV show";
+            public const string History = "Post your imported requests from before in your channel, once";
             public const string Help = "How to use Requestarr";
+            public const string AdminHistory = "Post imported requests in a member's channel, or everyone's and the feed's";
+            public const string OptionHistoryMember = "One member; leave it out for the whole server";
             public const string AdminHelp = "Help for admins";
             public const string OptionRequestType = "What to request (only types you have access to)";
             public const string OptionRequestQuery = "Title to search for, or tmdb:603 / tvdb:12345";

@@ -223,7 +223,7 @@ namespace Requestarr.Core.Imports
                     var lastBefore = _requests.All().Select(r => r.Id).DefaultIfEmpty().Max();
                     job.Done(plan, Write(plan, job.Channels, members, new Actor(message.ConfirmedBy, message.ConfirmedById)));
 
-                    // This import's new requests in Discord, slowly, as the Import page's switches say.
+                    // This import's new requests in the admin feed, slowly, when that's switched on.
                     _posting.QueueImport(lastBefore);
 
                     // A later import reads these channels afresh, for anything said in them since.

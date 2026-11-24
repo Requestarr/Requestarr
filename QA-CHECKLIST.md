@@ -15,12 +15,14 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked automatically: the web app portal pages check.
 - **Imported history in Discord**
   - Steps:
-    1. Open Settings, then Import from Requestrr.
-    2. Leave both history switches on and import.
-    3. Onboard someone who had old requests.
+    1. Import from Requestrr, with Post in the admin feed on.
+    2. Onboard someone with old requests, history left out.
+    3. As them, type /history in their channel, twice.
+    4. In the admin channel, run /admin history.
   - Expect:
-    - Their channel lists their old requests, a few to a message.
-    - The admin feed has a header, their cards marked Imported, and a closing post.
+    - Their channel lists their old requests, a few to a message, once.
+    - The feed has a header, cards marked Imported, and a closing post.
+    - The admin command says what it posts, or that it's done.
     - Nobody gets a ping or a notification.
   - Checked by the owner, needs human eyes: how the history reads in the Discord app; the automated run read back each post's text, silence and order.
 - **Series fixes**
@@ -63,10 +65,20 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Save asks first: regular show requests will stop until another Sonarr takes them.
     - Delete's confirm says the same.
   - Checked by the owner, couldn't verify: dev's connections are read-only, so the automated checks can't open this window. A screenshot from a throwaway server is in the reply.
+- **Post History in the web app**
+  - Steps:
+    1. Open an active member who has imported requests.
+    2. Press Post History in the toolbar.
+    3. In Connections, open Requestarr's server and press Post History.
+  - Expect:
+    - Their channel gets theirs, once.
+    - The server's window shows how many are posted.
+    - Pause, Resume and Cancel work in both places while it posts.
+  - Checked by the owner, couldn't verify: it needs onboarded members with imported requests. The buttons were checked with made-up people.
 - **Server cards on Import**
   - Steps:
     1. Open Settings, then Import from Requestrr.
-    2. Press Invite bot and add the bot to another server.
+    2. Press the + card and add the bot to another server.
     3. Kick the bot from that server in Discord.
     4. Press its card, then Reconnect, and add it back.
   - Expect:
@@ -76,7 +88,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Checked by the owner, couldn't verify: only a person can add the bot to a server or kick it. The windows were checked with made-up servers.
 - **Imported history in System, Tasks**
   - Steps:
-    1. Import from Requestrr with the history switches on.
+    1. Import from Requestrr with Post in the admin feed on.
     2. Open System, then Tasks, while it posts.
   - Expect:
     - Post Imported History under Queue, with how many are posted so far.

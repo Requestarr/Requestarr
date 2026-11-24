@@ -24,6 +24,9 @@ namespace Requestarr.Core.Users
     public interface IUserManagementService
     {
         Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Actor actor);
+
+        // The same, choosing whether their imported requests are posted in their new channel (they are otherwise).
+        Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Imports.OnboardHistory history, Actor actor);
         Task<ServiceResult> RemoveAsync(ulong discordUserId, Actor actor);
         Task<ServiceResult> SuspendAsync(ulong discordUserId, Actor actor, string reason = null);
         Task<ServiceResult> UnsuspendAsync(ulong discordUserId, Actor actor);
@@ -97,7 +100,10 @@ namespace Requestarr.Core.Users
             return identity == null ? null : _users.Find(identity.UserId);
         }
 
-        public async Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Actor actor)
+        public Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Actor actor) =>
+            AddAsync(discordUserId, access, Imports.OnboardHistory.Post, actor);
+
+        public async Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Imports.OnboardHistory history, Actor actor)
         {
             var member = await _gateway.GetMemberAsync(discordUserId);
 
@@ -154,7 +160,7 @@ namespace Requestarr.Core.Users
 
             var accessSummary = string.Join(", ", rows.Where(r => ContentTypes.IsOffered(r.ContentType)).Select(r => $"{r.ContentType}={r.State}"));
             _audit.Record(actor, "user.add", "user", user.Id.ToString(), $"discord {discordUserId}, role {roleId}, channel {channelId}, access {accessSummary}");
-            _events.PublishEvent(new Imports.MemberOnboardedEvent(user.Id));
+            _events.PublishEvent(new Imports.MemberOnboardedEvent(user.Id, history));
 
             return ServiceResult.Ok(DiscordText.UserAdded(member.DisplayName, channelId, rows));
         }

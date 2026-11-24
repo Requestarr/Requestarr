@@ -240,7 +240,8 @@ namespace Requestarr.Core.Portal
                 asked.Count > 0 ? asked.Max() : null,
                 byType,
                 discord?.BannerUrl,
-                discord?.AccentColor);
+                discord?.AccentColor,
+                requests.Count(r => r.Imported));
         }
 
         // Someone known only from an import first appears in Requestarr's history with their earliest imported request, or

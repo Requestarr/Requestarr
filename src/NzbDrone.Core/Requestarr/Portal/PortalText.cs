@@ -17,6 +17,7 @@ namespace Requestarr.Core.Portal
             ["request.create"] = "Requested",
             [Imports.ImportService.ImportedAction] = "Imported from Requestrr",
             [Imports.ImportService.ImportAction] = "Imported from Requestrr",
+            [Imports.HistoryPosting.PostedAction] = "Imported requests posted in Discord",
             ["request.subscribe"] = "Followed",
             ["request.approve"] = "Approved",
             ["request.deny"] = "Denied",

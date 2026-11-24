@@ -6,8 +6,10 @@ using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Messaging.Commands;
+using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Audit;
 using Requestarr.Core.Backends;
+using Requestarr.Core.Imports;
 using Requestarr.Core.Portal;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
@@ -53,7 +55,7 @@ namespace Requestarr.Core.Test.Portal
             var onboarding = Onboarding();
             var people = new List<OnboardPerson> { new(Alice.ToString(), "alice"), new(Gone.ToString(), "gone"), new(Carol.ToString(), "carol") };
 
-            var started = onboarding.Start(people, MoviesOnly, Admin);
+            var started = onboarding.Start(people, MoviesOnly, OnboardHistory.Leave, Admin);
             await onboarding.WhenDoneAsync(started.Id);
             var run = onboarding.Find(started.Id);
 
@@ -61,6 +63,7 @@ namespace Requestarr.Core.Test.Portal
             run.IsDone.Should().BeTrue();
             run.People.Select(p => (p.Name, p.State)).Should().Equal(("alice", OnboardState.Added), ("gone", OnboardState.Failed), ("carol", OnboardState.Added));
             run.People[1].Message.Should().NotBeNullOrWhiteSpace();
+            Mocker.GetMock<IEventAggregator>().Verify(e => e.PublishEvent(It.Is<MemberOnboardedEvent>(m => m.History == OnboardHistory.Leave)), Times.Exactly(2), "their imported requests are left for later, as picked");
 
             foreach (var member in new[] { Alice, Carol })
             {
@@ -89,7 +92,7 @@ namespace Requestarr.Core.Test.Portal
             var onboarding = Onboarding();
             var access = new List<OnboardAccess> { new(ContentType.Movie, AccessState.Off, null, null) };
 
-            var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, Admin);
+            var started = onboarding.Start(new List<OnboardPerson> { new(Alice.ToString(), "alice") }, access, OnboardHistory.Post, Admin);
             await onboarding.WhenDoneAsync(started.Id);
 
             var user = Mocker.Resolve<IRequestarrUserRepository>().All().Single();

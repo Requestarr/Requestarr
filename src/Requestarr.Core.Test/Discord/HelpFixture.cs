@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -5,7 +6,9 @@ using NUnit.Framework;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Help;
+using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Test.Discord
 {
@@ -17,8 +20,8 @@ namespace Requestarr.Core.Test.Discord
         // What a user with every type sees; Linking Plex only while a Plex server is connected, which the admin's view
         // of user help always shows.
         private static readonly string[] AllUserTopics = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "removals", "news" };
-        private static readonly string[] EveryUserTopic = { "request", "seasons", "anime", "follow", "downloads", "mine", "limits", "plex", "removals", "news" };
-        private static readonly string[] AllAdminTopics = { "onboarding", "access", "approvals", "feed", "removing", "announcements", "downloads", "limits", "mediaserver", "anime", "channels", "visibility" };
+        private static readonly string[] EveryUserTopic = { "request", "seasons", "anime", "follow", "downloads", "mine", "history", "limits", "plex", "removals", "news" };
+        private static readonly string[] AllAdminTopics = { "onboarding", "history", "access", "approvals", "feed", "removing", "announcements", "downloads", "limits", "mediaserver", "anime", "channels", "visibility" };
 
         private static string[] Topics(InteractionRun run) => run.LastReply.SelectMenu.Options.Select(o => o.Value).ToArray();
 
@@ -57,6 +60,14 @@ namespace Requestarr.Core.Test.Discord
         }
 
         [Test]
+        public async Task someone_with_imported_requests_is_told_how_to_have_them_posted()
+        {
+            Mocker.Resolve<IRequestRepository>().Insert(new Request { OwnerUserId = Users.FindByDiscordId(Alice).Id, Title = "Heat", ContentType = ContentType.Movie, Imported = true, Requested = DateTime.UtcNow });
+
+            Topics(await UserHelp(Alice)).Should().Contain("history");
+        }
+
+        [Test]
         public async Task the_request_topic_only_mentions_types_the_user_has()
         {
             await SetAccess(Alice, "tv", "off");
@@ -86,7 +97,7 @@ namespace Requestarr.Core.Test.Discord
             var run = await Harness.SendAsync(FakeInteraction.SlashCommand("help").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
 
             Topics(run).Should().Equal(EveryUserTopic);
-            Topics(run).Should().NotContain(AllAdminTopics.Except(new[] { "limits", "anime", "downloads" }));
+            Topics(run).Should().NotContain(AllAdminTopics.Except(new[] { "limits", "anime", "downloads", "history" }));
             run.LastReply.SelectMenu.Options.Select(o => o.Label).Should().NotContain(HelpCatalog.AdminTopics.Where(t => t.Key != "limits").Select(t => t.Title));
             run.LastReply.SelectMenu.CustomId.Should().Be("help:user");
         }
@@ -140,7 +151,7 @@ namespace Requestarr.Core.Test.Discord
         [Test]
         public void admin_help_describes_exactly_the_admin_commands()
         {
-            HelpCatalog.AdminTopics.SelectMany(t => t.Commands).Distinct().Should().BeEquivalentTo("admin user", "admin requests");
+            HelpCatalog.AdminTopics.SelectMany(t => t.Commands).Distinct().Should().BeEquivalentTo("admin user", "admin history", "admin requests");
             HelpCatalog.AdminTopics.SelectMany(t => t.Buttons).Should().Contain(PanelButtons.Members);
         }
 

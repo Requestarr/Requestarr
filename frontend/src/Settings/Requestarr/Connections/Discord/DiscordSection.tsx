@@ -19,6 +19,7 @@ import AddServerModal from './AddServerModal';
 import AdminPicker from './AdminPicker';
 import BetaServer from './BetaServer';
 import ReconnectServer from './ReconnectServer';
+import ServerHistory from './ServerHistory';
 import ServerModal from './ServerModal';
 import styles from '../Connections.css';
 
@@ -55,6 +56,10 @@ function ServerCard(props: {
       onPress={onPress}
     />
   );
+}
+
+function renderServerHistory(hasChanges: boolean) {
+  return <ServerHistory isDisabled={hasChanges} />;
 }
 
 interface DiscordSectionProps {
@@ -126,6 +131,7 @@ function DiscordSection({ setup, settings, onSaved }: DiscordSectionProps) {
           name: ours?.name ?? translate('ConnectionDiscordBot'),
         })}
         sections={DISCORD_SECTIONS}
+        renderAfter={ours?.joined ? renderServerHistory : undefined}
         onSaved={onSavedClose}
         onClose={onEditClose}
       >

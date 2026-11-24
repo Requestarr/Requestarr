@@ -4,11 +4,12 @@ using Discord;
 
 namespace Requestarr.Core.Discord.Gateway
 {
-    // Exactly three commands, registered on the one configured server (registering replaces
+    // Exactly four commands, registered on the one configured server (registering replaces
     // everything, so older commands disappear):
     //   /request {type} {query}  for everyone; type is autocompleted from the caller's access.
+    //   /history                 a member's own imported requests in their channel, once.
     //   /help                    user help, for everyone.
-    //   /admin user|requests|help Manage Server default permission, so non-admins never see it.
+    //   /admin user|requests|history|help Manage Server default permission, so non-admins never see it.
     // Visibility is cosmetic: Requestarr re-checks admin and channel on every use.
     public static class DiscordCommandDefinitions
     {
@@ -25,12 +26,17 @@ namespace Requestarr.Core.Discord.Gateway
                 .AddOption(new SlashCommandOptionBuilder().WithName("query").WithDescription(DiscordText.Commands.OptionRequestQuery)
                     .WithType(ApplicationCommandOptionType.String).WithRequired(true).WithMaxLength(100));
 
+            var history = new SlashCommandBuilder()
+                .WithName("history")
+                .WithDescription(DiscordText.Commands.History)
+                .WithContextTypes(InteractionContextType.Guild);
+
             var help = new SlashCommandBuilder()
                 .WithName("help")
                 .WithDescription(DiscordText.Commands.Help)
                 .WithContextTypes(InteractionContextType.Guild);
 
-            // Three admin commands; everything else is a button, menu or form on the cards they open
+            // Four admin commands; everything else is a button, menu or form on the cards they open
             // and on the admin panel, feed and approval cards.
             var admin = new SlashCommandBuilder()
                 .WithName("admin")
@@ -39,9 +45,10 @@ namespace Requestarr.Core.Discord.Gateway
                 .WithDefaultMemberPermissions(GuildPermission.ManageGuild)
                 .AddOption(Sub("user", DiscordText.Commands.AdminUser).AddOption(Member()))
                 .AddOption(Sub("requests", DiscordText.Commands.AdminRequests))
+                .AddOption(Sub("history", DiscordText.Commands.AdminHistory).AddOption(Member().WithRequired(false).WithDescription(DiscordText.Commands.OptionHistoryMember)))
                 .AddOption(Sub("help", DiscordText.Commands.AdminHelp));
 
-            return new ApplicationCommandProperties[] { request.Build(), help.Build(), admin.Build() };
+            return new ApplicationCommandProperties[] { request.Build(), history.Build(), help.Build(), admin.Build() };
         }
 
         public record CommandLeaf(string Path, string Description, IReadOnlyList<(string Name, bool Required)> Options)

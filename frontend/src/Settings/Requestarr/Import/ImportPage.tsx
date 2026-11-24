@@ -19,7 +19,6 @@ import useRequestarrApi from '../useRequestarrApi';
 import useSetupStatus from '../useSetupStatus';
 import ImportAccessNotes from './ImportAccessNotes';
 import ImportChannels, { PickableChannel } from './ImportChannels';
-import ImportHistory from './ImportHistory';
 import ImportPreview from './ImportPreview';
 import ImportServers from './ImportServers';
 import ImportToolbar from './ImportToolbar';
@@ -172,25 +171,23 @@ function ImportContent(props: ImportContentProps) {
   const { columns, onTableOptionChange } = useTableOptions();
   const isImporting = job?.state === 'importing';
   const [isAdding, setIsAdding] = useState(false);
-  const onInvitePress = useCallback(() => setIsAdding(true), []);
+  const onAdd = useCallback(() => setIsAdding(true), []);
   const onAddClose = useCallback(() => setIsAdding(false), []);
 
   return (
     <PageContent title={translate('ImportFromRequestrr')}>
       <ImportToolbar
         columns={columns}
-        canInvite={!!access?.readInviteUrl}
         canImport={!isBusy && !isChanged && job?.state === 'ready'}
         isImporting={isImporting}
         onImportPress={confirm}
-        onInvitePress={onInvitePress}
         onTableOptionChange={onTableOptionChange}
       />
 
       <PageContentBody>
         <ImportAccessNotes access={access} />
 
-        <ImportServers setup={setup} shown={server} onAdd={onInvitePress} />
+        <ImportServers setup={setup} shown={server} onAdd={onAdd} />
 
         <FieldSet legend={<ChannelsLegend />}>
           <ImportChannels
@@ -206,8 +203,6 @@ function ImportContent(props: ImportContentProps) {
         {job && <Outcome job={job} />}
         {job?.warning && <Alert kind={kinds.WARNING}>{job.warning}</Alert>}
         {job?.plan && <ImportPreview plan={job.plan} />}
-
-        <ImportHistory />
       </PageContentBody>
 
       {setup && (

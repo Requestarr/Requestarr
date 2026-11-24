@@ -16,7 +16,7 @@ import {
   PortalInstance,
 } from '../../PortalTypes';
 import usePortal from '../../usePortal';
-import { Who } from './useStartRun';
+import { OnboardSetup, Who } from './useStartRun';
 import styles from './AddMembers.css';
 
 // A week, as requests count a limit.
@@ -102,6 +102,32 @@ function summary(count: number, access: OnboardAccess[]) {
   });
 }
 
+interface HistoryFieldProps {
+  value: boolean;
+  onChange: (value: boolean) => void;
+}
+
+// Whether the requests an import brought for them are posted in their channel.
+function HistoryField({ value, onChange }: HistoryFieldProps) {
+  const onInputChange = useCallback(
+    (change: { value: boolean }) => onChange(change.value),
+    [onChange]
+  );
+
+  return (
+    <FormGroup>
+      <FormLabel>{translate('PortalOnboardHistory')}</FormLabel>
+      <FormInputGroup
+        type={inputTypes.CHECK}
+        name="postHistory"
+        value={value}
+        helpText={translate('PortalOnboardHistoryHelpText')}
+        onChange={onInputChange}
+      />
+    </FormGroup>
+  );
+}
+
 interface SetUpPeopleProps {
   people: Who[];
   isStarting: boolean;
@@ -109,11 +135,11 @@ interface SetUpPeopleProps {
   // Back to the list on the Onboard page; Cancel in the window the Members list opens.
   backLabel?: string;
   onBack: () => void;
-  onConfirm: (access: OnboardAccess[]) => void;
+  onConfirm: (setup: OnboardSetup) => void;
 }
 
 // Add member's second step: what everyone picked gets, once for all of them, starting from each media manager's
-// default access for new members, then the summary and Confirm.
+// default access for new members, whether their imported requests are posted, then the summary and Confirm.
 function SetUpPeople({
   people,
   isStarting,
@@ -124,6 +150,7 @@ function SetUpPeople({
   const { data: types } = usePortal<ContentType[]>('types');
   const { data: instances } = usePortal<PortalInstance[]>('instances');
   const [picks, setPicks] = useState<Partial<Record<ContentType, Picks>>>({});
+  const [postHistory, setPostHistory] = useState(true);
   const access = useMemo(
     () =>
       (types ?? []).map((type) =>
@@ -140,8 +167,8 @@ function SetUpPeople({
     []
   );
   const onConfirmPress = useCallback(
-    () => onConfirm(access),
-    [access, onConfirm]
+    () => onConfirm({ access, postHistory }),
+    [access, postHistory, onConfirm]
   );
 
   // Until the types and media managers arrive, each type would read Off: Servarr's loading indicator instead.
@@ -159,6 +186,9 @@ function SetUpPeople({
       {access.map((one) => (
         <TypeFields key={one.contentType} access={one} onChange={onChange} />
       ))}
+      {people.some((person) => person.importedRequests > 0) && (
+        <HistoryField value={postHistory} onChange={setPostHistory} />
+      )}
       <p className={styles.summary}>{summary(people.length, access)}</p>
       <div className={styles.buttons}>
         <Button onPress={onBack}>{backLabel}</Button>

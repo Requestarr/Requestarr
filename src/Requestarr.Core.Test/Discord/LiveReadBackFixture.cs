@@ -54,7 +54,7 @@ namespace Requestarr.Core.Test.Discord
 
             Log($"[channels] #{admin.Name}; request channels: {string.Join(", ", userChannels.Select(c => "#" + c.Name))}");
             userChannels.Should().OnlyHaveUniqueItems(c => c.Name, "each user has exactly one request channel");
-            commands.Select(c => c.Name).Should().Equal("admin", "help", "request");
+            commands.Select(c => c.Name).Should().Equal("admin", "help", "history", "request");
             commands.Single(c => c.Name == "admin").DefaultMemberPermissions.ManageGuild.Should().BeTrue();
             commands.Where(c => c.Name != "admin").Should().OnlyContain(c => c.DefaultMemberPermissions.RawValue == 0UL);
             global.Should().BeEmpty();

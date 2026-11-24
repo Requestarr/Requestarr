@@ -476,11 +476,12 @@ Requestarr checks admin status itself on every command and button click. What Di
 
 ### 5.3 Who sees which commands
 
-Requestarr registers exactly three commands:
+Requestarr registers exactly four commands:
 
 - **`/request`** is visible to everyone. Its type list is filled in for each person from their own access, so someone without TV access never sees TV. A type also stays hidden until a Sonarr, Radarr or Lidarr for it has connected at least once (5.7).
+- **`/history`** is visible to everyone. In a member's own channel it posts their imported requests there, once (5.15 says where they come from).
 - **`/help`** is visible to everyone. It opens user help, which only the asker can see, filtered to what they can use.
-- **`/admin`** has three parts: `/admin user` opens a member's card, `/admin requests` goes through everything waiting on you one item at a time, and `/admin help` opens admin help. It is registered so that only members with **Manage Server** see it, which means ordinary users never do.
+- **`/admin`** has four parts: `/admin user` opens a member's card, `/admin requests` goes through everything waiting on you one item at a time, `/admin history` posts imported requests in a member's channel (or, without a member, everyone's and the feed's), and `/admin help` opens admin help. It is registered so that only members with **Manage Server** see it, which means ordinary users never do.
 
 Everything else is a button, menu or short form: for users on their panel (5.5) and request cards; for admins on the admin panel, member and request cards, approval cards and the feed (5.4 to 5.10).
 
@@ -769,7 +770,7 @@ and the first-run setup links to it once it's done.
 1. **Let the bot read the channels.** Requestarr's bot needs to be in the server where those channels are, and for
    each channel: **View Channel** and **Read Message History**.
    - **Channels in your Requestarr server:** the bot is already there.
-   - **Channels in a different server:** on the Import page, press **Invite bot** in the toolbar. It
+   - **Channels in a different server:** on the Import page, press the **+** card. It
      asks only to view channels and read their history. In any server other than the one you set Requestarr up in,
      the bot only reads: it creates no channels, roles or commands, posts nothing, and ignores what members do there.
    - **The Message Content intent:** Requestrr wrote what happened in each message's text, so the bot needs it to read
@@ -811,24 +812,32 @@ and the first-run setup links to it once it's done.
      theirs.
    - **The audit log** records the import and who ran it.
 
-5. **History in Discord.** After the import, its requests are posted in Discord, slowly, in the background, with no
-   pings or notifications. Two switches under **History in Discord**, both on to start, say where:
-   - **Post in members' channels:** each member's imported requests, oldest first, a few to a message, with the day
-     each was asked for and how it stands now (available, not in library, removed). A member who isn't onboarded yet
-     gets theirs when you onboard them.
-   - **Post in the admin feed:** a header ("Posting N imported requests from M members, oldest first."), each
-     request as its usual feed card marked Imported with the day it was asked for, then a closing post.
+5. **History in Discord.** Imported requests are posted in Discord slowly, in the background, with no pings or
+   notifications, oldest first, and only once:
+   - **In a member's own channel,** a few to a message, with the day each was asked for and how it stands now
+     (available, not in library, removed). When you onboard them (**Imported History** in the Onboard window, on to
+     start; onboarding from Discord and approving an access request always post it), when they type `/history` in their channel, or when you press
+     **Post History** on their page in the web app (or with members picked on the Members page) or run
+     `/admin history` with them. Someone who isn't onboarded has no channel yet.
+   - **In the admin feed,** after an import, when **Post in the admin feed** is on: open Requestarr's server under
+     Settings, Connections, and look under **Imported History**. A header ("Posting N imported requests from M
+     members, oldest first."), each request as its usual feed card marked Imported with the day it was asked for, then
+     a closing post.
+   - **For the whole server,** `/admin history` without a member, or **Post History** in that window: everyone's
+     channel, and the feed when it's on. Use it for an import run before posting existed, or after setting up a new
+     Discord server.
 
-   The page shows how far it got ("312 of 467 posted") with **Pause**, **Resume** and **Cancel**. Live news (new
-   requests, downloads, removals) never waits behind it. Each post is recorded, so nothing is ever posted twice: not
-   on a second import, a restart or an update. An import run before this existed isn't posted on its own: **Post
-   history now** posts it, with the same rule.
+   The server's window shows how far it got ("312 of 467 posted") with **Pause**, **Resume** and **Cancel Posting**; a
+   member's page has them too while it posts, and System, then Tasks lists it. Live news (new requests, downloads,
+   removals) never waits behind it. Each post is recorded, so nothing is ever posted twice: not on a second import, a
+   restart or an update.
 
 **Running it again is safe.** Requestarr remembers every message it imported, so a second run adds only what's new.
 A title that was Not in library and is in your Sonarr or Radarr now is linked to it on the next run.
 
-**Afterwards:** if you invited the bot to a different server only for the import, you can remove it from there (in
-that server, right-click the bot, then **Kick**). Requestarr keeps everything it imported.
+**Afterwards:** if you invited the bot to a different server only for the import, press that server's card on the
+Import page (or under Connections) and **Remove the bot from this server**. Requestarr keeps everything it imported. If
+a server kicked the bot, its card says Not reachable: press it, then **Reconnect**.
 
 ## 6. Connect Plex (optional)
 

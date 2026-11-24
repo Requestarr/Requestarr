@@ -345,14 +345,14 @@ namespace Requestarr.Core.Test.Qa.Web
         });
 
         // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
-        // Invite bot in the toolbar asks only to read, ticking both channels lists what would be imported, then, once
+        // The + card's invite asks only to read, ticking both channels lists what would be imported, then, once
         // Import is pressed, the import is listed as a command in System, then Tasks, and the Requests and Members pages
         // show the imported statuses, in both themes; a rerun finds nothing new. A stack without recordings says so and
         // passes: reading a real server is the owner's run, on beta.
         [Test]
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
         {
-            const string Invite = "Invite bot";
+            const string Add = "document.querySelector('[class*=\"ConnectionCard-addConnection\"]')";
             const string InvitePage = "Open Discord's invite page";
             await SignInAsync(browser);
             var recorded = false;
@@ -364,15 +364,15 @@ namespace Requestarr.Core.Test.Qa.Web
                 await browser.WaitForAsync("[...document.querySelectorAll('legend')].some(l => l.innerText.trim() === 'Channels')");
 
                 // The invite for another server asks only to read, and adds no commands. The window it opens is caught.
-                await browser.WaitForAsync($"[...document.querySelectorAll('button')].some(b => b.innerText.trim() === '{Invite}')");
-                await browser.RunAsync($"window.open = (url) => {{ window.invited = url; }}; [...document.querySelectorAll('button')].find(b => b.innerText.trim() === '{Invite}').click()");
+                await browser.WaitForAsync($"!!{Add}");
+                await browser.RunAsync($"window.open = (url) => {{ window.invited = url; }}; {Add}.click()");
                 await browser.WaitForAsync($"[...document.querySelectorAll('button')].some(b => b.innerText.trim() === \"{InvitePage}\")");
                 await browser.RunAsync($"[...document.querySelectorAll('button')].find(b => b.innerText.trim() === \"{InvitePage}\").click()");
                 await browser.WaitForAsync("document.body.innerText.includes('Waiting for the bot to join')");
                 await check.ShotAsync(browser, $"import-invite-{theme}");
                 var invite = await browser.EvalAsync<string>("window.invited ?? ''");
                 var asks = invite.Substring(invite.IndexOf("&permissions=", StringComparison.Ordinal) + 1);
-                check.Saw($"import ({theme}): {Invite}, asking {asks}");
+                check.Saw($"import ({theme}): the + card's invite, asking {asks}");
                 asks.Should().Be("permissions=66560&integration_type=0&scope=bot");
 
                 try
@@ -429,7 +429,7 @@ namespace Requestarr.Core.Test.Qa.Web
             var task = await browser.EvalAsync<string>("[...document.querySelectorAll('tr')].find(r => r.innerText.includes('Import Requestrr')).innerText.replace(/\\s+/g, ' ').trim()");
             check.Saw($"System, then Tasks: {task}");
 
-            // Posting its history (both switches start on) is listed there too, while it runs and after.
+            // Posting its history in the admin feed (on to start) is listed there too, while it runs and after.
             await browser.WaitForAsync("[...document.querySelectorAll('tr')].some(r => r.innerText.includes('Post Imported History'))");
             var posting = await browser.EvalAsync<string>("[...document.querySelectorAll('tr')].find(r => r.innerText.includes('Post Imported History')).innerText.replace(/\\s+/g, ' ').trim()");
             check.Saw($"System, then Tasks: {posting}");

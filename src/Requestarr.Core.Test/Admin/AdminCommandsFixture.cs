@@ -11,8 +11,8 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Admin
 {
-    // The registered slash commands: /request and /help for everyone, and /admin (user, requests, help) hidden from
-    // non-admins. The admin commands it replaced are no longer handled, and the docs say where each one went.
+    // The registered slash commands: /request, /history and /help for everyone, and /admin (user, requests, history, help)
+    // hidden from non-admins. The admin commands it replaced are no longer handled, and the docs say where each one went.
     [TestFixture]
     public class AdminCommandsFixture : RequestScenario
     {
@@ -23,11 +23,11 @@ namespace Requestarr.Core.Test.Admin
         };
 
         [Test]
-        public void exactly_request_help_and_admin_are_registered()
+        public void exactly_request_history_help_and_admin_are_registered()
         {
             var commands = DiscordCommandDefinitions.Build().Cast<SlashCommandProperties>().ToDictionary(c => c.Name.Value);
 
-            commands.Keys.Should().BeEquivalentTo("request", "help", "admin");
+            commands.Keys.Should().BeEquivalentTo("request", "history", "help", "admin");
             commands["admin"].DefaultMemberPermissions.Value.Should().Be(GuildPermission.ManageGuild);
             commands["request"].DefaultMemberPermissions.IsSpecified.Should().BeFalse();
             commands["request"].Options.Value.Select(o => o.Name).Should().Equal("type", "query");
@@ -40,14 +40,14 @@ namespace Requestarr.Core.Test.Admin
             var admin = DiscordCommandDefinitions.Build().Cast<SlashCommandProperties>().Single(c => c.Name.Value == "admin");
 
             admin.Options.Value.Should().OnlyContain(o => o.Type == ApplicationCommandOptionType.SubCommand);
-            admin.Options.Value.Select(o => o.Name).Should().Equal("user", "requests", "help");
+            admin.Options.Value.Select(o => o.Name).Should().Equal("user", "requests", "history", "help");
 
             var user = admin.Options.Value.Single(o => o.Name == "user").Options.Single();
             (user.Name, user.Type, user.IsRequired).Should().Be(("member", ApplicationCommandOptionType.User, true));
 
             admin.Options.Value.Single(o => o.Name == "requests").Options.Should().BeNullOrEmpty("it walks everything; no number or title to know");
             admin.Options.Value.Single(o => o.Name == "help").Options.Should().BeNullOrEmpty();
-            DiscordCommandDefinitions.Leaves().Select(l => l.Path).Should().Equal("request", "help", "admin user", "admin requests", "admin help");
+            DiscordCommandDefinitions.Leaves().Select(l => l.Path).Should().Equal("request", "history", "help", "admin user", "admin requests", "admin history", "admin help");
         }
 
         [TestCase("user add")]

@@ -20,7 +20,8 @@ namespace Requestarr.Core.Discord.Help
     // Everything is the admin's view of user help and an admin who isn't a user.
     // Tmdb: a The Movie Database key is set, so its credits are shown. PlexServer: a Plex server is connected, so
     // Link Plex is on their panel (the admin's view shows it either way).
-    public record HelpViewer(IReadOnlyCollection<ContentType> Types, bool Linked, bool Tmdb = false, bool PlexServer = true)
+    // Imported: an import brought requests of theirs.
+    public record HelpViewer(IReadOnlyCollection<ContentType> Types, bool Linked, bool Tmdb = false, bool PlexServer = true, bool Imported = true)
     {
         public static HelpViewer Everything => new(ContentTypes.Requestable, false);
 
@@ -129,6 +130,15 @@ namespace Requestarr.Core.Discord.Help
             },
             new HelpTopic
             {
+                Key = "history",
+                Title = "Your requests from before",
+                Summary = "Imported from the old bot",
+                Visible = v => v.Imported,
+                Intro = _ => "When the admin has imported what people asked for before Requestarr, `/history` posts yours in your channel, oldest first, without pinging anyone. It's posted once.",
+                Commands = new[] { "history" }
+            },
+            new HelpTopic
+            {
                 Key = "limits",
                 Title = "Limits",
                 Summary = "How many requests you have left",
@@ -179,6 +189,15 @@ namespace Requestarr.Core.Discord.Help
                              $"**{DiscordText.PanelUsers}** lists everyone and opens the same card. Every change shows on the card at once.",
                 Commands = new[] { "admin user" },
                 Buttons = new[] { PanelButtons.Members, PanelButtons.Users }
+            },
+            new HelpTopic
+            {
+                Key = "history",
+                Title = "Imported requests",
+                Summary = "Post people's requests from before",
+                Intro = _ => "After an import, a member's requests from before are posted in their own channel, oldest first and silently, once: when they're onboarded or their access request is approved (the web app's Onboard lets you leave it out), when they type `/history`, or when you post them with `/admin history` or the web app's member page. " +
+                             "`/admin history` without a member does the whole server: everyone's channel, and the admin feed when that's switched on for the server in the web app's Connections. Running it again only posts what's new.",
+                Commands = new[] { "admin history" }
             },
             new HelpTopic
             {
