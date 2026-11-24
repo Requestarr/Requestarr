@@ -448,16 +448,7 @@ namespace Requestarr.Core.Requests
                 lines.Add(DiscordText.FollowingOf(followerOf));
             }
 
-            if (request.ContentType == ContentType.Tv)
-            {
-                lines.Add(DiscordText.SeasonsLine(DiscordText.Seasons(request)));
-
-                if (request.Status == RequestStatus.Approved && request.AvailableSeasons?.Any() == true)
-                {
-                    lines.Add(DiscordText.AvailableSoFar(request));
-                }
-            }
-
+            lines.AddRange(SeasonLines(request));
             lines.AddRange(HowItWasAdded(request));
 
             if (note != null)
@@ -513,6 +504,41 @@ namespace Requestarr.Core.Requests
         public static InteractionButton AddSeasonsButton(int requestId) =>
             new() { CustomId = $"{RequestRoutes.AddSeasons}:{requestId}", Label = DiscordText.AddSeasonsLabel, Style = ButtonStyle.Secondary };
 
+        // A TV request's seasons, and which of them are there so far.
+        private static IEnumerable<string> SeasonLines(Request request)
+        {
+            if (request.ContentType == ContentType.Tv)
+            {
+                yield return DiscordText.SeasonsLine(DiscordText.Seasons(request));
+
+                if (request.Status == RequestStatus.Approved && request.AvailableSeasons?.Any() == true)
+                {
+                    yield return DiscordText.AvailableSoFar(request);
+                }
+            }
+        }
+
+        // An imported request in its requester's channel: the feed's card marked Imported, without what's only the admins'
+        // (the instance, the followers, the buttons), and silent; heading is said above it.
+        public static InteractionReply HistoryCard(Request request, string heading)
+        {
+            var lines = new List<string> { DiscordText.ImportedLine(request.Requested), DiscordText.FeedState(request), DiscordText.TypeMark(request) };
+            lines.AddRange(SeasonLines(request));
+
+            return new InteractionReply { Content = heading, Quiet = true, Embeds = new List<InteractionEmbed> { CompactCard(request, lines, request.PosterUrl, Headline(request).Color) } };
+        }
+
+        // The feed's small card: the title, its poster beside the lines, and the request's number.
+        private static InteractionEmbed CompactCard(Request request, IEnumerable<string> lines, string posterUrl, uint color) => new()
+        {
+            Title = request.Label,
+            Description = DiscordLimits.Truncate(string.Join("\n", lines), 1000),
+            ThumbnailUrl = posterUrl,
+            ImageUrl = DiscordText.FeedCardWidthUrl,
+            Color = color,
+            Footer = DiscordText.FeedFooter(request)
+        };
+
         // The feed card's text: its state, who and where, any removal, seasons, how it was added and its followers.
         private static List<string> FeedLines(Request request, string owner, string instance, IReadOnlyCollection<string> followers, Removals.RemovalProposal removal, int keeps, bool imported)
         {
@@ -528,16 +554,7 @@ namespace Requestarr.Core.Requests
                 lines.Add(DiscordText.FeedRemovalLine(removal, keeps, owner));
             }
 
-            if (request.ContentType == ContentType.Tv)
-            {
-                lines.Add(DiscordText.SeasonsLine(DiscordText.Seasons(request)));
-
-                if (request.Status == RequestStatus.Approved && request.AvailableSeasons?.Any() == true)
-                {
-                    lines.Add(DiscordText.AvailableSoFar(request));
-                }
-            }
-
+            lines.AddRange(SeasonLines(request));
             lines.AddRange(HowItWasAdded(request));
 
             if (followers.Any())
@@ -558,18 +575,7 @@ namespace Requestarr.Core.Requests
             var reply = new InteractionReply
             {
                 Quiet = imported,
-                Embeds = new List<InteractionEmbed>
-                {
-                    new()
-                    {
-                        Title = request.Label,
-                        Description = DiscordLimits.Truncate(string.Join("\n", lines), 1000),
-                        ThumbnailUrl = request.PosterUrl ?? item?.PosterUrl,
-                        ImageUrl = DiscordText.FeedCardWidthUrl,
-                        Color = FeedColor(request),
-                        Footer = DiscordText.FeedFooter(request)
-                    }
-                }
+                Embeds = new List<InteractionEmbed> { CompactCard(request, lines, request.PosterUrl ?? item?.PosterUrl, FeedColor(request)) }
             };
 
             if (request.Status == RequestStatus.Pending)
