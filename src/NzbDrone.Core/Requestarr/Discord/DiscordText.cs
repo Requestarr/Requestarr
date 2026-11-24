@@ -562,10 +562,10 @@ namespace Requestarr.Core.Discord
         public const string HistoryUnderWay = "The imported requests are still being posted.";
         public const string HistoryPaused = "The imported requests are waiting: posting is paused until an admin resumes it.";
 
-        public static string HistoryAudit(int requests) => $"{requests} imported request{(requests == 1 ? string.Empty : "s")} to post";
+        public static string HistoryAudit(int requests) => $"{Plural(requests, "imported request")} to post";
 
         public static string HistoryQueued(int requests, bool paused) =>
-            $"Posting {requests} imported request{(requests == 1 ? string.Empty : "s")}, oldest first, silently.{(paused ? " Posting is paused until an admin resumes it." : string.Empty)}";
+            $"Posting {Plural(requests, "imported request")}, oldest first, silently.{(paused ? " Posting is paused until an admin resumes it." : string.Empty)}";
 
         public static string HistoryDate(DateTime utc) => $"<t:{new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds()}:D>";
 

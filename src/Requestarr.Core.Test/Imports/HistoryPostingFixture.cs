@@ -21,7 +21,8 @@ using Requestarr.Test.Common;
 namespace Requestarr.Core.Test.Imports
 {
     // Imported history in Discord: each member's in their channel, a few titles to a message, when they're onboarded or
-    // it's asked for, and every request in the admin feed oldest first between a header and a closing post; silent; never twice; paused and cancelled cleanly.
+    // it's asked for, and every request in the admin feed oldest first between a header and a closing post. All silent,
+    // never twice, paused and cancelled cleanly.
     [TestFixture]
     public class HistoryPostingFixture : DbTest<HistoryPosting, HistoryPost>
     {
@@ -254,7 +255,14 @@ namespace Requestarr.Core.Test.Imports
             _sent.Select(s => s.Channel).Should().Contain(new[] { 700UL, Feed });
             Mocker.Resolve<IHistoryPostRepository>().Waiting().Should().ContainSingle().Which.ChannelId.Should().Be(AliceChannel.ToString());
             Subject.Status().State.Should().Be(HistoryPostingState.Idle);
-            ExceptionVerification.ExpectedWarns(1);
+
+            // A later run's feed has its own header and count, though Alice's still waits.
+            Imported(carol, "Collateral", 1);
+            Subject.PostServer(Admin);
+
+            _sent.Where(s => s.Channel == Feed).Select(s => s.Message.Content).Should().EndWith(DiscordText.HistoryFeedDone(1));
+            Subject.Status().Should().Be(new HistoryPostingStatus(HistoryPostingState.Idle, 3, 2), "Alice's one is still part of it");
+            ExceptionVerification.ExpectedWarns(2);
         }
 
         [Test]

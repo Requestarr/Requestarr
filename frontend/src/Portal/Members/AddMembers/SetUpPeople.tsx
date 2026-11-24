@@ -102,16 +102,6 @@ function summary(count: number, access: OnboardAccess[]) {
   });
 }
 
-interface SetUpPeopleProps {
-  people: Who[];
-  isStarting: boolean;
-
-  // Back to the list on the Onboard page; Cancel in the window the Members list opens.
-  backLabel?: string;
-  onBack: () => void;
-  onConfirm: (setup: OnboardSetup) => void;
-}
-
 interface HistoryFieldProps {
   value: boolean;
   onChange: (value: boolean) => void;
@@ -136,6 +126,16 @@ function HistoryField({ value, onChange }: HistoryFieldProps) {
       />
     </FormGroup>
   );
+}
+
+interface SetUpPeopleProps {
+  people: Who[];
+  isStarting: boolean;
+
+  // Back to the list on the Onboard page; Cancel in the window the Members list opens.
+  backLabel?: string;
+  onBack: () => void;
+  onConfirm: (setup: OnboardSetup) => void;
 }
 
 // Add member's second step: what everyone picked gets, once for all of them, starting from each media manager's

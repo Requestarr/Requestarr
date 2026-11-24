@@ -12,8 +12,8 @@ namespace Requestarr.Http.Portal
     // the whole title; Force: no vote).
     public record BulkRequestsBody(List<int> Ids, string Action, string Reason, List<int> Seasons, bool Force);
 
-    // The members picked and what to do to them: suspend, unsuspend, post-history, remove-member, or changeAccess (each change in
-    // Changes, the member's own instance left as it is).
+    // The members picked and what to do to them: suspend, unsuspend, post-history, remove-member, or changeAccess
+    // (each change in Changes, the member's own instance left as it is).
     public record BulkMembersBody(List<int> Ids, string Action, List<AccessBody> Changes);
 
     public record BulkFailure(int Id, string Message);

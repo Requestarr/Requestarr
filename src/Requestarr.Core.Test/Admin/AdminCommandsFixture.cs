@@ -11,8 +11,8 @@ using Requestarr.Core.Test.Framework;
 
 namespace Requestarr.Core.Test.Admin
 {
-    // The registered slash commands: /request, /history and /help for everyone, and /admin (user, requests, history, help) hidden from
-    // non-admins. The admin commands it replaced are no longer handled, and the docs say where each one went.
+    // The registered slash commands: /request, /history and /help for everyone, and /admin (user, requests, history, help)
+    // hidden from non-admins. The admin commands it replaced are no longer handled, and the docs say where each one went.
     [TestFixture]
     public class AdminCommandsFixture : RequestScenario
     {

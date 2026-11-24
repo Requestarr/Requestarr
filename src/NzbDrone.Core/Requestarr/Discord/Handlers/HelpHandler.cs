@@ -106,8 +106,9 @@ namespace Requestarr.Core.Discord.Handlers
             {
                 var access = _access.GetForUser(user.Id);
                 var types = ContentTypes.Offered.Where(t => _backends.EverConnected(t) && (access.FirstOrDefault(a => a.ContentType == t)?.State ?? _backends.DefaultAccess(t)) != AccessState.Off).ToList();
+                var imported = _requests.All().Any(r => r.Imported && r.OwnerUserId == user.Id);
 
-                return new HelpViewer(types, _accounts.GetForUser(user.Id).Any(), PlexServer: _mediaServers.IsConnected(MediaServers.MediaServerProvider.Plex), Imported: _requests.All().Any(r => r.Imported && r.OwnerUserId == user.Id));
+                return new HelpViewer(types, _accounts.GetForUser(user.Id).Any(), PlexServer: _mediaServers.IsConnected(MediaServers.MediaServerProvider.Plex), Imported: imported);
             }
 
             return caller.IsAdmin ? HelpViewer.Everything : null;

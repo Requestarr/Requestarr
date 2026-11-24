@@ -20,8 +20,7 @@ function useHistoryPosting() {
     reload,
     setData,
   } = useRequestarrApi<HistoryStatus>('import/history');
-  const action = useApiAction();
-  const { run } = action;
+  const { run, problem } = useApiAction();
   const act = useCallback(
     (name: string) =>
       run(
@@ -37,7 +36,7 @@ function useHistoryPosting() {
     return () => clearInterval(timer);
   }, [reload]);
 
-  return { status, problem: action.problem, act };
+  return { status, problem, act };
 }
 
 export default useHistoryPosting;

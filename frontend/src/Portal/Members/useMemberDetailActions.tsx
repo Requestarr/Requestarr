@@ -173,8 +173,15 @@ interface MemberDialogsProps {
 }
 
 // The windows a member's actions open: what's asked first, and the changes made in one.
-function MemberDialogs(props: MemberDialogsProps) {
-  const { detail, action, dialog, onClose } = props;
+function MemberDialogs({
+  detail,
+  action,
+  dialog,
+  onRemove,
+  onCancelHistory,
+  onPlex,
+  onClose,
+}: MemberDialogsProps) {
   const { member } = detail;
 
   return (
@@ -185,7 +192,7 @@ function MemberDialogs(props: MemberDialogsProps) {
         title={translate('PortalActionRemoveMember')}
         message={translate('PortalRemoveMemberMessage', { name: member.name })}
         confirmLabel={translate('PortalActionRemoveMember')}
-        onConfirm={props.onRemove}
+        onConfirm={onRemove}
         onCancel={onClose}
       />
       <ConfirmModal
@@ -194,12 +201,12 @@ function MemberDialogs(props: MemberDialogsProps) {
         title={translate('PortalActionCancelHistory')}
         message={translate('PortalCancelHistoryMessage')}
         confirmLabel={translate('PortalActionCancelHistory')}
-        onConfirm={props.onCancelHistory}
+        onConfirm={onCancelHistory}
         onCancel={onClose}
       />
       <TextConfirmModal
         prompt={dialog === 'plex' ? plexPrompt() : undefined}
-        onConfirm={props.onPlex}
+        onConfirm={onPlex}
         onClose={onClose}
       />
       <EditAccessModal
@@ -221,8 +228,7 @@ function useMemberDetailActions(
 ) {
   const history = useHistory();
   const action = usePortalAction(onDone);
-  const posting = useReportedPosting();
-  const { act: actOnPosting } = posting;
+  const { status: postingStatus, act: actOnPosting } = useReportedPosting();
   const [dialog, setDialog] = useState<Dialog>();
   const { member } = detail;
   const path = `members/${member.id}`;
@@ -264,7 +270,7 @@ function useMemberDetailActions(
     [action, path]
   );
 
-  const buttons = actionsFor(detail, posting.status).map((name) => (
+  const buttons = actionsFor(detail, postingStatus).map((name) => (
     <PageToolbarButton
       key={name}
       label={actionLabel(name)}
