@@ -1,4 +1,4 @@
-<!-- Pull requests go into `dev` (a fix found in QA or staging: into that branch, then merged back down with ./release.sh merge-back). See docs/development.md#release-flow. -->
+<!-- Pull requests go into `dev`, a fix for something found in QA or staging included; `qa`, `staging` and `main` only take promotions. See docs/development.md#release-flow. -->
 ## What changed
 
 
@@ -11,6 +11,5 @@
   - `replaces:` the entries this reworks, undoes or replaces; `line_if_seen:` what changed, for readers who already had a released one it replaces. An entry not released yet is edited to where it ended up instead; a released one never changes
 - [ ] or, when nothing changes for users or admins, no entries and this line in the description: `No changelog: <why>`
 - [ ] `QA-CHECKLIST.md`: what an admin can test by hand, under `## Unreleased` (nothing when nobody can)
-- [ ] a fix into `staging` only: its entries get the next build number (`./release.sh next-version`), listed in `changelog/builds.txt`
 
 `python3 .github/changelog_check.py CHANGELOG.md` runs the same check as CI. See `docs/development.md#changelog`.

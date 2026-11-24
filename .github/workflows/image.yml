@@ -1,9 +1,9 @@
 name: Image
 
 # Publishes Requestarr's container image to GitHub's container registry (docs/development.md#published-images):
-#   push to staging (a promotion, or a fix into staging): builds the number on top of the changelog as
-#     ghcr.io/requestarr/requestarr:0.7.0004, tags the commit v0.7.0004 (docs/development.md#versions), and publishes
-#     :beta as that same image plus one layer saying it's beta (docker/beta.Dockerfile), never rebuilt
+#   push to staging (a promotion): builds the number on top of the changelog, the one the goal's commit on dev took
+#     (docs/development.md#versions), as ghcr.io/requestarr/requestarr:0.7.0004, and publishes :beta as that same image
+#     plus one layer saying it's beta (docker/beta.Dockerfile), never rebuilt
 #   push to main (only on the owner's "ship it"): builds nothing; adds :0.7 and :latest to the image staging published
 #     from the same commit, so production runs the exact file the testers ran
 #   Run workflow on any branch with a tag starting "test-": that tag only, for trying the workflow (delete it after).
@@ -18,9 +18,8 @@ on:
         description: A test tag to publish this branch under, starting "test-" (nothing else is tagged)
         required: true
 
-# contents: write only to record each staging publish as a v0.7.0004 tag.
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 concurrency:
@@ -48,7 +47,7 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           TEST_TAG: ${{ inputs.tag }}
         run: |
-          # .github/build_numbers.py decides: mode (build or retag), number, label, tags, source, record (the tag to add).
+          # .github/build_numbers.py decides: mode (build or retag), number, label, tags, source, beta.
           if ! plan=$(python3 .github/build_numbers.py image "$EVENT" "$BRANCH" "$GITHUB_SHA" ${TEST_TAG:+"$TEST_TAG"}); then
             echo "::error::$(echo "$plan" | sed -n 's/^error=//p')"
             exit 1
@@ -130,16 +129,6 @@ jobs:
             org.opencontainers.image.title=Requestarr Beta
             org.opencontainers.image.version=${{ steps.tags.outputs.label }}
             org.opencontainers.image.revision=${{ github.sha }}
-
-      # The record every later number is counted from: a tag on the commit that was built (docs/development.md#versions).
-      - name: Record the build number
-        if: steps.tags.outputs.record != ''
-        env:
-          RECORD: ${{ steps.tags.outputs.record }}
-        run: |
-          git tag "$RECORD" "$GITHUB_SHA"
-          git push origin "refs/tags/$RECORD"
-          echo "Build number: \`${RECORD#v}\` (tag \`$RECORD\`)" >> "$GITHUB_STEP_SUMMARY"
 
       # Each platform's image, as published: no file that could hold secrets, no secret-looking environment variable or
       # build step, and it starts and answers on its port. The built-in key for The Movie Database is the one file shipped

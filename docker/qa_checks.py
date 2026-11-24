@@ -3,16 +3,17 @@
 suite, every live Discord check and the automated checklist items, on dev at the commit to be promoted. QA gets a build
 only once all of it passed; QA's checklist shows only the owner's items, and nothing here touches the QA server.
 
-    python3 docker/qa_checks.py run [--commit SHA] [--out DIR] [--only web|live]
+    python3 docker/qa_checks.py run [--commit SHA] [--out DIR] [--only suite|web|live]
     python3 docker/qa_checks.py record [--out DIR] [--fail "Item name=what is wrong"]...
     python3 docker/qa_checks.py verify SHA
     python3 docker/qa_checks.py summary SHA
     python3 docker/qa_checks.py --self-test
 
-run: the checkout must be at the commit (the tests are built from it). It builds the solution and runs the full suite
-     the way CI does, brings the dev stack up at that commit with sign-in required and a throwaway login for the web app
-     checks (headless Edge or Chrome, light and dark theme), seeds the requests they act on ("Automated check: ...") and
-     afterwards removes those and everything the checks did there, audit entries included,
+run: the checkout must be at the commit (the checks are built from it). It has GitHub run the full suite on the commit
+     (the Build workflow by hand, on dev or the commit's build number tag; a run of it that passed or is still going is
+     used), and meanwhile builds the solution, brings the dev stack up at that commit with sign-in required and a
+     throwaway login for the web app checks (headless Edge or Chrome, light and dark theme), seeds the requests they act
+     on ("Automated check: ...") and afterwards removes those and everything the checks did there, audit entries included,
      stops it and runs every live check on the dev server (the test Sonarr and Radarr emptied before each, so no check
      finds another's titles), resets the dev stack and runs the read-back of the running stack. Results, read-backs and
      screenshots go in DIR (default _qa-checks/<short commit>).
@@ -106,10 +107,15 @@ CHECKED_BY = re.compile(r"^- Checked (?:automatically: the (?P<check>.+) check|b
 UNRELEASED = "## Unreleased"
 EVIDENCE_LINES = 25
 
-# CI's test assemblies and filter (.github/workflows/build.yml), with the platform's own category left out.
-SUITE = ["Requestarr.Api.V1.Test.dll", "Requestarr.Common.Test.dll", "Requestarr.Core.Test.dll", "Requestarr.Host.Test.dll",
-         "Requestarr.Mono.Test.dll"]
-SUITE_FILTER = "Category!=ManualTest&Category!=IntegrationTest&Category!=AutomationTest"
+# The full suite's workflow, and the line its tests end with (.github/run_tests.py).
+SUITE_WORKFLOW = "build.yml"
+SUITE_TOTALS = re.compile(r"Tests \(full\): (\d+) failed, (\d+) passed, (\d+) skipped")
+VERSION_TAG = re.compile(r"v\d+\.\d+\.\d{4,}")
+# How long GitHub may take to list a run it was asked for, and how often a call to it is tried again: the suite's result is
+# read at the end of a long run, which a dropped connection or a log not ready yet mustn't throw away.
+RUN_LISTED_SECONDS = 120
+GH_TRIES = 10
+GH_WAIT_SECONDS = 30
 
 # Every live check: these need the dev stack's bot stopped; the read-back reads the running stack, so it runs last.
 LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
@@ -289,28 +295,84 @@ def run_web(out, env, commit):
     return results
 
 
-def run_suite(out, env):
-    """The full suite as CI runs it: {passed, failed, skipped, ok}."""
-    platform_category = "LINUX" if platform.system() == "Windows" else "WINDOWS"
-    log_path = os.path.join(out, "suite.log")
-    with open(log_path, "w", encoding="utf-8") as log:
-        code = subprocess.run(["dotnet", "test"] + SUITE + ["--filter:%s&Category!=%s" % (SUITE_FILTER, platform_category)],
-                              env=env, stdout=log, stderr=subprocess.STDOUT, cwd=os.path.dirname(TESTS)).returncode
-    with open(log_path, encoding="utf-8", errors="replace") as log:
-        counts = suite_counts(log.read())
-    counts["ok"] = code == 0 and counts["failed"] == 0 and counts["passed"] > 0
-    print("[qa-checks] full suite: %(passed)d passed, %(failed)d failed, %(skipped)d skipped" % counts, flush=True)
+def gh(*args):
+    return subprocess.run(["gh"] + list(args), capture_output=True, text=True, encoding="utf-8", check=True, cwd=REPO).stdout
+
+
+def gh_until(good, *args):
+    """gh's answer once good(answer), tried again while gh fails or it isn't."""
+    for _ in range(GH_TRIES):
+        answer = subprocess.run(["gh"] + list(args), capture_output=True, text=True, encoding="utf-8", cwd=REPO)
+        if answer.returncode == 0 and good(answer.stdout):
+            return answer.stdout
+        print("[qa-checks] gh %s: trying again. %s" % (" ".join(args), answer.stderr.strip()), flush=True)
+        time.sleep(GH_WAIT_SECONDS)
+    sys.exit("GitHub didn't answer: gh %s" % " ".join(args))
+
+
+def suite_runs(commit):
+    """The full suite's runs by hand on this commit, newest first."""
+    return json.loads(gh("run", "list", "--workflow", SUITE_WORKFLOW, "--event", "workflow_dispatch", "--commit", commit,
+                         "--json", "databaseId,status,conclusion"))
+
+
+def usable_run(runs):
+    """The newest run that passed or is still going: its number, or None."""
+    return next((r["databaseId"] for r in runs if r["status"] != "completed" or r["conclusion"] == "success"), None)
+
+
+def suite_ref(commit):
+    """What GitHub can run the commit from: dev while it's dev's newest, otherwise the commit's build number tag."""
+    git("fetch", "-q", "--tags", "origin", "dev")
+    if git("rev-parse", "origin/dev") == commit:
+        return "dev"
+    numbered = [tag for tag in git("tag", "--points-at", commit).split() if VERSION_TAG.fullmatch(tag)]
+    if not numbered:
+        sys.exit("%s isn't dev's newest commit and has no build number, so GitHub can't run the full suite on it." % commit[:7])
+    return numbered[0]
+
+
+def start_suite(commit):
+    """The full suite started on GitHub for this commit (or the run already there): the run's number."""
+    earlier = suite_runs(commit)
+    found = usable_run(earlier)
+    if found:
+        return found
+    known = {r["databaseId"] for r in earlier}
+    gh("workflow", "run", SUITE_WORKFLOW, "--ref", suite_ref(commit))
+    deadline = time.monotonic() + RUN_LISTED_SECONDS
+    while time.monotonic() < deadline:
+        time.sleep(5)
+        started = [r["databaseId"] for r in suite_runs(commit) if r["databaseId"] not in known]
+        if started:
+            return started[0]
+    sys.exit("GitHub hasn't listed the full suite's run on %s: see the Build workflow's runs." % commit[:7])
+
+
+def finish_suite(run_id, out):
+    """Waits for the full suite's run: {passed, failed, skipped, ok, url}. Its output goes in suite.log."""
+    view = ("run", "view", str(run_id))
+    result = {"status": ""}
+    while result["status"] != "completed":  # watch ends early when the connection drops
+        subprocess.run(["gh", "run", "watch", str(run_id), "--interval", "30"], stdout=subprocess.DEVNULL, cwd=REPO)
+        time.sleep(5)
+        result = json.loads(gh_until(bool, *view, "--json", "status,conclusion,url"))
+    passed = result["conclusion"] == "success"
+    # A run that passed has its totals in the log; one that failed may have stopped before its tests.
+    output = gh_until(SUITE_TOTALS.search if passed else bool, *view, "--log")
+    with open(os.path.join(out, "suite.log"), "w", encoding="utf-8") as log:
+        log.write(output)
+    counts = suite_counts(output)
+    counts.update(ok=passed and counts["failed"] == 0 and counts["passed"] > 0, url=result["url"])
+    print("[qa-checks] full suite: %(passed)d passed, %(failed)d failed, %(skipped)d skipped (%(url)s)" % counts, flush=True)
     return counts
 
 
 def suite_counts(output):
-    """The totals of every assembly's summary line ("Passed!  - Failed: 0, Passed: 682, Skipped: 14, ...")."""
-    counts = {"passed": 0, "failed": 0, "skipped": 0}
-    for failed, passed, skipped in re.findall(r"Failed:\s+(\d+), Passed:\s+(\d+), Skipped:\s+(\d+)", output):
-        counts["failed"] += int(failed)
-        counts["passed"] += int(passed)
-        counts["skipped"] += int(skipped)
-    return counts
+    """The totals the full suite's log ends with; all 0 when its tests didn't get that far."""
+    found = SUITE_TOTALS.search(output)
+    failed, passed, skipped = map(int, found.groups()) if found else (0, 0, 0)
+    return {"passed": passed, "failed": failed, "skipped": skipped}
 
 
 def build_label(which, commit):
@@ -472,19 +534,21 @@ def run(args):
                  % (git("rev-parse", "--short", "HEAD"), commit[:7], commit[:7]))
     out = os.path.abspath(option(args, "--out") or os.path.join(REPO, "_qa-checks", commit[:7]))
     only = option(args, "--only")
+    timings, web, live, suite = [], {}, {}, None
+    if only == "suite":
+        os.makedirs(out, exist_ok=True)
+        return 0 if timed("full suite", timings, lambda: finish_suite(start_suite(commit), out))["ok"] else 1
     # A run starts empty, so nothing an earlier run left can stand in for a check that didn't run this time.
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out, exist_ok=True)
+    suite_run = start_suite(commit) if only is None else None
     env = dict(os.environ, **secrets_env())
     if only in (None, "live") and not env.get("DISCORD_TEST_MEMBERS"):
         sys.exit("The live checks press buttons as a test member: set DISCORD_TEST_MEMBERS (in your shell or docker/secrets.env) first.")
-    timings, web, live, suite = [], {}, {}, None
     with open(os.path.join(REPO, "QA-CHECKLIST.md"), encoding="utf-8") as handle:
         items = checklist_items(handle.read())
     try:
         timed("build", timings, lambda: subprocess.run(["dotnet", "build", os.path.join(REPO, "src", "Requestarr.sln"), "-v", "q", "-nologo"], check=True))
-        if only is None:
-            suite = timed("full suite", timings, lambda: run_suite(out, env))
         if only in (None, "web"):
             web = timed("web app checks (dev stack up at the commit, signed in, its marked requests seeded and removed)", timings,
                         lambda: run_web(out, env, commit))
@@ -496,12 +560,14 @@ def run(args):
     if only is None:
         live[LIVE_ON_RUNNING_STACK] = timed("read-back of the running dev stack", timings,
                                             lambda: run_one_live(LIVE_ON_RUNNING_STACK, out, live_env_for(out, env, commit)))
+        suite = timed("full suite (the rest of its run on GitHub)", timings, lambda: finish_suite(suite_run, out))
     results = results_for(items, web, live)
     total = sum(t for _, t in timings)
     with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as handle:
         json.dump({"commit": commit, "only": only, "suite": suite, "live": {f: passed for f, (passed, _) in live.items()},
                    "results": results, "reviewed": False, "timings": timings, "seconds": round(total)}, handle, indent=2)
     report(results, out, total)
+    return 0
 
 
 def report(results, out, total):
@@ -643,7 +709,7 @@ def verify(args):
 def summary_text(run_data):
     suite = run_data["suite"]
     live = run_data["live"]
-    lines = ["- **Full suite:** %(passed)d passed, %(failed)d failed, %(skipped)d skipped." % suite,
+    lines = ["- **Full suite:** %(passed)d passed, %(failed)d failed, %(skipped)d skipped (%(url)s)." % suite,
              "- **Live checks on the dev server:** %d of %d passed (%s)." % (sum(live.values()), len(live), ", ".join(sorted(live))),
              "- **Checklist items:** %d of %d passed, screenshots looked at:" % (sum(1 for r in run_data["results"] if r["passed"]), len(run_data["results"]))]
     lines += ["  - %s: %s" % (r["name"], r["evidence"].strip().splitlines()[0]) for r in run_data["results"]]
@@ -722,12 +788,12 @@ def refuses(call):
     return False
 
 
-SUITE_OUTPUT = """Passed!  - Failed:     0, Passed:   682, Skipped:    14, Total:   696, Duration: 32 s - Requestarr.Common.Test.dll
-Failed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 1 s - Requestarr.Host.Test.dll"""
+SUITE_OUTPUT = """Tests	Test	2026-11-24T06:08:59Z Passed!  - Failed:     0, Passed:   682, Skipped:    14, Total:   696 - Requestarr.Common.Test.dll
+Tests	Test	2026-11-24T06:08:59Z Tests (full): 1 failed, 683 passed, 14 skipped"""
 
 
 def a_ready_run():
-    return {"commit": "abc", "only": None, "suite": {"passed": 683, "failed": 0, "skipped": 14, "ok": True},
+    return {"commit": "abc", "only": None, "suite": {"passed": 683, "failed": 0, "skipped": 14, "ok": True, "url": "the run"},
             "live": {f: True for f in LIVE + [LIVE_ON_RUNNING_STACK]}, "reviewed": True, "seconds": 1800,
             "results": [{"name": "Build number", "check": "web app status page", "passed": True, "evidence": "Version shown 0.7.0005-dev.abc\nmore"}]}
 
@@ -794,6 +860,11 @@ def self_test():
         ("the detailed summary's pass", ran_all("Total tests: 1\n     Passed: 1\n Total time: 1.9 Minutes")),
         ("the detailed summary's skip", not ran_all("Total tests: 1\n     Skipped: 1\n Total time: 1 Minutes")),
         ("the suite's totals", suite_counts(SUITE_OUTPUT) == {"passed": 683, "failed": 1, "skipped": 14}),
+        ("a suite that never got to its tests", suite_counts("The build failed") == {"passed": 0, "failed": 0, "skipped": 0}),
+        ("a passed run of the suite is used again", usable_run([{"databaseId": 2, "status": "completed", "conclusion": "failure"},
+                                                                {"databaseId": 1, "status": "completed", "conclusion": "success"}]) == 1),
+        ("a run still going is waited for", usable_run([{"databaseId": 3, "status": "in_progress", "conclusion": ""}]) == 3),
+        ("a failed run isn't used again", usable_run([{"databaseId": 2, "status": "completed", "conclusion": "failure"}]) is None),
         ("a ready run", not_ready(ready, "abc") == []),
         ("a failed item refuses", any("\"Build number\" failed" in r for r in not_ready(dict(ready, results=[dict(ready["results"][0], passed=False)]), "abc"))),
         ("a failed live check refuses", any("LiveQaFixture failed" in r for r in not_ready(dict(ready, live=dict(ready["live"], LiveQaFixture=False)), "abc"))),
@@ -819,8 +890,7 @@ def main(argv):
     if argv[1:2] == ["--self-test"]:
         return self_test()
     if argv[1:2] == ["run"]:
-        run(argv[2:])
-        return 0
+        return run(argv[2:])
     if argv[1:2] == ["record"]:
         record(argv[2:])
         return 0
