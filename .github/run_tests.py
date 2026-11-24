@@ -5,8 +5,10 @@
     python3 .github/run_tests.py full    # a promotion, a run by hand, a Dependabot update: every test project, on Linux
     python3 .github/run_tests.py --self-test
 
-The Core tests take most of the time, so they run as several test processes; the processes run side by side, each in its
-own copy of the test folder (Core's tests share a database file there). A new Core folder is Requestarr's own until it's listed as inherited.
+Requestarr's Core tests take most of the time, so they run as several test processes side by side, each in its own copy of
+the test folder (Core's tests share a database file there). The inherited tests run one process after another, after them:
+some of Servarr's wait a fixed time for something in the background, which a busy machine doesn't finish in it. A new Core
+folder is Requestarr's own until it's listed as inherited.
 """
 import os
 import re
@@ -68,13 +70,16 @@ def core_runs():
     return [any_of([named(folder(f)) for f in group]) for group in SLOW_FOLDERS] + [others], inherited
 
 
-def runs(suite):
-    """(assembly, filter) for each test process."""
-    own, inherited = core_runs()
-    found = [(CORE, "%s&%s" % (ALWAYS, part)) for part in own] + [(API, ALWAYS)]
-    if suite == "full":
-        found += [(CORE, "%s&%s" % (ALWAYS, inherited))] + [(assembly, ALWAYS) for assembly in INHERITED_ASSEMBLIES]
-    return found
+def own_runs():
+    """(assembly, filter) for each process of Requestarr's own tests."""
+    own, _ = core_runs()
+    return [(CORE, "%s&%s" % (ALWAYS, part)) for part in own] + [(API, ALWAYS)]
+
+
+def inherited_runs():
+    """(assembly, filter) for each process of the inherited tests."""
+    _, inherited = core_runs()
+    return [(CORE, "%s&%s" % (ALWAYS, inherited))] + [(assembly, ALWAYS) for assembly in INHERITED_ASSEMBLIES]
 
 
 def run_one(number, assembly, test_filter):
@@ -103,12 +108,14 @@ def report(line):
 
 
 def run(suite):
-    planned = runs(suite)
+    own = own_runs()
+    planned = own + (inherited_runs() if suite == "full" else [])
     for number in range(len(planned)):
         shutil.rmtree(COPY % number, ignore_errors=True)
         shutil.copytree(BUILT, COPY % number)
-    with ThreadPoolExecutor(os.cpu_count()) as pool:
-        results = list(pool.map(lambda number: run_one(number, *planned[number]), range(len(planned))))
+    with ThreadPoolExecutor(len(own)) as pool:
+        results = list(pool.map(lambda number: run_one(number, *planned[number]), range(len(own))))
+    results += [run_one(number, *planned[number]) for number in range(len(own), len(planned))]
     report("Tests (%s): %d failed, %d passed, %d skipped" % ((suite,) + totals([output for _, output in results])))
     wrong = ["%s --filter \"%s\"" % test_run for test_run, result in zip(planned, results) if not ran(*result)]
     for name in wrong:
@@ -118,13 +125,12 @@ def run(suite):
 
 def self_test():
     passed = "Passed!  - Failed:     0, Passed:   682, Skipped:    14, Total:   696 - Requestarr.Common.Test.dll"
-    own = runs("own")
-    full = runs("full")
+    own, inherited = own_runs(), inherited_runs()
     cases = [
         ("a pull request runs Core and the API only", {assembly for assembly, _ in own} == {CORE, API}),
-        ("the full suite runs every test project", {assembly for assembly, _ in full} == {CORE, API, *INHERITED_ASSEMBLIES}),
-        ("the full suite has every run a pull request has", full[:len(own)] == own),
-        ("every run leaves out what a person runs", all(test_filter.startswith(ALWAYS) for _, test_filter in full)),
+        ("the full suite adds the rest of Core and every inherited project",
+         {assembly for assembly, _ in inherited} == {CORE, *INHERITED_ASSEMBLIES}),
+        ("every run leaves out what a person runs", all(test_filter.startswith(ALWAYS) for _, test_filter in own + inherited)),
         ("the totals add up", totals([passed, passed.replace("Failed:     0", "Failed:     1")]) == (1, 1364, 28)),
         ("a run that passed", ran(0, passed)),
         ("a failed run isn't one", not ran(1, passed)),
