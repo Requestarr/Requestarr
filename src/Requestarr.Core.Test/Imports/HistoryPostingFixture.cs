@@ -337,6 +337,78 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
+        public void a_shows_card_says_its_seasons_and_shows_its_poster_and_nothing_only_the_admins_see()
+        {
+            Mocker.Resolve<IRequestRepository>().Insert(new Request { OwnerUserId = _alice.Id, Title = "Landman", PosterUrl = "https://example.com/p.jpg", ContentType = ContentType.Tv, Status = RequestStatus.NotInLibrary, Imported = true, MonitorFutureSeasons = true, BackendId = 7, Requested = DateTime.UtcNow });
+
+            Subject.PostMember(_alice.Id, Admin);
+
+            var card = _sent.Single().Message.Embeds.Single();
+            card.ThumbnailUrl.Should().Be("https://example.com/p.jpg");
+            card.Description.Split('\n').Should().HaveCount(4).And.EndWith(DiscordText.SeasonsLine("all seasons"), "every season was asked for, and no season is named");
+            card.Description.Should().NotContain("Alice");
+        }
+
+        [Test]
+        public void a_request_changed_or_deleted_while_posting_goes_out_as_it_is_by_then_or_not_at_all()
+        {
+            Imported(_alice, "One", 3);
+            var two = Imported(_alice, "Two", 2);
+            var three = Imported(_alice, "Three", 1, RequestStatus.NotInLibrary);
+            Subject.Wait = _ =>
+            {
+                if (_sent.Count == 1)
+                {
+                    Mocker.Resolve<IRequestRepository>().Delete(two.Id);
+                    three.Status = RequestStatus.Available;
+                    Mocker.Resolve<IRequestRepository>().Update(three);
+                }
+
+                return Task.CompletedTask;
+            };
+
+            Subject.PostMember(_alice.Id, Admin);
+
+            _sent.Select(s => s.Message.Embeds.Single().Title).Should().Equal("One", "Three");
+            _sent[1].Message.Embeds.Single().Description.Should().Contain(DiscordText.FinalAvailable);
+            Subject.Status().Should().Be(new HistoryPostingStatus(HistoryPostingState.Idle, 2, 2));
+        }
+
+        [Test]
+        public void a_request_deleted_while_posting_is_paused_holds_nothing_up()
+        {
+            var gone = Imported(_alice, "Gone", 3);
+            Imported(_alice, "Here", 2);
+            Subject.Wait = _ =>
+            {
+                Subject.Pause();
+                return Task.CompletedTask;
+            };
+            Subject.PostMember(_alice.Id, Admin);
+            Mocker.Resolve<IRequestRepository>().Delete(gone.Id);
+
+            Subject.Wait = _ => Task.CompletedTask;
+            Subject.Resume();
+
+            _sent.Select(s => s.Message.Embeds.Single().Title).Should().Equal("Here");
+        }
+
+        [Test]
+        public void a_pause_in_a_members_channel_starts_nothing_in_the_feed()
+        {
+            Imported(_alice, "One", 3);
+            Subject.Wait = _ =>
+            {
+                Subject.Pause();
+                return Task.CompletedTask;
+            };
+
+            Subject.PostServer(Admin);
+
+            _sent.Should().BeEmpty();
+        }
+
+        [Test]
         public void cancel_stops_part_way_with_a_closing_post_and_drops_what_waited()
         {
             Imported(_bob, "One", 3);

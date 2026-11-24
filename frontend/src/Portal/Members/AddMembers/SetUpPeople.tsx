@@ -20,16 +20,11 @@ import { plainText } from '../../portalText';
 import { ContentType, PortalInstance } from '../../PortalTypes';
 import usePortal from '../../usePortal';
 import { ActionOutcome } from '../../usePortalAction';
-import TypeAccessFields, {
-  DEFAULT_DAYS,
-  TypeAccess,
-} from '../TypeAccessFields';
+import TypeAccessFields, { DEFAULT_DAYS } from '../TypeAccessFields';
+import useAccessChanges from '../useAccessChanges';
 import onboardTitle from './onboardTitle';
 import { OnboardSetup, Who } from './useStartRun';
 import styles from './AddMembers.css';
-
-// What the admin changed, per type.
-type Picks = Partial<Record<ContentType, Partial<TypeAccess>>>;
 
 interface HistoryFieldProps {
   value: boolean;
@@ -60,30 +55,24 @@ function HistoryField({ value, onChange }: HistoryFieldProps) {
 }
 
 // Each type's access and limit for everyone picked: what the admin changed, until then the type's default access; a
-// limit left alone isn't sent, so someone onboarded again keeps theirs. And whether their history is posted, until the admin ticks or unticks it what the server's setting says.
+// limit left alone isn't sent, so someone onboarded again keeps theirs. And whether their history is posted: as the
+// server's setting says until the admin ticks or unticks it.
 function useSetup() {
   const types = usePortal<ContentType[]>('types');
   const instances = usePortal<PortalInstance[]>('instances');
   const settings = useRequestarrApi<AppSettings>('settings');
-  const [picks, setPicks] = useState<Picks>({});
+  const { changes, onAccessChange } = useAccessChanges();
   const [pickedHistory, setPickedHistory] = useState<boolean>();
   const access = useMemo(
     () =>
       (types.data ?? []).map((type) => ({
         contentType: type,
-        state: picks[type]?.state ?? defaultAccess(type, instances.data ?? []),
-        limit: picks[type]?.limit ?? null,
-        days: picks[type]?.days ?? null,
+        state:
+          changes[type]?.state ?? defaultAccess(type, instances.data ?? []),
+        limit: changes[type]?.limit ?? null,
+        days: changes[type]?.days ?? null,
       })),
-    [types.data, instances.data, picks]
-  );
-  const onAccessChange = useCallback(
-    (type: ContentType, changed: Partial<TypeAccess>) =>
-      setPicks((current) => ({
-        ...current,
-        [type]: { ...current[type], ...changed },
-      })),
-    []
+    [types.data, instances.data, changes]
   );
 
   return {

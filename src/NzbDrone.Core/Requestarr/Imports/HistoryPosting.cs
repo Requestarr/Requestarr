@@ -448,7 +448,8 @@ namespace Requestarr.Core.Imports
 
             while (Continuing() && _posts.Waiting().Where(p => !failed.Contains(p.ChannelId)).ToList() is { Count: > 0 } waiting)
             {
-                var requests = _requests.Get(waiting.Select(p => p.RequestId).Distinct()).ToDictionary(r => r.Id);
+                var ids = waiting.Select(p => p.RequestId).ToHashSet();
+                var requests = _requests.All().Where(r => ids.Contains(r.Id)).ToDictionary(r => r.Id);
                 var members = waiting.Where(p => p.Destination == HistoryDestination.Channel)
                     .GroupBy(p => p.ChannelId).ToList();
 
@@ -496,23 +497,23 @@ namespace Requestarr.Core.Imports
 
             foreach (var post in ordered.TakeWhile(_ => Continuing()))
             {
-                var card = RequestCards.HistoryCard(requests[post.RequestId], hasStarted ? null : DiscordText.HistoryChannelHeader);
-                hasStarted |= await PostAsync(post, () => _gateway.SendMessageAsync(channel, card));
+                var heading = hasStarted ? null : DiscordText.HistoryChannelHeader;
+                hasStarted |= await PostAsync(post, request => _gateway.SendMessageAsync(channel, RequestCards.HistoryCard(request, heading)));
             }
         }
 
-        // Whether some of these posts' batch went out in their channel before a pause or a restart.
+        // Whether each of these posts' batches began in their channel before a pause or a restart.
         private bool IsUnderWay(List<HistoryPost> posts)
         {
-            var batches = posts.Select(p => p.Queued).ToHashSet();
+            var begun = _posts.All().Where(p => p.Posted != null && p.ChannelId == posts[0].ChannelId).Select(p => p.Queued).ToHashSet();
 
-            return _posts.All().Any(p => p.Posted != null && p.ChannelId == posts[0].ChannelId && batches.Contains(p.Queued));
+            return posts.All(p => begun.Contains(p.Queued));
         }
 
         // The feed: its header once a batch, then every request's own card marked Imported, oldest first.
         private async Task PostFeedAsync(List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
         {
-            if (posts.Count == 0 || Unsendable(posts, requests) || FeedChannel() is not { } channelId)
+            if (!Continuing() || posts.Count == 0 || Unsendable(posts, requests) || FeedChannel() is not { } channelId)
             {
                 return;
             }
@@ -526,7 +527,7 @@ namespace Requestarr.Core.Imports
 
             foreach (var post in posts.TakeWhile(_ => Continuing()))
             {
-                if (await PostAsync(post, () => _feed.PostImportedAsync(requests[post.RequestId])))
+                if (await PostAsync(post, request => _feed.PostImportedAsync(request)))
                 {
                     _feedPosted++;
                 }
@@ -540,20 +541,26 @@ namespace Requestarr.Core.Imports
 
             if (gone.Count > 0)
             {
-                _posts.DeleteMany(gone);
+                Drop(gone);
                 posts.RemoveAll(gone.Contains);
-
-                lock (_lock)
-                {
-                    _total -= gone.Count;
-                }
             }
 
             return posts.Count == 0;
         }
 
-        // One post after the pace's wait, recorded on its row before the next; false when paused or cancelled first.
-        private async Task<bool> PostAsync(HistoryPost row, Func<Task<ulong>> send)
+        private void Drop(List<HistoryPost> rows)
+        {
+            _posts.DeleteMany(rows);
+
+            lock (_lock)
+            {
+                _total -= rows.Count;
+            }
+        }
+
+        // One post after the pace's wait, its request as it is by then, recorded on its row before the next; false when
+        // paused or cancelled first, or the request is gone.
+        private async Task<bool> PostAsync(HistoryPost row, Func<Request, Task<ulong>> send)
         {
             await Wait(Pace);
 
@@ -562,7 +569,13 @@ namespace Requestarr.Core.Imports
                 return false;
             }
 
-            var id = await send();
+            if (_requests.Find(row.RequestId) is not { } request)
+            {
+                Drop(new List<HistoryPost> { row });
+                return false;
+            }
+
+            var id = await send(request);
 
             row.Posted = DateTime.UtcNow;
             row.MessageId = id == 0 ? null : id.ToString();

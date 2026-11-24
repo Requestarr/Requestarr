@@ -32,7 +32,7 @@ import { Who } from './useStartRun';
 
 type ServerMembersState = ServerMembersAppState & ClientSideCollectionAppState;
 
-function selectAll(state: AppState) {
+function selectServerMembers(state: AppState) {
   return state.serverMembers.items;
 }
 
@@ -56,7 +56,7 @@ function useCandidates() {
     []
   );
   const state: ServerMembersState = useSelector(selector);
-  const people = useSelector(selectAll);
+  const people = useSelector(selectServerMembers);
   const everyone = useMemo(
     () => people.map((person) => ({ ...person, id: rowId(person.discordId) })),
     [people, rowId]

@@ -518,12 +518,14 @@ namespace Requestarr.Core.Requests
             }
         }
 
-        // An imported request in its requester's channel: the feed's card marked Imported, without what's only the admins'
-        // (the instance, the followers, the buttons), and silent; heading is said above it.
+        // An imported request in its requester's channel: the feed's card marked Imported, in the colour of their own
+        // request messages and without what's only the admins' (the instance, the followers, the buttons). Silent, with
+        // the heading above it.
         public static InteractionReply HistoryCard(Request request, string heading)
         {
             var lines = new List<string> { DiscordText.ImportedLine(request.Requested), DiscordText.FeedState(request), DiscordText.TypeMark(request) };
             lines.AddRange(SeasonLines(request));
+            lines.AddRange(HowItWasAdded(request));
 
             return new InteractionReply { Content = heading, Quiet = true, Embeds = new List<InteractionEmbed> { CompactCard(request, lines, request.PosterUrl, Headline(request).Color) } };
         }

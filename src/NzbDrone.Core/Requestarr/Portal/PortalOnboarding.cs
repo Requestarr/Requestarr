@@ -50,9 +50,6 @@ namespace Requestarr.Core.Portal
         // Runs kept for the page to read back; older ones are forgotten.
         private const int Kept = 20;
 
-        // A limit without its days counts a week, as the member card's limit does.
-        private const int DefaultDays = 7;
-
         private readonly ConcurrentDictionary<string, Run> _runs = new();
         private readonly IUserManagementService _users;
         private readonly IManageCommandQueue _commands;
@@ -151,7 +148,7 @@ namespace Requestarr.Core.Portal
             {
                 if (typeAccess.Limit is { } limit)
                 {
-                    results.Add(_users.SetQuota(id, typeAccess.ContentType, limit, typeAccess.Days ?? DefaultDays, admin));
+                    results.Add(_users.SetQuota(id, typeAccess.ContentType, limit, typeAccess.Days ?? PortalMemberActions.DefaultLimitDays, admin));
                 }
             }
             catch (Exception ex)

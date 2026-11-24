@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
 import SpinnerButton from 'Components/Link/SpinnerButton';
@@ -15,8 +15,7 @@ import { AccessState, ContentType, PortalMember } from '../PortalTypes';
 import usePortal from '../usePortal';
 import usePortalAction from '../usePortalAction';
 import TypeAccessFields, { DEFAULT_DAYS, TypeAccess } from './TypeAccessFields';
-
-type Changes = Partial<Record<ContentType, Partial<TypeAccess>>>;
+import useAccessChanges from './useAccessChanges';
 
 // What changes of one type, as it's saved: null leaves it.
 interface AccessChange {
@@ -73,17 +72,9 @@ function EditAccessModalContent({
   onModalClose,
 }: EditAccessModalContentProps) {
   const { data: types, hasError } = usePortal<ContentType[]>('types');
-  const [changes, setChanges] = useState<Changes>({});
+  const { changes, onAccessChange } = useAccessChanges();
   const { act, isBusy, outcome } = usePortalAction(onSaved);
   const isDone = outcome?.isDone;
-  const onChange = useCallback(
-    (type: ContentType, changed: Partial<TypeAccess>) =>
-      setChanges((current) => ({
-        ...current,
-        [type]: { ...current[type], ...changed },
-      })),
-    []
-  );
   const onSavePress = useCallback(() => {
     const changed = (types ?? []).flatMap((type) => {
       const saved = savedAccess(member, type);
@@ -124,7 +115,7 @@ function EditAccessModalContent({
             key={type}
             type={type}
             access={{ ...savedAccess(member, type), ...changes[type] }}
-            onChange={onChange}
+            onChange={onAccessChange}
           />
         ))}
       </ModalBody>

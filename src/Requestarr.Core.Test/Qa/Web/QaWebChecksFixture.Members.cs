@@ -10,6 +10,9 @@ namespace Requestarr.Core.Test.Qa.Web
     {
         private const string AddMembersFilter = "document.querySelector('input[class*=\"AddMembers-filter\"]')";
 
+        // The Onboard window once its fields have loaded: its Onboard button can be pressed.
+        private const string OnboardReady = $"{ModalButton}.some(b => b.innerText.trim() === 'Onboard' && !b.disabled)";
+
         // The test member the run names (QA_CHECKS_TEST_MEMBER, their Discord username): they're onboarded from the Onboard
         // page, then suspended and unsuspended from the Members list's toolbar, and the run removes them afterwards.
         // Without one, the check changes nothing.
@@ -48,12 +51,6 @@ namespace Requestarr.Core.Test.Qa.Web
                 check.Saw("no test member named, so nobody was onboarded, suspended or unsuspended");
             }
         }
-
-        // The Onboard window once its fields have loaded: its Onboard button can be pressed.
-        private const string OnboardReady = "[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].some(b => b.innerText.trim() === 'Onboard' && !b.disabled)";
-
-        private static Task PressInWindowAsync(HeadlessBrowser browser, string label) =>
-            browser.RunAsync($"[...document.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.trim() === {JsonSerializer.Serialize(label)}).click()");
 
         private static async Task OpenAddMembersAsync(HeadlessBrowser browser)
         {
@@ -99,7 +96,7 @@ namespace Requestarr.Core.Test.Qa.Web
             title.Should().Be($"Onboard {first}");
             types.Should().NotBeEmpty();
             await check.ShotAsync(browser, $"set-up-{theme}");
-            await PressInWindowAsync(browser, "Cancel");
+            await AnswerAsync(browser, "Onboard", false);
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
         }
 
@@ -149,7 +146,7 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"Onboard with everyone picked ({theme}): one window naming {names} people, the {onboardable} who can be onboarded; still on {await browser.EvalAsync<string>("location.pathname")}");
             names.Should().Be(onboardable, "only the picks it can onboard");
             await check.ShotAsync(browser, $"onboard-window-{theme}");
-            await PressInWindowAsync(browser, "Cancel");
+            await AnswerAsync(browser, "Onboard", false);
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
         }
 
@@ -173,7 +170,7 @@ namespace Requestarr.Core.Test.Qa.Web
             check.Saw($"Change access ({theme}): {string.Join(", ", buttons)}");
             buttons.Should().Equal("Cancel", "Save");
             await check.ShotAsync(browser, $"change-access-{theme}");
-            await PressInWindowAsync(browser, "Cancel");
+            await AnswerAsync(browser, "Save", false);
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
         }
 
@@ -186,7 +183,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.RunAsync($"{TestMemberRow}.querySelector('label').click()");
             await PressToolbarAsync(browser, "Onboard");
             await browser.WaitForAsync(OnboardReady);
-            await PressInWindowAsync(browser, "Onboard");
+            await AnswerAsync(browser, "Onboard", true);
             await browser.WaitForAsync("document.body.innerText.includes('failed.')", TimeSpan.FromSeconds(60));
             var said = await browser.EvalAsync<string>("document.querySelector('[class*=\"ModalBody\"] [class*=\"Alert-\"]').innerText.trim()");
             var progress = await browser.EvalAsync<string>("document.querySelector('[class*=\"ModalBody\"] tbody').innerText.replace(/\\s+/g, ' ')");

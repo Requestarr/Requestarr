@@ -111,8 +111,13 @@ mediaServers:
         [Test]
         public void should_read_how_long_the_audit_log_is_kept()
         {
-            Subject.Parse("importedHistory:\n  whenOnboarding: true\n  inFeed: false").ImportedHistory.Should().BeEquivalentTo(new ImportedHistoryProvisioning { WhenOnboarding = true, InFeed = false });
             Subject.Parse("auditLog:\n  keepFor: 2 years").AuditLog.KeepFor.Should().Be("2 years");
+        }
+
+        [Test]
+        public void should_read_where_imported_history_goes_by_itself()
+        {
+            Subject.Parse("importedHistory:\n  whenOnboarding: true\n  inFeed: false").ImportedHistory.Should().BeEquivalentTo(new ImportedHistoryProvisioning { WhenOnboarding = true, InFeed = false });
         }
 
         [Test]

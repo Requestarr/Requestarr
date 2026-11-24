@@ -449,7 +449,9 @@ namespace Requestarr.Core.Discord
 
         public static string AdminDenied(Request request) => $"Denied request #{request.Id} for {request.Label}.";
 
-        public static string Seasons(Request request) => SeasonList(request.Seasons, request.MonitorFutureSeasons);
+        // An imported request for every season names none of them (ImportPlan).
+        public static string Seasons(Request request) =>
+            request.Imported && request.MonitorFutureSeasons && !request.Seasons.Any() ? "all seasons" : SeasonList(request.Seasons, request.MonitorFutureSeasons);
 
         public static string RequestLine(Request request, string owner, bool showOwner) =>
             $"#{request.Id} · {Label(request.ContentType)} · {request.Label} · {Label(request.Status)}{(showOwner ? " · " + owner : string.Empty)}";

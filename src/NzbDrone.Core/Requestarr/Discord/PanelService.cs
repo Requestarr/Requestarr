@@ -83,7 +83,8 @@ namespace Requestarr.Core.Discord
         // The blocked channel's title before November 14, 2026.
         private const string EarlierBlockedTitle = "You can't request access through Requestarr any more";
 
-        public static readonly TimeSpan MoveDelay = TimeSpan.FromSeconds(2);
+        // Longer than imported history's pace, so a run of its cards moves the panel once, at the end.
+        public static readonly TimeSpan MoveDelay = Imports.HistoryPosting.Pace * 2;
 
         private readonly IDiscordGuildGateway _gateway;
         private readonly IGuildSetupService _guildSetup;

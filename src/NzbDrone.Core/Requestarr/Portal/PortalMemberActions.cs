@@ -47,8 +47,8 @@ namespace Requestarr.Core.Portal
     // portal's member pages find from the member.
     public class PortalMemberActions : IPortalMemberActions
     {
-        // A limit counts requests over a week unless it says how many days.
-        private const int DefaultLimitDays = 7;
+        // A limit counts requests over a week unless it says how many days, as the member card's limit does.
+        internal const int DefaultLimitDays = 7;
 
         // Every member is onboarded with their Discord account; this only answers a stale or hand-made address.
         private static readonly ServiceResult NoDiscord = ServiceResult.Fail("That member has no Discord account in Requestarr.");
