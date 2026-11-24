@@ -242,7 +242,7 @@ export interface PortalServerMember {
   importedRequests: number;
 }
 
-// What everyone picked gets, per content type; limit and days null keep the server's.
+// What everyone picked gets, per content type; a limit of 0 is none, null the one they had before (removed members).
 export interface OnboardAccess {
   contentType: ContentType;
   state: AccessState;

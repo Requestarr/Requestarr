@@ -1,111 +1,30 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import Alert from 'Components/Alert';
+import FieldSet from 'Components/FieldSet';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
 import Button from 'Components/Link/Button';
+import SpinnerButton from 'Components/Link/SpinnerButton';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import ModalBody from 'Components/Modal/ModalBody';
+import ModalContent from 'Components/Modal/ModalContent';
+import ModalFooter from 'Components/Modal/ModalFooter';
+import ModalHeader from 'Components/Modal/ModalHeader';
 import { inputTypes, kinds } from 'Helpers/Props';
+import { AppSettings } from 'Settings/Requestarr/RequestarrSettingsTypes';
+import useRequestarrApi from 'Settings/Requestarr/useRequestarrApi';
 import translate from 'Utilities/String/translate';
-import accessLevelChoices from '../../accessLevelChoices';
 import defaultAccess from '../../defaultAccess';
-import { accessStateText, contentTypeText } from '../../portalText';
-import {
-  AccessState,
-  ContentType,
-  OnboardAccess,
-  PortalInstance,
-} from '../../PortalTypes';
+import { plainText } from '../../portalText';
+import { ContentType, PortalInstance } from '../../PortalTypes';
 import usePortal from '../../usePortal';
+import { ActionOutcome } from '../../usePortalAction';
+import TypeAccessFields, { DEFAULT_DAYS } from '../TypeAccessFields';
+import useAccessChanges from '../useAccessChanges';
+import onboardTitle from './onboardTitle';
 import { OnboardSetup, Who } from './useStartRun';
 import styles from './AddMembers.css';
-
-// A week, as requests count a limit.
-const DEFAULT_DAYS = 7;
-
-// The most requests a limit allows, as the member card has it.
-const MAX_LIMIT = 1000;
-
-// What the admin changed of one type's access and limit.
-type Picks = Partial<Omit<OnboardAccess, 'contentType'>>;
-
-// One type for everyone picked: what the admin changed, the rest as the server gives a new member. Until the admin
-// picks an access, it's the type's default access.
-function accessFor(
-  type: ContentType,
-  picks: Picks,
-  instances: PortalInstance[]
-): OnboardAccess {
-  return {
-    contentType: type,
-    state: picks.state ?? defaultAccess(type, instances),
-    limit: picks.limit ?? null,
-    days: picks.days ?? null,
-  };
-}
-
-interface TypeFieldsProps {
-  access: OnboardAccess;
-  onChange: (type: ContentType, picks: Picks) => void;
-}
-
-// One type's access and limit for everyone picked; a limit of 0 keeps the server's.
-function TypeFields({ access, onChange }: TypeFieldsProps) {
-  const type = access.contentType;
-  const onFieldChange = useCallback(
-    ({ name, value }: { name: string; value: string | number }) => {
-      if (name === 'state') {
-        onChange(type, { state: value as AccessState });
-      } else {
-        onChange(type, { limit: Number(value) || null, days: DEFAULT_DAYS });
-      }
-    },
-    [type, onChange]
-  );
-
-  return (
-    <FormGroup>
-      <FormLabel>{contentTypeText(type)}</FormLabel>
-      <div className={styles.typeFields}>
-        <FormInputGroup
-          type={inputTypes.SELECT}
-          name="state"
-          value={access.state}
-          values={accessLevelChoices()}
-          onChange={onFieldChange}
-        />
-        <FormInputGroup
-          type={inputTypes.NUMBER}
-          name="limit"
-          value={access.limit ?? 0}
-          min={0}
-          max={MAX_LIMIT}
-          helpText={translate('PortalOnboardLimitHelpText')}
-          onChange={onFieldChange}
-        />
-      </div>
-    </FormGroup>
-  );
-}
-
-// "Onboard 6 people: Movies needs approval, TV needs approval".
-function summary(people: Who[], access: OnboardAccess[]) {
-  const who =
-    people.length === 1
-      ? people[0].name
-      : translate('PortalOnboardPeople', { count: people.length });
-
-  return translate('PortalOnboardSummary', {
-    who,
-    access: access
-      .filter((a) => a.state !== 'off')
-      .map((a) => {
-        const state = accessStateText(a.state).toLowerCase();
-
-        return `${contentTypeText(a.contentType)} ${state}`;
-      })
-      .join(', '),
-  });
-}
 
 interface HistoryFieldProps {
   value: boolean;
@@ -120,92 +39,128 @@ function HistoryField({ value, onChange }: HistoryFieldProps) {
   );
 
   return (
-    <FormGroup>
-      <FormLabel>{translate('PortalOnboardHistory')}</FormLabel>
-      <FormInputGroup
-        type={inputTypes.CHECK}
-        name="postHistory"
-        value={value}
-        helpText={translate('PortalOnboardHistoryHelpText')}
-        onChange={onInputChange}
-      />
-    </FormGroup>
+    <FieldSet legend={translate('PortalOnboardHistory')}>
+      <FormGroup>
+        <FormLabel>{translate('PortalOnboardPostHistory')}</FormLabel>
+        <FormInputGroup
+          type={inputTypes.CHECK}
+          name="postHistory"
+          value={value}
+          helpText={translate('PortalOnboardHistoryHelpText')}
+          onChange={onInputChange}
+        />
+      </FormGroup>
+    </FieldSet>
   );
+}
+
+// Each type's access and limit for everyone picked: what the admin changed, until then the type's default access; a
+// limit left alone isn't sent, so someone onboarded again keeps theirs. And whether their history is posted: as the
+// server's setting says until the admin ticks or unticks it.
+function useSetup() {
+  const types = usePortal<ContentType[]>('types');
+  const instances = usePortal<PortalInstance[]>('instances');
+  const settings = useRequestarrApi<AppSettings>('settings');
+  const { changes, onAccessChange } = useAccessChanges();
+  const [pickedHistory, setPickedHistory] = useState<boolean>();
+  const access = useMemo(
+    () =>
+      (types.data ?? []).map((type) => ({
+        contentType: type,
+        state:
+          changes[type]?.state ?? defaultAccess(type, instances.data ?? []),
+        limit: changes[type]?.limit ?? null,
+        days: changes[type]?.days ?? null,
+      })),
+    [types.data, instances.data, changes]
+  );
+
+  return {
+    // Until all three arrive, each field would read Off.
+    isReady: !!types.data && !!instances.data && !!settings.data,
+    hasError: types.hasError || instances.hasError || !!settings.error,
+    access,
+    postHistory:
+      pickedHistory ?? settings.data?.values.onboardPostHistory === true,
+    onAccessChange,
+    onHistoryChange: setPickedHistory,
+  };
 }
 
 interface SetUpPeopleProps {
   people: Who[];
+  refused?: ActionOutcome;
   isStarting: boolean;
-
-  // Back to the list on the Onboard page; Cancel in the window the Members list opens.
-  backLabel?: string;
-  onBack: () => void;
   onConfirm: (setup: OnboardSetup) => void;
+  onClose: () => void;
 }
 
-// Add member's second step: what everyone picked gets, once for all of them, starting from each media manager's
-// default access for new members, whether their imported requests are posted, then the summary and Confirm.
-function SetUpPeople({
-  people,
-  isStarting,
-  backLabel = translate('PortalBack'),
-  onBack,
-  onConfirm,
-}: SetUpPeopleProps) {
-  const { data: types } = usePortal<ContentType[]>('types');
-  const { data: instances } = usePortal<PortalInstance[]>('instances');
-  const [picks, setPicks] = useState<Partial<Record<ContentType, Picks>>>({});
-  const [postHistory, setPostHistory] = useState(true);
-  const access = useMemo(
-    () =>
-      (types ?? []).map((type) =>
-        accessFor(type, picks[type] ?? {}, instances ?? [])
-      ),
-    [types, picks, instances]
-  );
-  const onChange = useCallback(
-    (type: ContentType, changed: Picks) =>
-      setPicks((current) => ({
-        ...current,
-        [type]: { ...current[type], ...changed },
-      })),
-    []
-  );
+// The Onboard window's first step: what everyone picked gets, once for all of them, and whether their imported
+// requests are posted.
+function SetUpPeople(props: SetUpPeopleProps) {
+  const { people, refused, isStarting, onConfirm, onClose } = props;
+  const setup = useSetup();
+  const { isReady, access, postHistory } = setup;
   const onConfirmPress = useCallback(
     () => onConfirm({ access, postHistory }),
     [access, postHistory, onConfirm]
   );
 
-  // Until the types and media managers arrive, each type would read Off: Servarr's loading indicator instead.
-  if (!types || !instances) {
-    return <LoadingIndicator />;
-  }
-
   return (
-    <>
-      <ul className={styles.names}>
-        {people.map((person) => (
-          <li key={person.discordId}>{person.name}</li>
-        ))}
-      </ul>
-      {access.map((one) => (
-        <TypeFields key={one.contentType} access={one} onChange={onChange} />
-      ))}
-      {people.some((person) => person.importedRequests > 0) && (
-        <HistoryField value={postHistory} onChange={setPostHistory} />
-      )}
-      <p className={styles.summary}>{summary(people, access)}</p>
-      <div className={styles.buttons}>
-        <Button onPress={onBack}>{backLabel}</Button>
-        <Button
+    <ModalContent onModalClose={onClose}>
+      <ModalHeader>{onboardTitle(people)}</ModalHeader>
+
+      <ModalBody>
+        {refused && (
+          <Alert kind={kinds.DANGER}>{plainText(refused.message)}</Alert>
+        )}
+
+        {setup.hasError && (
+          <Alert kind={kinds.DANGER}>{translate('PortalLoadError')}</Alert>
+        )}
+
+        {!isReady && !setup.hasError && <LoadingIndicator />}
+
+        {people.length > 1 && (
+          <ul className={styles.names}>
+            {people.map((person) => (
+              <li key={person.discordId}>{person.name}</li>
+            ))}
+          </ul>
+        )}
+
+        {isReady &&
+          access.map((one) => (
+            <TypeAccessFields
+              key={one.contentType}
+              type={one.contentType}
+              access={{
+                state: one.state,
+                limit: one.limit ?? 0,
+                days: one.days ?? DEFAULT_DAYS,
+              }}
+              onChange={setup.onAccessChange}
+            />
+          ))}
+
+        {isReady && people.some((person) => person.importedRequests > 0) && (
+          <HistoryField value={postHistory} onChange={setup.onHistoryChange} />
+        )}
+      </ModalBody>
+
+      <ModalFooter>
+        <Button onPress={onClose}>{translate('Cancel')}</Button>
+
+        <SpinnerButton
           kind={kinds.PRIMARY}
-          isDisabled={isStarting}
+          isSpinning={isStarting}
+          isDisabled={!isReady || isStarting}
           onPress={onConfirmPress}
         >
-          {translate('PortalConfirm')}
-        </Button>
-      </div>
-    </>
+          {translate('PortalActionOnboard')}
+        </SpinnerButton>
+      </ModalFooter>
+    </ModalContent>
   );
 }
 

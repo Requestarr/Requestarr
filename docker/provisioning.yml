@@ -59,6 +59,12 @@ removal:
 auditLog:
   keepFor: 1 year
 
+# Where an import's old requests go by themselves (these are the defaults): in someone's new channel when they're
+# onboarded, and in the admin feed after an import.
+importedHistory:
+  whenOnboarding: false
+  inFeed: true
+
 # Access requests from the welcome channel (these are the defaults; the admin web portal can change them).
 # After a denial, someone can ask again after denialCooldownDays. The spam guard counts only clicks that can't
 # do anything, within the last windowMinutes: shortCooldownClicks of them wait shortCooldownMinutes,

@@ -61,14 +61,34 @@ interface ListActions {
   setTableOption: (payload: unknown) => AnyAction;
 }
 
+// The list's section in the store, and changing its columns or page size (back to the first page, as Servarr's
+// LogsTableConnector).
+export function usePortalListOptions(name: string) {
+  const list = useSelector((state: AppState) => state.portalLists[name]);
+  const dispatch = useDispatch();
+  const onTableOptionChange = useCallback(
+    (payload: { pageSize?: number }) => {
+      const actions = listActions[name] as unknown as ListActions;
+      dispatch(actions.setTableOption(payload));
+
+      if (payload.pageSize) {
+        dispatch(actions.gotoFirstPage());
+      }
+    },
+    [name, dispatch]
+  );
+
+  return { list, onTableOptionChange };
+}
+
 // The list's section in the store, read for its query and again after each action, with what its table and pager
-// do: sort, change its columns or page size (back to the first page, as Servarr's LogsTableConnector), and turn pages.
+// do: sort, change its options, and turn pages.
 function usePortalList(
   name: string,
   query: Record<string, unknown> | undefined,
   round: number
 ) {
-  const list = useSelector((state: AppState) => state.portalLists[name]);
+  const { list, onTableOptionChange } = usePortalListOptions(name);
   const actions = listActions[name] as unknown as ListActions;
   const dispatch = useDispatch();
   const queryKey = JSON.stringify(query ?? {});
@@ -90,16 +110,6 @@ function usePortalList(
   });
   const onSortPress = useCallback(
     (sortKey: string) => dispatch(actions.setSort({ sortKey })),
-    [actions, dispatch]
-  );
-  const onTableOptionChange = useCallback(
-    (payload: { pageSize?: number }) => {
-      dispatch(actions.setTableOption(payload));
-
-      if (payload.pageSize) {
-        dispatch(actions.gotoFirstPage());
-      }
-    },
     [actions, dispatch]
   );
 

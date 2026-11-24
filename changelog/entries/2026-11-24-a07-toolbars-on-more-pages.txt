@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Toolbars on more pages:** the Queue, Access requests, Outages and audit log pages have Refresh and Options in a toolbar, and Changes under Settings has Refresh.

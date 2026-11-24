@@ -25,7 +25,8 @@ namespace Requestarr.Core.Users
     {
         Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Actor actor);
 
-        // The same, choosing whether their imported requests are posted in their new channel (they are otherwise).
+        // The same, choosing whether their imported requests are posted in their new channel (otherwise as the server's setting
+        // says).
         Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Imports.OnboardHistory history, Actor actor);
         Task<ServiceResult> RemoveAsync(ulong discordUserId, Actor actor);
         Task<ServiceResult> SuspendAsync(ulong discordUserId, Actor actor, string reason = null);
@@ -101,7 +102,7 @@ namespace Requestarr.Core.Users
         }
 
         public Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Actor actor) =>
-            AddAsync(discordUserId, access, Imports.OnboardHistory.Post, actor);
+            AddAsync(discordUserId, access, Imports.OnboardHistory.AsSet, actor);
 
         public async Task<ServiceResult> AddAsync(ulong discordUserId, IDictionary<ContentType, AccessState> access, Imports.OnboardHistory history, Actor actor)
         {
@@ -440,6 +441,13 @@ namespace Requestarr.Core.Users
             }
 
             var row = GetOrCreateAccess(user.Id, type);
+
+            // No limit, and none before: nothing to change or record.
+            if (limit == 0 && row.QuotaLimit == null)
+            {
+                return ServiceResult.Ok(DiscordText.QuotaChanged(user.DisplayName, type, null, days));
+            }
+
             row.QuotaLimit = limit > 0 ? limit : null;
             row.QuotaWindow = limit > 0 ? TimeSpan.FromDays(days) : null;
             _access.Upsert(row);

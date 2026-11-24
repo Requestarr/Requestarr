@@ -11,6 +11,7 @@ import TableRow from 'Components/Table/TableRow';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import PortalList, { visibleCells } from '../Components/PortalList';
+import PortalListToolbar from '../Components/PortalListToolbar';
 import { PortalAuditEntry } from '../PortalTypes';
 import styles from '../Portal.css';
 
@@ -85,15 +86,21 @@ function AuditLogPage() {
     },
     []
   );
-  // Searching again reads the log again, even with the same filters.
-  const [searches, setSearches] = useState(0);
+  // Refreshing, or searching again with the same filters, reads the log again.
+  const [reads, setReads] = useState(0);
+  const onRefreshPress = useCallback(
+    () => setReads((current) => current + 1),
+    []
+  );
   const onSearchPress = useCallback(() => {
     setApplied(typed);
-    setSearches((current) => current + 1);
-  }, [typed]);
+    onRefreshPress();
+  }, [typed, onRefreshPress]);
 
   return (
     <PageContent title={translate('PortalAuditLog')}>
+      <PortalListToolbar name="audit" onRefreshPress={onRefreshPress} />
+
       <PageContentBody>
         <div className={styles.filters}>
           {FILTERS.map((name) => (
@@ -119,7 +126,7 @@ function AuditLogPage() {
           name="audit"
           query={query}
           emptyText={translate('PortalNothingFound')}
-          round={searches}
+          round={reads}
           renderRow={entryRow}
         />
       </PageContentBody>

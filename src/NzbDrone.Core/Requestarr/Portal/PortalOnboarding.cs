@@ -12,8 +12,8 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Portal
 {
-    // What everyone picked gets, per content type: their access and a limit (requests per so many days; null or 0 keeps
-    // the server's).
+    // What everyone picked gets, per content type: their access and a limit (requests per so many days; 0 for none, null
+    // leaves the one they had).
     public record OnboardAccess(ContentType ContentType, AccessState State, int? Limit, int? Days);
 
     public record OnboardPerson(string DiscordId, string Name);
@@ -49,9 +49,6 @@ namespace Requestarr.Core.Portal
     {
         // Runs kept for the page to read back; older ones are forgotten.
         private const int Kept = 20;
-
-        // A limit without its days counts a week, as the member card's limit does.
-        private const int DefaultDays = 7;
 
         private readonly ConcurrentDictionary<string, Run> _runs = new();
         private readonly IUserManagementService _users;
@@ -149,9 +146,9 @@ namespace Requestarr.Core.Portal
 
             try
             {
-                if (typeAccess.Limit is { } limit and > 0)
+                if (typeAccess.Limit is { } limit)
                 {
-                    results.Add(_users.SetQuota(id, typeAccess.ContentType, limit, typeAccess.Days ?? DefaultDays, admin));
+                    results.Add(_users.SetQuota(id, typeAccess.ContentType, limit, typeAccess.Days ?? PortalMemberActions.DefaultLimitDays, admin));
                 }
             }
             catch (Exception ex)

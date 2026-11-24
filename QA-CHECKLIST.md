@@ -20,11 +20,36 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     3. As them, type /history in their channel, twice.
     4. In the admin channel, run /admin history.
   - Expect:
-    - Their channel lists their old requests, a few to a message, once.
+    - Their channel gets a card for each old request, oldest first, once.
     - The feed has a header, cards marked Imported, and a closing post.
     - The admin command says what it posts, or that it's done.
     - Nobody gets a ping or a notification.
-  - Checked by the owner, needs human eyes: how the history reads in the Discord app; the automated run read back each post's text, silence and order.
+  - Checked by the owner, needs human eyes: how the cards look in the Discord app; the tests cover each card's text, silence and order.
+- **Onboard page and window**
+  - Steps:
+    1. In Members, press Onboard.
+    2. Tick someone, then press Onboard in the toolbar.
+    3. Press Cancel.
+  - Expect:
+    - Refresh, Onboard, Options and Filter in the toolbar.
+    - A window with each type's access and limit, then Cancel and Onboard.
+    - After Cancel, the person is still ticked.
+  - Checked automatically: the web app add member check.
+- **One Save for access**
+  - Steps:
+    1. Open a member's page in the web app.
+    2. Press Change access.
+  - Expect:
+    - Every type's access and limit in one window.
+    - One Save at the bottom, beside Cancel.
+  - Checked automatically: the web app add member check.
+- **Toolbars on the list pages**
+  - Steps:
+    1. Open Queue, Access requests, Outages, the audit log, then Changes.
+  - Expect:
+    - Each has a toolbar with Refresh.
+    - Options too, except on Changes.
+  - Checked automatically: the web app portal pages check.
 - **Series fixes**
   - Steps:
     1. In the web app, open Settings, then Connections.

@@ -115,6 +115,12 @@ mediaServers:
         }
 
         [Test]
+        public void should_read_where_imported_history_goes_by_itself()
+        {
+            Subject.Parse("importedHistory:\n  whenOnboarding: true\n  inFeed: false").ImportedHistory.Should().BeEquivalentTo(new ImportedHistoryProvisioning { WhenOnboarding = true, InFeed = false });
+        }
+
+        [Test]
         public void should_accept_empty_document()
         {
             var document = Subject.Parse(string.Empty);

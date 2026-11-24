@@ -22,7 +22,7 @@ export interface OnboardSetup {
 }
 
 // Before anything is chosen.
-export const NO_SETUP: OnboardSetup = { access: [], postHistory: true };
+export const NO_SETUP: OnboardSetup = { access: [], postHistory: false };
 
 // Starting a run for these people with this setup; its answer's ID, or why it couldn't start.
 function useStartRun() {
@@ -32,6 +32,7 @@ function useStartRun() {
   const [isStarting, setIsStarting] = useState(false);
   const start = useCallback((people: Person[], setup: OnboardSetup) => {
     setIsStarting(true);
+    setRefused(undefined);
     callApi<OnboardJob>('/portal/members/onboard', 'POST', {
       people: people.map(({ discordId, name }) => ({ discordId, name })),
       ...setup,

@@ -449,7 +449,9 @@ namespace Requestarr.Core.Discord
 
         public static string AdminDenied(Request request) => $"Denied request #{request.Id} for {request.Label}.";
 
-        public static string Seasons(Request request) => SeasonList(request.Seasons, request.MonitorFutureSeasons);
+        // An imported request for every season names none of them (ImportPlan).
+        public static string Seasons(Request request) =>
+            request.Imported && request.MonitorFutureSeasons && !request.Seasons.Any() ? "all seasons" : SeasonList(request.Seasons, request.MonitorFutureSeasons);
 
         public static string RequestLine(Request request, string owner, bool showOwner) =>
             $"#{request.Id} · {Label(request.ContentType)} · {request.Label} · {Label(request.Status)}{(showOwner ? " · " + owner : string.Empty)}";
@@ -551,7 +553,7 @@ namespace Requestarr.Core.Discord
         public static string FollowingOf(string owner) => $"You're following {owner}'s request.";
 
         // Imported history (Imports.HistoryPosting): the feed's header and closing posts, the line an imported feed card
-        // carries, and a member's own history, a few titles to a message.
+        // carries, and what a member's own history starts with.
         public const string HistoryChannelHeader = "📜 **Your requests from before**, imported, oldest first:";
 
         public const string HistoryNone = "There are no imported requests to post.";
@@ -571,21 +573,12 @@ namespace Requestarr.Core.Discord
 
         public static string ImportedLine(DateTime requested) => $"Imported{Dot}requested {HistoryDate(requested)}";
 
-        public static string HistoryLine(Request request) => $"• **{request.Label}**{Dot}{HistoryDate(request.Requested)}{Dot}{HistoryStatus(request)}";
-
         public static string HistoryFeedHeader(int requests, int members) =>
             $"📜 Posting {requests} imported request{(requests == 1 ? string.Empty : "s")} from {members} member{(members == 1 ? string.Empty : "s")}, oldest first.";
 
         public static string HistoryFeedDone(int posted) => $"📜 Done: {posted} imported request{(posted == 1 ? string.Empty : "s")} posted.";
 
         public static string HistoryFeedStopped(int posted, int total) => $"📜 Stopped: {posted} of {total} imported requests posted.";
-
-        private static string HistoryStatus(Request request) => request.Status switch
-        {
-            RequestStatus.Available => "available",
-            RequestStatus.Approved => "in the library",
-            _ => Label(request.Status)
-        };
 
         public static string DiscordTimestamp(DateTime utc) => $"<t:{new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds()}:R>";
 
@@ -797,7 +790,9 @@ namespace Requestarr.Core.Discord
         };
 
         public static string FeedMeta(Request request, string owner, string instance) =>
-            $"{(request.ContentType == ContentType.Tv ? "📺 TV" : "🎬 Movie")}{Dot}{owner}{(instance != null ? Dot + instance : string.Empty)}";
+            $"{TypeMark(request)}{Dot}{owner}{(instance != null ? Dot + instance : string.Empty)}";
+
+        public static string TypeMark(Request request) => request.ContentType == ContentType.Tv ? "📺 TV" : "🎬 Movie";
 
         public static string FeedFollowers(IReadOnlyCollection<string> names) => $"Following: {string.Join(", ", names)}";
 

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Messaging;
-using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging;
 using NzbDrone.Core.Messaging.Commands;
@@ -28,9 +27,11 @@ namespace Requestarr.Core.Imports
     // What the server's window shows: "312 of 467 posted", and whether it's posting, paused or done.
     public record HistoryPostingStatus(HistoryPostingState State, int Total, int Posted);
 
-    // Whether onboarding someone posts their imported requests in their new channel, or leaves them for later.
+    // Whether onboarding someone posts their imported requests in their new channel, leaves them for later, or does what
+    // the server's setting says.
     public enum OnboardHistory
     {
+        AsSet,
         Post,
         Leave
     }
@@ -67,8 +68,8 @@ namespace Requestarr.Core.Imports
         void Cancel(Actor actor);
     }
 
-    // Posts imported history in Discord: each member's in their own channel, a few titles to a message, and every
-    // request in the admin feed as its normal card marked Imported, oldest first, between a header and a closing post.
+    // Posts imported history in Discord: each member's in their own channel and every request in the admin feed, each as
+    // a card marked Imported, oldest first, the feed's between a header and a closing post.
     // Everything is silent and pings nobody. One background worker posts slowly, a pause between posts, so live notices
     // never queue behind it; it keeps going while anything waits, so rows queued mid-run are posted too. (Servarr's
     // command queue drops a second push of a command already running, so the import's own command pattern can't be
@@ -81,16 +82,13 @@ namespace Requestarr.Core.Imports
         // Discord allows 5 messages every 5 seconds a channel; one every 2 seconds leaves live notices plenty of room.
         public static readonly TimeSpan Pace = TimeSpan.FromSeconds(2);
 
-        // Lines a member's history message holds at most, well inside Discord's 2,000 characters.
-        private const int LinesPerMessage = 15;
-
         private readonly IHistoryPostRepository _posts;
         private readonly IRequestRepository _requests;
         private readonly IRequestarrUserRepository _users;
         private readonly IRequestFeed _feed;
         private readonly IDiscordGuildGateway _gateway;
         private readonly IDiscordGuildConfigRepository _configs;
-        private readonly IConfigService _config;
+        private readonly IHistorySettings _settings;
         private readonly IAuditService _audit;
         private readonly IManageCommandQueue _commands;
         private readonly Logger _logger;
@@ -113,7 +111,7 @@ namespace Requestarr.Core.Imports
                               IRequestFeed feed,
                               IDiscordGuildGateway gateway,
                               IDiscordGuildConfigRepository configs,
-                              IConfigService config,
+                              IHistorySettings settings,
                               IAuditService audit,
                               IManageCommandQueue commands,
                               Logger logger)
@@ -124,7 +122,7 @@ namespace Requestarr.Core.Imports
             _feed = feed;
             _gateway = gateway;
             _configs = configs;
-            _config = config;
+            _settings = settings;
             _audit = audit;
             _commands = commands;
             _logger = logger;
@@ -252,7 +250,7 @@ namespace Requestarr.Core.Imports
 
         public void Handle(MemberOnboardedEvent message)
         {
-            if (message.History == OnboardHistory.Post)
+            if (message.History == OnboardHistory.Post || (message.History == OnboardHistory.AsSet && _settings.WhenOnboarding))
             {
                 Queue(now => ChannelRows(ImportedFor(message.UserId), now));
             }
@@ -314,7 +312,7 @@ namespace Requestarr.Core.Imports
         // Each request's post in the admin feed, when that's switched on.
         private IEnumerable<HistoryPost> FeedRows(IEnumerable<Request> imported, DateTime now)
         {
-            if (!_config.ImportPostFeed || FeedChannel() is not { } feedChannel)
+            if (!_settings.InFeed || FeedChannel() is not { } feedChannel)
             {
                 return Enumerable.Empty<HistoryPost>();
             }
@@ -450,7 +448,8 @@ namespace Requestarr.Core.Imports
 
             while (Continuing() && _posts.Waiting().Where(p => !failed.Contains(p.ChannelId)).ToList() is { Count: > 0 } waiting)
             {
-                var requests = _requests.Get(waiting.Select(p => p.RequestId).Distinct()).ToDictionary(r => r.Id);
+                var ids = waiting.Select(p => p.RequestId).ToHashSet();
+                var requests = _requests.All().Where(r => ids.Contains(r.Id)).ToDictionary(r => r.Id);
                 var members = waiting.Where(p => p.Destination == HistoryDestination.Channel)
                     .GroupBy(p => p.ChannelId).ToList();
 
@@ -484,7 +483,7 @@ namespace Requestarr.Core.Imports
             }
         }
 
-        // A member's history, oldest first, a few titles to each silent message in their channel.
+        // A member's history in their channel, oldest first, the batch's first card saying what they are.
         private async Task PostChannelAsync(ulong channel, List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
         {
             if (Unsendable(posts, requests))
@@ -494,19 +493,27 @@ namespace Requestarr.Core.Imports
 
             var ordered = posts.OrderBy(p => requests[p.RequestId].Requested).ThenBy(p => p.RequestId).ToList();
 
-            for (var start = 0; start < ordered.Count && Continuing(); start += LinesPerMessage)
-            {
-                var batch = ordered.Skip(start).Take(LinesPerMessage).ToList();
-                var lines = batch.Select(p => DiscordText.HistoryLine(requests[p.RequestId])).Prepend(DiscordText.HistoryChannelHeader);
+            var hasStarted = IsUnderWay(ordered);
 
-                await PostAsync(batch, () => _gateway.SendMessageAsync(channel, new InteractionReply { Content = string.Join("\n", lines), Quiet = true }));
+            foreach (var post in ordered.TakeWhile(_ => Continuing()))
+            {
+                var heading = hasStarted ? null : DiscordText.HistoryChannelHeader;
+                hasStarted |= await PostAsync(post, request => _gateway.SendMessageAsync(channel, RequestCards.HistoryCard(request, heading)));
             }
+        }
+
+        // Whether each of these posts' batches began in their channel before a pause or a restart.
+        private bool IsUnderWay(List<HistoryPost> posts)
+        {
+            var begun = _posts.All().Where(p => p.Posted != null && p.ChannelId == posts[0].ChannelId).Select(p => p.Queued).ToHashSet();
+
+            return posts.All(p => begun.Contains(p.Queued));
         }
 
         // The feed: its header once a batch, then every request's own card marked Imported, oldest first.
         private async Task PostFeedAsync(List<HistoryPost> posts, IReadOnlyDictionary<int, Request> requests)
         {
-            if (posts.Count == 0 || Unsendable(posts, requests) || FeedChannel() is not { } channelId)
+            if (!Continuing() || posts.Count == 0 || Unsendable(posts, requests) || FeedChannel() is not { } channelId)
             {
                 return;
             }
@@ -520,7 +527,7 @@ namespace Requestarr.Core.Imports
 
             foreach (var post in posts.TakeWhile(_ => Continuing()))
             {
-                if (await PostAsync(new[] { post }, () => _feed.PostImportedAsync(requests[post.RequestId])))
+                if (await PostAsync(post, request => _feed.PostImportedAsync(request)))
                 {
                     _feedPosted++;
                 }
@@ -534,20 +541,26 @@ namespace Requestarr.Core.Imports
 
             if (gone.Count > 0)
             {
-                _posts.DeleteMany(gone);
+                Drop(gone);
                 posts.RemoveAll(gone.Contains);
-
-                lock (_lock)
-                {
-                    _total -= gone.Count;
-                }
             }
 
             return posts.Count == 0;
         }
 
-        // One post after the pace's wait, recorded on its rows before the next; false when paused or cancelled first.
-        private async Task<bool> PostAsync(IReadOnlyCollection<HistoryPost> rows, Func<Task<ulong>> send)
+        private void Drop(List<HistoryPost> rows)
+        {
+            _posts.DeleteMany(rows);
+
+            lock (_lock)
+            {
+                _total -= rows.Count;
+            }
+        }
+
+        // One post after the pace's wait, its request as it is by then, recorded on its row before the next; false when
+        // paused or cancelled first, or the request is gone.
+        private async Task<bool> PostAsync(HistoryPost row, Func<Request, Task<ulong>> send)
         {
             await Wait(Pace);
 
@@ -556,19 +569,21 @@ namespace Requestarr.Core.Imports
                 return false;
             }
 
-            var id = await send();
-
-            foreach (var row in rows)
+            if (_requests.Find(row.RequestId) is not { } request)
             {
-                row.Posted = DateTime.UtcNow;
-                row.MessageId = id == 0 ? null : id.ToString();
+                Drop(new List<HistoryPost> { row });
+                return false;
             }
 
-            _posts.UpdateMany(rows.ToList());
+            var id = await send(request);
+
+            row.Posted = DateTime.UtcNow;
+            row.MessageId = id == 0 ? null : id.ToString();
+            _posts.Update(row);
 
             lock (_lock)
             {
-                _posted += rows.Count;
+                _posted++;
             }
 
             return true;

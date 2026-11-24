@@ -7,8 +7,12 @@ function useRequestarrApi<T>(path: string) {
   const [error, setError] = useState<string>();
 
   const reload = useCallback(() => {
-    callRequestarrApi<T>(path).then(setData, (failure: Error) =>
-      setError(failure.message)
+    callRequestarrApi<T>(path).then(
+      (answer) => {
+        setData(answer);
+        setError(undefined);
+      },
+      (failure: Error) => setError(failure.message)
     );
   }, [path]);
 

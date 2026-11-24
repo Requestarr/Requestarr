@@ -2,11 +2,14 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Interactions;
+using Requestarr.Core.Imports;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Core.Users;
 using Requestarr.Test.Common;
@@ -247,6 +250,20 @@ namespace Requestarr.Core.Test.Discord
             row = Mocker.Resolve<IUserMediaAccessRepository>().GetForUser(UserFor(Alice).Id).Single(a => a.ContentType == ContentType.Movie);
             row.QuotaLimit.Should().BeNull();
             row.QuotaWindow.Should().BeNull();
+
+            // No limit, where there's none already: nothing changes, so nothing more is recorded.
+            await Harness.SendAsync(AdminCommand("user quota", Alice).WithOption("type", "movie").WithOption("limit", 0L));
+
+            Mocker.Resolve<Audit.IAuditRepository>().All().Count(a => a.Action == "user.quota").Should().Be(2, "one when it was set, one when it was cleared");
+        }
+
+        [Test]
+        public async Task onboarding_from_discord_leaves_posting_their_history_to_the_servers_setting()
+        {
+            await AddUser(Alice);
+
+            var id = UserFor(Alice).Id;
+            Mocker.GetMock<IEventAggregator>().Verify(e => e.PublishEvent(It.Is<MemberOnboardedEvent>(m => m.UserId == id && m.History == OnboardHistory.AsSet)), Times.Once());
         }
 
         [Test]

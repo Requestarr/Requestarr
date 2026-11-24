@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **One Save for access:** a member's Change access window saves every type's access and limit together, instead of a button for each.

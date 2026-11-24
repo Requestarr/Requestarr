@@ -17,16 +17,17 @@ namespace Requestarr.Core.Portal
     public record PortalServerMember(string DiscordId, string Name, string Username, string Avatar, DateTime? Joined, IReadOnlyList<string> Roles,
                                      int ImportedRequests);
 
+    // What changes of one type for a member: their access, and their limit with its days (0: no limit). Null leaves it.
+    public record MemberAccessChange(ContentType ContentType, AccessState? State, int? Limit = null, int? Days = null);
+
     public interface IPortalMemberActions
     {
         // Everyone in the server who isn't onboarded (bots left out), those with imported history first; null while the bot
         // isn't connected, since then nobody can be listed.
         Task<IReadOnlyList<PortalServerMember>> ServerMembersAsync();
 
-        ServiceResult SetAccess(int memberId, ContentType type, AccessState state, Actor admin);
-
-        // Limit 0: no limit.
-        ServiceResult SetLimit(int memberId, ContentType type, int limit, int days, Actor admin);
+        // Their access and limits, saved together. A change that's refused doesn't stop the others, and the answer says why.
+        ServiceResult ChangeAccess(int memberId, IReadOnlyList<MemberAccessChange> changes, Actor admin);
         Task<ServiceResult> SuspendAsync(int memberId, Actor admin);
         Task<ServiceResult> UnsuspendAsync(int memberId, Actor admin);
         Task<ServiceResult> RemoveAsync(int memberId, Actor admin);
@@ -46,6 +47,9 @@ namespace Requestarr.Core.Portal
     // portal's member pages find from the member.
     public class PortalMemberActions : IPortalMemberActions
     {
+        // A limit counts requests over a week unless it says how many days, as the member card's limit does.
+        internal const int DefaultLimitDays = 7;
+
         // Every member is onboarded with their Discord account; this only answers a stale or hand-made address.
         private static readonly ServiceResult NoDiscord = ServiceResult.Fail("That member has no Discord account in Requestarr.");
 
@@ -105,11 +109,31 @@ namespace Requestarr.Core.Portal
                 .ToList();
         }
 
-        public ServiceResult SetAccess(int memberId, ContentType type, AccessState state, Actor admin) =>
-            WithDiscord(memberId, id => _users.SetAccess(id, type, state, admin));
+        public ServiceResult ChangeAccess(int memberId, IReadOnlyList<MemberAccessChange> changes, Actor admin) =>
+            WithDiscord(memberId, id => Together(changes.SelectMany(c => Change(id, c, admin)).ToList()));
 
-        public ServiceResult SetLimit(int memberId, ContentType type, int limit, int days, Actor admin) =>
-            WithDiscord(memberId, id => _users.SetQuota(id, type, limit, days, admin));
+        private IEnumerable<ServiceResult> Change(ulong discordId, MemberAccessChange change, Actor admin)
+        {
+            if (change.State is { } state)
+            {
+                yield return _users.SetAccess(discordId, change.ContentType, state, admin);
+            }
+
+            if (change.Limit is { } limit)
+            {
+                yield return _users.SetQuota(discordId, change.ContentType, limit, change.Days ?? DefaultLimitDays, admin);
+            }
+        }
+
+        // One answer for all of them: what was refused when anything was, otherwise what changed.
+        private static ServiceResult Together(List<ServiceResult> results)
+        {
+            var refused = results.Where(r => !r.Success).ToList();
+
+            return refused.Any() ? ServiceResult.Fail(Lines(refused)) : ServiceResult.Ok(Lines(results));
+        }
+
+        private static string Lines(IEnumerable<ServiceResult> results) => string.Join("\n", results.Select(r => r.Message).Distinct());
 
         public Task<ServiceResult> SuspendAsync(int memberId, Actor admin) => WithDiscordAsync(memberId, id => _users.SuspendAsync(id, admin));
 

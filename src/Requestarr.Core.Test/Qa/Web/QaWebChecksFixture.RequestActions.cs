@@ -22,8 +22,7 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string Portal = "(path => fetch(window.Requestarr.urlBase + '/api/v1/portal/' + path, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()))";
 
         private const string ModalButton = "[...document.querySelectorAll('[class*=\"ModalFooter\"] button')]";
-        private const string Bar = "document.querySelector('[class*=\"SelectFooter-footer\"]')";
-        private const string BarButtons = "[...document.querySelectorAll('[class*=\"SelectFooter-footer\"] button')]";
+        private const string Bar = "document.querySelector('[class*=\"PageContentFooter\"]')";
 
         // The group's actions for requests, by their name in the portal's answer, in the toolbar's order.
         private const string GroupLabels = "{ approve: 'Approve', deny: 'Deny', remove: 'Start removal' }";
@@ -142,8 +141,6 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"!!{mine}");
             return await browser.EvalAsync<string>($"{mine}.innerText.trim()");
         }
-
-        private static Task<string> BarTextAsync(HeadlessBrowser browser) => browser.EvalAsync<string>($"{Bar}?.innerText.replace(/\\s+/g, ' ').trim() ?? ''");
 
         // No buttons on rows; Select Requests, three picked (only what all three allow is live, nothing below the
         // list), Select All (every request, across the pages), Unselect All, Stop Selecting.

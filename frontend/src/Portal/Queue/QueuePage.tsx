@@ -9,6 +9,7 @@ import TableRow from 'Components/Table/TableRow';
 import translate from 'Utilities/String/translate';
 import Person from '../Components/Person';
 import PortalList, { visibleCells } from '../Components/PortalList';
+import PortalListToolbar from '../Components/PortalListToolbar';
 import RemovalActions from '../Components/RemovalActions';
 import { queueKindText } from '../portalText';
 import { PortalQueueItem } from '../PortalTypes';
@@ -120,6 +121,8 @@ function QueuePage() {
 
   return (
     <PageContent title={translate('PortalQueue')}>
+      <PortalListToolbar name="queue" onRefreshPress={onDone} />
+
       <PageContentBody>
         <PortalList
           name="queue"
@@ -127,7 +130,7 @@ function QueuePage() {
           round={round}
           renderRow={itemRow}
         />
-        <TitleRemovals />
+        <TitleRemovals round={round} />
       </PageContentBody>
     </PageContent>
   );

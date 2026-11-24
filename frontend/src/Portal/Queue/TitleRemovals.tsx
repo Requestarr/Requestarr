@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import FieldSet from 'Components/FieldSet';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -23,12 +23,23 @@ const columns = columnsOf([
   'PortalActions',
 ]);
 
+interface TitleRemovalsProps {
+  // Goes up after a refresh or an action on the page, so they're read again.
+  round: number;
+}
+
 // Open removals of titles nobody requested through Requestarr: they have no request page, so they're forced or
 // dropped here, as their own feed cards in Discord are.
-function TitleRemovals() {
+function TitleRemovals({ round }: TitleRemovalsProps) {
   const { data: removals, reload } =
     usePortal<PortalTitleRemoval[]>('title-removals');
   const action = usePortalAction(reload);
+
+  useEffect(() => {
+    if (round) {
+      reload();
+    }
+  }, [round, reload]);
 
   if (!removals?.length) {
     return null;

@@ -30,7 +30,10 @@ export const DISCORD_SECTIONS: SettingsSection[] = [
   },
   {
     legend: 'SettingsImportedHistory',
-    fields: [['importPostFeed', 'check']],
+    fields: [
+      ['onboardPostHistory', 'check'],
+      ['importPostFeed', 'check'],
+    ],
   },
 ];
 

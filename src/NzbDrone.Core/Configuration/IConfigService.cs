@@ -18,6 +18,7 @@ namespace NzbDrone.Core.Configuration
         int RemovalRequesterTimeoutDays { get; set; }
         bool RemovalDeleteFiles { get; set; }
         bool ImportPostFeed { get; set; }
+        bool OnboardPostHistory { get; set; }
 
         // The Requestarr version that last started on this database (Requestarr.Core.Updates.UpdateBackup reads it
         // before migrating)

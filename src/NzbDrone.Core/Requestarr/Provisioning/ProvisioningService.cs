@@ -44,6 +44,7 @@ namespace Requestarr.Core.Provisioning
         private readonly Requestarr.Core.Discord.IBotProfileSettings _botProfile;
         private readonly Requestarr.Core.Qa.IBugReportSettings _bugReports;
         private readonly Requestarr.Core.Audit.IAuditSettings _auditLog;
+        private readonly Requestarr.Core.Imports.IHistorySettings _history;
         private readonly Requestarr.Core.Settings.IStoredSettings _storedSettings;
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
@@ -60,6 +61,7 @@ namespace Requestarr.Core.Provisioning
                                    Requestarr.Core.Discord.IBotProfileSettings botProfile,
                                    Requestarr.Core.Qa.IBugReportSettings bugReports,
                                    Requestarr.Core.Audit.IAuditSettings auditLog,
+                                   Requestarr.Core.Imports.IHistorySettings history,
                                    Requestarr.Core.Settings.IStoredSettings storedSettings,
                                    IEventAggregator eventAggregator,
                                    Logger logger)
@@ -76,6 +78,7 @@ namespace Requestarr.Core.Provisioning
             _botProfile = botProfile;
             _bugReports = bugReports;
             _auditLog = auditLog;
+            _history = history;
             _storedSettings = storedSettings;
             _eventAggregator = eventAggregator;
             _logger = logger;
@@ -190,6 +193,9 @@ namespace Requestarr.Core.Provisioning
 
             _auditLog.Apply(document.AuditLog);
             applied.Add($"audit log (kept for {_auditLog.KeepFor})");
+
+            _history.Apply(document.ImportedHistory);
+            applied.Add($"imported history ({(_history.WhenOnboarding ? "posted" : "not posted")} when onboarding, {(_history.InFeed ? "posted" : "not posted")} in the feed)");
 
             _backends.SyncFromProvisioning(document.Backends);
 

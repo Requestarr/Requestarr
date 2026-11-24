@@ -1,6 +1,10 @@
 import Column from 'Components/Table/Column';
 import SortDirection from 'Helpers/Props/SortDirection';
-import { PortalMember, PortalRequest } from 'Portal/PortalTypes';
+import {
+  PortalMember,
+  PortalRequest,
+  PortalServerMember,
+} from 'Portal/PortalTypes';
 import AppSectionState, {
   PagedAppSectionState,
   TableAppSectionState,
@@ -51,6 +55,10 @@ export type MemberIndexAppState = IndexAppState<PortalMember>;
 export type RequestsAppState = AppSectionState<PortalRequest>;
 
 export type MembersAppState = AppSectionState<PortalMember>;
+
+// One section for the people and how they're listed, as Prowlarr's releases.
+export type ServerMembersAppState = AppSectionState<PortalServerMember> &
+  IndexAppState<PortalServerMember>;
 
 // One of the portal's lists read a page at a time (Store/Actions/portalListActions.js), as Servarr's system.logs.
 interface PortalListAppState

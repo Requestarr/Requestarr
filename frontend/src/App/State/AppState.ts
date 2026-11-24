@@ -6,6 +6,7 @@ import {
   PortalListsAppState,
   RequestIndexAppState,
   RequestsAppState,
+  ServerMembersAppState,
 } from './PortalAppState';
 import SettingsAppState from './SettingsAppState';
 import SystemAppState from './SystemAppState';
@@ -65,6 +66,7 @@ interface AppState {
   portalLists: PortalListsAppState;
   requests: RequestsAppState;
   requestIndex: RequestIndexAppState;
+  serverMembers: ServerMembersAppState;
   settings: SettingsAppState;
   system: SystemAppState;
   tags: TagsAppState;

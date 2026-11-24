@@ -13,8 +13,8 @@ namespace Requestarr.Http.Portal
     public record BulkRequestsBody(List<int> Ids, string Action, string Reason, List<int> Seasons, bool Force);
 
     // The members picked and what to do to them: suspend, unsuspend, post-history, remove-member, or changeAccess
-    // (each change in Changes, the member's own instance left as it is).
-    public record BulkMembersBody(List<int> Ids, string Action, List<AccessBody> Changes);
+    // (each change in Changes).
+    public record BulkMembersBody(List<int> Ids, string Action, List<MemberAccessChange> Changes);
 
     public record BulkFailure(int Id, string Message);
 
@@ -61,25 +61,9 @@ namespace Requestarr.Http.Portal
             "unsuspend" => (id, admin) => _members.UnsuspendAsync(id, admin),
             "post-history" => (id, admin) => Task.FromResult(_members.PostHistory(id, admin)),
             "remove-member" => (id, admin) => _members.RemoveAsync(id, admin),
-            "changeAccess" => (id, admin) => Task.FromResult(ChangeAccess(id, body.Changes ?? new List<AccessBody>(), admin)),
+            "changeAccess" => (id, admin) => Task.FromResult(_members.ChangeAccess(id, body.Changes ?? new List<MemberAccessChange>(), admin)),
             _ => null
         };
-
-        // Each type's change in turn; the first refusal is the member's.
-        private ServiceResult ChangeAccess(int id, List<AccessBody> changes, Actor admin)
-        {
-            foreach (var change in changes)
-            {
-                var result = _members.SetAccess(id, change.ContentType, change.State, admin);
-
-                if (!result.Success)
-                {
-                    return result;
-                }
-            }
-
-            return ServiceResult.Ok(string.Empty);
-        }
 
         private async Task<BulkAnswer> EachAsync(List<int> ids, Func<int, Actor, Task<ServiceResult>> act)
         {
