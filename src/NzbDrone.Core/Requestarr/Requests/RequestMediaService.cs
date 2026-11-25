@@ -216,10 +216,15 @@ namespace Requestarr.Core.Requests
                 return false;
             }
 
+            // Nothing found this time takes nothing away that was found before.
+            if (item == null && request.Media != null)
+            {
+                return true;
+            }
+
             try
             {
-                // Nothing found this time never takes away what was found before.
-                request.Media = item == null && request.Media != null ? request.Media : RequestMedia.From(item, DateTime.UtcNow);
+                request.Media = RequestMedia.From(item, DateTime.UtcNow);
                 request.PosterUrl ??= item?.PosterUrl;
                 request.Year ??= item?.Year;
                 _requests.SetFields(request, r => r.Media, r => r.PosterUrl, r => r.Year);
@@ -246,8 +251,12 @@ namespace Requestarr.Core.Requests
             var isThere = request.ExternalItemId.HasValue && request.BackendId == instance.Id;
             var there = isThere ? await _backends.ApiFor(instance).GetItemAsync(instance.Config, request.ExternalItemId.Value) : null;
 
-            return there ?? await LookupByIdAsync(instance, request);
+            return IsSame(there, request) ? there : await LookupByIdAsync(instance, request);
         }
+
+        // An instance set up again can have another title by the same number.
+        private static bool IsSame(MediaLookupResult item, Request request) =>
+            item != null && (request.ContentType == ContentType.Movie ? item.TmdbId == request.TmdbId : item.TvdbId == request.TvdbId);
 
         // Movies by The Movie Database ID, shows by TheTVDB ID; a show known only by The Movie Database isn't looked up.
         private Task<MediaLookupResult> LookupByIdAsync(BackendInstance instance, Request request) => request.ContentType switch

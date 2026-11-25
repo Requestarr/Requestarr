@@ -435,7 +435,7 @@ namespace Requestarr.Core.Portal
 
             // Where a request that was never sent would go.
             private BackendInstance Taking(ContentType type) =>
-                _instances.Values.FirstOrDefault(i => i.Enable && !i.IsDeleted && DiscordText.TypeOf(i) == type);
+                _instances.Values.Where(i => !i.IsDeleted && DiscordText.TypeOf(i) == type).OrderByDescending(i => i.Enable).FirstOrDefault();
 
             private PortalPerson Person(int userId)
             {

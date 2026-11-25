@@ -91,6 +91,9 @@ function Summary({ detail }: { detail: PortalMemberDetail }) {
   );
 }
 
+// Theirs and those they follow.
+const REQUEST_LISTS = ['memberRequests', 'memberFollowing'];
+
 function requestRow(request: PortalRequest, columns: Column[]) {
   return <RequestTableRow request={request} columns={columns} />;
 }
@@ -178,7 +181,7 @@ function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
         <PageToolbarSection>{actions.buttons}</PageToolbarSection>
 
         <PageToolbarSection alignContent={align.RIGHT} collapseButtons={false}>
-          <MemberRequestsFilterMenu />
+          <MemberRequestsFilterMenu lists={REQUEST_LISTS} />
         </PageToolbarSection>
       </PageToolbar>
 

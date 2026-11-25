@@ -22,6 +22,7 @@ function PageToolbarButton(props) {
       className={classNames(
         styles.toolbarButton,
         className,
+        otherProps.to && styles.isLink,
         isDisabled && styles.isDisabled
       )}
       isDisabled={isDisabled || isSpinning}
@@ -53,7 +54,7 @@ PageToolbarButton.propTypes = {
   isDisabled: PropTypes.bool,
   onPress: PropTypes.func,
 
-  // Requestarr: a button that's a link, and what its tooltip says instead of its label.
+  // Requestarr: a button that's a link (to), and what its tooltip says instead of its label.
   to: PropTypes.string,
   title: PropTypes.string
 };

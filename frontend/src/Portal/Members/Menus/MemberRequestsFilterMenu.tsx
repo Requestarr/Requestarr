@@ -6,26 +6,26 @@ import { align } from 'Helpers/Props';
 import { listActions } from 'Store/Actions/portalListActions';
 import { ListActions } from '../../Components/PortalList';
 
-// Both lists of requests on a member's page: theirs and those they follow.
-const LISTS = ['memberRequests', 'memberFollowing'];
-
-function selectList(state: AppState) {
-  return state.portalLists[LISTS[0]];
+interface MemberRequestsFilterMenuProps {
+  // The lists of requests it filters, all the same way.
+  lists: string[];
 }
 
 // The Requests page's filters on a member's page, as Prowlarr's History has its filters: the server filters, so there
 // are no custom ones.
-function MemberRequestsFilterMenu() {
-  const { selectedFilterKey, filters } = useSelector(selectList);
+function MemberRequestsFilterMenu({ lists }: MemberRequestsFilterMenuProps) {
+  const { selectedFilterKey, filters } = useSelector(
+    (state: AppState) => state.portalLists[lists[0]]
+  );
   const dispatch = useDispatch();
   const onFilterSelect = useCallback(
     (filterKey: string | number) => {
-      LISTS.forEach((name) => {
+      lists.forEach((name) => {
         const { setFilter } = listActions[name] as unknown as ListActions;
         dispatch(setFilter({ selectedFilterKey: filterKey }));
       });
     },
-    [dispatch]
+    [lists, dispatch]
   );
 
   return (

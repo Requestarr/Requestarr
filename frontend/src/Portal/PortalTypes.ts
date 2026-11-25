@@ -35,12 +35,7 @@ export interface PortalPerson {
   handle: string | null;
 }
 
-export type OpenProblem =
-  | 'notAdded'
-  | 'removed'
-  | 'connectionDeleted'
-  | 'noAddress'
-  | 'noPage';
+export type OpenProblem = 'notAdded' | 'removed' | 'noAddress' | 'noPage';
 
 // What a request's title is (src/NzbDrone.Core/Requestarr/Portal/PortalModels.cs); values not known are null.
 export interface PortalMedia {

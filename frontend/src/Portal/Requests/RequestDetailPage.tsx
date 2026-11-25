@@ -53,7 +53,6 @@ const FOLLOWERS_ID = 'followers';
 const OPEN_PROBLEMS: Record<OpenProblem, string> = {
   notAdded: 'PortalOpenNotAdded',
   removed: 'PortalOpenRemoved',
-  connectionDeleted: 'PortalOpenConnectionDeleted',
   noAddress: 'PortalOpenNoAddress',
   noPage: 'PortalOpenNoPage',
 };
@@ -71,7 +70,6 @@ function openInButton(media?: PortalMedia) {
   return (
     <PageToolbarButton
       key="openIn"
-      className={media.openUrl ? styles.toolbarLink : undefined}
       label={label}
       iconName={icons.EXTERNAL_LINK}
       to={media.openUrl ?? undefined}

@@ -15,7 +15,6 @@ interface CssExports {
   'muted': string;
   'poster': string;
   'search': string;
-  'toolbarLink': string;
 }
 export const cssExports: CssExports;
 export default cssExports;

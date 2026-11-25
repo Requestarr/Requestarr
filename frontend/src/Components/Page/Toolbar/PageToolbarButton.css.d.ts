@@ -2,6 +2,7 @@
 // Please do not change this file!
 interface CssExports {
   'isDisabled': string;
+  'isLink': string;
   'label': string;
   'labelContainer': string;
   'toolbarButton': string;

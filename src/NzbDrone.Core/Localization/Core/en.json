@@ -882,7 +882,6 @@
   "PortalOnboardHistory": "Imported History",
   "PortalOnboardHistoryHelpText": "Post their requests from before in their channel, once, oldest first and silently. Left out, they can type /history, or you can post it from their page.",
   "PortalOnboardWaiting": "Waiting",
-  "PortalOpenConnectionDeleted": "The connection it was sent to was deleted.",
   "PortalOpenIn": "Open in {app}",
   "PortalOpenNoAddress": "{app} has no address a browser can open. Add one to its connection in Settings, then Connections.",
   "PortalOpenNoPage": "Requestarr hasn't learned its page in {app} yet.",

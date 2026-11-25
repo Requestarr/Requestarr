@@ -10,7 +10,6 @@ namespace Requestarr.Core.Requests
     {
         NotAdded,
         Removed,
-        ConnectionDeleted,
         NoAddress,
         NoPage
     }
@@ -35,11 +34,6 @@ namespace Requestarr.Core.Requests
             if (instance == null || request.ExternalItemId == null || request.Status == RequestStatus.NotInLibrary)
             {
                 return new TitleLink(null, TitleLinkProblem.NotAdded);
-            }
-
-            if (instance.IsDeleted)
-            {
-                return new TitleLink(null, TitleLinkProblem.ConnectionDeleted);
             }
 
             if (BrowserRoot(instance.Config) is not { } root)
