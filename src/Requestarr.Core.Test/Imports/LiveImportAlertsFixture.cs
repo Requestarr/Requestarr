@@ -12,6 +12,8 @@ using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Messaging.Commands;
+using Requestarr.Core.Audit;
 using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord;
@@ -29,9 +31,9 @@ using UserStatus = Requestarr.Core.Users.UserStatus;
 
 namespace Requestarr.Core.Test.Imports
 {
-    // Live: imported requests, one already stuck in the dev stack's TEST Radarr and one already there, checked for the
-    // first time with the real bot in the dev server: nothing in the member's channel, one silent card in the feed; then
-    // the stuck one is fixed, and its member and the feed are told. Two channels of its own, removed afterwards with the
+    // Live: an import of two of Requestrr's replies (made up, in no channel), one film already stuck in the dev stack's
+    // TEST Radarr and one already there, with the real bot in the dev server: nothing in the member's channel, one silent
+    // card in the feed; then the stuck one is fixed, and its member and the feed are told. Two channels of its own, removed afterwards with the
     // movies and the fake download, pass or fail; the running dev stack isn't touched, so it needn't be stopped.
     //   set -a; . docker/secrets.env; set +a
     //   dotnet test Requestarr.Core.Test.dll --filter "FullyQualifiedName~LiveImportAlertsFixture" --logger "console;verbosity=detailed"
@@ -42,6 +44,8 @@ namespace Requestarr.Core.Test.Imports
         private const string Container = "requestarr-dev-radarr-test-1";
         private const string ClientName = "Requestarr import check";
         private const string Folder = "/config/requestarr-import-check";
+        private const ulong OldChannel = 900000000000100009;
+        private const ulong Stranger = 900000000000200009;
 
         // Old films nobody's test data uses.
         private static readonly (int TmdbId, string Title, int Year) Stuck = (19, "Metropolis", 1927);
@@ -68,20 +72,18 @@ namespace Requestarr.Core.Test.Imports
             try
             {
                 await ConnectAsync();
-                var backend = UseServices();
+                UseServices();
                 var member = await MemberAsync();
-                var stranger = Mocker.Resolve<RequestarrUserRepository>().Insert(new RequestarrUser { DisplayName = "Not onboarded", Status = UserStatus.Imported, Added = DateTime.UtcNow });
                 var movies = await AddMoviesAsync();
                 await StickAsync();
 
-                var requests = Mocker.Resolve<IRequestRepository>();
-                var stuck = requests.Insert(Imported(member.Id, Stuck, movies[Stuck.TmdbId], backend));
-                var there = requests.Insert(Imported(stranger.Id, There, movies[There.TmdbId], backend));
+                await ImportAsync(member);
+                var requests = Mocker.Resolve<IRequestRepository>().All().ToDictionary(r => r.TmdbId.Value);
+                (requests[Stuck.TmdbId].Imported, requests[Stuck.TmdbId].Progress).Should().Be((true, DownloadProgress.Stalled));
+                (requests[There.TmdbId].Imported, requests[There.TmdbId].Status).Should().Be((true, RequestStatus.Available));
+                requests[There.TmdbId].OwnerUserId.Should().NotBe(requests[Stuck.TmdbId].OwnerUserId);
                 var availability = Mocker.Resolve<AvailabilityService>();
 
-                await availability.CheckAllAsync();
-                requests.Get(stuck.Id).Progress.Should().Be(DownloadProgress.Stalled);
-                requests.Get(there.Id).Status.Should().Be(RequestStatus.Available);
                 (await OwnAsync(_memberChannel)).Should().BeEmpty("the import tells nobody what was already so");
                 var card = (await OwnAsync(_feedChannel)).Should().ContainSingle().Subject;
                 card.Flags.GetValueOrDefault().HasFlag(MessageFlags.SuppressNotification).Should().BeTrue("it's silent");
@@ -133,7 +135,7 @@ namespace Requestarr.Core.Test.Imports
             _memberChannel = await _gateway.CreateTextChannelAsync("import-check-member", null, null, hidden);
         }
 
-        private int UseServices()
+        private void UseServices()
         {
             Mocker.SetConstant(_gateway);
             Mocker.SetConstant<IBackendRepository>(Mocker.Resolve<BackendRepository>());
@@ -152,13 +154,16 @@ namespace Requestarr.Core.Test.Imports
             Mocker.Resolve<IDiscordGuildConfigRepository>().Insert(new DiscordGuildConfig { GuildId = LiveDev.GuildId.ToString(), FeedChannelId = _feedChannel.ToString() });
             Mocker.SetConstant<IRequestFeed>(Mocker.Resolve<RequestFeed>());
             Mocker.SetConstant<IImportSummary>(Mocker.Resolve<ImportSummary>());
+            Mocker.SetConstant<IAuditRepository>(Mocker.Resolve<AuditRepository>());
+            Mocker.SetConstant<IAuditService>(Mocker.Resolve<AuditService>());
+            Mocker.SetConstant<IImportedMessageRepository>(Mocker.Resolve<ImportedMessageRepository>());
+            Mocker.SetConstant<IUserManagementService>(Mocker.Resolve<UserManagementService>());
             Mocker.SetConstant<IRequestService>(Mocker.Resolve<RequestService>());
+            Mocker.SetConstant<IAvailabilityService>(Mocker.Resolve<AvailabilityService>());
             Mocker.Resolve<IBackendService>().SyncFromProvisioning(new BackendsProvisioning
             {
                 Radarr = new List<BackendInstanceProvisioning> { new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = LiveDev.RadarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true } }
             });
-
-            return Mocker.Resolve<IBackendRepository>().All().Single().Id;
         }
 
         // The test member, onboarded with this check's channel as theirs; their own server roles and channels are untouched.
@@ -172,21 +177,34 @@ namespace Requestarr.Core.Test.Imports
             return user;
         }
 
-        private static Request Imported(int owner, (int TmdbId, string Title, int Year) film, int item, int backend) => new()
+        // The whole import, as the Import page runs it: preview, confirm, write, first check. The test member asked for the
+        // stuck film, someone never onboarded for the other.
+        private async Task ImportAsync(RequestarrUser member)
         {
-            OwnerUserId = owner,
-            ContentType = ContentType.Movie,
-            Title = film.Title,
-            Year = film.Year,
-            TmdbId = film.TmdbId,
-            Status = RequestStatus.Approved,
-            BackendId = backend,
-            ExternalItemId = item,
-            Requested = DateTime.UtcNow.AddYears(-1),
-            Imported = true,
-            FirstCheckDue = true,
-            SummaryDue = true
-        };
+            var memberId = ulong.Parse(Mocker.Resolve<IUserIdentityRepository>().GetForUser(member.Id).Single().ExternalId);
+            var messages = new[] { Sent(2, Stuck, memberId, member.DisplayName), Sent(1, There, Stranger, "Not onboarded") };
+            Mocker.GetMock<IChannelHistory>().Setup(h => h.DescribeAsync(OldChannel)).ReturnsAsync(new ImportChannel(OldChannel, "Old server", "media-requests", true, null));
+            Mocker.GetMock<IChannelHistory>().Setup(h => h.ReadAsync(OldChannel, It.IsAny<ulong?>())).ReturnsAsync((ulong _, ulong? before) => messages.Where(m => before == null || m.Id < before).ToList());
+            var import = Mocker.Resolve<ImportService>();
+            Mocker.GetMock<IManageCommandQueue>()
+                .Setup(q => q.Push(It.IsAny<ImportRequestrrCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()))
+                .Callback<ImportRequestrrCommand, CommandPriority, CommandTrigger>((command, _, _) => import.Execute(command));
+
+            var job = await import.StartPreviewAsync(new[] { OldChannel });
+            await UntilAsync("the import's preview is ready", () => Task.FromResult(import.Job(job.Id).State != ImportJobState.Reading));
+            import.Job(job.Id).Problem.Should().BeNull();
+            (await import.ConfirmAsync(job.Id, Actor.Web("automated check"))).Result.Requests.Should().Be(2);
+            Log("[import] imported 2 requests from two of Requestrr's replies");
+        }
+
+        // Requestrr's reply to someone's request for a film.
+        private static HistoryMessage Sent(ulong id, (int TmdbId, string Title, int Year) film, ulong who, string name)
+        {
+            var text = $"Your request for **{film.Title}** was sent successfully!";
+            var card = new HistoryEmbed($"{film.Title} ({film.Year})", $"https://www.themoviedb.org/movie/{film.TmdbId}");
+
+            return new HistoryMessage(id, OldChannel, DateTime.UtcNow.AddYears(-1), 900000000000300001, true, text, new[] { card }, who, name, Array.Empty<ulong>(), 0);
+        }
 
         private async Task<Dictionary<int, int>> AddMoviesAsync()
         {
