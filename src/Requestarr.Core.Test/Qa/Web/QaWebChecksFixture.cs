@@ -21,6 +21,7 @@ namespace Requestarr.Core.Test.Qa.Web
     [ManualTest]
     public partial class QaWebChecksFixture
     {
+        private const string FilterChoices = "[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].map(e => e.innerText.trim())";
         private const string HeaderLogo = "img[class*='PageHeader-logo']";
         private const string ProvisionedNote = "Set by your provisioning file";
 
@@ -191,8 +192,6 @@ namespace Requestarr.Core.Test.Qa.Web
             await FilterStatesAsync(browser, check);
             await OpenInSonarrAsync(browser, check);
         });
-
-        private const string FilterChoices = "[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].map(e => e.innerText.trim())";
 
         // The Requests page's filters, and the same on the page of the member with the most requests.
         private static async Task FilterStatesAsync(HeadlessBrowser browser, WebCheck check)
