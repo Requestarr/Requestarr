@@ -573,6 +573,30 @@ namespace Requestarr.Core.Discord
 
         public static string ImportedLine(DateTime requested) => $"Imported{Dot}requested {HistoryDate(requested)}";
 
+        // What an import found already in trouble, in the admin feed (RequestCards.ImportSummary).
+        public const string ImportSummaryTitle = "📜 From the import";
+
+        // Titles named in one line of it; the rest are counted.
+        private const int MostImportTitles = 10;
+
+        public static string ImportTroubleLine(Requests.ImportTrouble trouble, string instance, IReadOnlyCollection<string> titles)
+        {
+            var isOne = titles.Count == 1;
+            var where = instance == null ? string.Empty : $" in {instance}";
+            var stuck = $"{(isOne ? "is" : "are")} stuck{where}";
+            var what = trouble switch
+            {
+                Requests.ImportTrouble.Failed => $"failed{where}",
+                Requests.ImportTrouble.ManualImport => $"{stuck} and {(isOne ? "needs" : "need")} a manual import",
+                _ => stuck
+            };
+            var more = titles.Count > MostImportTitles ? $" and {titles.Count - MostImportTitles} more" : string.Empty;
+
+            return $"{Plural(titles.Count, "download")} {what}: {string.Join(", ", titles.Take(MostImportTitles))}{more}.";
+        }
+
+        public static string TitleLink(string label, string url) => url == null ? label : $"[{label}]({url})";
+
         public static string HistoryFeedHeader(int requests, int members) =>
             $"📜 Posting {requests} imported request{(requests == 1 ? string.Empty : "s")} from {members} member{(members == 1 ? string.Empty : "s")}, oldest first.";
 
@@ -717,7 +741,13 @@ namespace Requestarr.Core.Discord
         public static string WebhookUnreachable(string url, string error, int minutes) =>
             $"can't reach Requestarr at {url} ({error}). Downloads are still tracked: Requestarr checks every {minutes} minutes.";
 
-        private static string Because(string detail) => string.IsNullOrWhiteSpace(detail) ? string.Empty : $": {detail}";
+        // The sentence around it ends it: whatever the app or the admin ended theirs with goes.
+        private static string Because(string detail)
+        {
+            var reason = detail?.TrimEnd(' ', '.', ',', ';', ':', '!', '?', '…');
+
+            return string.IsNullOrWhiteSpace(reason) ? string.Empty : $": {reason}";
+        }
 
         // Cancelling a request that was already sent (admin, from its feed or request card).
         public static string CannotCancelDownloading(int id) =>

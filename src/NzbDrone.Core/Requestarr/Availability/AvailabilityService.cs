@@ -99,6 +99,7 @@ namespace Requestarr.Core.Availability
         private readonly Announcements.IReleaseEnvironment _environment;
         private readonly IBackendRepository _repository;
         private readonly Provisioning.IProvisioningService _provisioning;
+        private readonly Imports.IImportSummary _importSummary;
         private readonly Logger _logger;
 
         // One check at a time, so a webhook and the poll arriving together report a change once.
@@ -121,6 +122,7 @@ namespace Requestarr.Core.Availability
                                    Announcements.IReleaseEnvironment environment,
                                    IBackendRepository repository,
                                    Provisioning.IProvisioningService provisioning,
+                                   Imports.IImportSummary importSummary,
                                    Logger logger)
         {
             _requests = requests;
@@ -135,6 +137,7 @@ namespace Requestarr.Core.Availability
             _environment = environment;
             _repository = repository;
             _provisioning = provisioning;
+            _importSummary = importSummary;
             _logger = logger;
         }
 
@@ -252,9 +255,30 @@ namespace Requestarr.Core.Availability
 
             _lastPoll = Clock();
 
-            foreach (var request in _requests.WithStatus(RequestStatus.Approved).Where(r => r.IsTracked))
+            try
             {
-                await CheckAsync(request.Id);
+                foreach (var request in _requests.WithStatus(RequestStatus.Approved).Where(r => r.IsTracked))
+                {
+                    await CheckAsync(request.Id);
+                }
+            }
+            finally
+            {
+                await SumUpImportsAsync();
+            }
+        }
+
+        private async Task SumUpImportsAsync()
+        {
+            await _lock.WaitAsync();
+
+            try
+            {
+                await _importSummary.PostAsync();
+            }
+            finally
+            {
+                _lock.Release();
             }
         }
 

@@ -9,6 +9,7 @@ using NLog;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Removals;
@@ -67,6 +68,9 @@ namespace Requestarr.Core.Imports
         // Whether each channel has Requestrr's replies (HasSourceRepliesAsync).
         private readonly ConcurrentDictionary<ulong, Lazy<Task<bool>>> _probes = new();
 
+        // How long an import's history waits for the first check: a Sonarr or Radarr that doesn't answer doesn't hold it up.
+        private static readonly TimeSpan FirstCheckWait = TimeSpan.FromMinutes(1);
+
         // One import writes at a time, whichever preview it confirms: each plans again inside, so a second confirm (a
         // double click, two tabs, two previews of the same channels) finds the first one's messages already imported.
         private readonly SemaphoreSlim _writing = new(1, 1);
@@ -87,6 +91,7 @@ namespace Requestarr.Core.Imports
         private readonly IMemberNameService _names;
         private readonly IManageCommandQueue _commands;
         private readonly IHistoryPosting _posting;
+        private readonly IAvailabilityService _availability;
         private readonly Logger _logger;
 
         public ImportService(IChannelHistory history,
@@ -105,6 +110,7 @@ namespace Requestarr.Core.Imports
                              IMemberNameService names,
                              IManageCommandQueue commands,
                              IHistoryPosting posting,
+                             IAvailabilityService availability,
                              Logger logger)
         {
             _history = history;
@@ -124,6 +130,7 @@ namespace Requestarr.Core.Imports
             _names = names;
             _commands = commands;
             _posting = posting;
+            _availability = availability;
             _logger = logger;
         }
 
@@ -221,7 +228,10 @@ namespace Requestarr.Core.Imports
                     var plan = ImportPlanner.Plan(job.Messages, Context(job.Library));
                     var members = await MembersAsync(plan);
                     var lastBefore = _requests.All().Select(r => r.Id).DefaultIfEmpty().Max();
-                    job.Done(plan, Write(plan, job.Channels, members, new Actor(message.ConfirmedBy, message.ConfirmedById)));
+                    job.Done(plan, Write(plan, job.Channels, members, lastBefore, new Actor(message.ConfirmedBy, message.ConfirmedById)));
+
+                    // Before anything is posted, so the cards say how each request stands.
+                    await FirstCheckAsync();
 
                     // This import's new requests in the admin feed, slowly, when that's switched on.
                     _posting.QueueImport(lastBefore);
@@ -240,6 +250,19 @@ namespace Requestarr.Core.Imports
             finally
             {
                 _writing.Release();
+            }
+        }
+
+        // What isn't answered now is checked by the next poll, as quietly.
+        private async Task FirstCheckAsync()
+        {
+            try
+            {
+                await _availability.CheckAllAsync().WaitAsync(FirstCheckWait);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "The imported requests' downloads aren't all checked yet; the next check carries on");
             }
         }
 
@@ -377,7 +400,7 @@ namespace Requestarr.Core.Imports
             return members;
         }
 
-        private ImportResult Write(ImportPlan plan, IReadOnlyList<ImportChannel> channels, IReadOnlyDictionary<ulong, GuildMember> members, Actor admin)
+        private ImportResult Write(ImportPlan plan, IReadOnlyList<ImportChannel> channels, IReadOnlyDictionary<ulong, GuildMember> members, int lastBefore, Actor admin)
         {
             var people = new PeopleRecords(_users, members, FirstChannels(plan, channels));
             var names = channels.ToDictionary(c => c.Id, c => c.Name);
@@ -410,12 +433,13 @@ namespace Requestarr.Core.Imports
                 }
             }
 
-            var linked = plan.Links.Count(Link);
+            var linked = plan.Links.Where(Link).Select(l => l.RequestId).ToList();
+            AwaitSummary(linked, lastBefore);
 
             var now = DateTime.UtcNow;
             _imported.InsertMany(plan.Recorded.Select(m => new ImportedMessage { MessageId = m.MessageId.ToString(), ChannelId = m.ChannelId.ToString(), Source = _source.Name, Imported = now }).ToList());
 
-            var result = new ImportResult(plan.Requests.Count, plan.Requests.Count(r => !r.InLibrary), followers, people.Created, linked);
+            var result = new ImportResult(plan.Requests.Count, plan.Requests.Count(r => !r.InLibrary), followers, people.Created, linked.Count);
             var detail = $"{result.Requests} requests ({result.NotInLibrary} not in the library) and {result.Followers} followers from {_source.Name} " +
                          $"({string.Join(", ", channels.Select(c => "#" + c.Name))}); {plan.NotRequests} searches that weren't requests, " +
                          $"{result.Linked} earlier requests now in the library, {result.People} people not members yet";
@@ -481,6 +505,7 @@ namespace Requestarr.Core.Imports
             request.Progress = available ? DownloadProgress.Imported : DownloadProgress.None;
             request.Decided = planned.Requested;
             request.Fulfilled = available ? planned.Available ?? planned.Requested : null;
+            request.FirstCheckDue = request.IsTracked;
 
             return request;
         }
@@ -512,10 +537,19 @@ namespace Requestarr.Core.Imports
             request.Progress = link.HasFiles ? DownloadProgress.Imported : DownloadProgress.None;
             request.Decided ??= now;
             request.Fulfilled = link.HasFiles ? now : null;
+            request.FirstCheckDue = request.IsTracked;
             _requests.Update(request);
             _audit.Record(Actor.System, LinkedAction, "request", request.Id.ToString(), $"Found in {link.Instance} by a later import");
 
             return true;
+        }
+
+        // Once everything is written, so a poll that checks some of it meanwhile doesn't sum those up alone.
+        private void AwaitSummary(IReadOnlyCollection<int> linked, int lastBefore)
+        {
+            var followed = _requests.All().Where(r => (r.Id > lastBefore && r.Imported && r.IsTracked) || linked.Contains(r.Id)).ToList();
+            followed.ForEach(r => r.SummaryDue = true);
+            _requests.SetFields(followed, r => r.SummaryDue);
         }
 
         private void Follow(int requestId, ImportFollower follower, PeopleRecords people)

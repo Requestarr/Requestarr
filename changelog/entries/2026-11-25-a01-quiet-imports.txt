@@ -1,0 +1,3 @@
+audience: admins
+kind: fixed
+line: **Quiet imports:** importing old requests no longer raises alerts for what was already so, such as a download stuck before the import. One silent post in the admin feed lists what needs attention, if anything. Requests you imported earlier stop alerting too.

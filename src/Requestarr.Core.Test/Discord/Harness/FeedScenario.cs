@@ -7,6 +7,7 @@ using NzbDrone.Core.Configuration;
 using Requestarr.Core.Availability;
 using Requestarr.Core.Discord;
 using Requestarr.Core.Discord.Interactions;
+using Requestarr.Core.Imports;
 using Requestarr.Core.Requests;
 
 namespace Requestarr.Core.Test.Discord.Harness
@@ -38,6 +39,7 @@ namespace Requestarr.Core.Test.Discord.Harness
             config.SetupGet(c => c.ApiKey).Returns(string.Concat(Enumerable.Repeat("ab", 16)));
             Mocker.SetConstant(config.Object);
 
+            Mocker.SetConstant<IImportSummary>(Mocker.Resolve<ImportSummary>());
             Availability = Mocker.Resolve<AvailabilityService>();
             Mocker.SetConstant<IAvailabilityService>(Availability);
             Availability.Clock = () => Now;

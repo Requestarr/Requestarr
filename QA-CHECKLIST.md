@@ -25,6 +25,15 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The admin command says what it posts, or that it's done.
     - Nobody gets a ping or a notification.
   - Checked by the owner, needs human eyes: how the cards look in the Discord app; the tests cover each card's text, silence and order.
+- **A quiet import**
+  - Steps:
+    1. Import from Requestrr with one download already stuck in Radarr.
+    2. Fix that download.
+  - Expect:
+    - No alert or channel message after the import.
+    - One silent card in the feed names the stuck download.
+    - Once it's fixed, its member and the feed are told.
+  - Checked automatically: the live import alerts check.
 - **Onboard page and window**
   - Steps:
     1. In Members, press Onboard.

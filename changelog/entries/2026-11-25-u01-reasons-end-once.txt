@@ -1,0 +1,3 @@
+audience: users
+kind: fixed
+line: **Reasons end once:** a message about a stuck or failed download no longer ends its reason with two periods.

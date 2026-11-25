@@ -60,7 +60,7 @@ def open_issue_titles(repo):
     return [issue["title"] for issue in json.loads(issues)]
 
 
-def open_issues(repo, findings):
+def create_issues(repo, findings):
     for finding in without_issue(findings, open_issue_titles(repo)):
         print(gh("issue", "create", "--repo", repo, "--label", LABEL, "--title", title(finding), "--body", body(finding)).strip())
 
@@ -72,7 +72,7 @@ def main():
     for finding in findings:
         print("- %s (%s)" % (title(finding), severity(finding)))
     if ref == DEV:
-        open_issues(repo, findings)
+        create_issues(repo, findings)
     elif findings:
         sys.exit("The code scan found a problem: fix it on dev, or dismiss it on GitHub's code scanning page.")
 
