@@ -1,10 +1,10 @@
 import { filterTypes } from 'Helpers/Props';
-import { contentTypeText, requestStatusText, statusText } from 'Portal/portalText';
+import { contentTypeText, requestStatusText } from 'Portal/portalText';
 import { createThunk, handleThunks } from 'Store/thunks';
 import dateFilterPredicate from 'Utilities/Date/dateFilterPredicate';
-import translate from 'Utilities/String/translate';
 import createFetchHandler from './Creators/createFetchHandler';
 import createHandleActions from './Creators/createHandleActions';
+import { isInState } from './requestStates';
 
 // Every request, as Sonarr's series section has them (Sonarr main Store/Actions/seriesActions.js); how the Requests
 // page shows them is in requestIndexActions.js.
@@ -20,21 +20,13 @@ function hasPerson(request, id) {
   return peopleOf(request).some((person) => person.id === id);
 }
 
-function filterOn(key, value) {
-  return [{ key, value, type: filterTypes.EQUAL }];
-}
-
-export const filters = [
-  { key: 'all', label: () => translate('All'), filters: [] },
-  { key: 'pending', label: () => statusText('pending'), filters: filterOn('status', 'pending') },
-  { key: 'approved', label: () => statusText('approved'), filters: filterOn('status', 'approved') },
-  { key: 'available', label: () => statusText('available'), filters: filterOn('status', 'available') },
-  { key: 'denied', label: () => statusText('denied'), filters: filterOn('status', 'denied') },
-  { key: 'movie', label: () => contentTypeText('movie'), filters: filterOn('contentType', 'movie') },
-  { key: 'tv', label: () => contentTypeText('tv'), filters: filterOn('contentType', 'tv') }
-];
-
 export const filterPredicates = {
+  state(item, value, type) {
+    const has = isInState(item, value);
+
+    return type === filterTypes.NOT_EQUAL ? !has : has;
+  },
+
   // Asked for or followed by.
   member(item, value, type) {
     const has = hasPerson(item, value);

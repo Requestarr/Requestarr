@@ -93,7 +93,7 @@ Scope: `Portal/**`, `Settings/Requestarr/**`, `Setup/**`. "deleted" = removed in
 | `Requests/RequestsPosters.tsx` | Poster grid | Sonarr main `Series/Index/Posters/SeriesIndexPosters` (react-window grid), `SeriesIndexPoster`, `SeriesIndexPosterInfo`, `Options/SeriesIndexPosterOptionsModal` | ADAPT |
 | `RequestMedia.RequestPoster`, `RequestsPosters.Poster` | Lazy poster with fallback | Sonarr main `Series/SeriesPoster` + `SeriesImage` (placeholder image) | ADAPT |
 | `Requests/RequestViews.css` | Hand-written copy of Sonarr's layout | Sonarr's own CSS for those components | REPLACE |
-| `RequestMedia` `releaseText`, `OpenInLink` | Release dates; open in Sonarr or Radarr | none (domain) | KEEP |
+| `RequestMedia` `releaseText` | Release dates | none (domain) | KEEP |
 | `Components/FollowerStack.tsx` | Follower pictures, `title` for hover | Domain; hover → `Tooltip/Popover.js` (deleted); badge → `Label` | KEEP + ADAPT |
 | `Avatar.tsx`, `Person.tsx`, `MemberLink.tsx` | Discord identity | none (domain); @handle hover → `Tooltip` | KEEP |
 | Progress text (`portalText` progress, seasons there vs asked, onboarding run) | Text only | `Components/ProgressBar.js` (deleted), like Sonarr `Series/Index/ProgressBar` | ADAPT |
@@ -103,7 +103,7 @@ Scope: `Portal/**`, `Settings/Requestarr/**`, `Setup/**`. "deleted" = removed in
 | Requestarr file | What it does | Servarr equivalent | Verdict |
 |---|---|---|---|
 | `Requests/RequestDetailPage.tsx` | FieldSet + DescriptionList summary; actions in a FieldSet | Sonarr main `Series/Details/SeriesDetails.js`: backdrop header, `SeriesPoster`, title, `Label size=LARGE` chips with icons, overview, links in a `Popover`; actions as `PageToolbarButton`s | ADAPT |
-| `RequestDetailPage` `TitleLinks` | TMDb, TVDB, Open in | `Series/Details/SeriesDetailsLinks.tsx` | ADAPT |
+| `RequestDetailPage` `TitleLinks` | TMDb, TVDB | `Series/Details/SeriesDetailsLinks.tsx` | ADAPT |
 | `Requests/RequestActions.tsx`, `useRequestActionRunner.tsx` | Action buttons and dialogs | Toolbar buttons + section thunks | ADAPT |
 | `Members/MemberDetailPage.tsx`, `MemberActions.tsx`, `AccessRow.tsx` | Member summary and inline forms | Same header pattern (avatar in place of the poster); access editing as an edit modal (Sonarr `Series/Edit/EditSeriesModalContent`) | ADAPT |
 | `TimelineTable` on the detail pages | History | Sonarr `Series/History/SeriesHistoryModal` + `Activity/History/Details/HistoryDetailsModal`; Prowlarr `History/Details/*` (deleted) | ADAPT |

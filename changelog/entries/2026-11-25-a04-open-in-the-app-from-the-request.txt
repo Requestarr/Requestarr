@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Open in the app from the request's page:** its toolbar has the button, which says why when there's nothing to open. The lists and the search have one link a row, to the request's page.

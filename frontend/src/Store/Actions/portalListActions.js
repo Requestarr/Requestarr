@@ -3,6 +3,7 @@ import { batchActions } from 'redux-batched-actions';
 import { sortDirections } from 'Helpers/Props';
 import { createThunk, handleThunks } from 'Store/thunks';
 import createAjaxRequest from 'Utilities/createAjaxRequest';
+import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import serverSideCollectionHandlers from 'Utilities/serverSideCollectionHandlers';
 import getSectionState from 'Utilities/State/getSectionState';
 import translate from 'Utilities/String/translate';
@@ -12,6 +13,7 @@ import createServerSideCollectionHandlers from './Creators/createServerSideColle
 import createSetTableOptionReducer from './Creators/Reducers/createSetTableOptionReducer';
 import { fetchMembers } from './memberActions';
 import { fetchRequests } from './requestActions';
+import { requestFilters } from './requestStates';
 
 // The portal's long lists read from the server a page at a time, as Servarr's System, then Events
 // (Store/Actions/systemActions.js system.logs) and Prowlarr's History (historyActions.js): each a section with its page,
@@ -71,10 +73,15 @@ export const removalColumns = [
 
 const newestRequested = { sortKey: 'requested', sortDirection: sortDirections.DESCENDING };
 
+// Every list starts unfiltered, with All its only filter unless it has its own.
+const unfiltered = { selectedFilterKey: 'all' };
+const onlyAll = [requestFilters[0]];
+const requestList = { ...newestRequested, filters: requestFilters };
+
 // Each list: where it's read from, its columns and its first sort.
 const LISTS = {
-  memberRequests: { url: '/portal/members/requests', columns: requestColumns(false), ...newestRequested },
-  memberFollowing: { url: '/portal/members/following', columns: requestColumns(true), ...newestRequested },
+  memberRequests: { url: '/portal/members/requests', columns: requestColumns(false), ...requestList },
+  memberFollowing: { url: '/portal/members/following', columns: requestColumns(true), ...requestList },
   memberRemovals: { url: '/portal/members/removals', columns: removalColumns },
   memberHistory: { url: '/portal/members/history', columns: eventColumns },
   requestTimeline: { url: '/portal/requests/timeline', columns: eventColumns },
@@ -153,8 +160,10 @@ export const defaultState = Object.fromEntries(LIST_NAMES.map((name) => {
     sortDirection: sortDirections.ASCENDING,
     items: [],
 
-    // The ID and filters every page is read with (the member's ID, the audit log's search).
+    // The ID and filters every page is read with (the member's ID, the audit log's search), and the Filter menu's pick.
     query: {},
+    filters: onlyAll,
+    ...unfiltered,
     ...list
   }];
 }));
@@ -171,21 +180,23 @@ const PAGE_ACTIONS = {
   [serverSideCollectionHandlers.NEXT_PAGE]: 'gotoNextPage',
   [serverSideCollectionHandlers.LAST_PAGE]: 'gotoLastPage',
   [serverSideCollectionHandlers.EXACT_PAGE]: 'gotoPage',
-  [serverSideCollectionHandlers.SORT]: 'setSort'
+  [serverSideCollectionHandlers.SORT]: 'setSort',
+  [serverSideCollectionHandlers.FILTER]: 'setFilter'
 };
 
-// Each list's thunks (fetch, the pager's pages, sort) and table option action, by the list's name.
+// Each list's thunks (fetch, the pager's pages, sort, filter) and table option action, by the list's name.
 export const listActions = Object.fromEntries(LIST_NAMES.map((name) => [name, {
   ...Object.fromEntries(Object.values(PAGE_ACTIONS).map((action) => [action, createThunk(typeOf(name, action))])),
   setTableOption: createAction(typeOf(name, 'setTableOption'))
 }]));
 
-// Starts a list over for its query (a member's ID, the audit log's search), at its first sort, and reads its first page.
+// Starts a list over for its query (a member's ID, the audit log's search), at its first sort and unfiltered, and reads
+// its first page.
 export function showList(name, query) {
   const { sortKey = null, sortDirection = sortDirections.ASCENDING } = LISTS[name];
 
   return (dispatch) => {
-    dispatch(set({ section: sectionOf(name), query, page: 1, sortKey, sortDirection, items: [], isPopulated: false }));
+    dispatch(set({ section: sectionOf(name), query, page: 1, sortKey, sortDirection, ...unfiltered, items: [], isPopulated: false }));
     dispatch(listActions[name].fetch());
   };
 }
@@ -228,11 +239,12 @@ function createFetchListHandler(name) {
     abortCurrentRequests[listSection]?.();
     dispatch(set({ section: listSection, isFetching: true }));
 
-    const { page, pageSize, sortKey, sortDirection, query } = getSectionState(getState(), listSection, true);
+    const { page, pageSize, sortKey, sortDirection, query, selectedFilterKey, filters } = getSectionState(getState(), listSection, true);
     const sort = sortKey ? { sortKey, sortDirection } : {};
+    const filter = Object.fromEntries(findSelectedFilters(selectedFilterKey, filters).map(({ key, value }) => [key, value]));
     const { request, abortRequest } = createAjaxRequest({
       url: LISTS[name].url,
-      data: { page: payload.page || page || 1, pageSize, ...sort, ...query },
+      data: { page: payload.page || page || 1, pageSize, ...sort, ...query, ...filter },
       traditional: true
     });
 

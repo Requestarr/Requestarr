@@ -8,7 +8,6 @@ import FollowerStack from '../Components/FollowerStack';
 import MemberLink from '../Components/MemberLink';
 import { contentTypeText, seasonsText, titleText } from '../portalText';
 import { PortalRequest } from '../PortalTypes';
-import { OpenInLink } from './RequestMedia';
 import RequestPoster from './RequestPoster';
 import RequestStatusLabel from './RequestStatusLabel';
 import styles from '../Portal.css';
@@ -21,7 +20,6 @@ function TitleContent({ request }: { request: PortalRequest }) {
     <div>
       <Link to={`/requests/${request.id}`}>{titleText(request)}</Link>
       {seasons && <div className={styles.muted}>{seasons}</div>}
-      <OpenInLink media={request.media} />
     </div>
   );
 }

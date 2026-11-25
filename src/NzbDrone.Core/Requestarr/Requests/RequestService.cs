@@ -831,7 +831,7 @@ namespace Requestarr.Core.Requests
                 request.Fulfilled = Clock();
                 request.ProgressSizeLeft = null;
                 _requests.Update(request);
-                _audit.Record(Actor.System, "request.fulfilled", "request", request.Id.ToString(), request.ContentType == ContentType.Tv ? $"seasons {DiscordText.PlainSeasons(seasons)}" : null);
+                _audit.Record(Actor.System, "request.fulfilled", "request", request.Id.ToString(), request.ContentType == ContentType.Tv ? DiscordText.PlainSeasons(seasons) : null);
                 return true;
             }
 
@@ -1267,7 +1267,7 @@ namespace Requestarr.Core.Requests
             }
 
             _requests.Update(request);
-            _audit.Record(Actor.System, "request.removed", "request", request.Id.ToString(), seasons?.Any() == true ? $"seasons {string.Join(", ", seasons)}" : "whole title");
+            _audit.Record(Actor.System, "request.removed", "request", request.Id.ToString(), seasons?.Any() == true ? DiscordText.PlainSeasons(seasons) : "whole title");
             await RefreshMessagesAsync(request, null, ownerRepost: true, note);
         }
 

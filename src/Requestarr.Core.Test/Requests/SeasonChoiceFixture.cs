@@ -38,7 +38,7 @@ namespace Requestarr.Core.Test.Requests
             var final = (await Click(Alice, $"req-tv-all:{DarkMatter}")).LastReply;
 
             final.Content.Should().StartWith(DiscordText.FinalSent).And.NotContain("You chose");
-            final.Content.Should().Contain("Seasons: all seasons (1–2) and new seasons as they air, without specials.");
+            final.Content.Should().Contain("All seasons (1–2) and new seasons as they air, without specials.");
             final.Buttons.Select(b => b.CustomId).Should().Equal("req-add:1"); // once sent, seasons can only be added
             var added = Sonarr.Adds.Single();
             added.Seasons.Should().Equal(1, 2);
@@ -70,7 +70,7 @@ namespace Requestarr.Core.Test.Requests
 
             Sonarr.Adds.Single().Seasons.Should().Equal(2);
             Sonarr.Adds.Single().MonitorFuture.Should().BeFalse();
-            final.Content.Should().Contain("Seasons: season 2 only; new seasons won't be added.");
+            final.Content.Should().Contain("Season 2 only; new seasons won't be added.");
         }
 
         [Test]
@@ -130,7 +130,7 @@ namespace Requestarr.Core.Test.Requests
             LastRequest.MonitorFutureSeasons.Should().Be(future);
             Sonarr.Adds.Single().Seasons.Should().Equal(expected);
             Sonarr.Adds.Single().MonitorFuture.Should().Be(future);
-            final.Content.Should().Contain($"Seasons: {said}.");
+            final.Content.Should().Contain(DiscordText.SeasonsLine(said));
         }
 
         [Test]

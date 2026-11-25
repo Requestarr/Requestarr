@@ -21,9 +21,9 @@ namespace Requestarr.Core.Portal
     public record PortalFollower(PortalPerson Person, DateTime Followed);
 
     // What the title is, as the feed card shows it: the poster, overview and dates, its page on The Movie Database or
-    // TheTVDB, and (when it's in a Sonarr or Radarr a browser can reach) its page there. Values not known are left out.
+    // TheTVDB, and the Sonarr or Radarr it opens in, with its page there or why it has none. Values not known are left out.
     public record PortalMedia(string Poster, string Overview, DateTime? InCinemas, DateTime? DigitalRelease, DateTime? PhysicalRelease, DateTime? FirstAired,
-                              string Network, string Page, string OpenUrl, string OpenIn);
+                              string Network, string Page, string OpenUrl, string OpenIn, TitleLinkProblem? OpenProblem);
 
     // Something that happened, from the audit log: when, what, who did it and any detail (a reason, seasons).
     public record PortalEvent(DateTime At, string What, string Who, string Detail);

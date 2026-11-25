@@ -964,7 +964,7 @@ namespace Requestarr.Core.Removals
             return discordId == null ? string.Empty : $"<@{discordId}>";
         }
 
-        private static string Scope(RemovalProposal proposal) => $"{proposal.Label}{(proposal.WholeTitle ? string.Empty : $" seasons {string.Join(", ", proposal.Seasons)}")}";
+        private static string Scope(RemovalProposal proposal) => $"{proposal.Label}{(proposal.WholeTitle ? string.Empty : $" {DiscordText.PlainSeasons(proposal.Seasons)}")}";
 
         private void Save(RemovalProposal proposal) => _proposals.Update(proposal);
     }

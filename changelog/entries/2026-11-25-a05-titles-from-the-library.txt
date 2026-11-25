@@ -1,0 +1,3 @@
+audience: admins
+kind: fixed
+line: **Missing links and posters:** a request already in a library gets its link and poster from there, even when a search for the title finds nothing.

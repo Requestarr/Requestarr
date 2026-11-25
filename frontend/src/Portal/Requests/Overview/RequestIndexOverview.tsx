@@ -7,7 +7,6 @@ import fonts from 'Styles/Variables/fonts';
 import PosterSelect from '../../Components/Select/PosterSelect';
 import { titleText } from '../../portalText';
 import { PortalRequest } from '../../PortalTypes';
-import { OpenInLink } from '../RequestMedia';
 import RequestPoster from '../RequestPoster';
 import RequestProgressBar from '../RequestProgressBar';
 import RequestIndexOverviewInfo from './RequestIndexOverviewInfo';
@@ -34,8 +33,7 @@ interface RequestIndexOverviewProps {
 }
 
 // One request in the Overview view, as Sonarr main's Series/Index/Overview/SeriesIndexOverview draws a series: the
-// poster with its status bar, the title with "Open in Sonarr" where Sonarr has its row's actions, as much of the
-// overview as fits, and the rows the options turn on.
+// poster with its status bar, the title, as much of the overview as fits, and the rows the options turn on.
 function RequestIndexOverview(props: RequestIndexOverviewProps) {
   const { request, options, posterWidth, posterHeight, isSelectMode } = props;
   const link = `/requests/${request.id}`;
@@ -76,10 +74,6 @@ function RequestIndexOverview(props: RequestIndexOverviewProps) {
           <Link className={styles.title} to={link}>
             {titleText(request)}
           </Link>
-
-          <div className={styles.actions}>
-            <OpenInLink media={request.media} />
-          </div>
         </div>
 
         <div className={styles.details}>

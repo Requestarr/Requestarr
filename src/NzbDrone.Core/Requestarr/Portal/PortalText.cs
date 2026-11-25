@@ -80,6 +80,8 @@ namespace Requestarr.Core.Portal
         {
             ("request.create", new(@"^(Tv|Movie|Music) (?=.+ on )"), string.Empty),
             ("request.create", new(@"\bseasons seasons\b"), "seasons"),
+            ("request.fulfilled", new(@"^seasons (?=season|specials)"), string.Empty),
+            ("request.removed", new(@"^seasons (\d+)$"), "season $1"),
             ("request.progress", new(@"^None(, |$)"), string.Empty),
             ("user.", new(@"^discord \d+, role \d*, channel \d*, "), string.Empty),
             ("user.remove", new(@"\b(channel|role) \d+ "), "$1 "),

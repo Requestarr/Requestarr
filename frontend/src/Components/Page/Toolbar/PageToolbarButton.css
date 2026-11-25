@@ -14,6 +14,16 @@
   }
 }
 
+/* Requestarr: a button that's a link looks like the buttons beside it. */
+.isLink {
+  color: var(--toolbarColor);
+  line-height: $lineHeight;
+
+  &:hover {
+    text-decoration: none;
+  }
+}
+
 .isDisabled {
   color: var(--disabledColor);
 }

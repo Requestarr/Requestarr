@@ -1,0 +1,3 @@
+audience: admins
+kind: fixed
+line: **What's new:** each build shows its own day wherever you are, and older lines show bold instead of asterisks.

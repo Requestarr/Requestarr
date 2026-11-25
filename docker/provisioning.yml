@@ -85,6 +85,7 @@ backends:
   sonarr:
     - name: Sonarr (test)
       url: http://sonarr-test:8989
+      browserUrl: ${SONARR_TEST_BROWSER_URL:-}
       apiKey: ${SONARR_TEST_API_KEY}
       qualityProfile: HD-1080p
       rootFolder: /data/tv
@@ -93,6 +94,7 @@ backends:
   radarr:
     - name: Radarr (test)
       url: http://radarr-test:7878
+      browserUrl: ${RADARR_TEST_BROWSER_URL:-}
       apiKey: ${RADARR_TEST_API_KEY}
       qualityProfile: HD-1080p
       rootFolder: /data/movies

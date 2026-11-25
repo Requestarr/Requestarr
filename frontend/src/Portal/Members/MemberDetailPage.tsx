@@ -12,7 +12,7 @@ import PageContentBody from 'Components/Page/PageContentBody';
 import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
 import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
 import Column from 'Components/Table/Column';
-import { icons, kinds } from 'Helpers/Props';
+import { align, icons, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import Avatar from '../Components/Avatar';
 import DetailsHeader, {
@@ -33,6 +33,7 @@ import {
 import { RequestTableRow } from '../Requests/requestCell';
 import usePortal from '../usePortal';
 import { memberStatusKind } from './MemberStatusLabel';
+import MemberRequestsFilterMenu from './Menus/MemberRequestsFilterMenu';
 import useMemberDetailActions from './useMemberDetailActions';
 import useProfileColor from './useProfileColor';
 import styles from '../Portal.css';
@@ -89,6 +90,9 @@ function Summary({ detail }: { detail: PortalMemberDetail }) {
     </FieldSet>
   );
 }
+
+// Theirs and those they follow.
+const REQUEST_LISTS = ['memberRequests', 'memberFollowing'];
 
 function requestRow(request: PortalRequest, columns: Column[]) {
   return <RequestTableRow request={request} columns={columns} />;
@@ -175,6 +179,10 @@ function MemberDetail({ detail, round, onDone }: MemberDetailProps) {
     <>
       <PageToolbar>
         <PageToolbarSection>{actions.buttons}</PageToolbarSection>
+
+        <PageToolbarSection alignContent={align.RIGHT} collapseButtons={false}>
+          <MemberRequestsFilterMenu lists={REQUEST_LISTS} />
+        </PageToolbarSection>
       </PageToolbar>
 
       <PageContentBody innerClassName={detailsStyles.innerContentBody}>

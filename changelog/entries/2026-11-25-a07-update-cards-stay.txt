@@ -1,0 +1,3 @@
+audience: admins
+kind: changed
+line: **Update cards stay as posted:** a card already in the admin or announcements channel is never edited on your server, even when a build's words change later.

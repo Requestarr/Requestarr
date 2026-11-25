@@ -34,6 +34,32 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - One silent card in the feed names the stuck download.
     - Once it's fixed, its member and the feed are told.
   - Checked automatically: the live import alerts check.
+- **Lists and the app's button**
+  - Steps:
+    1. In the web app, open Requests in each view.
+    2. Open a request that's in Sonarr.
+    3. Press Open in Sonarr in its toolbar.
+  - Expect:
+    - No Open in links in the lists, one link a row.
+    - The series' page in Sonarr opens in a new tab.
+    - Links has only the outside sites.
+  - Checked automatically: the web app request views check.
+- **Filters for what needs attention**
+  - Steps:
+    1. In Requests, open Filter.
+    2. Open a member's page, then Filter.
+  - Expect:
+    - Not available yet, Downloading, Stuck, Removed and Not in library in both.
+    - Their requests and what they follow are filtered together.
+  - Checked automatically: the web app request views check.
+- **Dates and bold in What's new**
+  - Steps:
+    1. Open System, then What's new.
+    2. Look at 0.7.0010, then 0.1.0.
+  - Expect:
+    - 0.7.0010 says November 22, west of UTC too.
+    - Bold words in old lines, no asterisks.
+  - Checked automatically: the web app portal pages check.
 - **Onboard page and window**
   - Steps:
     1. In Members, press Onboard.

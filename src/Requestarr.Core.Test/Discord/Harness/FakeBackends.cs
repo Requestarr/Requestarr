@@ -157,6 +157,9 @@ namespace Requestarr.Core.Test.Discord.Harness
                 .Select(x => TitleOf(x.Item, x.Id.Value))
                 .ToList());
 
+        public Task<MediaLookupResult> GetItemAsync(BackendSettings settings, int itemId) => Run(() =>
+            Catalog.FirstOrDefault(c => (c.LibraryId ?? (Library.TryGetValue((settings.Url, Key(c)), out var id) ? id : null)) == itemId));
+
         public Task DeleteItemAsync(BackendSettings settings, int itemId) => Run(() =>
         {
             if (FailDeletes)

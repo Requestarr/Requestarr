@@ -51,13 +51,28 @@ interface PortalListProps<T> {
   renderRow: (item: T, columns: Column[]) => ReactNode;
 }
 
-// What each list's section has (Store/Actions/portalListActions.js): its fetch, the pager's pages, sort and Table
-// Options.
-interface ListActions {
+function NothingToShow({
+  isFiltered,
+  emptyText,
+}: {
+  isFiltered: boolean;
+  emptyText: string;
+}) {
+  return (
+    <Alert kind={kinds.INFO}>
+      {isFiltered ? translate('PortalNoRequestsMatch') : emptyText}
+    </Alert>
+  );
+}
+
+// What each list's section has (Store/Actions/portalListActions.js): its fetch, the pager's pages, sort, filter and
+// Table Options.
+export interface ListActions {
   fetch: () => AnyAction;
   gotoPage: ({ page }: { page: number }) => AnyAction;
   gotoFirstPage: () => AnyAction;
   setSort: (payload: { sortKey: string }) => AnyAction;
+  setFilter: (payload: { selectedFilterKey: string | number }) => AnyAction;
   setTableOption: (payload: unknown) => AnyAction;
 }
 
@@ -146,7 +161,10 @@ function PortalList<T>(props: PortalListProps<T>) {
       )}
 
       {isLoaded && !list.error && !items.length && !notice && (
-        <Alert kind={kinds.INFO}>{emptyText}</Alert>
+        <NothingToShow
+          isFiltered={list.selectedFilterKey !== 'all'}
+          emptyText={emptyText}
+        />
       )}
 
       {isLoaded && !list.error && !!items.length && (

@@ -5,7 +5,6 @@ import translate from 'Utilities/String/translate';
 import Person from '../Components/Person';
 import { PortalLibraryTitle } from '../PortalTypes';
 import { actionLabel } from '../Requests/ActionButton';
-import { OpenInLink } from '../Requests/RequestMedia';
 import RequestPoster from '../Requests/RequestPoster';
 import { SearchItem } from './usePortalSearch';
 import styles from './PortalSearch.css';
@@ -80,7 +79,7 @@ function LibraryResult({ title, isHighlighted, onRemove }: LibraryResultProps) {
   );
 }
 
-// A request also shows its poster, and its page in Sonarr or Radarr beside it when a browser can reach that.
+// A request also shows its poster and who asked for it.
 function Result({ item, isHighlighted, onOpen, onRemove }: ResultProps) {
   if (item.library) {
     return (
@@ -113,11 +112,6 @@ function Result({ item, isHighlighted, onOpen, onRemove }: ResultProps) {
           </span>
         )}
       </Link>
-      {item.media?.openUrl && (
-        <span className={styles.open}>
-          <OpenInLink media={item.media} />
-        </span>
-      )}
     </div>
   );
 }

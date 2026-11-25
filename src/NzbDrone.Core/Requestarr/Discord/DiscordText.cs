@@ -195,11 +195,13 @@ namespace Requestarr.Core.Discord
         public static string PickedSoFar(string choice) => $"Picked so far: **{choice}**.";
 
         public static string SeasonPageHint((int From, int To) page, int total) =>
-            $"Showing seasons {page.From}–{page.To} of {total}. Use the arrows for the others; your picks are kept.";
+            $"Showing {SeasonPage(page)} of {total}. Use the arrows for the others; your picks are kept.";
 
-        public static string PreviousSeasons((int From, int To) page) => $"◀ Seasons {page.From}–{page.To}";
+        public static string PreviousSeasons((int From, int To) page) => $"◀ {Capitalize(SeasonPage(page))}";
 
-        public static string NextSeasons((int From, int To) page) => $"Seasons {page.From}–{page.To} ▶";
+        public static string NextSeasons((int From, int To) page) => $"{Capitalize(SeasonPage(page))} ▶";
+
+        private static string SeasonPage((int From, int To) page) => page.From == page.To ? $"season {page.From}" : $"seasons {page.From}–{page.To}";
 
         public static string FutureToggle(bool on) => $"Also new seasons: {(on ? "on" : "off")}";
 
@@ -234,7 +236,7 @@ namespace Requestarr.Core.Discord
 
         public static string YouChose(string choice) => $"You chose **{choice}**.\nPress **Request** to send it, or **Back** to change it.";
 
-        public static string SeasonsLine(string choice) => $"Seasons: {choice}.";
+        public static string SeasonsLine(string choice) => $"{Capitalize(choice)}.";
 
         // Plain words for a season choice, so the confirmation leaves no guesswork.
         public static string SeasonChoiceText(SeasonChoice choice, IReadOnlyCollection<int> available)
@@ -439,7 +441,7 @@ namespace Requestarr.Core.Discord
 
         public static string ApprovalCard(Request request, string owner, string instance) =>
             $"**Request #{request.Id}** · {Label(request.ContentType)} · {request.Label}\nRequested by {owner} for {instance}" +
-            (request.ContentType == ContentType.Tv ? $"\nSeasons: {Seasons(request)}" : string.Empty);
+            (request.ContentType == ContentType.Tv ? $"\n{SeasonsLine(Seasons(request))}" : string.Empty);
 
         public static string ApprovedCard(Request request, string owner, string admin) => $"**Request #{request.Id}: approved** by {admin} · {request.Label} for {owner}";
 

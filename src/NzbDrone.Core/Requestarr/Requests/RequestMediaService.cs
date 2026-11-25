@@ -25,8 +25,10 @@ namespace Requestarr.Core.Requests
     // Requests made before media was kept, and imported ones, get it here: looked up once in a Sonarr or Radarr (whose
     // own lookups ask The Movie Database and TheTVDB), one at a time and a moment apart, then kept with the request.
     // A title the instance answers it can't find is marked looked up, so it's never asked again; a Sonarr or Radarr
-    // that can't be reached is left for the next run, and skipped for the rest of this one. It runs after a start,
-    // after an import, and every few hours, which also fills in a request whose media another change wrote over.
+    // that can't be reached is left for the next run, and skipped for the rest of this one. A request in an instance's
+    // library is read from that library, which always knows the title's page, and read again while its page isn't known.
+    // It runs after a start, after an import, and every few hours, which also fills in a request whose media another
+    // change wrote over.
     public class RequestMediaService : IRequestMediaService, IHandle<ApplicationStartedEvent>
     {
         public static readonly TimeSpan Pace = TimeSpan.FromMilliseconds(500);
@@ -166,7 +168,7 @@ namespace Requestarr.Core.Requests
             var unreachable = new HashSet<int>();
             var filled = 0;
 
-            foreach (var request in _requests.All().Where(r => r.Media == null).OrderByDescending(r => r.Requested).ToList())
+            foreach (var request in _requests.All().Where(r => r.Media == null || LacksPage(r)).OrderByDescending(r => r.Requested).ToList())
             {
                 var instance = InstanceFor(request);
 
@@ -190,6 +192,10 @@ namespace Requestarr.Core.Requests
             return filled;
         }
 
+        // In the library, and what its page there is called isn't known.
+        private static bool LacksPage(Request request) =>
+            request.Media.TitleSlug == null && request.ExternalItemId.HasValue && request.Status is RequestStatus.Approved or RequestStatus.Available;
+
         // False when the instance couldn't be reached: tried again next run. One request going wrong never stops the rest.
         private async Task<bool> FillAsync(Request request, BackendInstance instance)
         {
@@ -208,6 +214,12 @@ namespace Requestarr.Core.Requests
             {
                 _logger.Debug(ex, "Couldn't reach {0} to look up request {1}", instance.Name, request.Id);
                 return false;
+            }
+
+            // Nothing found this time takes nothing away that was found before.
+            if (item == null && request.Media != null)
+            {
+                return true;
             }
 
             try
@@ -234,8 +246,20 @@ namespace Requestarr.Core.Requests
             return enabled.FirstOrDefault(b => b.Id == request.BackendId) ?? enabled.FirstOrDefault();
         }
 
+        private async Task<MediaLookupResult> LookupAsync(BackendInstance instance, Request request)
+        {
+            var isThere = request.ExternalItemId.HasValue && request.BackendId == instance.Id;
+            var there = isThere ? await _backends.ApiFor(instance).GetItemAsync(instance.Config, request.ExternalItemId.Value) : null;
+
+            return IsSame(there, request) ? there : await LookupByIdAsync(instance, request);
+        }
+
+        // An instance set up again can have another title by the same number.
+        private static bool IsSame(MediaLookupResult item, Request request) =>
+            item != null && (request.ContentType == ContentType.Movie ? item.TmdbId == request.TmdbId : item.TvdbId == request.TvdbId);
+
         // Movies by The Movie Database ID, shows by TheTVDB ID; a show known only by The Movie Database isn't looked up.
-        private Task<MediaLookupResult> LookupAsync(BackendInstance instance, Request request) => request.ContentType switch
+        private Task<MediaLookupResult> LookupByIdAsync(BackendInstance instance, Request request) => request.ContentType switch
         {
             ContentType.Movie when request.TmdbId.HasValue => _radarr.LookupTmdbAsync(instance.Config, request.TmdbId.Value),
             ContentType.Tv when request.TvdbId.HasValue => _sonarr.LookupTvdbAsync(instance.Config, request.TvdbId.Value),

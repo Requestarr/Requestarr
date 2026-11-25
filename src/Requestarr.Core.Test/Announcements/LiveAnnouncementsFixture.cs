@@ -245,8 +245,8 @@ namespace Requestarr.Core.Test.Announcements
                 adminNotes.Should().HaveCount(running?.HasNews == true ? 1 : 0, "only the build running now, and one with nothing for anyone posts nothing");
                 adminNotes.Should().OnlyContain(t => t.StartsWith($"Requestarr {label} | "), "Unreleased has no day yet");
 
-                // A card an earlier Requestarr posted ("· 2 changes for admins") is brought up to date in place on the
-                // next start: the same message, the new title (version 0.6.0).
+                // A card an earlier Requestarr posted ("· 2 changes for admins") is posted again on the next start, with
+                // the new title: dev shows the build running now, and a card is never edited.
                 if (running?.HasNews == true)
                 {
                     var posted = (await CardMessages(adminRest, VersionAudience.Admins)).Single();
@@ -257,7 +257,7 @@ namespace Requestarr.Core.Test.Announcements
                     await announcements.PostVersionNotesAsync();
                     var after = (await CardMessages(adminRest, VersionAudience.Admins)).Single();
                     Log($"[titles] next start: message {(after.Id == posted.Id ? "kept" : "replaced")}, read back: \"{after.Embeds.First().Title} | {after.Embeds.First().Description}\"");
-                    after.Id.Should().Be(posted.Id, "the card is edited, not posted again");
+                    after.Id.Should().NotBe(posted.Id, "the card is posted again, never edited");
                     after.Embeds.First().Title.Should().Be(fresh.Title);
                 }
 

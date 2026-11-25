@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
 using Requestarr.Core.Users;
@@ -184,10 +185,12 @@ namespace Requestarr.Core.Requests
 
     public static class Titles
     {
-        // Backends already put the year in some titles ("Dark Matter (2024)"); never add it twice.
+        private static readonly Regex EndsInYear = new(@"\(\d{4}\)\s*$");
+
+        // Backends already put the year in some titles ("Dark Matter (2024)"); never add one after it.
         public static string WithYear(string title, int? year)
         {
-            if (!year.HasValue || string.IsNullOrEmpty(title) || title.TrimEnd().EndsWith($"({year})"))
+            if (!year.HasValue || string.IsNullOrEmpty(title) || EndsInYear.IsMatch(title))
             {
                 return title;
             }

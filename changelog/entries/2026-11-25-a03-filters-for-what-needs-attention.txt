@@ -1,0 +1,3 @@
+audience: admins
+kind: new
+line: **Filters for what needs attention:** the Requests page's Filter menu has Not available yet, Downloading, Stuck, Not in library and Removed, and custom filters can use them. A member's page has the same filters for their requests.

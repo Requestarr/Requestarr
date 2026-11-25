@@ -68,6 +68,8 @@ interface PortalListAppState
   sortKey: string;
   sortDirection: SortDirection;
   query: Record<string, unknown>;
+  selectedFilterKey: string | number;
+  filters: Filter[];
 }
 
 export type PortalListsAppState = Record<string, PortalListAppState>;

@@ -2,14 +2,16 @@ using System;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Localization;
 using Requestarr.Core.Portal;
+using Requestarr.Core.Users;
 
 namespace Requestarr.Http.Portal
 {
     // The portal's long lists a page at a time (page from 1, pageSize, sortKey, sortDirection ascending or descending),
     // each section of a member's or request's page on its own, so a page never loads every row. Answers
     // { page, pageSize, totalRecords, records }, Servarr's paging format. A section of a member's or request's page is
-    // also read with its ID in the query (members/requests?id=5), as the web app's server-side lists send it. Needs the
-    // API key or a signed-in admin, like the rest of the API.
+    // also read with its ID in the query (members/requests?id=5), as the web app's server-side lists send it, and a
+    // member's requests with the state or type the page's filter asks for. Needs the API key or a signed-in admin, like
+    // the rest of the API.
     public class PortalPagesController : Controller
     {
         private readonly IPortalQueries _portal;
@@ -30,14 +32,14 @@ namespace Requestarr.Http.Portal
         [HttpGet("/api/v1/portal/members/{id:int}/requests")]
         [HttpGet("/api/v1/portal/members/requests")]
         [Produces("application/json")]
-        public IActionResult MemberRequests(int id, [FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] string sortKey, [FromQuery] string sortDirection) =>
-            _portal.Member(id) is { } member ? Json(PortalPaging.Of(member.Requests, Asked(page, pageSize, sortKey, sortDirection), _sorts.Requests)) : NotFound();
+        public IActionResult MemberRequests(int id, [FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] string sortKey, [FromQuery] string sortDirection, [FromQuery] RequestState? state, [FromQuery] ContentType? contentType) =>
+            _portal.Member(id) is { } member ? Json(PortalPaging.Of(RequestStates.Filter(member.Requests, state, contentType), Asked(page, pageSize, sortKey, sortDirection), _sorts.Requests)) : NotFound();
 
         [HttpGet("/api/v1/portal/members/{id:int}/following")]
         [HttpGet("/api/v1/portal/members/following")]
         [Produces("application/json")]
-        public IActionResult MemberFollowing(int id, [FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] string sortKey, [FromQuery] string sortDirection) =>
-            _portal.Member(id) is { } member ? Json(PortalPaging.Of(member.Following, Asked(page, pageSize, sortKey, sortDirection), _sorts.Requests)) : NotFound();
+        public IActionResult MemberFollowing(int id, [FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] string sortKey, [FromQuery] string sortDirection, [FromQuery] RequestState? state, [FromQuery] ContentType? contentType) =>
+            _portal.Member(id) is { } member ? Json(PortalPaging.Of(RequestStates.Filter(member.Following, state, contentType), Asked(page, pageSize, sortKey, sortDirection), _sorts.Requests)) : NotFound();
 
         [HttpGet("/api/v1/portal/members/{id:int}/removals")]
         [HttpGet("/api/v1/portal/members/removals")]

@@ -18,20 +18,16 @@ const KINDS: { kind: PortalChange['kind']; title: string }[] = [
   { kind: 'changed', title: 'Changed' },
 ];
 
-// "**Lead:** the rest": the changelog's bold lead, then its sentence.
-const LEAD = /^\*\*(.+?)\*\*\s*(.*)$/;
+// The changelog's bold, such as its lines' leads: what's between two pairs of asterisks, kept by the split.
+const BOLD = /\*\*(.+?)\*\*/;
 
 function Line({ text }: { text: string }) {
-  const lead = LEAD.exec(text);
-
   return (
     <li>
-      {lead ? (
-        <>
-          <strong>{lead[1]}</strong> {lead[2]}
-        </>
-      ) : (
-        text
+      {text.split(BOLD).map((part, index) =>
+        // Every second part was between asterisks.
+        // eslint-disable-next-line react/no-array-index-key -- the parts of one line never change
+        index % 2 ? <strong key={index}>{part}</strong> : part
       )}
     </li>
   );
