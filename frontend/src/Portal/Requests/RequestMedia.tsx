@@ -1,6 +1,4 @@
 import moment from 'moment';
-import React from 'react';
-import Link from 'Components/Link/Link';
 import translate from 'Utilities/String/translate';
 import { PortalMedia } from '../PortalTypes';
 
@@ -33,17 +31,4 @@ export function releaseText(media?: PortalMedia | null) {
   ]
     .filter(Boolean)
     .join(' · ');
-}
-
-// "Open in Sonarr": the title's page there, when it's in a Sonarr or Radarr a browser can reach.
-export function OpenInLink({ media }: { media?: PortalMedia | null }) {
-  if (!media?.openUrl || !media.openIn) {
-    return null;
-  }
-
-  return (
-    <Link to={media.openUrl}>
-      {translate('PortalOpenIn', { app: media.openIn })}
-    </Link>
-  );
 }

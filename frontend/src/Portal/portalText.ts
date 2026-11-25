@@ -120,14 +120,23 @@ export function accessText(access: PortalAccess) {
   return `${level}, ${limit}`;
 }
 
+// "Dark Matter (2024)": some titles already end with their year, as Sonarr and Radarr name them.
+const ENDS_IN_YEAR = /\(\d{4}\)\s*$/;
+
 export function titleText(request: { title: string; year: number | null }) {
-  return request.year ? `${request.title} (${request.year})` : request.title;
+  return request.year && !ENDS_IN_YEAR.test(request.title)
+    ? `${request.title} (${request.year})`
+    : request.title;
 }
 
 export function seasonsText(seasons: number[]) {
-  return seasons.length
-    ? translate('PortalSeasonsList', { seasons: seasons.join(', ') })
-    : '';
+  if (!seasons.length) {
+    return '';
+  }
+
+  return seasons.length === 1
+    ? translate('PortalSeason', { season: seasons[0] })
+    : translate('PortalSeasonsList', { seasons: seasons.join(', ') });
 }
 
 // Requestarr answers in Discord's words, with Discord's markup: bold, mentions and times. In the web app those are

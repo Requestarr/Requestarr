@@ -414,10 +414,10 @@ namespace Requestarr.Core.Portal
             public List<PortalFollower> FollowersOf(Request request) =>
                 _followers[request.Id].OrderBy(s => s.Added).Select(s => new PortalFollower(Person(s.UserId), s.Added)).ToList();
 
-            private static PortalMedia Media(Request request, BackendInstance instance)
+            private PortalMedia Media(Request request, BackendInstance instance)
             {
                 var media = request.Media;
-                var open = TitleLinks.Open(instance, request);
+                var link = TitleLinks.Find(instance, request);
 
                 return new PortalMedia(
                     request.PosterUrl,
@@ -428,9 +428,14 @@ namespace Requestarr.Core.Portal
                     media?.FirstAired,
                     media?.Network,
                     TitleLinks.Page(request),
-                    open,
-                    open == null ? null : instance.Implementation);
+                    link.Url,
+                    (instance ?? Taking(request.ContentType))?.Implementation,
+                    link.Problem);
             }
+
+            // Where a request that was never sent would go.
+            private BackendInstance Taking(ContentType type) =>
+                _instances.Values.FirstOrDefault(i => i.Enable && !i.IsDeleted && DiscordText.TypeOf(i) == type);
 
             private PortalPerson Person(int userId)
             {

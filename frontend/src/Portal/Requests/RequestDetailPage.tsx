@@ -10,6 +10,7 @@ import NotFound from 'Components/NotFound';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
+import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
 import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
 import Column from 'Components/Table/Column';
 import Tooltip from 'Components/Tooltip/Tooltip';
@@ -30,14 +31,16 @@ import {
   titleText,
 } from '../portalText';
 import {
+  OpenProblem,
   PortalEvent,
   PortalFollower,
+  PortalMedia,
   PortalRequest,
   PortalRequestDetail,
 } from '../PortalTypes';
 import usePortal from '../usePortal';
 import FollowerRow from './FollowerRow';
-import { OpenInLink, releaseText } from './RequestMedia';
+import { releaseText } from './RequestMedia';
 import RequestPoster from './RequestPoster';
 import { requestStatusKind } from './RequestStatusLabel';
 import useRequestActions from './useRequestActions';
@@ -46,21 +49,49 @@ import styles from '../Portal.css';
 // The Followers section's address, which a list view's follower stack opens.
 const FOLLOWERS_ID = 'followers';
 
-// The title on The Movie Database or TheTVDB, and its page in Sonarr or Radarr when a browser can reach it, as Sonarr
-// main's SeriesDetailsLinks lists a series' sites.
-function TitleLinks({ request }: { request: PortalRequest }) {
-  const page = request.media?.page;
+// Why a title can't be opened in its app, as its button's tooltip.
+const OPEN_PROBLEMS: Record<OpenProblem, string> = {
+  notAdded: 'PortalOpenNotAdded',
+  removed: 'PortalOpenRemoved',
+  connectionDeleted: 'PortalOpenConnectionDeleted',
+  noAddress: 'PortalOpenNoAddress',
+  noPage: 'PortalOpenNoPage',
+};
+
+// "Open in Sonarr": the title's page there, or why there's none. An element rather than a component: the toolbar section
+// lays out its buttons by their own props.
+function openInButton(media?: PortalMedia) {
+  if (!media?.openIn) {
+    return null;
+  }
+
+  const app = media.openIn;
+  const label = translate('PortalOpenIn', { app });
 
   return (
+    <PageToolbarButton
+      key="openIn"
+      className={styles.toolbarLink}
+      label={label}
+      iconName={icons.EXTERNAL_LINK}
+      to={media.openUrl ?? undefined}
+      title={
+        media.openProblem
+          ? translate(OPEN_PROBLEMS[media.openProblem], { app })
+          : label
+      }
+      isDisabled={!media.openUrl}
+    />
+  );
+}
+
+// The title on The Movie Database or TheTVDB, as Sonarr main's SeriesDetailsLinks lists a series' sites.
+function TitleLinks({ page }: { page: string }) {
+  return (
     <div className={styles.links}>
-      {page && (
-        <Link to={page}>
-          {translate(
-            page.includes('thetvdb') ? 'PortalOnTvdb' : 'PortalOnTmdb'
-          )}
-        </Link>
-      )}
-      <OpenInLink media={request.media} />
+      <Link to={page}>
+        {translate(page.includes('thetvdb') ? 'PortalOnTvdb' : 'PortalOnTmdb')}
+      </Link>
     </div>
   );
 }
@@ -112,14 +143,14 @@ function RequestLabels({ request }: { request: PortalRequest }) {
       <HeaderLabel iconName={icons.ADD} title={translate('PortalRequested')}>
         {dateText(request.requested)}
       </HeaderLabel>
-      {(request.media?.page || request.media?.openUrl) && (
+      {request.media?.page && (
         <Tooltip
           anchor={
             <HeaderLabel iconName={icons.EXTERNAL_LINK}>
               {translate('PortalLinks')}
             </HeaderLabel>
           }
-          tooltip={<TitleLinks request={request} />}
+          tooltip={<TitleLinks page={request.media.page} />}
           kind={kinds.INVERSE}
           position={tooltipPositions.BOTTOM}
         />
@@ -253,7 +284,10 @@ function RequestDetail({
   return (
     <>
       <PageToolbar>
-        <PageToolbarSection>{actions.buttons}</PageToolbarSection>
+        <PageToolbarSection>
+          {actions.buttons}
+          {openInButton(request.media)}
+        </PageToolbarSection>
       </PageToolbar>
 
       <PageContentBody innerClassName={detailsStyles.innerContentBody}>

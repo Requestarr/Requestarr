@@ -149,6 +149,9 @@ namespace Requestarr.Core.Backends
         // Every title in the instance's library.
         Task<List<LibraryTitle>> GetLibraryAsync(BackendSettings settings);
 
+        // One title in it, as the instance describes it; null when it's no longer there.
+        Task<MediaLookupResult> GetItemAsync(BackendSettings settings, int itemId);
+
         // Removes a title and its files. Never adds it to the exclusion list, so it can be requested again.
         Task DeleteItemAsync(BackendSettings settings, int itemId);
     }
@@ -362,6 +365,21 @@ namespace Requestarr.Core.Backends
         public async Task<List<LibraryTitle>> GetLibraryAsync(BackendSettings settings) =>
             (await GetAsync<List<Newtonsoft.Json.Linq.JObject>>(settings, ItemResource) ?? new List<Newtonsoft.Json.Linq.JObject>()).Select(LibraryTitleOf).ToList();
 
+        public async Task<MediaLookupResult> GetItemAsync(BackendSettings settings, int itemId)
+        {
+            try
+            {
+                var item = await GetAsync<Newtonsoft.Json.Linq.JObject>(settings, $"{ItemResource}/{itemId}");
+                return (int?)item?["id"] is > 0 ? ItemOf(item) : null;
+            }
+            catch (BackendException ex) when (ex.InnerException is HttpException { Response.StatusCode: System.Net.HttpStatusCode.NotFound })
+            {
+                return null;
+            }
+        }
+
+        protected abstract MediaLookupResult ItemOf(Newtonsoft.Json.Linq.JObject item);
+
         // Radarr: addImportExclusion, Sonarr: addImportListExclusion; both false.
         public Task DeleteItemAsync(BackendSettings settings, int itemId) =>
             SendAsync(settings, $"{ItemResource}/{itemId}", null, System.Net.Http.HttpMethod.Delete, ("deleteFiles", "true"), (ExclusionParameter, "false"));
@@ -555,6 +573,8 @@ namespace Requestarr.Core.Backends
             return new LibraryTitle((int)movie["id"], (string)movie["title"], year, (int?)movie["tmdbId"], null, (bool?)movie["hasFile"] ?? false, Array.Empty<int>(), Array.Empty<int>(), PosterOf(movie));
         }
 
+        protected override MediaLookupResult ItemOf(Newtonsoft.Json.Linq.JObject item) => Map(item);
+
         public async Task<bool?> MovieHasFileAsync(BackendSettings settings, int movieId)
         {
             try
@@ -664,6 +684,8 @@ namespace Requestarr.Core.Backends
             var numbers = seasons.Select(s => (int)s["seasonNumber"]).Where(n => n > 0).ToList();
             return new LibraryTitle((int)series["id"], (string)series["title"], year, (int?)series["tmdbId"], (int?)series["tvdbId"], withFiles.Any(), numbers, withFiles, PosterOf(series));
         }
+
+        protected override MediaLookupResult ItemOf(Newtonsoft.Json.Linq.JObject item) => Map(item);
 
         public async Task DeleteSeasonsAsync(BackendSettings settings, int seriesId, IReadOnlyCollection<int> seasons)
         {

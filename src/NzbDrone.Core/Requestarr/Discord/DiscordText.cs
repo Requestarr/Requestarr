@@ -234,7 +234,7 @@ namespace Requestarr.Core.Discord
 
         public static string YouChose(string choice) => $"You chose **{choice}**.\nPress **Request** to send it, or **Back** to change it.";
 
-        public static string SeasonsLine(string choice) => $"Seasons: {choice}.";
+        public static string SeasonsLine(string choice) => $"{Capitalize(choice)}.";
 
         // Plain words for a season choice, so the confirmation leaves no guesswork.
         public static string SeasonChoiceText(SeasonChoice choice, IReadOnlyCollection<int> available)

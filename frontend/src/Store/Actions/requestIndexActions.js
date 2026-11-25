@@ -6,7 +6,8 @@ import createHandleActions from './Creators/createHandleActions';
 import createSetClientSideCollectionFilterReducer from './Creators/Reducers/createSetClientSideCollectionFilterReducer';
 import createSetClientSideCollectionSortReducer from './Creators/Reducers/createSetClientSideCollectionSortReducer';
 import createSetTableOptionReducer from './Creators/Reducers/createSetTableOptionReducer';
-import { filterPredicates, filters, peopleOf, sortPredicates, uniqueBy } from './requestActions';
+import { filterPredicates, peopleOf, sortPredicates, uniqueBy } from './requestActions';
+import { requestFilters, stateOptions } from './requestStates';
 
 // How the Requests page shows them: sort, filters, custom filters, view, columns and each view's options, remembered
 // in this browser. Sonarr main Store/Actions/seriesIndexActions.js; Prowlarr Store/Actions/indexerIndexActions.js.
@@ -61,7 +62,7 @@ export const defaultState = {
   sortPredicates,
 
   selectedFilterKey: 'all',
-  filters,
+  filters: requestFilters,
   filterPredicates,
 
   filterBuilderProps: [
@@ -75,6 +76,12 @@ export const defaultState = {
       label: () => translate('PortalType'),
       type: filterBuilderTypes.EXACT,
       optionsSelector: (items) => uniqueBy(items, (r) => ({ id: r.contentType, name: contentTypeText(r.contentType) }))
+    },
+    {
+      name: 'state',
+      label: () => translate('PortalState'),
+      type: filterBuilderTypes.EXACT,
+      optionsSelector: stateOptions
     },
     {
       name: 'status',

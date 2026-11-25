@@ -15,7 +15,7 @@ function dayText(date: string, longDateFormat: string) {
   return moment(date).format(DATE_FORMATS[longDateFormat] ?? longDateFormat);
 }
 
-// A day on its own ("November 17, 2026"), in the order chosen under Settings, then UI.
+// A calendar day ("2026-11-17" as "November 17, 2026"), in the order chosen under Settings, then UI.
 export function useDayText() {
   const { longDateFormat } = useSelector(createUISettingsSelector());
 

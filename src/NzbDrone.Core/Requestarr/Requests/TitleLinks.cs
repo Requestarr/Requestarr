@@ -5,26 +5,60 @@ using Requestarr.Core.Users;
 
 namespace Requestarr.Core.Requests
 {
+    // Why a title can't be opened in its Sonarr or Radarr.
+    public enum TitleLinkProblem
+    {
+        NotAdded,
+        Removed,
+        ConnectionDeleted,
+        NoAddress,
+        NoPage
+    }
+
+    // The title's page in its Sonarr or Radarr, or why there isn't one.
+    public record TitleLink(string Url, TitleLinkProblem? Problem);
+
     // Where an admin opens a request's title: its page in Sonarr or Radarr, and on The Movie Database or TheTVDB.
     public static class TitleLinks
     {
         // The instance's page for the title, while it's in that library and a browser can reach the instance: its
         // browser address when set, else its own address unless that's a bare container name (http://sonarr:8989).
-        public static string Open(BackendInstance instance, Request request)
-        {
-            var root = instance == null ? null : BrowserRoot(instance.Config);
+        public static string Open(BackendInstance instance, Request request) => Find(instance, request).Url;
 
-            if (root == null || request.ExternalItemId == null || request.Status is RequestStatus.NotInLibrary or RequestStatus.Removed)
+        public static TitleLink Find(BackendInstance instance, Request request)
+        {
+            if (request.Status == RequestStatus.Removed)
             {
-                return null;
+                return new TitleLink(null, TitleLinkProblem.Removed);
             }
 
+            if (instance == null || request.ExternalItemId == null || request.Status == RequestStatus.NotInLibrary)
+            {
+                return new TitleLink(null, TitleLinkProblem.NotAdded);
+            }
+
+            if (instance.IsDeleted)
+            {
+                return new TitleLink(null, TitleLinkProblem.ConnectionDeleted);
+            }
+
+            if (BrowserRoot(instance.Config) is not { } root)
+            {
+                return new TitleLink(null, TitleLinkProblem.NoAddress);
+            }
+
+            return PathOf(instance, request) is { } path ? new TitleLink(root + path, null) : new TitleLink(null, TitleLinkProblem.NoPage);
+        }
+
+        // The app's own route: Sonarr's by the series' slug, Radarr's by the movie's, which is its The Movie Database ID.
+        private static string PathOf(BackendInstance instance, Request request)
+        {
             var slug = request.Media?.TitleSlug;
 
             return instance.Implementation switch
             {
-                BackendImplementations.Sonarr when slug != null => $"{root}/series/{Uri.EscapeDataString(slug)}",
-                BackendImplementations.Radarr when slug != null || request.TmdbId.HasValue => $"{root}/movie/{Uri.EscapeDataString(slug ?? request.TmdbId.ToString())}",
+                BackendImplementations.Sonarr when slug != null => $"/series/{Uri.EscapeDataString(slug)}",
+                BackendImplementations.Radarr when slug != null || request.TmdbId.HasValue => $"/movie/{Uri.EscapeDataString(slug ?? request.TmdbId.ToString())}",
                 _ => null
             };
         }

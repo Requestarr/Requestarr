@@ -53,11 +53,12 @@ interface PortalListProps<T> {
 
 // What each list's section has (Store/Actions/portalListActions.js): its fetch, the pager's pages, sort and Table
 // Options.
-interface ListActions {
+export interface ListActions {
   fetch: () => AnyAction;
   gotoPage: ({ page }: { page: number }) => AnyAction;
   gotoFirstPage: () => AnyAction;
   setSort: (payload: { sortKey: string }) => AnyAction;
+  setFilter: (payload: { selectedFilterKey: string | number }) => AnyAction;
   setTableOption: (payload: unknown) => AnyAction;
 }
 
@@ -146,7 +147,11 @@ function PortalList<T>(props: PortalListProps<T>) {
       )}
 
       {isLoaded && !list.error && !items.length && !notice && (
-        <Alert kind={kinds.INFO}>{emptyText}</Alert>
+        <Alert kind={kinds.INFO}>
+          {list.selectedFilterKey === 'all'
+            ? emptyText
+            : translate('PortalNoRequestsMatch')}
+        </Alert>
       )}
 
       {isLoaded && !list.error && !!items.length && (

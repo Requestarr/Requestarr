@@ -35,6 +35,13 @@ export interface PortalPerson {
   handle: string | null;
 }
 
+export type OpenProblem =
+  | 'notAdded'
+  | 'removed'
+  | 'connectionDeleted'
+  | 'noAddress'
+  | 'noPage';
+
 // What a request's title is (src/NzbDrone.Core/Requestarr/Portal/PortalModels.cs); values not known are null.
 export interface PortalMedia {
   poster?: string | null;
@@ -45,8 +52,11 @@ export interface PortalMedia {
   firstAired?: string | null;
   network?: string | null;
   page?: string | null;
+
+  // The app it opens in, with its page there or why it has none.
   openUrl?: string | null;
   openIn?: string | null;
+  openProblem?: OpenProblem | null;
 }
 
 export interface PortalRequest {

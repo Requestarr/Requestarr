@@ -25,9 +25,10 @@ namespace Requestarr.Core.Portal
 
     public record PortalOutages(IReadOnlyList<PortalOutageNow> Now, IReadOnlyList<PortalOutage> History);
 
-    // One version's changes, as its update card's Read changes has them; Version is its label (0.7.0004-dev.4f2a9c1).
+    // One version's changes, as its update card's Read changes has them; Version is its label (0.7.0004-dev.4f2a9c1),
+    // Date the day it was made.
     // A version's lines for each audience, New first, then Fixed, then Changed.
-    public record PortalVersion(string Version, DateTime? Date, IReadOnlyList<PortalChange> Users, IReadOnlyList<PortalChange> Admins);
+    public record PortalVersion(string Version, DateOnly? Date, IReadOnlyList<PortalChange> Users, IReadOnlyList<PortalChange> Admins);
 
     public record PortalChange(ChangeKind Kind, string Text);
 
@@ -104,7 +105,10 @@ namespace Requestarr.Core.Portal
         public IReadOnlyList<ContentType> Types() => ContentTypes.Offered;
 
         public IReadOnlyList<PortalVersion> Changes() =>
-            _announcements.VersionNotes().Select(n => new PortalVersion(n.Shown, n.Version.Date, Changes(n.Version.Users), Changes(n.Version.Admins))).ToList();
+            _announcements.VersionNotes().Select(n => new PortalVersion(n.Shown, DayOf(n.Version), Changes(n.Version.Users), Changes(n.Version.Admins))).ToList();
+
+        // The calendar day, wherever it's read.
+        private static DateOnly? DayOf(ChangelogVersion version) => version.Date is { } date ? DateOnly.FromDateTime(date) : null;
 
         private static IReadOnlyList<PortalChange> Changes(IEnumerable<ChangelogLine> lines) => lines.Select(l => new PortalChange(l.Kind, l.Text)).ToList();
 
