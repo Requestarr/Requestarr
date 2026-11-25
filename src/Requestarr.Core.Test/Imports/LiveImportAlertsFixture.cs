@@ -238,7 +238,7 @@ namespace Requestarr.Core.Test.Imports
             await UntilAsync("the queue is empty", async () =>
             {
                 await SendAsync(HttpMethod.Post, "command", new JObject { ["name"] = "RefreshMonitoredDownloads" });
-                return !(await SendAsync(HttpMethod.Get, "queue"))["records"].Any();
+                return (await SendAsync(HttpMethod.Get, "queue"))["records"].Children<JObject>().All(q => (int?)q["movieId"] != movieId);
             });
         }
 
@@ -271,11 +271,29 @@ namespace Requestarr.Core.Test.Imports
         // Only what this check made.
         private async Task CleanUpAsync()
         {
-            foreach (var channel in new[] { _feedChannel, _memberChannel }.Where(c => c != 0))
+            try
             {
-                await _gateway.DeleteChannelAsync(channel);
+                await CleanUpRadarrAsync();
+            }
+            finally
+            {
+                foreach (var channel in new[] { _feedChannel, _memberChannel }.Where(c => c != 0))
+                {
+                    await _gateway.DeleteChannelAsync(channel);
+                }
+
+                if (_client != null)
+                {
+                    await _client.StopAsync();
+                    await _client.DisposeAsync();
+                }
             }
 
+            Log("[cleanup] its channels, movies and fake download are gone");
+        }
+
+        private async Task CleanUpRadarrAsync()
+        {
             if (_isOurs)
             {
                 foreach (var client in (await SendAsync(HttpMethod.Get, "downloadclient")).Children<JObject>().Where(c => (string)c["name"] == ClientName))
@@ -290,14 +308,6 @@ namespace Requestarr.Core.Test.Imports
 
                 Docker($"rm -rf {Folder}");
             }
-
-            if (_client != null)
-            {
-                await _client.StopAsync();
-                await _client.DisposeAsync();
-            }
-
-            Log("[cleanup] its channels, movies and fake download are gone");
         }
 
         private async Task<JToken> SendAsync(HttpMethod method, string resource, JObject body = null)

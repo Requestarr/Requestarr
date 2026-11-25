@@ -20,6 +20,9 @@ namespace Requestarr.Core.Requests
         // An imported request's card, marked Imported with the day it was asked for, silent; its message ID.
         Task<ulong> PostImportedAsync(Request request);
 
+        // An imported request's card, when it has one, brought up to date where it is: nothing new is posted.
+        Task RefreshImportedAsync(Request request);
+
         // What an import's first check found that needs attention: one silent card, nothing when there's nothing.
         Task PostImportSummaryAsync(IReadOnlyCollection<Request> needAttention);
 
@@ -101,6 +104,23 @@ namespace Requestarr.Core.Requests
             }
 
             return card;
+        }
+
+        public async Task RefreshImportedAsync(Request request)
+        {
+            if (!ulong.TryParse(Config()?.FeedChannelId, out var channel) || !ulong.TryParse(request.FeedMessageId, out var card))
+            {
+                return;
+            }
+
+            try
+            {
+                await _gateway.EditMessageAsync(channel, card, CardFor(request, true));
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Request {0}: its feed card could not be brought up to date", request.Id);
+            }
         }
 
         public async Task PostImportSummaryAsync(IReadOnlyCollection<Request> needAttention)

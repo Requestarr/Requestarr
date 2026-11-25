@@ -4,6 +4,7 @@ name: Build
 #   a pull request into dev: the build, the code checks and Requestarr's own tests
 #   a pull request or push into qa, staging or main, a Dependabot pull request, a run by hand: the same with every test
 #   a push to dev: everything but the tests, which ran on the pull request
+#   a pull request or push into qa, staging or main: GitHub's code scan as well (code-scan.yml)
 # Linux only: the image that ships is. A push to any other branch runs nothing; its pull request does.
 on:
   push:
@@ -175,6 +176,7 @@ jobs:
           python3 .github/tool_names_check.py --self-test
           python3 .github/app_names_check.py --self-test
           python3 .github/run_tests.py --self-test
+          python3 .github/code_scan.py --self-test
       - name: No AI tool named in the code, docs, scripts or image metadata
         run: python3 .github/tool_names_check.py
       - name: No fixed list of app names in what users and admins read
@@ -220,19 +222,31 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: ./release.sh check-promotion "$BASE_REF" "$HEAD_SHA" "$HEAD_REF"
 
+  # A promotion, and the push that makes it: a finding fails build.
+  code-scan:
+    name: Code scan
+    if: contains(fromJSON('["qa", "staging", "main"]'), github.base_ref || (github.event_name == 'push' && github.ref_name))
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
+    uses: ./.github/workflows/code-scan.yml
+
   # Single status for the dev, qa, staging and main branch rules to require. A push to dev reports under another name: it
   # runs no tests, so it must never stand in for the full suite when the same commit is promoted.
   build:
     name: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'dev checks' || 'build' }}
     if: always()
-    needs: [backend, unused, tests, frontend, docker, secrets, changelog, promotion]
+    needs: [backend, unused, tests, frontend, docker, secrets, changelog, promotion, code-scan]
     runs-on: ubuntu-latest
     steps:
       - name: All jobs passed
         env:
           NEEDS: ${{ toJSON(needs) }}
           TESTS_EXPECTED: ${{ github.event_name != 'push' || github.ref != 'refs/heads/dev' }}
+          SCAN_EXPECTED: ${{ contains(fromJSON('["qa", "staging", "main"]'), github.base_ref || (github.event_name == 'push' && github.ref_name)) }}
         run: |
           echo "$NEEDS"
-          echo "$NEEDS" | jq -e --argjson tests "$TESTS_EXPECTED" \
-            'to_entries | all(.value.result == "success" or (.key == "tests" and ($tests | not) and .value.result == "skipped"))'
+          echo "$NEEDS" | jq -e --argjson tests "$TESTS_EXPECTED" --argjson scan "$SCAN_EXPECTED" \
+            '{tests: $tests, "code-scan": $scan} as $expected
+             | to_entries | all(.value.result == "success" or ($expected[.key] == false and .value.result == "skipped"))'

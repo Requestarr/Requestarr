@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Requestarr.Core.Requests
 {
@@ -12,8 +13,8 @@ namespace Requestarr.Core.Requests
 
     public static class ImportTroubles
     {
-        // How Sonarr and Radarr word a download they can't import by themselves ("Manual Import required.").
-        private const string ManualImportWords = "manual import";
+        // How Radarr ("Manual Import required.") and Sonarr word a download they can't import by themselves.
+        private static readonly string[] ManualImportWords = { "manual import", "automatic import is not possible" };
 
         public static ImportTrouble Of(Request request)
         {
@@ -22,7 +23,7 @@ namespace Requestarr.Core.Requests
                 return ImportTrouble.Failed;
             }
 
-            var isWaitingForAdmin = request.ProgressDetail?.Contains(ManualImportWords, StringComparison.OrdinalIgnoreCase) == true;
+            var isWaitingForAdmin = ManualImportWords.Any(w => request.ProgressDetail?.Contains(w, StringComparison.OrdinalIgnoreCase) == true);
 
             return isWaitingForAdmin ? ImportTrouble.ManualImport : ImportTrouble.Stuck;
         }

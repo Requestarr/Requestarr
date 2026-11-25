@@ -98,14 +98,15 @@ The web app uses Sonarr's, Radarr's and Prowlarr's own parts and patterns (`docs
 
 **What runs when** (the owner's rule, 2026-11-14 and again 2026-11-24: test only the change on dev, the full suite only on promotion):
 
-| When | Build and code checks | Tests |
-|---|---|---|
-| a pull request into `dev` | yes | Requestarr's own: its Core folders and the API tests |
-| a pull request or push into `qa`, `staging` or `main` (a promotion) | yes | every test project |
-| a run by hand (Actions → Build → Run workflow): the promotion's first step, on `dev` | yes | every test project |
-| a Dependabot pull request: an update can break the inherited code | yes | every test project |
-| a push to `dev` (a merge) | yes, reported as `dev checks` | none: they ran on the pull request |
-| a push to any other branch | no | none: its pull request runs them |
+| When | Build and code checks | Tests | Code scan |
+|---|---|---|---|
+| a pull request into `dev` | yes | Requestarr's own: its Core folders and the API tests | no |
+| a pull request or push into `qa`, `staging` or `main` (a promotion) | yes | every test project | yes: a finding fails `build` |
+| a run by hand (Actions → Build → Run workflow): the promotion's first step, on `dev` | yes | every test project | no |
+| a Dependabot pull request: an update can break the inherited code | yes | every test project | no |
+| a push to `dev` (a merge) | yes, reported as `dev checks` | none: they ran on the pull request | no |
+| a push to any other branch | no | none: its pull request runs them | no |
+| once a week on `dev`, and by hand (Actions → Code scan → Run workflow) | no | none | yes: on `dev` a finding becomes an issue |
 
 A push to `dev` has its own name so it can never stand in for the full suite's `build` when that commit is promoted, and `Promotion record` has its name only on a pull request into `qa`, `staging` or `main`: GitHub keeps required checks per commit, not per pull request, so a check with one name everywhere could answer for another pull request of the same commit. The push also saves the caches every pull request starts from (yarn, image layers); pull requests save no image layers, which took most of their time.
 
@@ -116,7 +117,8 @@ A push to `dev` has its own name so it can never stand in for the full suite's `
 | Tests | `.github/run_tests.py own` or `full`, built without the analyzers: Requestarr's Core tests as several processes side by side, then (`full`) the inherited tests one process after another, excluding categories ManualTest, IntegrationTest, AutomationTest, WINDOWS. `own` leaves out Core's folders of Servarr's own tests and the Common, Host and Mono projects; the script lists them, and a new Core folder is Requestarr's own until it's listed there |
 | Frontend | `tsc --noEmit`, ESLint (with its suppressions baseline), knip's unused-code check against its baseline, Stylelint, production webpack build (see [Clean code](#clean-code)) |
 | Docker image | full `docker/Dockerfile` build (not pushed) |
-| Changelog | the checkers' self-tests (changelog, QA checklist, QA gate, version rules, knip, suppressions, tool names, app names, test runs), the tool-names check ([No tool names](#no-tool-names)), the app-names check ([App names](#app-names)), on pull requests the suppression check ([Clean code](#clean-code)), then `CHANGELOG.md` against the changelog rule; on pull requests also the rules for the kind of pull request (see [Changelog](#changelog) and [Versions](#versions)) |
+| Changelog | the checkers' self-tests (changelog, QA checklist, QA gate, version rules, knip, suppressions, tool names, app names, test runs, code scan), the tool-names check ([No tool names](#no-tool-names)), the app-names check ([App names](#app-names)), on pull requests the suppression check ([Clean code](#clean-code)), then `CHANGELOG.md` against the changelog rule; on pull requests also the rules for the kind of pull request (see [Changelog](#changelog) and [Versions](#versions)) |
+| Code scan | on a promotion: [GitHub's code scan](#code-scan) |
 | Promotion record | a pull request into `qa`, `staging` or `main` is a promotion of the branch below it, and its description has a `Requested by:` line; anything else is refused (see [Release flow](#release-flow)) |
 
 `.github/workflows/drift.yml` runs on every push to `dev`, `qa` or `staging`, daily, and by hand (Actions → Drift → Run workflow, with any branches): it fails while `qa` has a commit `dev` doesn't, or `staging` one `qa` doesn't. It isn't a required check, because a staging promotion's release commit is drift until the promotion merges it back into `dev`, at its end.
@@ -124,6 +126,14 @@ A push to `dev` has its own name so it can never stand in for the full suite's `
 `.github/workflows/image.yml` publishes the container image (see [Published images](#published-images)).
 
 Not run in CI: the live checks, which are tagged `ManualTest` (see the test harness section below).
+
+### Code scan
+
+`.github/workflows/code-scan.yml` is GitHub's code scan (CodeQL: the C#, the web app, the scripts and the workflows, with its default queries). It replaced GitHub's default setup, a repository setting that scanned every pull request (the owner, 2026-11-25: promotions and once a week). That setting stays off: GitHub refuses a workflow's results while it's on.
+
+- **On a promotion** `build.yml` calls it, and `build` waits for it: an open finding on the pull request fails `build`, so the promotion stops as it does for a failing test.
+- **Once a week on `dev`** (Mondays), and by hand: `.github/code_scan.py` opens an issue labelled `security` for each open finding that has no open issue, titled `Code scan finding 27: …`. Issues are public and findings aren't, so the issue names the rule and links to the finding, which only maintainers can open. By hand on another branch, a finding fails the run instead.
+- **A finding that isn't a problem** is dismissed with its reason on GitHub (Security, Code scanning); a dismissed finding counts nowhere.
 
 ## Changelog
 

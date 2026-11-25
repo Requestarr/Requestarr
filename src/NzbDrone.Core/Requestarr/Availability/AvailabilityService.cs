@@ -255,12 +255,17 @@ namespace Requestarr.Core.Availability
 
             _lastPoll = Clock();
 
-            foreach (var request in _requests.WithStatus(RequestStatus.Approved).Where(r => r.IsTracked))
+            try
             {
-                await CheckAsync(request.Id);
+                foreach (var request in _requests.WithStatus(RequestStatus.Approved).Where(r => r.IsTracked))
+                {
+                    await CheckAsync(request.Id);
+                }
             }
-
-            await SumUpImportsAsync();
+            finally
+            {
+                await SumUpImportsAsync();
+            }
         }
 
         private async Task SumUpImportsAsync()
