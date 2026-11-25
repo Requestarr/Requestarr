@@ -65,8 +65,8 @@ function NothingToShow({
   );
 }
 
-// What each list's section has (Store/Actions/portalListActions.js): its fetch, the pager's pages, sort and Table
-// Options.
+// What each list's section has (Store/Actions/portalListActions.js): its fetch, the pager's pages, sort, filter and
+// Table Options.
 export interface ListActions {
   fetch: () => AnyAction;
   gotoPage: ({ page }: { page: number }) => AnyAction;

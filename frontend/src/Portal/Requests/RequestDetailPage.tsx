@@ -71,7 +71,7 @@ function openInButton(media?: PortalMedia) {
   return (
     <PageToolbarButton
       key="openIn"
-      className={styles.toolbarLink}
+      className={media.openUrl ? styles.toolbarLink : undefined}
       label={label}
       iconName={icons.EXTERNAL_LINK}
       to={media.openUrl ?? undefined}

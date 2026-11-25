@@ -24,7 +24,9 @@ const STATES = {
 
 const TYPES = ['movie', 'tv'];
 
-export const stateOptions = () => Object.entries(STATES).map(([id, { label }]) => ({ id, name: label() }));
+export function stateOptions() {
+  return Object.entries(STATES).map(([id, { label }]) => ({ id, name: label() }));
+}
 
 export function isInState(request, state) {
   return STATES[state].has(request);

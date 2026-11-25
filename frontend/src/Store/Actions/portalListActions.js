@@ -73,9 +73,10 @@ export const removalColumns = [
 
 const newestRequested = { sortKey: 'requested', sortDirection: sortDirections.DESCENDING };
 
-// What a list that can't be filtered has too, so every list starts over the same way.
+// Every list starts unfiltered, with All its only filter unless it has its own.
 const unfiltered = { selectedFilterKey: 'all' };
-const requestList = { ...newestRequested, ...unfiltered, filters: requestFilters };
+const onlyAll = [requestFilters[0]];
+const requestList = { ...newestRequested, filters: requestFilters };
 
 // Each list: where it's read from, its columns and its first sort.
 const LISTS = {
@@ -161,7 +162,7 @@ export const defaultState = Object.fromEntries(LIST_NAMES.map((name) => {
 
     // The ID and filters every page is read with (the member's ID, the audit log's search), and the Filter menu's pick.
     query: {},
-    filters: [],
+    filters: onlyAll,
     ...unfiltered,
     ...list
   }];
@@ -240,10 +241,10 @@ function createFetchListHandler(name) {
 
     const { page, pageSize, sortKey, sortDirection, query, selectedFilterKey, filters } = getSectionState(getState(), listSection, true);
     const sort = sortKey ? { sortKey, sortDirection } : {};
-    const selected = findSelectedFilters(selectedFilterKey, filters).map(({ key, value }) => [key, value]);
+    const filter = Object.fromEntries(findSelectedFilters(selectedFilterKey, filters).map(({ key, value }) => [key, value]));
     const { request, abortRequest } = createAjaxRequest({
       url: LISTS[name].url,
-      data: { page: payload.page || page || 1, pageSize, ...sort, ...query, ...Object.fromEntries(selected) },
+      data: { page: payload.page || page || 1, pageSize, ...sort, ...query, ...filter },
       traditional: true
     });
 

@@ -26,8 +26,9 @@ namespace Requestarr.Core.Requests
     // own lookups ask The Movie Database and TheTVDB), one at a time and a moment apart, then kept with the request.
     // A title the instance answers it can't find is marked looked up, so it's never asked again; a Sonarr or Radarr
     // that can't be reached is left for the next run, and skipped for the rest of this one. A request in an instance's
-    // library is read from there, which always knows its page there, and one without that yet is read again. It runs after a start,
-    // after an import, and every few hours, which also fills in a request whose media another change wrote over.
+    // library is read from that library, which always knows the title's page, and read again while its page isn't known.
+    // It runs after a start, after an import, and every few hours, which also fills in a request whose media another
+    // change wrote over.
     public class RequestMediaService : IRequestMediaService, IHandle<ApplicationStartedEvent>
     {
         public static readonly TimeSpan Pace = TimeSpan.FromMilliseconds(500);
@@ -217,7 +218,8 @@ namespace Requestarr.Core.Requests
 
             try
             {
-                request.Media = RequestMedia.From(item, DateTime.UtcNow);
+                // Nothing found this time never takes away what was found before.
+                request.Media = item == null && request.Media != null ? request.Media : RequestMedia.From(item, DateTime.UtcNow);
                 request.PosterUrl ??= item?.PosterUrl;
                 request.Year ??= item?.Year;
                 _requests.SetFields(request, r => r.Media, r => r.PosterUrl, r => r.Year);

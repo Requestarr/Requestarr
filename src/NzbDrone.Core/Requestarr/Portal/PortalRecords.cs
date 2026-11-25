@@ -25,9 +25,8 @@ namespace Requestarr.Core.Portal
 
     public record PortalOutages(IReadOnlyList<PortalOutageNow> Now, IReadOnlyList<PortalOutage> History);
 
-    // One version's changes, as its update card's Read changes has them; Version is its label (0.7.0004-dev.4f2a9c1),
-    // Date the day it was made.
-    // A version's lines for each audience, New first, then Fixed, then Changed.
+    // One version's changes, as its update card's Read changes has them: Version is its label (0.7.0004-dev.4f2a9c1),
+    // Date the day it was made, and its lines for each audience are New first, then Fixed, then Changed.
     public record PortalVersion(string Version, DateOnly? Date, IReadOnlyList<PortalChange> Users, IReadOnlyList<PortalChange> Admins);
 
     public record PortalChange(ChangeKind Kind, string Text);

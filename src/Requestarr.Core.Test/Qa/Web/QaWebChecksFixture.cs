@@ -201,7 +201,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"!!{IndexBody}");
             await PressToolbarAsync(browser, "Filter");
             var onRequests = await browser.EvalAsync<string[]>(FilterChoices);
-            var member = await browser.EvalAsync<int>("fetch(`${window.Requestarr.urlBase}/api/v1/portal/members`, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(all => all.sort((a, b) => b.requests - a.requests)[0].id)");
+            var member = await PortalAsync<int>(browser, "members", "all => all.sort((a, b) => b.requests - a.requests)[0].id");
             await browser.GoAsync($"{Url}/members/{member}");
             await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].some(b => b.innerText.trim() === 'Filter')");
             await PressToolbarAsync(browser, "Filter");
@@ -319,7 +319,7 @@ namespace Requestarr.Core.Test.Qa.Web
         {
             await browser.GoAsync($"{Url}/requests");
             await browser.WaitForAsync($"!!{IndexBody}");
-            var id = await browser.EvalAsync<int>("fetch(`${window.Requestarr.urlBase}/api/v1/portal/requests`, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(all => all.find(r => r.media?.openIn === 'Sonarr' && r.media.openUrl)?.id ?? 0)");
+            var id = await PortalAsync<int>(browser, "requests", "all => all.find(r => r.media?.openIn === 'Sonarr' && r.media.openUrl)?.id ?? 0");
 
             if (id == 0)
             {
