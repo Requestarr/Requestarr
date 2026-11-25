@@ -72,6 +72,36 @@ namespace Requestarr.Core.Test.Imports
         }
 
         [Test]
+        public async Task a_card_already_in_the_feed_is_brought_up_to_date_where_it_is()
+        {
+            var request = Imported(UserFor(Alice).Id, "Surf's Up 2: WaveMania", StuckMovie, isSummaryDue: false);
+            await Mocker.Resolve<IRequestFeed>().PostImportedAsync(request);
+            var card = Reload(request.Id).FeedMessageId;
+            Radarr.Imported(StuckMovie);
+            var before = MessagesByChannel();
+
+            await Availability.CheckAllAsync();
+
+            NothingPostedSince(before);
+            Reload(request.Id).FeedMessageId.Should().Be(card);
+            CardOf(request.Id).Embeds.Single().Description.Should().Contain(DiscordText.FinalReady);
+        }
+
+        [Test]
+        public async Task sending_one_again_makes_it_a_request_like_any_other()
+        {
+            var request = Imported(UserFor(Alice).Id, "Dune", StuckMovie);
+            request.TmdbId = Dune;
+            request.Status = RequestStatus.Failed;
+            request.ExternalItemId = null;
+            RequestStore.Update(request);
+
+            await Requests.RetrySendAsync(request.Id, Requestarr.Core.Audit.Actor.Web("owner"));
+
+            (Reload(request.Id).Status, Reload(request.Id).FirstCheckDue, Reload(request.Id).SummaryDue).Should().Be((RequestStatus.Approved, false, false));
+        }
+
+        [Test]
         public async Task one_silent_post_names_what_needs_attention_once()
         {
             var alices = Imported(UserFor(Alice).Id, "Surf's Up 2: WaveMania", StuckMovie);

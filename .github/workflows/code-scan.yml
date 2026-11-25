@@ -19,6 +19,9 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    env:
+      # On a promotion too: every line, not only those the pull request changes.
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: "false"
     strategy:
       fail-fast: false
       matrix:

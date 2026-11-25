@@ -793,8 +793,9 @@ namespace Requestarr.Core.Requests
                     ? DiscordText.RequestFulfilledNotice(request.Label, request.Id)
                     : DiscordText.RequestProgressNotice(request));
             }
-            else if (Admin.TroubleSource.InTrouble(request))
+            else
             {
+                await _feed.RefreshImportedAsync(request);
                 _events.PublishEvent(new AdminQueueChangedEvent());
             }
 
@@ -883,6 +884,7 @@ namespace Requestarr.Core.Requests
                 // Fulfilled before: the new seasons are on their way, so it's tracked again.
                 request.Status = RequestStatus.Approved;
                 request.Progress = DownloadProgress.None;
+                request.FirstCheckDue = false;
             }
 
             _requests.Update(request);
@@ -1423,6 +1425,8 @@ namespace Requestarr.Core.Requests
                 request.QualityProfileId = profile.Id;
                 request.RootFolderPath = root;
                 request.Status = RequestStatus.Approved;
+                request.FirstCheckDue = false;
+                request.SummaryDue = false;
                 request.Decided = Clock();
                 _requests.Update(request);
 
@@ -1644,7 +1648,7 @@ namespace Requestarr.Core.Requests
 
         private Task NotifyUser(int userId, string message) => SendToMemberAsync(userId, $"{Mention(userId)} {message}".Trim());
 
-        // Only ever in their own channel: someone who isn't onboarded is never messaged, here or anywhere else.
+        // Only ever in their own channel: a notice for someone without one goes nowhere else.
         private async Task SendToMemberAsync(int userId, string message)
         {
             var user = _users.Find(userId);

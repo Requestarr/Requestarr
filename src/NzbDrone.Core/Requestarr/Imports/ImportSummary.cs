@@ -39,7 +39,7 @@ namespace Requestarr.Core.Imports
 
             try
             {
-                await _feed.PostImportSummaryAsync(waiting.Where(TroubleSource.InTrouble).ToList());
+                await _feed.PostImportSummaryAsync(waiting.Where(r => r.IsTracked && TroubleSource.InTrouble(r)).ToList());
 
                 waiting.ForEach(r => r.SummaryDue = false);
                 _requests.SetFields(waiting, r => r.SummaryDue);
