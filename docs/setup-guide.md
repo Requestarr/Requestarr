@@ -210,7 +210,7 @@ backends:
 |---|---|---|
 | `name` | yes | Unique across all instances. |
 | `url` | yes | Base URL, without `/api`. |
-| `browserUrl` | no | Where your browser opens the instance, when `url` only works from Requestarr (a container name). Requests link to their title's page there (**Open in Sonarr**, **Open in Radarr**); without it, `url` is used when a browser can reach it, and otherwise there's no link. On a server set up in the web app, it's **Address for links** on the instance. |
+| `browserUrl` | no | Where your browser opens the instance, when `url` only works from Requestarr (a container name). A request's page and its feed card link to the title's page there (**Open in Sonarr**, **Open in Radarr**); without it, `url` is used when a browser can reach it, and otherwise there's no link and the request's page says so. On a server set up in the web app, it's **Address for links** on the instance. |
 | `apiKey` | yes | Use a `${VAR}` reference to `secrets.env`. |
 | `qualityProfile` | no | Defaults to the instance's first profile. |
 | `rootFolder` | no | Defaults to the instance's first root folder. |

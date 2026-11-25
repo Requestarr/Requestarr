@@ -129,6 +129,14 @@ namespace Requestarr.Core.Test.Qa.Web
                 }
             }
 
+            await browser.GoAsync($"{Url}/system/whats-new");
+            await browser.WaitForAsync("document.body.innerText.includes('0.7.0010')");
+            var legend = await browser.EvalAsync<string>("[...document.querySelectorAll('legend')].find(l => l.innerText.startsWith('0.7.0010')).innerText");
+            var hasMarks = await browser.EvalAsync<bool>("document.querySelector('[class*=\"PageContentBody\"]').innerText.includes('**')");
+            check.Saw($"What's new: \"{legend}\"; asterisks left in its lines: {hasMarks}");
+            legend.Should().EndWith("November 22, 2026", "the build's own day, wherever the browser is");
+            hasMarks.Should().BeFalse();
+
             foreach (var page in new[] { "members/add", "queue", "access-requests", "outages", "audit", "settings/changes" })
             {
                 await browser.GoAsync($"{Url}/{page}");
@@ -140,8 +148,9 @@ namespace Requestarr.Core.Test.Qa.Web
         // The Requests page's three views, as Sonarr's and Radarr's lists have them, in both themes: Overview (the
         // default) with posters and what each title is, Posters, and Table with a poster column, each naming its people
         // on one line however many follow a title: the requester small, then at most five follower pictures and a count.
-        // A follower stack opens its request's page at the Followers section, which lists them all. Then an "Open in
-        // Sonarr" link is followed to the title's page in that Sonarr. A server with no requests says so and passes.
+        // A follower stack opens its request's page at the Followers section, which lists them all. No list links to an
+        // app; a request's own page does, in its toolbar, and "Open in Sonarr" there is followed to the title's page in
+        // that Sonarr. The Filter menu has the states, on a member's page too. A server with no requests says so and passes.
         [Test]
         public Task request_views() => CheckAsync(nameof(request_views), async (browser, check) =>
         {
@@ -169,6 +178,7 @@ namespace Requestarr.Core.Test.Qa.Web
                     var posters = await browser.EvalAsync<int>("[...document.querySelectorAll('[class*=\"PageContentBody\"] img')].filter(i => i.complete && i.naturalWidth > 0).length");
                     var opens = await browser.EvalAsync<int>("[...document.querySelectorAll('a')].filter(a => a.innerText.startsWith('Open in ')).length");
                     check.Saw($"requests, {view} ({theme}): {posters} posters shown, {opens} Open in links");
+                    opens.Should().Be(0, "the app opens from the request's own page");
                     await check.ShotAsync(browser, $"requests-{view.ToLowerInvariant()}-{theme}");
                     await PeopleOnOneLineAsync(browser, check, $"{view} ({theme})");
                 }
@@ -178,8 +188,30 @@ namespace Requestarr.Core.Test.Qa.Web
 
             await PosterOptionsAsync(browser, check);
             await JumpAndReturnAsync(browser, check);
+            await FilterStatesAsync(browser, check);
             await OpenInSonarrAsync(browser, check);
         });
+
+        private const string FilterChoices = "[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].map(e => e.innerText.trim())";
+
+        // The Requests page's filters, and the same on the page of the member with the most requests.
+        private static async Task FilterStatesAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            var states = new[] { "All", "Waiting for approval", "Denied", "Approved", "Not available yet", "Downloading", "Stuck", "Available", "Removed", "Not in library", "Movies", "TV" };
+            await browser.GoAsync($"{Url}/requests");
+            await browser.WaitForAsync($"!!{IndexBody}");
+            await PressToolbarAsync(browser, "Filter");
+            var onRequests = await browser.EvalAsync<string[]>(FilterChoices);
+            var member = await browser.EvalAsync<int>("fetch(`${window.Requestarr.urlBase}/api/v1/portal/members`, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(all => all.sort((a, b) => b.requests - a.requests)[0].id)");
+            await browser.GoAsync($"{Url}/members/{member}");
+            await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].some(b => b.innerText.trim() === 'Filter')");
+            await PressToolbarAsync(browser, "Filter");
+            var onMember = await browser.EvalAsync<string[]>(FilterChoices);
+            check.Saw($"Filter on Requests: {string.Join(", ", onRequests)}; on a member's page: {string.Join(", ", onMember)}");
+            await check.ShotAsync(browser, "member-filter");
+            onRequests.Should().ContainInOrder(states);
+            onMember.Should().Equal(states);
+        }
 
         private static async Task ChooseViewAsync(HeadlessBrowser browser, string view, string shows)
         {
@@ -283,23 +315,25 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, $"request-followers-{theme}");
         }
 
-        // From the Overview view, the first "Open in Sonarr" link lands on that series' page in the Sonarr it names.
+        // From a request's page, the toolbar's "Open in Sonarr" lands on that series' page in the Sonarr it names.
         private static async Task OpenInSonarrAsync(HeadlessBrowser browser, WebCheck check)
         {
             await browser.GoAsync($"{Url}/requests");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestIndex\"], [class*=\"IndexTable-row\"]')");
-            await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'View').click()");
-            await browser.RunAsync("[...document.querySelectorAll('button, a, div[role=\"button\"]')].find(e => e.innerText.trim() === 'Overview' && e.closest('[class*=\"MenuContent\"]')).click()");
-            await browser.WaitForAsync("!!document.querySelector('[class*=\"RequestIndexOverview-content\"]')");
-            var link = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestIndexOverview-content\"] a')].find(a => a.innerText === 'Open in Sonarr')?.href ?? ''");
+            await browser.WaitForAsync($"!!{IndexBody}");
+            var id = await browser.EvalAsync<int>("fetch(`${window.Requestarr.urlBase}/api/v1/portal/requests`, { headers: { 'X-Api-Key': window.Requestarr.apiKey } }).then(r => r.json()).then(all => all.find(r => r.media?.openIn === 'Sonarr' && r.media.openUrl)?.id ?? 0)");
 
-            if (string.IsNullOrEmpty(link))
+            if (id == 0)
             {
                 check.Saw("no request in a Sonarr a browser can reach: nothing to open");
                 return;
             }
 
-            var title = await browser.EvalAsync<string>("[...document.querySelectorAll('[class*=\"RequestIndexOverview-content\"]')].find(r => [...r.querySelectorAll('a')].some(a => a.innerText === 'Open in Sonarr')).querySelector('[class*=\"RequestIndexOverview-title\"]').innerText");
+            const string Button = "[...document.querySelectorAll('[class*=\"PageToolbar\"] a')].find(a => a.innerText.trim() === 'Open in Sonarr')";
+            await browser.GoAsync($"{Url}/requests/{id}");
+            await browser.WaitForAsync($"!!{Button}");
+            await check.ShotAsync(browser, "request-toolbar");
+            var link = await browser.EvalAsync<string>($"{Button}.href");
+            var title = await browser.EvalAsync<string>("document.querySelector('[class*=\"DetailsHeader-title\"]').innerText");
             await browser.GoAsync(link);
             var series = title.Contains(" (", StringComparison.Ordinal) ? title[..title.LastIndexOf(" (", StringComparison.Ordinal)] : title;
             await browser.WaitForAsync($"document.title.includes({JsonSerializer.Serialize(series)}) || document.body.innerText.includes({JsonSerializer.Serialize(series)})", TimeSpan.FromSeconds(30));

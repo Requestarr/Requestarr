@@ -103,7 +103,7 @@ Scope: `Portal/**`, `Settings/Requestarr/**`, `Setup/**`. "deleted" = removed in
 | Requestarr file | What it does | Servarr equivalent | Verdict |
 |---|---|---|---|
 | `Requests/RequestDetailPage.tsx` | FieldSet + DescriptionList summary; actions in a FieldSet | Sonarr main `Series/Details/SeriesDetails.js`: backdrop header, `SeriesPoster`, title, `Label size=LARGE` chips with icons, overview, links in a `Popover`; actions as `PageToolbarButton`s | ADAPT |
-| `RequestDetailPage` `TitleLinks` | TMDb, TVDB, Open in | `Series/Details/SeriesDetailsLinks.tsx` | ADAPT |
+| `RequestDetailPage` `TitleLinks` | TMDb, TVDB | `Series/Details/SeriesDetailsLinks.tsx` | ADAPT |
 | `Requests/RequestActions.tsx`, `useRequestActionRunner.tsx` | Action buttons and dialogs | Toolbar buttons + section thunks | ADAPT |
 | `Members/MemberDetailPage.tsx`, `MemberActions.tsx`, `AccessRow.tsx` | Member summary and inline forms | Same header pattern (avatar in place of the poster); access editing as an edit modal (Sonarr `Series/Edit/EditSeriesModalContent`) | ADAPT |
 | `TimelineTable` on the detail pages | History | Sonarr `Series/History/SeriesHistoryModal` + `Activity/History/Details/HistoryDetailsModal`; Prowlarr `History/Details/*` (deleted) | ADAPT |

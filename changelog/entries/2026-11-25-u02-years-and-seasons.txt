@@ -1,0 +1,3 @@
+audience: users
+kind: fixed
+line: **Years and seasons:** a title that already names its year doesn't show it twice, and one season reads Season 1, not Seasons 1.
