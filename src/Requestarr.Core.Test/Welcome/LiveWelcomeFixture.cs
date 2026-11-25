@@ -41,6 +41,10 @@ namespace Requestarr.Core.Test.Welcome
     [ManualTest]
     public class LiveWelcomeFixture : DbTest
     {
+        // The panel moves below the bot's newest post only after its delay, so a check of the panel waits that long and a
+        // little more for Discord.
+        private static readonly TimeSpan PanelMoved = PanelService.MoveDelay + TimeSpan.FromSeconds(3);
+
         [Test]
         public async Task groups_welcome_access_requests_blocks_and_panels_in_the_dev_server()
         {
@@ -243,7 +247,7 @@ namespace Requestarr.Core.Test.Welcome
                 Log($"[request] /admin requests: \"{walk.LastReply.Content.Replace("\n", " | ")}\" buttons [{string.Join("] [", walk.LastReply.Buttons.Select(b => b.Label))}]");
                 walk.LastReply.Content.Should().Contain("Access request");
 
-                await Task.Delay(TimeSpan.FromSeconds(4));
+                await Task.Delay(PanelMoved);
                 var newest = (await adminRest.GetMessagesAsync(1).FlattenAsync()).Single();
                 Log($"[panels] newest message in #{ChannelLayout.AdminChannelName} after the card: {(newest.Id.ToString() == guildSetup.GetConfig().AdminPanelMessageId ? "the admin panel" : "something else")} (pinned: {newest.IsPinned})");
                 newest.Id.ToString().Should().Be(guildSetup.GetConfig().AdminPanelMessageId, "the panel moved below the card");
@@ -365,7 +369,7 @@ namespace Requestarr.Core.Test.Welcome
                 await gateway.DeleteMessageAsync(adminChannel, fullPosted);
 
                 // 8. The version card sits right above the one admin panel.
-                await Task.Delay(TimeSpan.FromSeconds(4));
+                await Task.Delay(PanelMoved);
                 var latest = (await adminRest.GetMessagesAsync(3).FlattenAsync()).OrderByDescending(m => m.Id).ToList();
                 string Author(IMessage m) => m.Author.Id == host.Client.CurrentUser.Id ? "the bot" : m.Author.Username;
                 string Describe(IMessage m) => m.Id.ToString() == guildSetup.GetConfig().AdminPanelMessageId ? "the panel" : $"{m.Type} by {Author(m)}: \"{(m.Embeds.FirstOrDefault()?.Title ?? m.Content).Split('\n')[0]}\"";

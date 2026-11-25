@@ -325,7 +325,7 @@ namespace Requestarr.Core.Test.Qa
                 // 9. The automated results, as the run records them: a pass with a screenshot on the card, and a failure that
                 // files a bug report the way Failing does. An item the owner checks takes no result from it.
                 var automated = new QaAutomatedResults(checklist, reports);
-                var promotedItems = QaChecklist.Parse(promoted, tested).Single().Items;
+                var promotedItems = QaChecklist.Parse(promoted, tested).Single(v => v.Version == tested).Items;
                 var automatedItems = promotedItems.Where(i => i.Checker.Automated).ToList();
                 var ownerItem = promotedItems.First(i => !i.Checker.Automated);
                 var picture = new QaEvidenceFile("live-check.png", DiscordAssets.Bytes(DiscordAssets.TmdbLogo));

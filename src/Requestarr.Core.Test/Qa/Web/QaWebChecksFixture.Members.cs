@@ -119,7 +119,7 @@ namespace Requestarr.Core.Test.Qa.Web
                 var actions = await browser.EvalAsync<string[]>("(b => b.slice(0, b.findIndex(x => x.innerText.trim() === 'Onboard')))([...document.querySelectorAll('[class*=\"PageToolbar\"] button')]).map(b => b.innerText.trim())");
                 check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows, all ticked; left of Onboard: {string.Join(", ", actions)}");
                 boxes.Should().Be(rows);
-                actions.Should().Equal("Suspend", "Unsuspend", "Change access", "Remove member");
+                actions.Should().Equal("Suspend", "Unsuspend", "Change access", "Post History", "Remove member");
                 await check.ShotAsync(browser, $"members-picked-{theme}");
                 await OnboardWindowAsync(browser, check, theme);
                 await PressToolbarAsync(browser, "Stop Selecting");
