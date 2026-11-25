@@ -530,6 +530,22 @@ namespace Requestarr.Core.Requests
             return new InteractionReply { Content = heading, Quiet = true, Embeds = new List<InteractionEmbed> { CompactCard(request, lines, request.PosterUrl, Headline(request).Color) } };
         }
 
+        // What an import found already in trouble, a line for each kind: silent, with nothing to press.
+        public static InteractionReply ImportSummary(IEnumerable<string> lines) => new()
+        {
+            Quiet = true,
+            Embeds = new List<InteractionEmbed>
+            {
+                new()
+                {
+                    Title = DiscordText.ImportSummaryTitle,
+                    Description = DiscordLimits.Truncate(string.Join("\n", lines), DiscordLimits.EmbedDescriptionLength),
+                    ImageUrl = DiscordText.FeedCardWidthUrl,
+                    Color = PendingColor
+                }
+            }
+        };
+
         // The feed's small card: the title, its poster beside the lines, and the request's number.
         private static InteractionEmbed CompactCard(Request request, IEnumerable<string> lines, string posterUrl, uint color) => new()
         {

@@ -84,6 +84,13 @@ namespace Requestarr.Core.Requests
         // Written by an import from another bot's history (Imports.ImportService): its history is posted in Discord.
         public bool Imported { get; set; }
 
+        // An imported request in the library, until Sonarr or Radarr is first asked about it: what it's doing then was
+        // already so before the import, and is recorded without telling anyone.
+        public bool FirstCheckDue { get; set; }
+
+        // Until the import's post in the admin feed has covered it (Imports.ImportSummary).
+        public bool SummaryDue { get; set; }
+
         // Download progress, from Sonarr's / Radarr's webhook and the backup poll. TV: the requested
         // seasons whose aired episodes all have files. ProgressSizeLeft / ProgressSince spot a download
         // that stops moving.

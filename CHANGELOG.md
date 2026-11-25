@@ -24,6 +24,9 @@ promoted to them, and a beta heading names the goals' builds it includes.
 - **Your history comes with you:** requests you made with the old bot can show in your channel, once. Type /history there if they don't.
 - **Series fixes shown:** when a show is added with a fix for a known mix-up, its request message says so and why.
 
+#### Fixed
+- **Reasons end once:** a message about a stuck or failed download no longer ends its reason with two periods.
+
 #### Changed
 - **Anime versions in plain words:** the bot now says "English dub" or "subtitled version", and when two people want different versions it says which one is kept.
 - **Wording that fits your server:** removal votes and help talk about the library, not apps your server may not use.
@@ -38,6 +41,10 @@ promoted to them, and a beta heading names the goals' builds it includes.
 - **Imported history in System, then Tasks:** while history is posted, System, then Tasks lists it with how many are posted so far.
 - **Requests go by what's asked for:** each media manager says what it's for: all other shows (or movies), anime or nothing yet, and anime goes to the anime one. This replaces the Default tick box and members' own servers; any you set are dropped, their access and limits kept.
 - **Series fixes:** a ready list of fixes for shows Sonarr grabs the wrong releases for, under Media managers. A fix is set up in Sonarr only when its show is requested, and the request says so. It comes with one: Pokémon (1997) never grabs Pokémon Horizons.
+
+#### Fixed
+- **Quiet imports:** importing old requests no longer raises alerts for what was already so, such as a download stuck before the import. One silent post in the admin feed lists what needs attention, if anything. Requests you imported earlier stop alerting too.
+- **Notices in the right channel:** news about someone's request no longer lands in the admin channel when they have no channel of their own. The admin feed and the web app still show it.
 
 #### Changed
 - **Simpler bot setup:** you paste only the bot's token. Requestarr notices when the bot joins your server, makes its admin role, and lets you pick admins in the web app.

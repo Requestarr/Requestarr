@@ -3,6 +3,7 @@ namespace Requestarr.Core.Discord
     public static class DiscordLimits
     {
         public const int MessageLength = 2000;
+        public const int EmbedDescriptionLength = 4096;
         public const int ChoicesPerMenu = 25;
         public const int OptionLabelLength = 100;
         public const int ModalTitleLength = 45;

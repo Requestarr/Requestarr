@@ -407,7 +407,7 @@ Once a request is sent, Requestarr follows it in Sonarr or Radarr and tells the 
 | 🎉 **Partly available** | TV only: some requested seasons are there, and the message says which. |
 | 🎉 **Available** | Everything requested is there. For TV, a season counts as available when every episode that has aired has a file; seasons that haven't aired yet don't hold the request back. |
 
-Each change replaces the request message at the bottom of the user's channel, with a mention, and moves the request's card to the bottom of the admin feed (section 5.4). The same state twice is never announced twice.
+Each change replaces the request message at the bottom of the user's channel, with a mention (someone without a channel of their own isn't messaged anywhere), and moves the request's card to the bottom of the admin feed (section 5.4). The same state twice is never announced twice.
 
 **How Requestarr hears about it.** Two ways, and they work together:
 
@@ -811,6 +811,13 @@ and the first-run setup links to it once it's done.
      "#media-requests in The CheaZiest"), and **Onboard** there adds them the usual way; their imported requests stay
      theirs.
    - **The audit log** records the import and who ran it.
+   - **No alerts for what was already so.** Right after the import Requestarr asks Sonarr and Radarr how each request
+     in the library stands (downloading, stuck, failed, available) and records it without telling anyone: no card, no
+     channel message. If something needs attention, one silent card in the admin feed lists it ("2 downloads are stuck
+     in Radarr and need a manual import: …"), each title linked to its page in the web app when an address for that is
+     known (Settings, General, **Application URL**; without one, the address your media managers reach Requestarr at,
+     if a browser can open it). Changes after that notify as usual, members only once they're onboarded. Requests
+     imported before this version get the same first check after upgrading, without the card.
 
 5. **History in Discord.** Imported requests are posted in Discord slowly, in the background, with no pings or
    notifications, oldest first, and only once:

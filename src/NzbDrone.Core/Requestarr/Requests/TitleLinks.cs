@@ -29,10 +29,13 @@ namespace Requestarr.Core.Requests
             };
         }
 
-        public static string BrowserRoot(BackendSettings settings)
+        public static string BrowserRoot(BackendSettings settings) => BrowserRoot(settings?.BrowserUrl, settings?.Url);
+
+        // The address given for browsers, else the app's own when a browser can reach it; null when neither will do.
+        public static string BrowserRoot(string browserUrl, string ownUrl)
         {
-            var hasBrowserUrl = !string.IsNullOrWhiteSpace(settings?.BrowserUrl);
-            var address = hasBrowserUrl ? settings.BrowserUrl : settings?.Url;
+            var hasBrowserUrl = !string.IsNullOrWhiteSpace(browserUrl);
+            var address = hasBrowserUrl ? browserUrl : ownUrl;
 
             if (!Uri.TryCreate(address?.Trim(), UriKind.Absolute, out var uri) || (!hasBrowserUrl && !Reachable(uri)))
             {

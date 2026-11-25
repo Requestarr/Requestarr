@@ -9,6 +9,7 @@ using NLog;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Removals;
@@ -87,6 +88,7 @@ namespace Requestarr.Core.Imports
         private readonly IMemberNameService _names;
         private readonly IManageCommandQueue _commands;
         private readonly IHistoryPosting _posting;
+        private readonly IAvailabilityService _availability;
         private readonly Logger _logger;
 
         public ImportService(IChannelHistory history,
@@ -105,6 +107,7 @@ namespace Requestarr.Core.Imports
                              IMemberNameService names,
                              IManageCommandQueue commands,
                              IHistoryPosting posting,
+                             IAvailabilityService availability,
                              Logger logger)
         {
             _history = history;
@@ -124,6 +127,7 @@ namespace Requestarr.Core.Imports
             _names = names;
             _commands = commands;
             _posting = posting;
+            _availability = availability;
             _logger = logger;
         }
 
@@ -223,6 +227,9 @@ namespace Requestarr.Core.Imports
                     var lastBefore = _requests.All().Select(r => r.Id).DefaultIfEmpty().Max();
                     job.Done(plan, Write(plan, job.Channels, members, new Actor(message.ConfirmedBy, message.ConfirmedById)));
 
+                    // Before anything is posted, so the cards say how each request stands.
+                    await FirstCheckAsync();
+
                     // This import's new requests in the admin feed, slowly, when that's switched on.
                     _posting.QueueImport(lastBefore);
 
@@ -240,6 +247,19 @@ namespace Requestarr.Core.Imports
             finally
             {
                 _writing.Release();
+            }
+        }
+
+        // What isn't answered now is checked by the next poll, as quietly.
+        private async Task FirstCheckAsync()
+        {
+            try
+            {
+                await _availability.CheckAllAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Checking the imported requests' downloads stopped; the next check carries on");
             }
         }
 
@@ -481,6 +501,7 @@ namespace Requestarr.Core.Imports
             request.Progress = available ? DownloadProgress.Imported : DownloadProgress.None;
             request.Decided = planned.Requested;
             request.Fulfilled = available ? planned.Available ?? planned.Requested : null;
+            AwaitFirstCheck(request);
 
             return request;
         }
@@ -512,10 +533,17 @@ namespace Requestarr.Core.Imports
             request.Progress = link.HasFiles ? DownloadProgress.Imported : DownloadProgress.None;
             request.Decided ??= now;
             request.Fulfilled = link.HasFiles ? now : null;
+            AwaitFirstCheck(request);
             _requests.Update(request);
             _audit.Record(Actor.System, LinkedAction, "request", request.Id.ToString(), $"Found in {link.Instance} by a later import");
 
             return true;
+        }
+
+        private static void AwaitFirstCheck(Request request)
+        {
+            request.FirstCheckDue = request.IsTracked;
+            request.SummaryDue = request.IsTracked;
         }
 
         private void Follow(int requestId, ImportFollower follower, PeopleRecords people)

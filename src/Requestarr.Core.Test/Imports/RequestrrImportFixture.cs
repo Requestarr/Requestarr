@@ -7,6 +7,7 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Messaging.Commands;
 using Requestarr.Core.Audit;
+using Requestarr.Core.Availability;
 using Requestarr.Core.Backends;
 using Requestarr.Core.Discord.Gateway;
 using Requestarr.Core.Discord.Interactions;
@@ -179,6 +180,8 @@ namespace Requestarr.Core.Test.Imports
                 ("The Crow", RequestStatus.Available, 11, Radarr),
                 ("Another Lost Film", RequestStatus.NotInLibrary, null, null));
             requests.Should().OnlyContain(r => r.Status == RequestStatus.NotInLibrary ? !r.IsActive : r.IsActive, "history never blocks a new request");
+            requests.Should().OnlyContain(r => r.FirstCheckDue == r.IsTracked && r.SummaryDue == r.IsTracked, "what's still followed is first checked without telling anyone");
+            Mocker.GetMock<IAvailabilityService>().Verify(a => a.CheckAllAsync(), Times.Once(), "right after the import, before any of it is posted");
             requests[0].TmdbId.Should().Be(181808);
             requests[1].Requested.Should().Be(new DateTime(2026, 11, 7, 18, 15, 0, DateTimeKind.Utc));
             requests[1].Seasons.Should().Equal(1, 2);
@@ -227,6 +230,7 @@ namespace Requestarr.Core.Test.Imports
             done.Result.Linked.Should().Be(1);
             var linked = Mocker.Resolve<IRequestRepository>().All().Single(r => r.Title == "A Film Nobody Has");
             (linked.Status, linked.BackendId, linked.ExternalItemId).Should().Be((RequestStatus.Approved, Radarr, 12));
+            (linked.FirstCheckDue, linked.SummaryDue).Should().Be((true, true));
             Mocker.Resolve<IAuditRepository>().ForTarget("request", linked.Id.ToString()).Last().Action.Should().Be(ImportService.LinkedAction);
         }
 

@@ -1,0 +1,3 @@
+audience: admins
+kind: fixed
+line: **Notices in the right channel:** news about someone's request no longer lands in the admin channel when they have no channel of their own. The admin feed and the web app still show it.

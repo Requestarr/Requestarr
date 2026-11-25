@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NLog;
@@ -18,6 +19,9 @@ namespace Requestarr.Core.Requests
 
         // An imported request's card, marked Imported with the day it was asked for, silent; its message ID.
         Task<ulong> PostImportedAsync(Request request);
+
+        // What an import's first check found that needs attention: one silent card, nothing when there's nothing.
+        Task PostImportSummaryAsync(IReadOnlyCollection<Request> needAttention);
 
         // A removal of a title with no request (never requested through Requestarr): its own card.
         Task PostRemovalAsync(Removals.RemovalProposal removal);
@@ -39,6 +43,7 @@ namespace Requestarr.Core.Requests
         private readonly IBackendService _backends;
         private readonly Removals.IRemovalProposalRepository _removals;
         private readonly Removals.IRemovalFlagRepository _flags;
+        private readonly IPortalLinks _portal;
         private readonly Logger _logger;
 
         public RequestFeed(IDiscordGuildGateway gateway,
@@ -49,6 +54,7 @@ namespace Requestarr.Core.Requests
                            IBackendService backends,
                            Removals.IRemovalProposalRepository removals,
                            Removals.IRemovalFlagRepository flags,
+                           IPortalLinks portal,
                            Logger logger)
         {
             _removals = removals;
@@ -59,6 +65,7 @@ namespace Requestarr.Core.Requests
             _subscribers = subscribers;
             _users = users;
             _backends = backends;
+            _portal = portal;
             _logger = logger;
         }
 
@@ -94,6 +101,20 @@ namespace Requestarr.Core.Requests
             }
 
             return card;
+        }
+
+        public async Task PostImportSummaryAsync(IReadOnlyCollection<Request> needAttention)
+        {
+            if (needAttention.Count == 0 || !ulong.TryParse(Config()?.FeedChannelId, out var channel))
+            {
+                return;
+            }
+
+            var lines = needAttention
+                .GroupBy(r => (Instance: _backends.Find(r.BackendId ?? 0)?.Name, Trouble: ImportTroubles.Of(r)))
+                .Select(g => DiscordText.ImportTroubleLine(g.Key.Trouble, g.Key.Instance, g.Select(r => DiscordText.TitleLink(r.Label, _portal.Request(r.Id))).ToList()));
+
+            await _gateway.SendMessageAsync(channel, RequestCards.ImportSummary(lines));
         }
 
         public async Task PostRemovalAsync(Removals.RemovalProposal removal)

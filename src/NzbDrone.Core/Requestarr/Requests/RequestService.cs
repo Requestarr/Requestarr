@@ -101,7 +101,8 @@ namespace Requestarr.Core.Requests
         void DeleteRecord(int requestId, Actor actor);
 
         // What Sonarr / Radarr now say about a sent request. A change (downloading, stuck, failed,
-        // seasons available, all there) reposts its messages and feed card; no change does nothing.
+        // seasons available, all there) reposts its messages and feed card; no change does nothing. An imported request's
+        // first check only records it.
         Task<bool> ApplyProgressAsync(Request request, ProgressSnapshot snapshot);
 
         // More seasons for a TV request, by its owner, a follower or an admin: no approval, no quota.
@@ -778,6 +779,31 @@ namespace Requestarr.Core.Requests
                 return false;
             }
 
+            var wasSoBeforeImport = request.FirstCheckDue;
+            request.FirstCheckDue = false;
+
+            if (!RecordProgress(request, snapshot))
+            {
+                return false;
+            }
+
+            if (!wasSoBeforeImport)
+            {
+                await RefreshOrNotify(request, null, request.Status == RequestStatus.Available
+                    ? DiscordText.RequestFulfilledNotice(request.Label, request.Id)
+                    : DiscordText.RequestProgressNotice(request));
+            }
+            else if (Admin.TroubleSource.InTrouble(request))
+            {
+                _events.PublishEvent(new AdminQueueChangedEvent());
+            }
+
+            return true;
+        }
+
+        // The request saved as the snapshot says, with what changed in its history; false when nothing did.
+        private bool RecordProgress(Request request, ProgressSnapshot snapshot)
+        {
             if (snapshot.SizeLeft != request.ProgressSizeLeft)
             {
                 request.ProgressSizeLeft = snapshot.SizeLeft;
@@ -805,14 +831,12 @@ namespace Requestarr.Core.Requests
                 request.ProgressSizeLeft = null;
                 _requests.Update(request);
                 _audit.Record(Actor.System, "request.fulfilled", "request", request.Id.ToString(), request.ContentType == ContentType.Tv ? $"seasons {DiscordText.PlainSeasons(seasons)}" : null);
-                await RefreshOrNotify(request, null, DiscordText.RequestFulfilledNotice(request.Label, request.Id));
                 return true;
             }
 
             request.Progress = snapshot.Progress;
             _requests.Update(request);
             _audit.Record(Actor.System, "request.progress", "request", request.Id.ToString(), $"{snapshot.Progress}{(seasons.Any() ? $", {DiscordText.PlainSeasons(seasons)} available" : string.Empty)}{(detail != null ? ": " + detail : string.Empty)}");
-            await RefreshOrNotify(request, null, DiscordText.RequestProgressNotice(request));
 
             return true;
         }
@@ -1614,11 +1638,14 @@ namespace Requestarr.Core.Requests
         {
             if (!await RefreshMessagesAsync(request, item, ownerRepost: true, note, skipUserId, notice))
             {
-                await Notify(request, notice);
+                await SendToMemberAsync(request.OwnerUserId, notice);
             }
         }
 
-        private async Task NotifyUser(int userId, string message)
+        private Task NotifyUser(int userId, string message) => SendToMemberAsync(userId, $"{Mention(userId)} {message}".Trim());
+
+        // Only ever in their own channel: someone who isn't onboarded is never messaged, here or anywhere else.
+        private async Task SendToMemberAsync(int userId, string message)
         {
             var user = _users.Find(userId);
 
@@ -1629,7 +1656,7 @@ namespace Requestarr.Core.Requests
 
             try
             {
-                await _gateway.SendMessageAsync(channel, new InteractionReply { Content = $"{Mention(userId)} {message}".Trim() });
+                await _gateway.SendMessageAsync(channel, new InteractionReply { Content = message });
             }
             catch (Exception ex)
             {
@@ -1658,23 +1685,6 @@ namespace Requestarr.Core.Requests
             catch (BackendException)
             {
                 return null;
-            }
-        }
-
-        private async Task Notify(Request request, string message)
-        {
-            var owner = _users.Find(request.OwnerUserId);
-            var target = owner?.Status == UserStatus.Active && ulong.TryParse(owner.PrivateChannelId, out var channel)
-                ? channel
-                : ulong.Parse(_guildSetup.GetConfig().AdminChannelId);
-
-            try
-            {
-                await _gateway.SendMessageAsync(target, new InteractionReply { Content = message });
-            }
-            catch (Exception ex)
-            {
-                _logger.Warn(ex, "Could not notify about request {0}", request.Id);
             }
         }
 

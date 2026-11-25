@@ -93,6 +93,7 @@ CHECKS = {
     "live report limit": Check("live", "LiveQaFixture", "other", ("[limit]",)),
     "live routing by content": Check("live", "LiveRoutingFixture", "requests", ("[route]", "[paused]")),
     "live series fixes": Check("live", "LiveSeriesFixFixture", "requests", ("[fix]",)),
+    "live import alerts": Check("live", "LiveImportAlertsFixture", "requests", ("[import]", "[later]")),
 }
 
 # An item (QA-CHECKLIST.md): "- **Name**", "  - Steps:" over "    1. ...", "  - Expect:" over "    - ...", then who checks it.
@@ -122,7 +123,7 @@ LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "
         "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
         "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture", "LivePortalActionsFixture",
         "LiveMemberRenamesFixture", "LiveVersionWordsFixture", "LiveRoutingFixture",
-        "LiveSeriesFixFixture"]
+        "LiveSeriesFixFixture", "LiveImportAlertsFixture"]
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 
