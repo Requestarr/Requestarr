@@ -159,7 +159,8 @@ namespace Requestarr.Core.Test.Announcements
 
             await StartOn("0.3.0");
             AdminHeaders.Should().Equal("0.1.0", "0.2.0", "0.3.0");
-            Discord.Channels[AdminChannel].MessageIds.Take(ids.Count).Should().Equal(ids);
+            Discord.Channels[AdminChannel].MessageIds[0].Should().Be(ids[0]);
+            Discord.Channels[AdminChannel].MessageIds.Should().NotContain(ids[1], "the build that was running says something else now, so its card is posted again, never edited");
         }
 
         [Test]
@@ -265,11 +266,11 @@ namespace Requestarr.Core.Test.Announcements
             Discord.Channels[AdminChannel].Messages.Last(m => m.Embeds.Any()).Embeds[0].Title.Should().Be("Requestarr 0.7.0004 · November 20");
         }
 
-        [TestCase("staging")]
-        [TestCase("production")]
-        [TestCase("qa")]
-        [TestCase("dev")]
-        public async Task cards_with_the_old_titles_are_updated_in_place_on_the_next_start(string environment)
+        [TestCase("staging", true)]
+        [TestCase("production", true)]
+        [TestCase("qa", false)]
+        [TestCase("dev", false)]
+        public async Task cards_with_the_old_titles_stay_as_posted_or_are_posted_again_but_never_edited(string environment, bool stays)
         {
             Environment(environment);
             await StartOn("0.2.0");
@@ -295,19 +296,25 @@ namespace Requestarr.Core.Test.Announcements
 
             await StartOn("0.2.0");
 
-            admin.MessageIds.Should().Equal(adminIds, "the cards are edited, not posted again, so the record and order stay");
-            users.MessageIds.Should().Equal(userIds);
+            if (stays)
+            {
+                admin.MessageIds.Should().Equal(adminIds, "a card already sent stays as it was posted");
+                users.MessageIds.Should().Equal(userIds);
+                admin.Messages.Should().OnlyContain(m => m.Embeds[0].Title.Contains("change"));
+                return;
+            }
+
+            admin.MessageIds.Should().NotContain(adminIds, "the cards are posted again, not edited");
+            users.MessageIds.Should().NotContain(userIds);
             admin.Messages.Select(m => (m.Embeds[0].Title, m.Embeds[0].Description)).Should().Equal(wanted);
             users.Messages.Select(m => (m.Embeds[0].Title, m.Embeds[0].Description)).Should().Equal(wantedUsers);
-            admin.Messages.Should().OnlyContain(m => !m.Embeds[0].Title.Contains("change"));
         }
 
-        // A released version's lines rewritten with the owner's approval (0.7.0010, November 23, 2026): the next start
-        // on a build carrying the new words edits the cards the server keeps, and Read changes shows the new lines.
+        // A released version's lines rewritten with the owner's approval (0.7.0010, November 23, 2026): the cards the
+        // server keeps stay as they were posted, and Read changes shows the new lines.
         [TestCase("staging")]
         [TestCase("production")]
-        [TestCase("qa")]
-        public async Task a_rewritten_version_updates_the_kept_cards_in_place(string environment)
+        public async Task a_rewritten_versions_kept_cards_stay_as_posted(string environment)
         {
             Environment(environment);
             var longer = Text.Replace("- **Follow:** follow a request from its card.", "- **Follow:** follow a request from its card, in a long paragraph.\n- **Panels:** your panel, again.");
@@ -320,10 +327,9 @@ namespace Requestarr.Core.Test.Announcements
 
             await StartOn("0.3.0");
 
-            admin.MessageIds.Should().Equal(adminIds, "the cards are edited, not posted again");
+            admin.MessageIds.Should().Equal(adminIds);
             users.MessageIds.Should().Equal(userIds);
-            users.Messages.Select(m => m.Embeds[0].Description).Should().NotEqual(before);
-            users.Messages[1].Embeds[0].Description.Should().Be(VersionCards.Collapsed(Changelog.Parse(Text).Single(v => v.Version == new Version(0, 2, 0)), VersionAudience.Users, DateTime.UtcNow.Year).Description);
+            users.Messages.Select(m => m.Embeds[0].Description).Should().Equal(before);
             Service.FullCard(VersionAudience.Users, new Version(0, 2, 0)).Single().Cards.Single().Text.Should().Contain("- **Follow:** follow a request from its card.").And.NotContain("Panels");
         }
 

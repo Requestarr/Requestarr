@@ -297,7 +297,7 @@ namespace Requestarr.Core.Test.Requests
 
             await AdminButton("req-approve:1");
 
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalApproved}").And.Contain("Seasons: seasons 1–2, plus new seasons as they air.");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalApproved}").And.Contain("Seasons 1–2, plus new seasons as they air.");
             Sonarr.Adds.Single().Seasons.Should().Equal(1, 2);
             Sonarr.Adds.Single().MonitorFuture.Should().BeTrue();
         }

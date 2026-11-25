@@ -126,6 +126,69 @@ namespace Requestarr.Core.Test.Requests
             Mocker.Resolve<IRequestRepository>().Get(movie.Id).Media.Should().NotBeNull("Radarr answered: never asked again");
         }
 
+        // The Vampire Lestat (#436 on beta): in Sonarr's library, but the lookup by its TheTVDB ID found nothing.
+        [Test]
+        public async Task a_title_in_the_library_is_read_from_there_and_one_without_its_page_is_read_again()
+        {
+            var lestat = Insert(ContentType.Tv, null, 999999902, new RequestMedia { Checked = DateTime.UtcNow });
+            lestat.Status = RequestStatus.Approved;
+            lestat.BackendId = Sonarr;
+            lestat.ExternalItemId = 36;
+            Mocker.Resolve<IRequestRepository>().Update(lestat);
+            Mocker.GetMock<IBackendApi>().Setup(a => a.GetItemAsync(It.IsAny<BackendSettings>(), 36))
+                .ReturnsAsync(new MediaLookupResult { TitleSlug = "the-vampire-lestat", PosterUrl = "https://image/lestat.jpg" });
+            Mocker.GetMock<IBackendService>().Setup(b => b.ApiFor(SonarrInstance)).Returns(Mocker.GetMock<IBackendApi>().Object);
+
+            (await Subject.FillAsync()).Should().Be(1);
+            (await Subject.FillAsync()).Should().Be(0, "its page is known now");
+
+            var stored = Mocker.Resolve<IRequestRepository>().Get(lestat.Id);
+            (stored.Media.TitleSlug, stored.PosterUrl).Should().Be(("the-vampire-lestat", "https://image/lestat.jpg"));
+            TitleLinks.Open(SonarrInstance, stored).Should().Be("http://nas.local:8989/series/the-vampire-lestat");
+        }
+
+        [Test]
+        public async Task a_title_no_longer_in_the_library_is_looked_up_by_its_id()
+        {
+            var movie = Insert(ContentType.Movie, 9495, null);
+            movie.BackendId = Radarr;
+            movie.ExternalItemId = 11;
+            Mocker.Resolve<IRequestRepository>().Update(movie);
+            Mocker.GetMock<IBackendService>().Setup(b => b.ApiFor(RadarrInstance)).Returns(Mocker.GetMock<IBackendApi>().Object);
+            Mocker.GetMock<IRadarrApi>().Setup(r => r.LookupTmdbAsync(It.IsAny<BackendSettings>(), 9495)).ReturnsAsync(new MediaLookupResult { TitleSlug = "9495" });
+
+            await Subject.FillAsync();
+
+            Mocker.Resolve<IRequestRepository>().Get(movie.Id).Media.TitleSlug.Should().Be("9495");
+        }
+
+        [Test]
+        public void a_title_that_cant_be_opened_says_why()
+        {
+            var media = new RequestMedia { TitleSlug = "breaking-bad", Checked = DateTime.UtcNow };
+            Request Show(RequestStatus status, int? item, RequestMedia known) => new() { ContentType = ContentType.Tv, TvdbId = 1, ExternalItemId = item, Status = status, Media = known };
+            var deleted = new BackendInstance { Implementation = BackendImplementations.Sonarr, Settings = SonarrInstance.Settings, Deleted = DateTime.UtcNow };
+            var unreachable = new BackendInstance { Implementation = BackendImplementations.Sonarr, Settings = new BackendSettings { Url = "http://sonarr:8989" } };
+
+            TitleLinks.Find(SonarrInstance, Show(RequestStatus.Approved, 22, media)).Should().Be(new TitleLink("http://nas.local:8989/series/breaking-bad", null));
+            TitleLinks.Find(null, Show(RequestStatus.Pending, null, media)).Problem.Should().Be(TitleLinkProblem.NotAdded);
+            TitleLinks.Find(SonarrInstance, Show(RequestStatus.Pending, null, media)).Problem.Should().Be(TitleLinkProblem.NotAdded);
+            TitleLinks.Find(SonarrInstance, Show(RequestStatus.NotInLibrary, 22, media)).Problem.Should().Be(TitleLinkProblem.NotAdded);
+            TitleLinks.Find(SonarrInstance, Show(RequestStatus.Removed, 22, media)).Problem.Should().Be(TitleLinkProblem.Removed);
+            TitleLinks.Find(deleted, Show(RequestStatus.Approved, 22, media)).Problem.Should().Be(TitleLinkProblem.ConnectionDeleted);
+            TitleLinks.Find(unreachable, Show(RequestStatus.Approved, 22, media)).Problem.Should().Be(TitleLinkProblem.NoAddress);
+            TitleLinks.Find(SonarrInstance, Show(RequestStatus.Approved, 22, null)).Problem.Should().Be(TitleLinkProblem.NoPage);
+        }
+
+        [Test]
+        public void a_title_that_ends_with_a_year_never_gets_another()
+        {
+            Titles.WithYear("Tracker", 2024).Should().Be("Tracker (2024)");
+            Titles.WithYear("Tracker (2024)", 2024).Should().Be("Tracker (2024)");
+            Titles.WithYear("Tracker (2024)", 2023).Should().Be("Tracker (2024)");
+            Titles.WithYear("1917", 2019).Should().Be("1917 (2019)");
+        }
+
         [Test]
         public void open_links_go_to_the_title_page_by_the_browser_address_and_never_to_a_container_name()
         {

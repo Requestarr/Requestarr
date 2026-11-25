@@ -49,7 +49,7 @@ namespace Requestarr.Core.Test.Availability
             await AskSeasons(Alice, DarkMatter2015, 1, 2);
 
             var card = CardOf(1);
-            card.Embeds.Single().Description.Should().Contain("📺 TV · alice · Sonarr").And.Contain("Seasons: seasons 1–2 only");
+            card.Embeds.Single().Description.Should().Contain("📺 TV · alice · Sonarr").And.Contain("Seasons 1–2 only");
             ButtonIds(card).Should().Contain("req-add:1");
         }
 

@@ -70,7 +70,7 @@ namespace Requestarr.Core.Test.Portal
             var version = new ChangelogVersion(new Version(0, 7, 4), Announcements.ChangelogLines.Of("**A:** b"), Announcements.ChangelogLines.Of(), Start);
             Mocker.GetMock<IAnnouncementService>().Setup(a => a.VersionNotes()).Returns(new List<(ChangelogVersion, string)> { (version, "0.7.0004") });
 
-            Subject.Changes().Should().ContainSingle().Which.Should().BeEquivalentTo(new { Version = "0.7.0004", Date = (DateTime?)Start, Users = new[] { new { Kind = ChangeKind.Changed, Text = "**A:** b" } } });
+            Subject.Changes().Should().ContainSingle().Which.Should().BeEquivalentTo(new { Version = "0.7.0004", Date = (DateOnly?)DateOnly.FromDateTime(Start), Users = new[] { new { Kind = ChangeKind.Changed, Text = "**A:** b" } } });
         }
     }
 }

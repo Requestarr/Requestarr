@@ -38,7 +38,7 @@ namespace Requestarr.Core.Test.Availability
             added.Seasons.Should().Equal(3);
             Reload(request.Id).Seasons.Should().Equal(1, 3);
             Reload(request.Id).Status.Should().Be(RequestStatus.Approved);
-            done.Content.Should().Contain("Seasons: seasons 1 and 3 only").And.Contain(DiscordText.SeasonsAddedNote("season 3"));
+            done.Content.Should().Contain("Seasons 1 and 3 only").And.Contain(DiscordText.SeasonsAddedNote("season 3"));
             ChannelFor(Alice).MessageIds.Should().Contain(message, "the owner's own message changes in place");
             AuditTrail.Last().Action.Should().Be("request.seasons.add");
             Discord.Channels[AdminChannel].Messages.Should().NotContain(m => m.Content != null && m.Content.Contains("Approve"), "adding seasons needs no approval");
@@ -71,7 +71,7 @@ namespace Requestarr.Core.Test.Availability
             Reload(request.Id).Seasons.Should().Equal(1, 2);
             done.Content.Should().Contain("You're following alice's request");
             ChannelFor(Alice).MessageIds.Should().NotContain(alicesBefore, "the owner's message is reposted with the news");
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}>").And.Contain("Seasons: seasons 1–2 only");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>").And.Contain("Seasons 1–2 only");
         }
 
         [Test]
@@ -89,8 +89,8 @@ namespace Requestarr.Core.Test.Availability
             done.LastReply.Content.Should().Be(DiscordText.SeasonsAdded(Reload(request.Id), "seasons 2–3", false));
             Reload(request.Id).Seasons.Should().Equal(1, 2, 3);
             Feed.MessageIds.Should().NotContain(card);
-            CardOf(request.Id).Embeds[0].Description.Should().Contain("seasons 1–3");
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}>").And.Contain("seasons 1–3");
+            CardOf(request.Id).Embeds[0].Description.Should().Contain("Seasons 1–3");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>").And.Contain("Seasons 1–3");
         }
 
         [Test]

@@ -49,11 +49,6 @@
   font-size: 30px;
 }
 
-.actions {
-  margin-left: 10px;
-  white-space: nowrap;
-}
-
 .details {
   display: flex;
   justify-content: space-between;

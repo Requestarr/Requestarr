@@ -78,7 +78,7 @@ namespace Requestarr.Core.Test.Requests
 
             var final = (await ClickOn(Alice, _message, confirm.Buttons.First().CustomId)).LastReply;
 
-            final.Content.Should().StartWith(DiscordText.FinalSent).And.Contain("Seasons: seasons 1–2 and 36 only");
+            final.Content.Should().StartWith(DiscordText.FinalSent).And.Contain("Seasons 1–2 and 36 only");
             Sonarr.Adds.Single().Seasons.Should().Equal(1, 2, 36);
             Sonarr.Adds.Single().MonitorFuture.Should().BeFalse();
         }

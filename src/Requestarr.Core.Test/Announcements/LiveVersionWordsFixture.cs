@@ -21,9 +21,9 @@ using Requestarr.Test.Common.Categories;
 
 namespace Requestarr.Core.Test.Announcements
 {
-    // Live: a server that keeps its version cards (staging, production) shows a released version's rewritten words
-    // after the update that carries them. On the dev server: a test card for the version running, posted with longer
-    // words, is edited in place on the next start, and its Read changes is posted once for real and read back. Everything
+    // Live: a server that keeps its version cards (staging, production) keeps each as it was posted, even when a released
+    // version's words are rewritten later. On the dev server: a test card for the version running, posted with longer
+    // words, is the same after the next start, and its Read changes is posted once for real and read back. Everything
     // it posts is removed. Never runs in CI (ManualTest). Needs the dev stack's Requestarr stopped.
     [TestFixture]
     [ManualTest]
@@ -32,7 +32,7 @@ namespace Requestarr.Core.Test.Announcements
         private const string TestLine = "- **Test card:** the longer words a build had before its lines were rewritten, kept here only for this check.\n";
 
         [Test]
-        public async Task a_kept_card_shows_the_rewritten_words_after_the_next_start()
+        public async Task a_kept_card_stays_as_posted_after_its_versions_words_are_rewritten()
         {
             if (string.IsNullOrWhiteSpace(LiveDev.Token))
             {
@@ -87,11 +87,9 @@ namespace Requestarr.Core.Test.Announcements
                 announcements.Changelog = () => ChangelogSource.FromMarkdown(shipped);
                 await announcements.PostVersionNotesAsync();
                 var after = await Card(gateway, admin, adminCard);
-                var fresh = VersionCards.Collapsed(Changelog.Parse(shipped).Single(v => v.Version == version), VersionAudience.Admins, DateTime.UtcNow.Year);
                 TestContext.Progress.WriteLine($"[after] admin card {(after == null ? "gone" : after.Id.ToString())}: \"{(after == null ? string.Empty : Said(after))}\"");
-                after.Should().NotBeNull("the card is edited in place, not posted again");
-                after.EmbedDescription.Should().Be(fresh.Description);
-                Said(after).Should().NotBe(oldWords);
+                after.Should().NotBeNull();
+                Said(after).Should().Be(oldWords, "a card already sent is never edited");
 
                 // Read changes for that version: every line, in as many messages as Discord's limits need, as Discord takes it.
                 var full = announcements.FullCard(VersionAudience.Admins, version);
@@ -117,7 +115,7 @@ namespace Requestarr.Core.Test.Announcements
 
         private static AnnouncementService Announcements(IDiscordGuildGateway gateway, IGuildSetupService guildSetup, Version version)
         {
-            // Staging's way of keeping cards: every version for good, each card's words brought up to date on a start.
+            // Staging's way of keeping cards: every version for good, each as it was posted.
             var environment = new ReleaseEnvironment(Mock.Of<NzbDrone.Core.Configuration.IConfigService>())
             {
                 Variable = v => v == ReleaseEnvironment.EnvironmentVariable ? "staging" : null
