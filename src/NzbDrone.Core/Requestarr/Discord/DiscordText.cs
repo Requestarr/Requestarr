@@ -583,15 +583,16 @@ namespace Requestarr.Core.Discord
         {
             var isOne = titles.Count == 1;
             var where = instance == null ? string.Empty : $" in {instance}";
+            var stuck = $"{(isOne ? "is" : "are")} stuck{where}";
             var what = trouble switch
             {
                 Requests.ImportTrouble.Failed => $"failed{where}",
-                Requests.ImportTrouble.ManualImport => isOne ? $"is stuck{where} and needs a manual import" : $"are stuck{where} and need a manual import",
-                _ => isOne ? $"is stuck{where}" : $"are stuck{where}"
+                Requests.ImportTrouble.ManualImport => $"{stuck} and {(isOne ? "needs" : "need")} a manual import",
+                _ => stuck
             };
             var more = titles.Count > MostImportTitles ? $" and {titles.Count - MostImportTitles} more" : string.Empty;
 
-            return $"{titles.Count} download{(isOne ? string.Empty : "s")} {what}: {string.Join(", ", titles.Take(MostImportTitles))}{more}.";
+            return $"{Plural(titles.Count, "download")} {what}: {string.Join(", ", titles.Take(MostImportTitles))}{more}.";
         }
 
         public static string TitleLink(string label, string url) => url == null ? label : $"[{label}]({url})";

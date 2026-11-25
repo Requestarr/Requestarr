@@ -126,12 +126,11 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public async Task a_summary_that_couldnt_be_posted_is_posted_after_the_next_check()
         {
-            Imported(UserFor(Alice).Id, "Surf's Up 2: WaveMania", StuckMovie);
+            var request = Imported(UserFor(Alice).Id, "Surf's Up 2: WaveMania", StuckMovie);
             Radarr.QueueIssue(StuckMovie, "failed", "error", "failed", "unpacking failed");
             var feed = new Mock<IRequestFeed>();
             feed.Setup(f => f.PostImportSummaryAsync(It.IsAny<IReadOnlyCollection<Request>>())).ThrowsAsync(new InvalidOperationException("Discord is down"));
             var summary = new ImportSummary(RequestStore, feed.Object, NLog.LogManager.GetLogger("test"));
-            var request = RequestStore.All().Single(r => r.Imported);
             request.FirstCheckDue = false;
             RequestStore.Update(request);
 
@@ -170,7 +169,7 @@ namespace Requestarr.Core.Test.Imports
             await Webhook("ManualInteractionRequired", request);
 
             before[FeedChannel]++;
-            NothingPostedSince(before);
+            MessagesByChannel().Should().Equal(before, "only the admin feed is told");
             State(CardOf(request.Id)).Should().Be($"{DiscordText.FinalStalled}: {ManualImport.TrimEnd('.')}");
         }
 
@@ -190,10 +189,10 @@ namespace Requestarr.Core.Test.Imports
         {
             var request = new Request { Id = 432, Title = "Surf's Up 2: WaveMania", Year = 2017, Status = RequestStatus.Approved, Progress = DownloadProgress.Stalled };
 
-            foreach (var (detail, said) in new[] { (ManualImport, ManualImport), ("no space left", "no space left."), ("Why?!", "Why."), (" ... ", null) })
+            foreach (var (detail, ending) in new[] { (ManualImport, $": {ManualImport}"), ("no space left", ": no space left."), ("Why?!", ": Why."), (" ... ", ".") })
             {
                 request.ProgressDetail = detail;
-                DiscordText.RequestProgressNotice(request).Should().Be($"Surf's Up 2: WaveMania (2017) (request #432) stopped downloading{(said == null ? "." : ": " + said)}");
+                DiscordText.RequestProgressNotice(request).Should().Be($"Surf's Up 2: WaveMania (2017) (request #432) stopped downloading{ending}");
             }
         }
 
