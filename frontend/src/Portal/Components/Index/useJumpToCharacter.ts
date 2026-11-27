@@ -29,9 +29,15 @@ function useJumpToCharacter(jump: JumpToCharacter) {
 
     if (index >= 0) {
       const scrollTop = scrollTopOf(index);
+      const scroller = scrollerRef.current;
 
-      onScrollTop(scrollTop);
-      scrollerRef.current?.scrollTo(0, scrollTop);
+      scroller?.scrollTo(0, scrollTop);
+
+      // A list shorter than the page can't scroll that far: the list stops where the page did, or the rows above it
+      // that are still on screen aren't drawn.
+      onScrollTop(
+        scroller ? Math.min(scrollTop, scroller.scrollTop) : scrollTop
+      );
     }
   }, [jumpToCharacter, texts, scrollerRef, scrollTopOf, onScrollTop]);
 }
