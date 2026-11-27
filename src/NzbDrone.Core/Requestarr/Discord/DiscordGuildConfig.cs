@@ -35,7 +35,7 @@ namespace Requestarr.Core.Discord
         public bool FeedSeeded { get; set; }
 
         // Every onboarded member holds the shared members role, which can read (not post in) the
-        // announcements channel. AnnouncedVersion: the last version whose changes were posted.
+        // announcements channel. AnnouncedVersion: the versions whose cards were posted (Announced).
         public string MembersRoleId { get; set; }
         public string AnnouncementsChannelId { get; set; }
         public string AnnouncedVersion { get; set; }

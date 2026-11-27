@@ -6,7 +6,8 @@ and the older "Requestarr Requests") and every channel in them (including archiv
 are, the per-user
 "requestarr-*" roles and the shared "Requestarr Members" and "Requestarr Blocked" roles.
 Keeps: the bot's own role, the Requestarr Admin role, and anything else in the server.
-The "what's new" posts go with their channels and are rebuilt when Requestarr starts again, as that stack keeps them
+The "what's new" posts go with their channels, and the reset wipes their record with the database, so they're posted
+fresh when Requestarr starts again, as that stack keeps them
 (docs/development.md#version-posts): QA posts every version staging doesn't have yet, dev the version it runs.
 
 Reads STACK_DISCORD_BOT_TOKEN and STACK_DISCORD_GUILD_ID from the environment: the chosen stack's own bot and

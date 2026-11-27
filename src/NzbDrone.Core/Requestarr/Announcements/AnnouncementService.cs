@@ -29,9 +29,9 @@ namespace Requestarr.Core.Announcements
         Task<ulong?> PostAsync(string content);
 
         // What's new, per version, as one-line cards: both sections counted in the admin channel, the users' lines in
-        // the announcements channel. Which versions a server shows depends on its environment (VersionPostMode):
-        // production and staging keep every version for good, QA shows what staging doesn't have yet, dev only the
-        // version running now.
+        // the announcements channel. Every server posts a version's card once and never edits or posts it again. Which
+        // versions a server shows depends on its environment (VersionPostMode): production and staging keep every
+        // version for good, QA shows what staging doesn't have yet, dev only the version running now.
         Task PostVersionNotesAsync();
 
         // Every version with something in it, newest first, labelled as its card is: the web app's What's new.
@@ -171,22 +171,7 @@ namespace Requestarr.Core.Announcements
                     return;
                 }
 
-                // Dev and QA: the cards are rebuilt to show exactly the versions that apply, whatever the channels hold
-                // now (after a reset they hold nothing).
-                var staged = _environment.Staged ?? new HashSet<Version>();
-                var news = versions.Where(v => v.HasNews && (mode == VersionPostMode.CurrentOnly ? v.Version == current : !staged.Contains(v.Version))).ToList();
-                var users = _guildSetup.AnnouncementsChannelId;
-
-                await KeepExactlyAsync(adminChannel, await FindPostsAsync(adminChannel, VersionAudience.Admins), news.Select(v => Card(v, VersionAudience.Admins)).ToList());
-                news.ForEach(v => RecordPosted(v, VersionAudience.Admins));
-
-                if (users.HasValue)
-                {
-                    await KeepExactlyAsync(users.Value, await FindPostsAsync(users.Value, VersionAudience.Users), news.Where(v => v.Users.Count > 0).Select(v => Card(v, VersionAudience.Users)).ToList());
-                    news.ForEach(v => RecordPosted(v, VersionAudience.Users));
-                }
-
-                _logger.Info("What's new ({0}): {1}", mode, news.Count == 0 ? "no versions to show" : string.Join(", ", news.Select(v => v.Version)));
+                await PostPreviewAsync(config, adminChannel, versions, current, mode);
             }
             catch (Exception ex)
             {
@@ -319,9 +304,7 @@ namespace Requestarr.Core.Announcements
             {
                 if (version.HasNews)
                 {
-                    await AnnounceAsync(version, adminChannel, VersionAudience.Admins, shownAdmin.Contains(version.Version));
-                    await AnnounceAsync(version, users, VersionAudience.Users, version.Users.Count == 0 || shownUsers.Contains(version.Version));
-                    _logger.Info("Announced what's new in {0} ({1} for users, {2} for admins)", version.Version, version.Users.Count, version.Admins.Count);
+                    await AnnounceVersionAsync(version, adminChannel, shownAdmin, shownUsers);
                 }
 
                 // Recorded one version at a time, so a failure part way never posts a version twice.
@@ -335,6 +318,62 @@ namespace Requestarr.Core.Announcements
                 config.AnnouncedVersion = announced.With(new[] { current }).ToString();
                 _configs.Upsert(config);
             }
+        }
+
+        // Dev and QA: each build's card is posted once and then stays as posted, whatever its words become, as on staging.
+        // The versions announced are recorded (a reset wipes the record with the channels, so it all posts again). Which
+        // versions show still follows the environment: cards for versions that no longer apply (dev's earlier builds,
+        // versions promoted to staging) and posts from before cards are removed. A card already in a channel that the
+        // record doesn't list (posted before QA and dev kept one) is recorded, not posted again.
+        private async Task PostPreviewAsync(DiscordGuildConfig config, ulong adminChannel, List<ChangelogVersion> versions, Version current, VersionPostMode mode)
+        {
+            var staged = _environment.Staged ?? new HashSet<Version>();
+            var news = versions.Where(v => v.HasNews && (mode == VersionPostMode.CurrentOnly ? v.Version == current : !staged.Contains(v.Version))).ToList();
+            var shown = news.Select(v => v.Version).ToHashSet();
+            var users = _guildSetup.AnnouncementsChannelId;
+            var inAdmin = await KeepOnlyAsync(adminChannel, VersionAudience.Admins, shown);
+            var inUsers = users.HasValue ? await KeepOnlyAsync(users.Value, VersionAudience.Users, shown) : new HashSet<Version>();
+            var announced = Announced.Parse(config.AnnouncedVersion);
+
+            foreach (var version in news.Where(v => !announced.Lists(v.Version)))
+            {
+                await AnnounceVersionAsync(version, adminChannel, inAdmin, inUsers);
+
+                // Recorded one version at a time, so a failure part way never posts a version twice.
+                announced = announced.With(new[] { version.Version });
+                config.AnnouncedVersion = announced.ToString();
+                _configs.Upsert(config);
+            }
+
+            _logger.Info("What's new ({0}): {1}", mode, news.Count == 0 ? "no versions to show" : string.Join(", ", news.Select(v => v.Version)));
+        }
+
+        // Removes a channel's version posts other than the cards of the versions shown (posts from before cards too), and
+        // returns the versions whose cards stay.
+        private async Task<HashSet<Version>> KeepOnlyAsync(ulong channel, VersionAudience audience, IReadOnlySet<Version> shown)
+        {
+            var kept = new HashSet<Version>();
+
+            foreach (var post in await FindPostsAsync(channel, audience))
+            {
+                if (post.Card != null && shown.Contains(post.Version))
+                {
+                    kept.Add(post.Version);
+                    continue;
+                }
+
+                await DeleteAsync(channel, post);
+            }
+
+            return kept;
+        }
+
+        // A version's card in each channel, unless the channel holds it already.
+        private async Task AnnounceVersionAsync(ChangelogVersion version, ulong adminChannel, IReadOnlySet<Version> inAdmin, IReadOnlySet<Version> inUsers)
+        {
+            await AnnounceAsync(version, adminChannel, VersionAudience.Admins, inAdmin.Contains(version.Version));
+            await AnnounceAsync(version, _guildSetup.AnnouncementsChannelId, VersionAudience.Users, version.Users.Count == 0 || inUsers.Contains(version.Version));
+            _logger.Info("Announced what's new in {0} ({1} for users, {2} for admins)", version.Version, version.Users.Count, version.Admins.Count);
         }
 
         // One version's card in one channel (none when there is no such channel), unless it's there already, and its

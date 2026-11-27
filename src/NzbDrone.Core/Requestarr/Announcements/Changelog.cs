@@ -159,6 +159,10 @@ namespace Requestarr.Core.Announcements
 
         public bool Contains(Version version) => !IsEmpty && (version <= _versions.Min || _versions.Contains(version));
 
+        // This version itself, not the ones below the lowest that Contains counts: QA's and dev's lists never held the
+        // older single version, and a version below the lowest can still reach QA (when staging goes back).
+        public bool Lists(Version version) => _versions.Contains(version);
+
         public Announced With(IEnumerable<Version> versions) => new(_versions.Concat(versions));
 
         public override string ToString() => string.Join(",", _versions);
