@@ -473,7 +473,7 @@ namespace Requestarr.Core.Requests
         private async Task<RequestResult> NewRequestAsync(RequestCaller caller, UserMediaAccess access, ContentType type, int externalId, TitleState state, SeasonChoice seasons, AnimeLanguage? language)
         {
             var item = state.Item;
-            var (chosen, future) = type == ContentType.Tv ? ChosenSeasons(item, seasons) : (new List<int>(), false);
+            var (chosen, future, all) = type == ContentType.Tv ? ChosenSeasons(item, seasons) : (new List<int>(), false, false);
 
             if (type == ContentType.Tv && !chosen.Any() && !future)
             {
@@ -497,6 +497,7 @@ namespace Requestarr.Core.Requests
                 BackendId = state.Instance.Id,
                 Seasons = chosen,
                 MonitorFutureSeasons = future,
+                AllSeasons = all,
                 Language = language,
                 AppliedFix = state.AppliedFix,
                 PosterUrl = item.PosterUrl,
@@ -517,18 +518,20 @@ namespace Requestarr.Core.Requests
             await _feed.PostAsync(request, item);
             _events.PublishEvent(new AdminQueueChangedEvent());
 
-            return new RequestResult(true, DiscordText.RequestPending(request.Label, request.Id), request, RequestOutcome.Pending);
+            return new RequestResult(true, DiscordText.RequestPendingStatus(request), request, RequestOutcome.Pending);
         }
 
         // The seasons a TV request asks for: All is every season the series has now, otherwise the
         // chosen ones it has (specials only when it has them). No choice is All, plus new seasons
         // while the series continues.
-        private static (List<int> Seasons, bool Future) ChosenSeasons(MediaLookupResult item, SeasonChoice choice)
+        private static (List<int> Seasons, bool Future, bool All) ChosenSeasons(MediaLookupResult item, SeasonChoice choice)
         {
             choice ??= new SeasonChoice(true, Array.Empty<int>(), item.Continuing);
             var chosen = (choice.All ? item.Seasons : choice.Seasons.Where(s => item.Seasons.Contains(s) || (s == 0 && item.HasSpecials))).Distinct().OrderBy(s => s).ToList();
 
-            return (chosen, choice.Future);
+            // Remembered as all seasons only with new ones too, as the All seasons button asks: the old menu's "all" alone
+            // names its seasons.
+            return (chosen, choice.Future, choice.All && choice.Future);
         }
 
         // Over the caller's limit for the type: the refusal (recorded), or null while there's room.
@@ -566,12 +569,12 @@ namespace Requestarr.Core.Requests
 
             if (request.Status == RequestStatus.Available)
             {
-                return new RequestResult(true, DiscordText.RequestAlreadyAvailableStatus(request.Label, request.Id), request, RequestOutcome.AlreadyAvailable);
+                return new RequestResult(true, DiscordText.RequestAlreadyAvailableStatus(request.Label), request, RequestOutcome.AlreadyAvailable);
             }
 
             return sent
-                ? new RequestResult(true, DiscordText.RequestAdded(request.Label, request.Id), request, RequestOutcome.Sent)
-                : new RequestResult(false, DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason), request, RequestOutcome.Failed);
+                ? new RequestResult(true, DiscordText.RequestAddedStatus(request), request, RequestOutcome.Sent)
+                : new RequestResult(false, DiscordText.RequestFailedStatus(request), request, RequestOutcome.Failed);
         }
 
         public async Task<ServiceResult> ApproveAsync(int requestId, Actor admin, string adminName)
@@ -1416,6 +1419,13 @@ namespace Requestarr.Core.Requests
                 // Anime always goes in as Sonarr's Anime type (absolute numbering, scene mapping). With
                 // sub/dub on, it's tagged with its language so the matching release profile applies.
                 var seriesType = item.IsAnime ? "anime" : instance.Config.SeriesType;
+
+                // All seasons is every season the series has now, with one that aired while the request waited.
+                if (request.AllSeasons)
+                {
+                    request.Seasons = request.Seasons.Where(s => s == 0).Concat(item.Seasons).Distinct().OrderBy(s => s).ToList();
+                }
+
                 var (tags, fix) = await TagsAsync(request, instance, item);
 
                 request.ExternalItemId = request.ContentType == ContentType.Movie

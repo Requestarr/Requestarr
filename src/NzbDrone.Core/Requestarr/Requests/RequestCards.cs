@@ -389,7 +389,12 @@ namespace Requestarr.Core.Requests
                 _ => (DiscordText.FinalRefused, RefusedColor)
             };
 
-            var lines = new List<string> { $"{result.Header ?? status}{DiscordText.Dot}{result.Message}" };
+            var lines = new List<string> { FinalStatusLine(result, status) };
+
+            if (result.Message != null)
+            {
+                lines.Add(result.Message);
+            }
 
             if (type == ContentType.Tv && seasonsText != null && (result.Outcome == RequestOutcome.Sent || result.Outcome == RequestOutcome.Pending))
             {
@@ -412,7 +417,7 @@ namespace Requestarr.Core.Requests
                 reply.Buttons.Add(CancelButton(result.Request.Id));
             }
 
-            if (type == ContentType.Tv && result.Request is { IsActive: true } && result.Outcome is RequestOutcome.Sent or RequestOutcome.Pending or RequestOutcome.Following)
+            if (CanAddSeasons(result.Request) && result.Outcome is RequestOutcome.Sent or RequestOutcome.Pending or RequestOutcome.Following)
             {
                 reply.Buttons.Add(AddSeasonsButton(result.Request.Id));
             }
@@ -434,6 +439,18 @@ namespace Requestarr.Core.Requests
             }
         }
 
+        // The request block's first line: its status, and the request's number when it's about one request (a follow's
+        // message names the request it follows already).
+        private static string FinalStatusLine(RequestResult result, string status)
+        {
+            if (result.Header != null)
+            {
+                return result.Header;
+            }
+
+            return result.Request != null && result.Outcome != RequestOutcome.Following ? DiscordText.RequestStatusLine(status, result.Request.Id) : status;
+        }
+
         // A request message showing the request's real state; Cancel only while it is pending.
         // mention: the person the message is for (a reposted message pings them); note: an extra line
         // (for example a sub/dub switch); followerOf: the owner's name when the message is a follower's.
@@ -441,7 +458,15 @@ namespace Requestarr.Core.Requests
         public static InteractionReply Status(Request request, MediaLookupResult item, string mention, string note, string followerOf)
         {
             var (status, color, message) = Headline(request);
-            var lines = new List<string> { $"{(mention != null ? mention + " " : string.Empty)}{status}{DiscordText.Dot}{message}" };
+            var lines = new List<string>();
+
+            if (mention != null)
+            {
+                lines.Add(mention);
+            }
+
+            lines.Add(DiscordText.RequestStatusLine(status, request.Id));
+            lines.Add(message);
 
             if (followerOf != null)
             {
@@ -470,7 +495,7 @@ namespace Requestarr.Core.Requests
                 reply.Buttons.Add(CancelButton(request.Id));
             }
 
-            if (request.ContentType == ContentType.Tv && request.IsActive)
+            if (CanAddSeasons(request))
             {
                 reply.Buttons.Add(AddSeasonsButton(request.Id));
             }
@@ -481,25 +506,30 @@ namespace Requestarr.Core.Requests
         // The request message's first line (its status and what it means) and the card's color.
         private static (string Status, uint Color, string Message) Headline(Request request) => request.Status switch
         {
-            RequestStatus.Pending => (DiscordText.FinalPending, PendingColor, DiscordText.RequestPending(request.Label, request.Id)),
+            RequestStatus.Pending => (DiscordText.FinalPending, PendingColor, DiscordText.RequestPendingStatus(request)),
             RequestStatus.Approved => request.Progress switch
             {
                 DownloadProgress.Downloading => (DiscordText.FinalDownloading, SentColor, DiscordText.RequestDownloadingStatus(request)),
                 DownloadProgress.Stalled => (DiscordText.FinalStalled, PendingColor, DiscordText.RequestStalledStatus(request)),
                 DownloadProgress.Failed => (DiscordText.FinalDownloadFailed, PendingColor, DiscordText.RequestDownloadFailedStatus(request)),
                 _ when request.AvailableSeasons?.Any() == true => (DiscordText.FinalPartlyAvailable, SentColor, DiscordText.RequestSearchingStatus(request)),
-                _ => (DiscordText.FinalApproved, SentColor, DiscordText.RequestApprovedStatus(request.Label, request.Id))
+                _ => (DiscordText.FinalApproved, SentColor, DiscordText.RequestApprovedStatus(request))
             },
             RequestStatus.Available when request.Progress == DownloadProgress.Imported => (DiscordText.FinalReady, SentColor, DiscordText.RequestReadyStatus(request)),
-            RequestStatus.Available => (DiscordText.FinalAvailable, SentColor, DiscordText.RequestAlreadyAvailableStatus(request.Label, request.Id)),
-            RequestStatus.Denied => (DiscordText.FinalDenied, RefusedColor, DiscordText.RequestDeniedStatus(request.Label, request.Id, request.DecisionReason)),
+            RequestStatus.Available => (DiscordText.FinalAvailable, SentColor, DiscordText.RequestAlreadyAvailableStatus(request.Label)),
+            RequestStatus.Denied => (DiscordText.FinalDenied, RefusedColor, DiscordText.RequestDeniedStatus(request)),
             RequestStatus.Removed => (DiscordText.FinalRemoved, CancelledColor, DiscordText.RequestRemovedStatus(request)),
             RequestStatus.NotInLibrary => (DiscordText.FinalNotInLibrary, CancelledColor, DiscordText.RequestNotInLibraryStatus(request)),
             RequestStatus.Cancelled => (DiscordText.FinalCancelled, CancelledColor, request.DecidedByUserId.HasValue || request.DecidedByName != null
-                ? DiscordText.RequestCancelledByAdmin(request.Label, request.Id, request.DecisionReason)
-                : DiscordText.RequestCancelled(request.Label, request.Id)),
-            _ => (DiscordText.FinalFailed, RefusedColor, DiscordText.RequestFailedNotice(request.Label, request.Id, request.DecisionReason))
+                ? DiscordText.RequestCancelledByAdmin(request)
+                : DiscordText.RequestCancelledStatus(request)),
+            _ => (DiscordText.FinalFailed, RefusedColor, DiscordText.RequestFailedStatus(request))
         };
+
+        // Add seasons, on an open TV request that has something left to add: all seasons (with new ones as they air)
+        // leaves only specials, which the web app can still add.
+        private static bool CanAddSeasons(Request request) =>
+            request is { ContentType: ContentType.Tv, IsActive: true, AllSeasons: false };
 
         public static InteractionButton AddSeasonsButton(int requestId) =>
             new() { CustomId = $"{RequestRoutes.AddSeasons}:{requestId}", Label = DiscordText.AddSeasonsLabel, Style = ButtonStyle.Secondary };
@@ -608,7 +638,7 @@ namespace Requestarr.Core.Requests
                 reply.Buttons.Add(new InteractionButton { CustomId = $"{RequestRoutes.AdminCancel}:{request.Id}", Label = DiscordText.CancelLabel, Style = ButtonStyle.Secondary });
             }
 
-            if (request.ContentType == ContentType.Tv && request.IsActive)
+            if (CanAddSeasons(request))
             {
                 reply.Buttons.Add(AddSeasonsButton(request.Id));
             }
@@ -681,7 +711,9 @@ namespace Requestarr.Core.Requests
         // Add seasons: only seasons not requested yet are offered (removing seasons is never done
         // here), a page at a time; picks ride in the custom IDs.
         public static IReadOnlyList<int> AddableSeasons(Request request, MediaLookupResult item) =>
-            (item.HasSpecials ? new[] { 0 } : Array.Empty<int>()).Concat(item.Seasons).Except(request.Seasons).Distinct().OrderBy(s => s).ToList();
+            (item.HasSpecials ? new[] { 0 } : Array.Empty<int>())
+                .Concat(request.AllSeasons ? Array.Empty<int>() : item.Seasons)
+                .Except(request.Seasons).Distinct().OrderBy(s => s).ToList();
 
         public static InteractionReply AddSeasonsPicker(Request request, MediaLookupResult item, int page, SeasonChoice picks)
         {

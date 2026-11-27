@@ -281,7 +281,7 @@ namespace Requestarr.Core.Test.Qa
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
             unreleased.Where(i => !i.Checker.Automated).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Media manager wording", "Warning before turning off all other shows", "Server cards on Import", "Imported history in Discord", "Post History in the web app");
+            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Request messages and All seasons", "Media manager wording", "Warning before turning off all other shows", "Server cards on Import", "Imported history in Discord", "Post History in the web app");
         }
 
         [Test]

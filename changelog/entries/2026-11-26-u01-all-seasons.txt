@@ -1,0 +1,3 @@
+audience: users
+kind: fixed
+line: **All seasons:** a request for all seasons now says All seasons, not the seasons the show had that day, and no longer shows an Add seasons button with nothing left to add.

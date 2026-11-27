@@ -25,7 +25,7 @@ namespace Requestarr.Core.Test.Availability
             (await Webhook("Grab", request)).Should().Be(WebhookOutcome.Accepted);
 
             Reload(request.Id).Progress.Should().Be(DownloadProgress.Downloading);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalDownloading}");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalDownloading}");
             ChannelFor(Alice).MessageIds.Last().ToString().Should().Be(Reload(request.Id).MessageId, "the old message was replaced by the new one");
             State(LatestCard).Should().Be(DiscordText.FinalDownloading);
             CardsFor(request.Id).Should().Be(1);
@@ -60,7 +60,7 @@ namespace Requestarr.Core.Test.Availability
             done.Status.Should().Be(RequestStatus.Available);
             done.Progress.Should().Be(DownloadProgress.Imported);
             done.Fulfilled.Should().Be(Now);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalReady}").And.Contain("ready to watch");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalReady}").And.Contain("ready to watch");
             Latest(Alice).Buttons.Select(b => b.CustomId).Should().Equal(new[] { $"rm-user:{request.Id}" }, "once it's in the library, its requester can ask to remove it");
             State(CardOf(request.Id)).Should().Be(DiscordText.FinalReady);
             CardOf(request.Id).Buttons.Select(b => b.CustomId).Should().Equal(new[] { $"rm-feed:{request.Id}" }, "the feed card's Delete starts a removal");
@@ -135,7 +135,7 @@ namespace Requestarr.Core.Test.Availability
 
             Reload(request.Id).Status.Should().Be(RequestStatus.Available);
             Reload(request.Id).AvailableSeasons.Should().Equal(1, 2);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalReady}").And.Contain("seasons 1–2");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalReady}").And.Contain("seasons 1–2");
         }
 
         [Test]
@@ -162,7 +162,7 @@ namespace Requestarr.Core.Test.Availability
             var stuck = Reload(request.Id);
             stuck.Progress.Should().Be(DownloadProgress.Stalled);
             stuck.ProgressDetail.Should().Be(reason);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalStalled}").And.Contain(reason);
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalStalled}").And.Contain(reason);
             State(CardOf(request.Id)).Should().Be($"{DiscordText.FinalStalled}: {reason}");
         }
 
@@ -197,7 +197,7 @@ namespace Requestarr.Core.Test.Availability
             await Availability.CheckAllAsync();
 
             Reload(request.Id).Progress.Should().Be(DownloadProgress.Failed);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalDownloadFailed}").And.Contain("Unpacking failed").And.Contain("Another release is usually tried");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalDownloadFailed}").And.Contain("Unpacking failed").And.Contain("Another release is usually tried");
             Reload(request.Id).Status.Should().Be(RequestStatus.Approved, "Radarr keeps trying; the request stays open");
         }
 
@@ -211,7 +211,7 @@ namespace Requestarr.Core.Test.Availability
 
             await Webhook("Download", request);
 
-            Latest(Bob).Content.Should().StartWith($"<@{Bob}> {DiscordText.FinalReady}").And.Contain("You're following alice's request");
+            Latest(Bob).Content.Should().StartWith($"<@{Bob}>\n{DiscordText.FinalReady}").And.Contain("You're following alice's request");
         }
 
         [Test]

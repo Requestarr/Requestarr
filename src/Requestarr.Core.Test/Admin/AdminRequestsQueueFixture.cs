@@ -120,7 +120,7 @@ namespace Requestarr.Core.Test.Admin
             RequestStore.Get(1).Status.Should().Be(RequestStatus.Approved);
             Header(next).Should().Be(DiscordText.WalkHeader(1, 1));
             next.Content.Should().Contain("↳ Approved request #1").And.Contain(DiscordText.WaitingSince(RequestStore.Get(2)));
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalApproved}", "the user's message is reposted as usual");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalApproved}", "the user's message is reposted as usual");
 
             var done = (await Press(next, DiscordText.AlreadyAvailableLabel)).LastReply;
             RequestStore.Get(2).Status.Should().Be(RequestStatus.Available);

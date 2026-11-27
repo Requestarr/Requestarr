@@ -156,11 +156,14 @@ namespace Requestarr.Core.Discord
 
         public static string RequestState(Request request) => $"Request #{request.Id} for {request.Label} is {Label(request.Status)}.";
 
-        public static string RequestApprovedStatus(string label, int id) => $"Request #{id} for {label} was approved. A search has started.";
+        // A request message's first line: its status and number. The sentence under it starts with the title.
+        public static string RequestStatusLine(string status, int id) => $"{status}{Dot}Request #{id}";
+
+        public static string RequestApprovedStatus(Request request) => $"{request.Label} was approved. A search has started.";
 
         public const string AlreadyAvailableLabel = "Already available";
 
-        public static string RequestAlreadyAvailableStatus(string label, int id) => $"Good news: {label} is already in the library, ready for you. Request #{id} is complete.";
+        public static string RequestAlreadyAvailableStatus(string label) => $"Good news: {label} is already in the library, ready for you.";
 
         public static string RequestAlreadyAvailableNotice(string label, int id) => $"🎉 Good news! {label} (request #{id}) is already in the library, ready for you.";
 
@@ -168,9 +171,17 @@ namespace Requestarr.Core.Discord
 
         public static string AdminMarkedAvailable(Request request) => $"Request #{request.Id} for {request.Label} is closed as already available. The user is told the good news.";
 
-        public static string RequestDeniedStatus(string label, int id, string reason) => $"Request #{id} for {label} was denied: {reason ?? NoReason}.";
+        public static string RequestDeniedStatus(Request request) => $"{request.Label} was denied: {request.DecisionReason ?? NoReason}.";
 
-        public static string RequestCancelledByAdmin(string label, int id, string reason) => $"Request #{id} for {label} was cancelled by the admin{(reason != null ? ": " + reason : string.Empty)}.";
+        public static string RequestCancelledByAdmin(Request request) => $"{request.Label} was cancelled by the admin{(request.DecisionReason != null ? ": " + request.DecisionReason : string.Empty)}.";
+
+        public static string RequestCancelledStatus(Request request) => $"{request.Label} was cancelled.";
+
+        public static string RequestAddedStatus(Request request) => $"{request.Label} was added and a search has started.";
+
+        public static string RequestPendingStatus(Request request) => $"{request.Label} is waiting for the admin's approval.";
+
+        public static string RequestFailedStatus(Request request) => $"{request.Label} couldn't be added: {request.DecisionReason}";
 
         public static string RequestCancelledByAdminNotice(string label, int id, string reason) => $"Your request #{id} for {label} was cancelled by the admin{(reason != null ? ": " + reason : string.Empty)}.";
 
@@ -236,7 +247,7 @@ namespace Requestarr.Core.Discord
 
         public static string YouChose(string choice) => $"You chose **{choice}**.\nPress **Request** to send it, or **Back** to change it.";
 
-        public static string SeasonsLine(string choice) => $"{Capitalize(choice)}.";
+        public static string SeasonsLine(string choice) => $"**Seasons:** {Capitalize(choice)}";
 
         // Plain words for a season choice, so the confirmation leaves no guesswork.
         public static string SeasonChoiceText(SeasonChoice choice, IReadOnlyCollection<int> available)
@@ -419,13 +430,8 @@ namespace Requestarr.Core.Discord
         public static string QuotaReached(ContentType type, int limit, int days, DateTime nextSlot) =>
             $"You've reached your {Label(type).ToLowerInvariant()} limit ({limit} per {days} days). Your next request frees up {DiscordTimestamp(nextSlot)}.";
 
-        public static string RequestPending(string label, int id) => $"Request #{id} for {label} is waiting for the admin's approval.";
-
         // For admins, who may see where a request went.
         public static string RequestSent(string label, int id, string instance) => $"Request #{id} for {label} was added to {instance} and a search has started.";
-
-        // For members, who never see which server takes a request.
-        public static string RequestAdded(string label, int id) => $"Request #{id} for {label} was added and a search has started.";
 
         public static string RequestApprovedNotice(string label, int id) => $"Your request #{id} for {label} was approved. A search has started.";
 
@@ -451,9 +457,16 @@ namespace Requestarr.Core.Discord
 
         public static string AdminDenied(Request request) => $"Denied request #{request.Id} for {request.Label}.";
 
-        // An imported request for every season names none of them (ImportPlan).
-        public static string Seasons(Request request) =>
-            request.Imported && request.MonitorFutureSeasons && !request.Seasons.Any() ? "all seasons" : SeasonList(request.Seasons, request.MonitorFutureSeasons);
+        // A request for all seasons says so, whatever seasons the series had then.
+        public static string Seasons(Request request)
+        {
+            if (!request.AllSeasons)
+            {
+                return SeasonList(request.Seasons, request.MonitorFutureSeasons);
+            }
+
+            return request.Seasons.Contains(0) ? "all seasons and specials" : "all seasons";
+        }
 
         public static string RequestLine(Request request, string owner, bool showOwner) =>
             $"#{request.Id} · {Label(request.ContentType)} · {request.Label} · {Label(request.Status)}{(showOwner ? " · " + owner : string.Empty)}";
@@ -707,21 +720,19 @@ namespace Requestarr.Core.Discord
             return parts.Any() ? string.Join(" and ", parts) : "nothing yet";
         }
 
-        public static string RequestSearchingStatus(Request request) =>
-            $"Request #{request.Id} for {request.Label} is being searched for.";
+        public static string RequestSearchingStatus(Request request) => $"{request.Label} is being searched for.";
 
-        public static string RequestDownloadingStatus(Request request) =>
-            $"Request #{request.Id} for {request.Label} is downloading.";
+        public static string RequestDownloadingStatus(Request request) => $"{request.Label} is downloading.";
 
         public static string RequestStalledStatus(Request request) =>
-            $"Request #{request.Id} for {request.Label} stopped downloading{Because(request.ProgressDetail)}. The admin can see this too.";
+            $"{request.Label} stopped downloading{Because(request.ProgressDetail)}. The admin can see this too.";
 
         public static string RequestDownloadFailedStatus(Request request) =>
-            $"The download for request #{request.Id} ({request.Label}) failed{Because(request.ProgressDetail)}. Another release is usually tried by itself.";
+            $"The download for {request.Label} failed{Because(request.ProgressDetail)}. Another release is usually tried by itself.";
 
         public static string RequestReadyStatus(Request request) => request.ContentType == ContentType.Tv
-            ? $"Good news: {request.Label} is ready to watch: {PlainSeasons(request.AvailableSeasons)}. Request #{request.Id} is complete."
-            : $"Good news: {request.Label} is ready to watch. Request #{request.Id} is complete.";
+            ? $"Good news: {request.Label} is ready to watch: {PlainSeasons(request.AvailableSeasons)}."
+            : $"Good news: {request.Label} is ready to watch.";
 
         public static string AvailableSoFar(Request request) => $"Available now: **{PlainSeasons(request.AvailableSeasons)}**. The rest is still on its way.";
 
@@ -953,9 +964,9 @@ namespace Requestarr.Core.Discord
             $"🧪 **Dev: fast votes are off.** Removal timings are back to the real settings: votes {voteDays} days, requesters {timeoutDays} days, reminder on day {reminderDay}.";
 
         public static string RequestNotInLibraryStatus(Request request) =>
-            $"Request #{request.Id} for {request.Label} was imported from the old request bot's history; it isn't in the library. Request it again to get it.";
+            $"{request.Label} was imported from the old request bot's history; it isn't in the library. Request it again to get it.";
 
-        public static string RequestRemovedStatus(Request request) => $"Request #{request.Id} for {request.Label} was removed from the library. You can request it again any time.";
+        public static string RequestRemovedStatus(Request request) => $"{request.Label} was removed from the library. You can request it again any time.";
 
         // For the admin.
         public static string RemovalVoteStarted(Removals.RemovalProposal proposal) =>
