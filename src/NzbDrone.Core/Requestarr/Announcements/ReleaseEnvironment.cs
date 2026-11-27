@@ -13,10 +13,11 @@ namespace Requestarr.Core.Announcements
         // Production and staging (beta): every version is posted once, oldest first, and stays for good.
         Standing,
 
-        // QA: every version in QA that staging doesn't have yet. Promoted versions drop off; a reset rebuilds the list.
+        // QA: every version in QA that staging doesn't have yet, each posted once. Promoted versions drop off; a reset
+        // posts the list again.
         NotYetStaged,
 
-        // Dev: only the version running now; a new version replaces the previous post.
+        // Dev: only the version running now, posted once; a new version replaces the previous post.
         CurrentOnly
     }
 

@@ -245,8 +245,8 @@ namespace Requestarr.Core.Test.Announcements
                 adminNotes.Should().HaveCount(running?.HasNews == true ? 1 : 0, "only the build running now, and one with nothing for anyone posts nothing");
                 adminNotes.Should().OnlyContain(t => t.StartsWith($"Requestarr {label} | "), "Unreleased has no day yet");
 
-                // A card an earlier Requestarr posted ("· 2 changes for admins") is posted again on the next start, with
-                // the new title: dev shows the build running now, and a card is never edited.
+                // A card an earlier Requestarr posted ("· 2 changes for admins") stays as it was posted on the next start:
+                // a card is posted once for its build, never edited or posted again.
                 if (running?.HasNews == true)
                 {
                     var posted = (await CardMessages(adminRest, VersionAudience.Admins)).Single();
@@ -257,8 +257,8 @@ namespace Requestarr.Core.Test.Announcements
                     await announcements.PostVersionNotesAsync();
                     var after = (await CardMessages(adminRest, VersionAudience.Admins)).Single();
                     Log($"[titles] next start: message {(after.Id == posted.Id ? "kept" : "replaced")}, read back: \"{after.Embeds.First().Title} | {after.Embeds.First().Description}\"");
-                    after.Id.Should().NotBe(posted.Id, "the card is posted again, never edited");
-                    after.Embeds.First().Title.Should().Be(fresh.Title);
+                    after.Id.Should().Be(posted.Id, "the card is never posted again");
+                    after.Embeds.First().Title.Should().Be(stale.Embeds[0].Title, "nor edited");
                 }
 
                 var hasUserLines = running?.Users.Count > 0;
@@ -289,6 +289,10 @@ namespace Requestarr.Core.Test.Announcements
                 shownAs = Regex.Replace(label, @"-dev(?=\.|$)", "-qa");
                 staged = string.Join(",", Changelog.Parse(embedded).Select(v => v.Version));
                 announcements.CurrentVersion = () => build;
+
+                // A QA server keeps its own record of the cards it posted: start with none, as QA after a reset.
+                Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>().ChangelogPostedCards = null;
+
                 var firstNumbered = embedded.IndexOf("\n## 0.", StringComparison.Ordinal) + 1;
                 announcements.Changelog = () => ChangelogSource.FromMarkdown(embedded.Insert(firstNumbered, "## 0.6.0 (2026-11-13)\n\n### For admins\n- **Folded version:** this card goes once it's folded into Unreleased.\n\n"));
                 await announcements.PostVersionNotesAsync();
@@ -312,7 +316,7 @@ namespace Requestarr.Core.Test.Announcements
                 qaUsers.Should().ContainSingle().Which.Should().StartWith($"Requestarr {shownAs} · {DiscordText.SinceLastBeta} | ");
                 otherBefore.Should().BeSubsetOf(otherAfter, "only version cards go");
 
-                // Back to the dev server's own way for the rest.
+                // Back to the dev server's own way for the rest (the build's card stays as QA posted it).
                 stack = "dev";
                 shownAs = label;
                 staged = null;

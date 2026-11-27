@@ -163,4 +163,52 @@ namespace Requestarr.Core.Announcements
 
         public override string ToString() => string.Join(",", _versions);
     }
+
+    // QA's and dev's record of the version cards each channel got, stored as "channel:0.7.5,0.7.6;channel:0.7.6". Kept
+    // per channel, so a card not posted in one channel yet (no lines for users then, no announcements channel) is still
+    // posted there once, and a channel made again gets its cards again.
+    public sealed class PostedCards
+    {
+        private readonly SortedDictionary<ulong, SortedSet<Version>> _channels = new();
+
+        public static PostedCards Parse(string text)
+        {
+            var posted = new PostedCards();
+
+            foreach (var entry in (text ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = entry.Split(':');
+
+                if (parts.Length != 2 || !ulong.TryParse(parts[0], out var id))
+                {
+                    continue;
+                }
+
+                foreach (var version in parts[1].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (Version.TryParse(version, out var parsed))
+                    {
+                        posted.Add(id, parsed);
+                    }
+                }
+            }
+
+            return posted;
+        }
+
+        public bool Has(ulong channel, Version version) => _channels.TryGetValue(channel, out var versions) && versions.Contains(version);
+
+        public void Add(ulong channel, Version version)
+        {
+            if (!_channels.TryGetValue(channel, out var versions))
+            {
+                versions = new SortedSet<Version>();
+                _channels[channel] = versions;
+            }
+
+            versions.Add(version);
+        }
+
+        public override string ToString() => string.Join(";", _channels.Select(c => $"{c.Key}:{string.Join(",", c.Value)}"));
+    }
 }

@@ -48,6 +48,9 @@ namespace NzbDrone.Core.Configuration
         // Requestarr.Core.Announcements.AnnouncementService
         string ChangelogPostedEntries { get; set; }
 
+        // QA and dev: the version cards each Discord channel got (Requestarr.Core.Announcements.PostedCards)
+        string ChangelogPostedCards { get; set; }
+
         // The Discord servers the bot has been in (JSON); read through Requestarr.Core.Discord.Gateway.DiscordServers
         string DiscordKnownServers { get; set; }
 
