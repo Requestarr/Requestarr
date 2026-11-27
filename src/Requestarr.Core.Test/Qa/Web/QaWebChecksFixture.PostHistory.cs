@@ -11,13 +11,23 @@ namespace Requestarr.Core.Test.Qa.Web
 {
     // Post History, on a dev stack just reset where the only imported history is the test member's, made up by the run
     // (QA_CHECKS_HISTORY_SEEDED old requests titled "Automated check: post history N"): the test member is onboarded with
-    // history left out, then their history is posted from their page (paused, resumed and cancelled on the way), the
-    // Members toolbar and Requestarr's server window, each read back from their channel in the dev server. Nothing reaches
-    // anyone else; the check's posts are deleted afterwards and the run resets the stack.
+    // history left out; their page's Post History starts posting it and is paused, resumed and cancelled, each read back
+    // from their channel (a pause or cancel stops the posts); the Members toolbar posts the rest, each once and oldest
+    // first; their page's Post History then posts nothing; and Requestarr's server window posts the server's history in
+    // the admin feed, paused, resumed and cancelled the same way. Nothing reaches anyone else; the check's posts are
+    // deleted and read back gone, and the run resets the stack.
     public partial class QaWebChecksFixture
     {
         private const string HistoryTitle = "Automated check: post history";
         private const string ToolbarButtons = "[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].map(b => b.innerText.trim())";
+        private const string WindowButtons = "[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] button')]";
+
+        // The sidebar's messages so far, so what an action shows there (a new message, or one updated in place) can be
+        // told apart.
+        private const string SidebarMessages = "[...document.querySelectorAll('[class*=\"Message-message\"]')].map(m => m.innerText.trim()).join(' / ')";
+
+        // Longer than the history's 2 seconds between posts: what's paused or cancelled has had time to show it stopped.
+        private static readonly TimeSpan Stopped = TimeSpan.FromSeconds(6);
 
         private static int HistorySeeded => int.Parse(Environment.GetEnvironmentVariable("QA_CHECKS_HISTORY_SEEDED") ?? "0");
 
@@ -28,6 +38,7 @@ namespace Requestarr.Core.Test.Qa.Web
             HistorySeeded.Should().BePositive("the run gives the test member made-up imported requests");
             using var discord = new DiscordReadBack();
             string channel = null;
+            var cleaned = false;
 
             try
             {
@@ -38,14 +49,22 @@ namespace Requestarr.Core.Test.Qa.Web
                 (await discord.CardsAsync(channel, HistoryTitle)).Should().BeEmpty("onboarded with history left out");
 
                 var member = await PortalAsync<int>(browser, "members", $"m => m.find(x => x.discordName === {JsonSerializer.Serialize(TestMember)})?.id ?? 0");
-                await MemberPagePostingAsync(browser, check, member);
-                await AllPostedOnceAsync(browser, check, discord, channel, member);
+                await MemberPagePostingAsync(browser, check, discord, channel, member);
                 await MembersToolbarAsync(browser, check, discord, channel);
-                await ServerWindowAsync(browser, check);
+                await PostedOnceAsync(browser, check, discord, channel, member);
+                await ServerWindowAsync(browser, check, discord);
+
+                var left = await DeleteHistoryPostsAsync(discord, channel);
+                cleaned = true;
+                check.Saw($"cleanup: the check's posts deleted, {left} left, read back");
+                left.Should().Be(0, "the check's posts are deleted");
             }
             finally
             {
-                await DeleteHistoryPostsAsync(discord, channel);
+                if (!cleaned)
+                {
+                    await DeleteHistoryPostsAsync(discord, channel);
+                }
             }
         });
 
@@ -75,24 +94,26 @@ namespace Requestarr.Core.Test.Qa.Web
             said.Should().StartWith("Added 1, 0 failed");
         }
 
-        // Their page's Post History, then Pause History, Resume History and Cancel History (asked first) while it posts.
-        private static async Task MemberPagePostingAsync(HeadlessBrowser browser, WebCheck check, int member)
+        // Their page's Post History, then Pause History (nothing more lands), Resume History (it carries on) and Cancel
+        // History, asked first (nothing more lands, some left unposted).
+        private static async Task MemberPagePostingAsync(HeadlessBrowser browser, WebCheck check, DiscordReadBack discord, string channel, int member)
         {
             await browser.GoAsync($"{Url}/members/{member}");
             await browser.WaitForAsync($"{ToolbarButtons}.includes('Post History')");
             await MarkMessagesAsync(browser);
             await PressToolbarAsync(browser, "Post History");
-            check.Saw($"their page's Post History: \"{await NewMessageAsync(browser)}\"");
-
             await browser.WaitForAsync($"{ToolbarButtons}.includes('Pause History')");
             await PressToolbarAsync(browser, "Pause History");
             await browser.WaitForAsync($"{ToolbarButtons}.includes('Resume History')");
-            check.Saw($"paused: the toolbar has {string.Join(", ", await browser.EvalAsync<string[]>(ToolbarButtons))}");
+            check.Saw($"their page's Post History, then Pause History: \"{await NewMessageAsync(browser)}\"; the toolbar has {string.Join(", ", await browser.EvalAsync<string[]>(ToolbarButtons))}");
             await check.ShotAsync(browser, "member-paused");
+            var paused = await StoppedAtAsync(discord, channel, check, "paused");
 
             await PressToolbarAsync(browser, "Resume History");
             await browser.WaitForAsync($"{ToolbarButtons}.includes('Pause History')");
-            check.Saw("resumed: Pause History is back");
+            var resumed = await ChannelCardsAsync(discord, channel, paused + 1);
+            check.Saw($"resumed: {resumed.Count} posted so far");
+            resumed.Count.Should().BeGreaterThan(paused, "Resume carries on posting");
 
             await PressToolbarAsync(browser, "Cancel History");
             await browser.WaitForAsync($"{ModalText}.includes('Stop posting imported requests?')");
@@ -100,33 +121,12 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, "member-cancel-confirm");
             await AnswerAsync(browser, "Cancel History", true);
             await browser.WaitForAsync($"!{ToolbarButtons}.includes('Cancel History')", TimeSpan.FromSeconds(30));
-            check.Saw($"cancelled: the toolbar has {string.Join(", ", await browser.EvalAsync<string[]>(ToolbarButtons))}");
+            var cancelled = await StoppedAtAsync(discord, channel, check, "cancelled");
+            cancelled.Should().BeLessThan(HistorySeeded, "Cancel History drops what wasn't posted yet");
         }
 
-        // Post History again posts what the cancel left, so their channel has each old request once, oldest first,
-        // silently; pressing it once more posts nothing.
-        private static async Task AllPostedOnceAsync(HeadlessBrowser browser, WebCheck check, DiscordReadBack discord, string channel, int member)
-        {
-            var before = (await discord.CardsAsync(channel, HistoryTitle)).Count;
-            check.Saw($"posted in their channel before the cancel stopped it: {before} of {HistorySeeded}");
-
-            await browser.GoAsync($"{Url}/members/{member}");
-            await browser.WaitForAsync($"{ToolbarButtons}.includes('Post History')");
-            await PressToolbarAsync(browser, "Post History");
-            var cards = await ChannelCardsAsync(discord, channel, HistorySeeded);
-            check.Saw($"their channel, read back: {string.Join(" | ", cards.Select(c => $"{c.Title}{(c.IsSilent ? " (silent)" : string.Empty)}"))}");
-            cards.Select(c => c.Title).Should().OnlyHaveUniqueItems("each old request is posted once").And.HaveCount(HistorySeeded);
-            cards.Should().OnlyContain(c => c.IsSilent && !c.Mentions, "history goes out without a notification");
-
-            await MarkMessagesAsync(browser);
-            await PressToolbarAsync(browser, "Post History");
-            check.Saw($"Post History once more: \"{await NewMessageAsync(browser)}\"");
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            (await discord.CardsAsync(channel, HistoryTitle)).Should().HaveCount(HistorySeeded, "a second press posts nothing");
-            await check.ShotAsync(browser, "member-posted");
-        }
-
-        // The Members list's toolbar, with the test member picked: Post History, and nothing more lands (all posted).
+        // The Members list's toolbar, with the test member picked: Post History (asked first) posts the rest, so their
+        // channel has each old request once, oldest first, silently.
         private static async Task MembersToolbarAsync(HeadlessBrowser browser, WebCheck check, DiscordReadBack discord, string channel)
         {
             await browser.GoAsync($"{Url}/members");
@@ -142,45 +142,82 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, "members-toolbar");
             await AnswerAsync(browser, "Post History", true);
             check.Saw($"confirmed: \"{await NewMessageAsync(browser)}\"");
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            (await discord.CardsAsync(channel, HistoryTitle)).Should().HaveCount(HistorySeeded, "theirs was posted already");
+
+            var cards = await ChannelCardsAsync(discord, channel, HistorySeeded);
+            check.Saw($"their channel, read back: {string.Join(" | ", cards.Select(c => $"{c.Title}{(c.IsSilent ? " (silent)" : string.Empty)}"))}");
+            cards.Select(c => c.Title).Should().OnlyHaveUniqueItems("each old request is posted once").And.HaveCount(HistorySeeded);
+            cards.Select(c => c.Title).Should().BeInAscendingOrder(Comparer<string>.Create((a, b) => Year(a).CompareTo(Year(b))), "oldest first");
+            cards.Should().OnlyContain(c => c.IsSilent && !c.Mentions, "history goes out without a notification");
             await PressToolbarAsync(browser, "Stop Selecting");
         }
 
-        // Requestarr's server window on Connections: Post History posts the server's history in the admin feed (theirs
-        // is posted already), with how many are posted, and Pause, Resume and Cancel Posting while it posts.
-        private static async Task ServerWindowAsync(HeadlessBrowser browser, WebCheck check)
+        // Their page's Post History once everything is posted: it says so, and nothing more lands.
+        private static async Task PostedOnceAsync(HeadlessBrowser browser, WebCheck check, DiscordReadBack discord, string channel, int member)
         {
-            const string Buttons = "[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] button')].map(b => b.innerText.trim())";
+            await browser.GoAsync($"{Url}/members/{member}");
+            await browser.WaitForAsync($"{ToolbarButtons}.includes('Post History')");
+            await MarkMessagesAsync(browser);
+            await PressToolbarAsync(browser, "Post History");
+            check.Saw($"their page's Post History once all is posted: \"{await NewMessageAsync(browser)}\"");
+            await check.ShotAsync(browser, "member-posted");
+            (await StoppedAtAsync(discord, channel, check, "after a second Post History")).Should().Be(HistorySeeded, "a second press posts nothing");
+        }
+
+        // Requestarr's server window on Connections: Post History posts the server's history in the admin feed (theirs
+        // is posted already), with how many are posted, and Pause, Resume and Cancel Posting stop and carry on the feed's
+        // posts. Its Cancel Posting doesn't ask first, as the server window is built.
+        private static async Task ServerWindowAsync(HeadlessBrowser browser, WebCheck check, DiscordReadBack discord)
+        {
+            const string Buttons = $"{WindowButtons}.map(b => b.innerText.trim())";
             const string Progress = "[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] [class*=\"ProgressBar\"]')].map(p => p.innerText.trim()).find(t => t) ?? ''";
+            var feed = await discord.ChannelIdAsync(ChannelLayout.FeedChannelName);
             await browser.GoAsync($"{Url}/settings/connections");
             await browser.WaitForAsync($"{Cards}.some(c => c.innerText.includes(\"Requestarr's server\"))");
             await browser.RunAsync($"{Cards}.find(c => c.innerText.includes(\"Requestarr's server\")).click()");
             await browser.WaitForAsync($"{Buttons}.includes('Post History')");
-            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] button')].find(b => b.innerText.trim() === 'Post History').click()");
+            await PressInWindowAsync(browser, "Post History");
 
             await browser.WaitForAsync($"{Buttons}.includes('Pause')");
-            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] button')].find(b => b.innerText.trim() === 'Pause').click()");
+            await PressInWindowAsync(browser, "Pause");
             await browser.WaitForAsync($"{Buttons}.includes('Resume')");
             check.Saw($"the server window, paused: {await browser.EvalAsync<string>(Progress)}; buttons {string.Join(", ", await browser.EvalAsync<string[]>(Buttons))}");
             await check.ShotAsync(browser, "server-paused");
+            var paused = await StoppedAtAsync(discord, feed, check, "the feed, paused");
 
-            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] button')].find(b => b.innerText.trim() === 'Resume').click()");
+            await PressInWindowAsync(browser, "Resume");
             await browser.WaitForAsync($"{Buttons}.includes('Pause')");
+            (await ChannelCardsAsync(discord, feed, paused + 1)).Count.Should().BeGreaterThan(paused, "Resume carries on posting");
             var progress = await browser.EvalAsync<string>(Progress);
             check.Saw($"resumed: {progress}");
             progress.Should().MatchRegex(@"\d+ of \d+ posted", "the window shows how many are posted");
 
-            await browser.RunAsync("[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] button')].find(b => b.innerText.trim() === 'Cancel Posting').click()");
+            await PressInWindowAsync(browser, "Cancel Posting");
             await browser.WaitForAsync($"{Buttons}.includes('Post History')", TimeSpan.FromSeconds(30));
             check.Saw($"Cancel Posting: back to {string.Join(", ", await browser.EvalAsync<string[]>(Buttons))}; {await browser.EvalAsync<string>(Progress)}");
             await check.ShotAsync(browser, "server-cancelled");
+            (await StoppedAtAsync(discord, feed, check, "the feed, cancelled")).Should().BeLessThan(HistorySeeded, "Cancel Posting drops what wasn't posted yet");
+        }
+
+        // A button of the open window by its words; a clear failure when it isn't there (posting finished meanwhile).
+        private static Task PressInWindowAsync(HeadlessBrowser browser, string label) =>
+            browser.RunAsync($"const b = {WindowButtons}.find(b => b.innerText.trim() === '{label}'); if (!b) {{ throw new Error('The window has no {label} button'); }} b.click()");
+
+        // How many history cards a channel has once it's stood still for longer than the posts' pace, and that it stood still.
+        private static async Task<int> StoppedAtAsync(DiscordReadBack discord, string channel, WebCheck check, string when)
+        {
+            var before = (await discord.CardsAsync(channel, HistoryTitle)).Count;
+            await Task.Delay(Stopped);
+            var after = (await discord.CardsAsync(channel, HistoryTitle)).Count;
+            check.Saw($"{when}: {before} posted, {after} after {Stopped.TotalSeconds:0} seconds more");
+            after.Should().Be(before, $"nothing more lands once {when}");
+
+            return after;
         }
 
         // The channel's history cards once there are this many, or what's there after a while (each posts 2 seconds apart).
         private static async Task<IReadOnlyList<PostedCard>> ChannelCardsAsync(DiscordReadBack discord, string channel, int expected)
         {
-            var until = DateTime.UtcNow + TimeSpan.FromMinutes(2);
+            var until = DateTime.UtcNow + TimeSpan.FromMinutes(3);
             var cards = await discord.CardsAsync(channel, HistoryTitle);
 
             while (cards.Count < expected && DateTime.UtcNow < until)
@@ -192,9 +229,8 @@ namespace Requestarr.Core.Test.Qa.Web
             return cards;
         }
 
-        // The sidebar's messages so far, so what an action shows there (a new message, or one updated in place) can be
-        // told apart.
-        private const string SidebarMessages = "[...document.querySelectorAll('[class*=\"Message-message\"]')].map(m => m.innerText.trim()).join(' / ')";
+        // "Automated check: post history 3 (1992)" -> 1992: the made-up requests are a year apart, oldest first.
+        private static int Year(string title) => int.Parse(title[(title.LastIndexOf('(') + 1)..^1]);
 
         private static Task MarkMessagesAsync(HeadlessBrowser browser) => browser.RunAsync($"window.__qaMessages = {SidebarMessages}");
 
@@ -213,13 +249,19 @@ namespace Requestarr.Core.Test.Qa.Web
             return await browser.EvalAsync<string>(SidebarMessages);
         }
 
-        // The check's own posts: the test member's channel and the admin feed's cards for the made-up requests.
-        private static async Task DeleteHistoryPostsAsync(DiscordReadBack discord, string channel)
+        // The check's own posts deleted: the test member's channel and the admin feed's cards for the made-up requests.
+        // How many are left, read back.
+        private static async Task<int> DeleteHistoryPostsAsync(DiscordReadBack discord, string channel)
         {
+            var left = 0;
+
             foreach (var id in new[] { channel, await discord.ChannelIdAsync(ChannelLayout.FeedChannelName) }.Where(i => i != null))
             {
                 await discord.DeleteAsync(id, await discord.CardsAsync(id, HistoryTitle));
+                left += (await discord.CardsAsync(id, HistoryTitle)).Count;
             }
+
+            return left;
         }
     }
 }

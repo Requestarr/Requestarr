@@ -38,9 +38,8 @@ namespace Requestarr.Core.Test.Requests
         private const int Interstellar = 157336;
         private const int Arrival = 329865;
 
-        // A show the TV request asks for with All seasons (its request is #6, after the five films).
+        // A show the TV request asks for with All seasons.
         private const int Severance = 371980;
-        private const int ShowRequest = 6;
 
         [Test]
         public async Task decided_requests_edit_their_real_messages()
@@ -267,25 +266,27 @@ namespace Requestarr.Core.Test.Requests
 
             var first = (await userChannel.GetMessageAsync(message)).Content.Split('\n');
             Log($"[all seasons] the first reply, read back: {string.Join(" | ", first)}");
-            first.Should().StartWith(new[] { DiscordText.RequestStatusLine(DiscordText.FinalPending, ShowRequest), "Severance (2022) is waiting for the admin's approval." });
-            first.Should().Contain(DiscordText.SeasonsLine("all seasons"));
+            var showRequest = requests.All().Single(r => r.TvdbId == Severance).Id;
+
+            // The block's last step answers the member who asked, so it has no mention; the rest as the message has it.
+            first.Should().StartWith(new[] { DiscordText.RequestStatusLine(DiscordText.FinalPending, showRequest), "Severance (2022) is waiting for the admin's approval.", DiscordText.SeasonsLine("all seasons") });
 
             var feed = guild.GetTextChannel(ulong.Parse(config.FeedChannelId));
-            await Send(dispatcher, FakeInteraction.Button($"req-approve:{ShowRequest}").By(guild.OwnerId, "owner").InGuild(guild.Id).InChannel(ulong.Parse(config.AdminChannelId)));
-            var request = requests.Get(ShowRequest);
+            await Send(dispatcher, FakeInteraction.Button($"req-approve:{showRequest}").By(guild.OwnerId, "owner").InGuild(guild.Id).InChannel(ulong.Parse(config.AdminChannelId)));
+            var request = requests.Get(showRequest);
             var approved = await userChannel.GetMessageAsync(ulong.Parse(request.MessageId));
             var lines = approved.Content.Split('\n');
             Log($"[all seasons] after approval, read back: {string.Join(" | ", lines)}; buttons {string.Join(", ", CustomIds(approved))}");
-            lines.Should().StartWith(new[] { $"<@{member}>", DiscordText.RequestStatusLine(DiscordText.FinalApproved, ShowRequest) });
+            lines.Should().StartWith(new[] { $"<@{member}>", DiscordText.RequestStatusLine(DiscordText.FinalApproved, showRequest) });
             lines[2].Should().StartWith("Severance (2022) ");
-            lines.Should().Contain(DiscordText.SeasonsLine("all seasons"));
-            CustomIds(approved).Should().NotContain($"{RequestRoutes.AddSeasons}:{ShowRequest}");
+            lines[3].Should().Be(DiscordText.SeasonsLine("all seasons"));
+            CustomIds(approved).Should().NotContain($"{RequestRoutes.AddSeasons}:{showRequest}");
 
             var card = (await feed.GetMessagesAsync(20).FlattenAsync()).FirstOrDefault(m => m.Embeds.FirstOrDefault()?.Title?.StartsWith("Severance", StringComparison.Ordinal) == true);
             card.Should().NotBeNull("the admin feed has the show's card");
             Log($"[all seasons] the feed card, read back: {card.Embeds.FirstOrDefault()?.Description?.Replace("\n", " | ")}; buttons {string.Join(", ", CustomIds(card))}");
             card.Embeds.First().Description.Should().Contain(DiscordText.SeasonsLine("all seasons"));
-            CustomIds(card).Should().NotContain($"{RequestRoutes.AddSeasons}:{ShowRequest}");
+            CustomIds(card).Should().NotContain($"{RequestRoutes.AddSeasons}:{showRequest}");
         }
 
         private static IEnumerable<string> CustomIds(global::Discord.IMessage message) =>

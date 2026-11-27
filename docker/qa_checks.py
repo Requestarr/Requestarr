@@ -52,7 +52,7 @@ WEB_FIXTURE = "QaWebChecksFixture"
 # Web checks run on a dev stack just reset, after the live checks, not on the owner's dev data: Post History posts the
 # whole server's imported history, and there only the test member's made-up history is imported.
 FRESH_WEB = ["post_history"]
-HISTORY_SEEDED = 6
+HISTORY_SEEDED = 30
 DISCORD_API = "https://discord.com/api/v10"
 ACCOUNT = "qa-checks"
 # Each stack's port setting in secrets.env and its default, as docker/dev.ps1 and docker/dev.sh have them.
@@ -361,8 +361,8 @@ def start_throwaway():
         try:
             with urllib.request.urlopen(url + "/ping", timeout=5):
                 print("[qa-checks] throwaway Requestarr up at %s" % url, flush=True)
-                return {"QA_CHECKS_THROWAWAY_URL": url, "QA_CHECKS_THROWAWAY_API_KEY": key}
-        except (urllib.error.URLError, ConnectionError):
+                return {"QA_CHECKS_THROWAWAY_URL": url}
+        except OSError:
             time.sleep(THROWAWAY_WAIT_SECONDS)
     sys.exit("The throwaway Requestarr didn't start.")
 
@@ -492,6 +492,10 @@ DEV_DATABASE = "/config/requestarr.db"
 SEED_OWNER = "Automated check"
 SEED_TITLE = "Automated check: "
 
+# A made-up server among the ones Requestarr remembers (the Config table's discordknownservers, one list per bot): the
+# bot isn't in it, so it stands for a server that removed the bot (the web app server cards check).
+MADE_UP_SERVER = {"id": "900000000000300001", "name": "Automated check server", "iconUrl": None}
+
 # What the checks write in the dev stack's audit log: everything the web checks do, signed in as ACCOUNT, and anything
 # about the made-up "Automated check" titles and people. The owner's own entries (their sign-in, Discord, the bot) and
 # the QA checklist's results stay.
@@ -552,7 +556,19 @@ def seed_check_rows(con):
     for name, status, tmdb, year, backend in rows:
         con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, TmdbId, Status, BackendId, MonitorFutureSeasons, Requested, Progress) "
                     "VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0)", (owner, SEED_TITLE + name, year, tmdb, status, backend, now))
+    known = known_servers(con)
+    if known:
+        set_known_servers(con, known + [dict(MADE_UP_SERVER, bot=known[0]["bot"])])
     return len(rows)
+
+
+def known_servers(con):
+    row = con.execute("SELECT Value FROM Config WHERE Key = 'discordknownservers'").fetchone()
+    return json.loads(row[0]) if row and row[0] else []
+
+
+def set_known_servers(con, servers):
+    con.execute("UPDATE Config SET Value = ? WHERE Key = 'discordknownservers'", (json.dumps(servers),))
 
 
 def test_member(env):
@@ -597,6 +613,7 @@ def remove_check_data(con):
     for table in ("UserMediaAccess", "UserIdentities"):
         con.execute("DELETE FROM %s WHERE UserId IN (%s)" % (table, marks(people)), people)
     con.execute("DELETE FROM RequestarrUsers WHERE Id IN (%s)" % marks(people), people)
+    set_known_servers(con, [s for s in known_servers(con) if s["id"] != MADE_UP_SERVER["id"]])
     return con.execute("DELETE FROM AuditEntries WHERE " + CHECK_ENTRIES, ("web:" + ACCOUNT, "web:" + ACCOUNT + " %")).rowcount
 
 
@@ -918,6 +935,7 @@ CREATE TABLE RequestSubscribers (Id INTEGER PRIMARY KEY, RequestId INTEGER, User
 CREATE TABLE UserMediaAccess (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE UserIdentities (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE AuditEntries (Id INTEGER PRIMARY KEY, Actor TEXT, Detail TEXT);
+CREATE TABLE Config (Id INTEGER PRIMARY KEY, Key TEXT, Value TEXT);
 """
 
 
@@ -931,7 +949,9 @@ def seeded_and_cleaned():
     con.execute("INSERT INTO Requests (OwnerUserId, Title) VALUES (1, 'Heat')")
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (1, 'owner (web app)')")
     con.execute("INSERT INTO AuditEntries (Actor, Detail) VALUES ('web:owner', 'Heat dropped')")
+    con.execute("INSERT INTO Config (Key, Value) VALUES ('discordknownservers', ?)", (json.dumps([{"bot": "42", "id": "7", "name": "Original", "iconUrl": None}]),))
     seeded = seed_check_rows(con)
+    with_made_up = [k["id"] for k in known_servers(con)]
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (2, 'qa-checks (web app)')")
     con.execute("INSERT INTO RemovalFlags (ProposalId) VALUES (2)")
     con.execute("INSERT INTO RequestSubscribers (RequestId, UserId) VALUES (3, 2)")
@@ -939,7 +959,7 @@ def seeded_and_cleaned():
     removed = remove_check_data(con)
     left = {t: con.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
             for t in ("RequestarrUsers", "Requests", "RemovalProposals", "RemovalFlags", "RequestSubscribers", "AuditEntries")}
-    return seeded, removed, left
+    return seeded, removed, left, (with_made_up, [k["id"] for k in known_servers(con)])
 
 
 def self_test():
@@ -982,8 +1002,9 @@ def self_test():
         ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
+        ("a made-up server remembered for the checks, then forgotten", seeded_and_cleaned()[3] == (["7", MADE_UP_SERVER["id"]], ["7"])),
         ("and everything the checks did removed, the owner's own kept",
-         seeded_and_cleaned()[1:] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
+         seeded_and_cleaned()[1:3] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
         ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
     wrong = [name for name, ok in expected if not ok]

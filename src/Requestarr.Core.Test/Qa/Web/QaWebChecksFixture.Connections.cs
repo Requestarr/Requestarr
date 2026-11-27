@@ -19,6 +19,10 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string FooterParts = "[...document.querySelector('[class*=\"ModalFooter-modalFooter\"]').children].map(e => e.innerText.trim() || (e.className.includes('AdvancedSettings') || e.querySelector('[class*=\"AdvancedSettings\"]') ? 'the Show Advanced gear' : e.title))";
         private const string AlertText = "[...document.querySelectorAll('[class*=\"PageContentBody\"] [class*=\"Alert-\"]')].map(a => a.innerText.trim()).join(' | ')";
 
+        // Asked before regular show requests stop, in a window on top of the edit window.
+        private const string AllOtherShowsWarning = "Regular show requests will stop until another Sonarr is set to take all other shows.";
+        private const string WarningWindow = $"{Windows}.at(-1)";
+
         // The window's words as the owner reviewed them (the bot setup's before-and-after table, with each app's own name
         // where the window names it and the routing by content's purpose): each field's label and a part of its help.
         private static readonly (string Label, string Help)[] SonarrWords =
@@ -185,31 +189,18 @@ namespace Requestarr.Core.Test.Qa.Web
         // show requests (the queue says so).
         private static async Task AllOtherShowsWarningAsync(HeadlessBrowser browser, WebCheck check)
         {
-            const string Warning = "Regular show requests will stop until another Sonarr is set to take all other shows.";
-            const string Confirm = "[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"]')].at(-1)";
             const string UseThis = "document.querySelector('[class*=\"ModalBody\"] input[name=\"enable\"]')";
             await OpenConnectionsAsync(browser);
             await OpenCardAsync(browser, "Sonarr");
             await browser.RunAsync($"{UseThis}.click()");
             await browser.WaitForAsync($"!{UseThis}.checked");
-            await AnswerAsync(browser, "Save", true);
-            await browser.WaitForAsync($"{Confirm}.innerText.includes('{Warning}')");
-            check.Saw($"Use this Sonarr off, then Save: {await browser.EvalAsync<string>($"{Confirm}.innerText.replace(/\\s+/g, ' ')")}");
-            await check.ShotAsync(browser, "save-warning");
-            await browser.RunAsync($"[...{Confirm}.querySelectorAll('button')].find(b => b.innerText.trim() === 'Cancel').click()");
-            await browser.WaitForAsync($"!{Confirm}.innerText.includes('{Warning}')");
-
-            await AnswerAsync(browser, "Delete", true);
-            await browser.WaitForAsync($"{Confirm}.innerText.includes('{Warning}')");
-            check.Saw($"Delete: {await browser.EvalAsync<string>($"{Confirm}.innerText.replace(/\\s+/g, ' ')")}");
-            await check.ShotAsync(browser, "delete-warning");
-            await browser.RunAsync($"[...{Confirm}.querySelectorAll('button')].find(b => b.innerText.trim() === 'Cancel').click()");
-            await browser.WaitForAsync($"!{Confirm}.innerText.includes('{Warning}')");
+            await WarnsThenCancelAsync(browser, check, "Save", "Use this Sonarr off, then Save", "save-warning");
+            await WarnsThenCancelAsync(browser, check, "Delete", "Delete", "delete-warning");
 
             // Saved after all: the confirm's Save turns it off, and regular show requests wait.
             await AnswerAsync(browser, "Save", true);
-            await browser.WaitForAsync($"{Confirm}.innerText.includes('{Warning}')");
-            await browser.RunAsync($"[...{Confirm}.querySelectorAll('button')].find(b => b.innerText.trim() === 'Save').click()");
+            await browser.WaitForAsync($"{WarningWindow}.innerText.includes('{AllOtherShowsWarning}')");
+            await PressInWarningAsync(browser, "Save");
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalFooter-modalFooter\"]')", TimeSpan.FromMinutes(1));
             await browser.GoAsync($"{ThrowawayUrl}/queue");
             await browser.WaitForAsync("document.body.innerText.includes('Requests paused')");
@@ -218,6 +209,20 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, "requests-paused");
             queue.Should().NotBeEmpty("regular show requests are paused until another Sonarr takes all other shows");
         }
+
+        // The window's button warns before regular show requests stop; the warning is read, then cancelled.
+        private static async Task WarnsThenCancelAsync(HeadlessBrowser browser, WebCheck check, string button, string pressed, string shot)
+        {
+            await AnswerAsync(browser, button, true);
+            await browser.WaitForAsync($"{WarningWindow}.innerText.includes('{AllOtherShowsWarning}')");
+            check.Saw($"{pressed}: {await browser.EvalAsync<string>($"{WarningWindow}.innerText.replace(/\\s+/g, ' ')")}");
+            await check.ShotAsync(browser, shot);
+            await PressInWarningAsync(browser, "Cancel");
+            await browser.WaitForAsync($"!{WarningWindow}.innerText.includes('{AllOtherShowsWarning}')");
+        }
+
+        private static Task PressInWarningAsync(HeadlessBrowser browser, string label) =>
+            browser.RunAsync($"[...{WarningWindow}.querySelectorAll('button')].find(b => b.innerText.trim() === '{label}').click()");
 
         // A docker command the check needs (cutting the throwaway off its network and back): it fails the check when docker
         // does.

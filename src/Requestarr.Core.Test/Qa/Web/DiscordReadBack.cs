@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -18,6 +19,9 @@ namespace Requestarr.Core.Test.Qa.Web
 
         private const string Api = "https://discord.com/api/v10";
         private const int PageSize = 100;
+
+        // Tries at one delete while Discord asks to slow down.
+        private const int MaxTries = 5;
 
         private readonly HttpClient _http = new();
 
@@ -49,11 +53,23 @@ namespace Requestarr.Core.Test.Qa.Web
                 .ToList();
         }
 
+        // Each card deleted, waiting as long as Discord says when it asks to slow down.
         public async Task DeleteAsync(string channelId, IEnumerable<PostedCard> cards)
         {
             foreach (var card in cards)
             {
-                using var answer = await _http.DeleteAsync($"{Api}/channels/{channelId}/messages/{card.Id}");
+                for (var tries = 0; tries < MaxTries; tries++)
+                {
+                    using var answer = await _http.DeleteAsync($"{Api}/channels/{channelId}/messages/{card.Id}");
+
+                    if (answer.StatusCode != HttpStatusCode.TooManyRequests)
+                    {
+                        break;
+                    }
+
+                    using var limit = JsonDocument.Parse(await answer.Content.ReadAsStringAsync());
+                    await Task.Delay(TimeSpan.FromSeconds(limit.RootElement.GetProperty("retry_after").GetDouble()));
+                }
             }
         }
 

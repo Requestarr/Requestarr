@@ -190,8 +190,8 @@ namespace Requestarr.Core.Test.Imports
             {
                 var job = await import.StartPreviewAsync(new[] { channel.Id });
                 await UntilAsync($"#{channel.Name} is read", () => Task.FromResult(import.Job(job.Id).State != ImportJobState.Reading));
-                previews.Add((channel, import.Job(job.Id)));
                 var read = import.Job(job.Id);
+                previews.Add((channel, read));
                 Log($"[import] #{channel.Name}: {read.Plan?.Requests.Count ?? 0} requests from {read.Plan?.MessagesRead ?? 0} messages read ({read.Plan?.NotRequests ?? 0} not requests){(read.Problem != null ? "; problem: " + read.Problem : string.Empty)}{(read.Warning != null ? "; warning: " + read.Warning : string.Empty)}");
             }
 
@@ -247,10 +247,9 @@ namespace Requestarr.Core.Test.Imports
 
             if (theirs.Count == 0)
             {
-                var requests = Mocker.Resolve<IRequestRepository>();
                 theirs = imported.Take(Given).ToList();
                 theirs.ForEach(r => r.OwnerUserId = member.Id);
-                requests.UpdateMany(theirs);
+                Mocker.Resolve<IRequestRepository>().UpdateMany(theirs);
                 Log($"[member] {target.Username} made no request in the original server: {theirs.Count} of the imported requests are given to them for the check");
             }
             else
@@ -276,7 +275,7 @@ namespace Requestarr.Core.Test.Imports
                 var embed = card.Embeds.Single();
                 Log($"[history] \"{card.Content}\" | {embed.Title} | {embed.Description?.Replace("\n", " · ")} | {embed.Footer?.Text} | poster {(embed.Thumbnail.HasValue ? "shown" : "none")} | silent {card.Flags.GetValueOrDefault().HasFlag(MessageFlags.SuppressNotification)}");
                 embed.Title.Should().Contain(request.Title, "oldest first, each its own request");
-                embed.Description.Should().Contain("Imported");
+                embed.Description.Should().Contain("Imported").And.Contain(DiscordText.FeedState(request), "the card says how it stands");
                 embed.Footer?.Text.Should().Contain($"#{request.Id}", "the card's footer has the request's number");
 
                 if (request.PosterUrl != null)
@@ -315,13 +314,15 @@ namespace Requestarr.Core.Test.Imports
         {
             var others = Mocker.Resolve<IRequestarrUserRepository>().All().Where(u => u.Id != member.Id).ToList();
             Log($"[others] {others.Count} other people known from the import: {string.Join(", ", others.GroupBy(u => u.Status).Select(g => $"{g.Count()} {g.Key}"))}");
-            others.Should().OnlyContain(u => u.Status != UserStatus.Active && u.PrivateChannelId == null);
+            others.Should().OnlyContain(u => (u.Status == UserStatus.Imported || u.Status == UserStatus.ImportedLeft || u.Status == UserStatus.ImportedElsewhere) && u.PrivateChannelId == null,
+                "they stay imported, not onboarded");
         }
 
         private async Task<string> SendAsync(FakeInteraction interaction)
         {
-            var responder = new RecordingResponder(null, interaction.Build().ChannelId, interaction.Build().MessageId, false);
-            await _dispatcher.DispatchAsync(interaction.Build(), responder);
+            var built = interaction.Build();
+            var responder = new RecordingResponder(null, built.ChannelId, built.MessageId, false);
+            await _dispatcher.DispatchAsync(built, responder);
             return responder.LastReply?.Content;
         }
 
