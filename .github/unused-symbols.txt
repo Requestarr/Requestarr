@@ -28,11 +28,9 @@ Requestarr.Core.Requests.Request.Isbn  # a database column of the request (books
 Requestarr.Core.Requests.Request.MusicBrainzId  # a database column of the request (music, Phase 2)
 Requestarr.Core.Settings.SetupStatus.BotProblem  # sent in the first-run setup's answer, which the web app shows
 Requestarr.Core.Settings.SetupStatus.BotState  # sent in the first-run setup's answer, which the web app shows
-Requestarr.Core.Imports.ChannelHistory  # the import's IChannelHistory, made by the container (Discord's channels, or recorded ones on dev)
 Requestarr.Core.Imports.HistoryMessage.AuthorId  # part of the Discord message this record mirrors
 Requestarr.Core.Imports.ImportAccess.MessageContent  # sent in the import API's access check, which the Import page shows
 Requestarr.Core.Imports.ImportAccess.PortalUrl  # sent in the import API's access check, which the Import page links to
-Requestarr.Core.Imports.ImportPlan.MessagesRead  # sent in the import API's preview, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.ChannelId  # sent in the import API's progress, which the Import page shows
 Requestarr.Core.Imports.ImportProgress.Name  # sent in the import API's progress, which the Import page shows
 Requestarr.Core.Imports.PlannedFollow.Instance  # sent in the import API's preview, which the Import page shows

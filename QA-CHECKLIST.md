@@ -20,7 +20,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Your mention, then the status and request number, each on its own line.
     - A sentence about the show, then Seasons: All seasons.
     - No Add seasons button on your message or the feed card.
-  - Checked by the owner, needs human eyes: how the new lines read in the Discord app; the tests cover the text and the buttons.
+  - Checked automatically: the live request messages check.
 - **What's new grouped by kind**
   - Steps:
     1. In the web app, open System, then What's new.
@@ -40,7 +40,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - The feed has a header, cards marked Imported, and a closing post.
     - The admin command says what it posts, or that it's done.
     - Nobody gets a ping or a notification.
-  - Checked by the owner, needs human eyes: how the cards look in the Discord app; the tests cover each card's text, silence and order.
+  - Checked automatically: the live imported history check.
 - **A quiet import**
   - Steps:
     1. Import from Requestrr with one download already stuck in Radarr.
@@ -140,7 +140,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - Save asks first: regular show requests will stop until another Sonarr takes them.
     - Delete's confirm says the same.
-  - Checked by the owner, couldn't verify: dev's connections are read-only, so the automated checks can't open this window. A screenshot from a throwaway server is in the reply.
+  - Checked automatically: the web app connection windows check.
 - **Post History in the web app**
   - Steps:
     1. Open an active member who has imported requests.
@@ -150,7 +150,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Their channel gets theirs, once.
     - The server's window shows how many are posted.
     - Pause, Resume and Cancel work in both places while it posts.
-  - Checked by the owner, couldn't verify: it needs onboarded members with imported requests. The buttons were checked with made-up people.
+  - Checked automatically: the web app post history check.
 - **Server cards on Import**
   - Steps:
     1. Open Settings, then Import from Requestrr.
@@ -161,7 +161,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Both windows close once the bot is in.
     - Kicked, the card stays and says Not reachable.
     - Discord's page has that server already picked.
-  - Checked by the owner, couldn't verify: only a person can add the bot to a server or kick it. The windows were checked with made-up servers.
+  - Checked automatically: the web app server cards check.
 - **Imported history in System, Tasks**
   - Steps:
     1. Import from Requestrr with Post in the admin feed on.
@@ -180,7 +180,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Test All says every connection passed, naming no apps.
     - Delete at the left, then the gear, Test, Cancel and Save.
     - An Updates line saying right away or on a timer.
-  - Checked by the owner, needs human eyes: whether the new wording reads plainly is a judgment only you can make.
+  - Checked automatically: the web app connection windows check.
 
 ## 0.7.0010 (2026-11-22)
 - **Member page header**

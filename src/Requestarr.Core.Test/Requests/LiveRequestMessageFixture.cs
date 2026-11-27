@@ -38,6 +38,9 @@ namespace Requestarr.Core.Test.Requests
         private const int Interstellar = 157336;
         private const int Arrival = 329865;
 
+        // A show the TV request asks for with All seasons.
+        private const int Severance = 371980;
+
         [Test]
         public async Task decided_requests_edit_their_real_messages()
         {
@@ -76,6 +79,10 @@ namespace Requestarr.Core.Test.Requests
                 Radarr = new List<BackendInstanceProvisioning>
                 {
                     new() { Name = "Radarr (test)", Url = LiveDev.RadarrUrl, ApiKey = radarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/movies", Default = true }
+                },
+                Sonarr = new List<BackendInstanceProvisioning>
+                {
+                    new() { Name = "Sonarr (test)", Url = LiveDev.SonarrUrl, ApiKey = LiveDev.SonarrKey, DefaultAccess = "approval", QualityProfile = "HD-1080p", RootFolder = "/data/tv", SeriesType = "standard", Purpose = "everything" }
                 }
             });
             Mocker.Resolve<IBackendService>().CheckAllAsync().GetAwaiter().GetResult();
@@ -113,6 +120,7 @@ namespace Requestarr.Core.Test.Requests
             Mocker.SetConstant<IDiscordGuildGateway>(gateway);
             guildSetup = Mocker.Resolve<GuildSetupService>();
             feed = Mocker.Resolve<Requestarr.Core.Requests.RequestFeed>();
+            Mocker.SetConstant(feed);
             Mocker.SetConstant(guildSetup);
             Mocker.SetConstant<ICallerResolver>(Mocker.Resolve<CallerResolver>());
             Mocker.SetConstant<Requestarr.Core.Admin.IAdminQueue>(new Requestarr.Core.Admin.AdminQueue(new Requestarr.Core.Admin.IAdminQueueSource[]
@@ -222,6 +230,8 @@ namespace Requestarr.Core.Test.Requests
                 var late = await Send(dispatcher, FakeInteraction.Button("req-cancel:1").By(target.Id).InGuild(guild.Id).InChannel(channel).OnMessage(approved));
                 Log($"[late cancel] private reply: {late.LastReply.Content}; request #1 still {requests.Get(1).Status}");
                 requests.Get(1).Status.Should().Be(RequestStatus.Approved);
+
+                await AllSeasonsAsync(dispatcher, gateway, guild, target.Id, channel, userChannel, requests, guildSetup.GetConfig());
             }
             finally
             {
@@ -234,6 +244,53 @@ namespace Requestarr.Core.Test.Requests
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to clean the dev server)");
             }
         }
+
+        // A show asked for with All seasons, then approved from the admin feed. Read back from Discord: the request message
+        // on short lines (the mention alone, then the bold status and request number, a sentence starting with the title,
+        // then the seasons), first as the request block's last step and again after approval, and no Add seasons on it or
+        // on the feed card, every season and new ones being asked for already.
+        private async Task AllSeasonsAsync(
+            InteractionDispatcher dispatcher,
+            IDiscordGuildGateway gateway,
+            global::Discord.WebSocket.SocketGuild guild,
+            ulong member,
+            ulong channel,
+            global::Discord.IMessageChannel userChannel,
+            IRequestRepository requests,
+            DiscordGuildConfig config)
+        {
+            var message = await gateway.SendMessageAsync(channel, new InteractionReply { Content = $"📺 **TV request** · details (tvdb:{Severance})" });
+            var responder = new RecordingResponder(null, channel, message, false);
+            await dispatcher.DispatchAsync(FakeInteraction.Button($"{RequestRoutes.TvAll}:{Severance}").By(member).InGuild(guild.Id).InChannel(channel).OnMessage(message).Build(), responder);
+            await gateway.EditMessageAsync(channel, message, responder.LastReply);
+
+            var first = (await userChannel.GetMessageAsync(message)).Content.Split('\n');
+            Log($"[all seasons] the first reply, read back: {string.Join(" | ", first)}");
+            var showRequest = requests.All().Single(r => r.TvdbId == Severance).Id;
+
+            // The block's last step answers the member who asked, so it has no mention; the rest as the message has it.
+            first.Should().StartWith(new[] { DiscordText.RequestStatusLine(DiscordText.FinalPending, showRequest), "Severance (2022) is waiting for the admin's approval.", DiscordText.SeasonsLine("all seasons") });
+
+            var feed = guild.GetTextChannel(ulong.Parse(config.FeedChannelId));
+            await Send(dispatcher, FakeInteraction.Button($"req-approve:{showRequest}").By(guild.OwnerId, "owner").InGuild(guild.Id).InChannel(ulong.Parse(config.AdminChannelId)));
+            var request = requests.Get(showRequest);
+            var approved = await userChannel.GetMessageAsync(ulong.Parse(request.MessageId));
+            var lines = approved.Content.Split('\n');
+            Log($"[all seasons] after approval, read back: {string.Join(" | ", lines)}; buttons {string.Join(", ", CustomIds(approved))}");
+            lines.Should().StartWith(new[] { $"<@{member}>", DiscordText.RequestStatusLine(DiscordText.FinalApproved, showRequest) });
+            lines[2].Should().StartWith("Severance (2022) ");
+            lines[3].Should().Be(DiscordText.SeasonsLine("all seasons"));
+            CustomIds(approved).Should().NotContain($"{RequestRoutes.AddSeasons}:{showRequest}");
+
+            var card = (await feed.GetMessagesAsync(20).FlattenAsync()).FirstOrDefault(m => m.Embeds.FirstOrDefault()?.Title?.StartsWith("Severance", StringComparison.Ordinal) == true);
+            card.Should().NotBeNull("the admin feed has the show's card");
+            Log($"[all seasons] the feed card, read back: {card.Embeds.FirstOrDefault()?.Description?.Replace("\n", " | ")}; buttons {string.Join(", ", CustomIds(card))}");
+            card.Embeds.First().Description.Should().Contain(DiscordText.SeasonsLine("all seasons"));
+            CustomIds(card).Should().NotContain($"{RequestRoutes.AddSeasons}:{showRequest}");
+        }
+
+        private static IEnumerable<string> CustomIds(global::Discord.IMessage message) =>
+            message.Components.OfType<global::Discord.ActionRowComponent>().SelectMany(r => r.Components).OfType<global::Discord.ButtonComponent>().Select(c => c.CustomId);
 
         // Posts the request's message as the bot (as /request leaves it), then presses Request on it.
         private async Task<ulong> RequestInRealMessage(InteractionDispatcher dispatcher, IDiscordGuildGateway gateway, ulong guild, ulong channel, ulong user, int tmdbId)

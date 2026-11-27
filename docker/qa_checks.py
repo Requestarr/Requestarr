@@ -41,15 +41,32 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 TESTS = os.path.join(REPO, "_tests", "net10.0", "Requestarr.Core.Test.dll")
 WEB_FIXTURE = "QaWebChecksFixture"
+
+# Web checks run on a dev stack just reset, after the live checks, not on the owner's dev data: Post History posts the
+# whole server's imported history, and there only the test member's made-up history is imported.
+FRESH_WEB = ["post_history"]
+HISTORY_SEEDED = 30
+DISCORD_API = "https://discord.com/api/v10"
 ACCOUNT = "qa-checks"
 # Each stack's port setting in secrets.env and its default, as docker/dev.ps1 and docker/dev.sh have them.
 PORTS = {"qa": ("REQUESTARR_PORT", "29797"), "dev": ("DEV_REQUESTARR_PORT", "39797")}
+
+# A second Requestarr for the checks that save connections in the web app (dev's come from its provisioning file and
+# can't be changed there, and any provisioning file locks them): the dev image with no provisioning file, on the dev
+# stack's network so it reaches the test Sonarr and Radarr, its data inside the container, removed with it. Its API key
+# and sign-in come from the environment (Requestarr:Auth), so nobody signs in to it.
+THROWAWAY = "requestarr-dev-throwaway"
+THROWAWAY_PORT = "39798"
+DEV_NETWORK = "requestarr-dev_default"
+THROWAWAY_TRIES = 60
+THROWAWAY_WAIT_SECONDS = 2
 
 
 class Check:
@@ -94,6 +111,11 @@ CHECKS = {
     "live routing by content": Check("live", "LiveRoutingFixture", "requests", ("[route]", "[paused]")),
     "live series fixes": Check("live", "LiveSeriesFixFixture", "requests", ("[fix]",)),
     "live import alerts": Check("live", "LiveImportAlertsFixture", "requests", ("[import]", "[later]")),
+    "web app connection windows": Check("web", "connection_windows", "web-app"),
+    "web app server cards": Check("web", "server_cards", "web-app"),
+    "web app post history": Check("web", "post_history", "web-app"),
+    "live request messages": Check("live", "LiveRequestMessageFixture", "requests", ("[all seasons]",)),
+    "live imported history": Check("live", "LiveImportHistoryFixture", "requests", ("[import]", "[feed]", "[member]", "[history]", "[admin history]", "[others]")),
 }
 
 # An item (QA-CHECKLIST.md): "- **Name**", "  - Steps:" over "    1. ...", "  - Expect:" over "    - ...", then who checks it.
@@ -123,7 +145,7 @@ LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "
         "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
         "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture", "LivePortalActionsFixture",
         "LiveMemberRenamesFixture", "LiveVersionWordsFixture", "LiveRoutingFixture",
-        "LiveSeriesFixFixture", "LiveImportAlertsFixture"]
+        "LiveSeriesFixFixture", "LiveImportAlertsFixture", "LiveImportHistoryFixture"]
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 
@@ -275,25 +297,80 @@ def ran_all(output):
 
 def run_web(out, env, commit):
     password = secrets.token_urlsafe(24)
-    login = {"DEV_AUTH_REQUIRED": "enabled", "REQUESTARR_ADMIN_USERNAME": ACCOUNT, "REQUESTARR_ADMIN_PASSWORD": password}
-    stack(["up"], login, ref=commit)
+    stack(["up"], login_env(password), ref=commit)
     # The marked requests the checks act on; removed again with everything the checks did, pass or fail.
     print("[qa-checks] seeded %d requests for the web checks" % edit_dev_database(seed_check_rows), flush=True)
     web_dir = os.path.join(out, "web")
-    web_env = dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir,
-                   QA_CHECKS_USERNAME=ACCOUNT, QA_CHECKS_PASSWORD=password,
-                   QA_CHECKS_VERSION=running_build("dev"))
-    os.makedirs(web_dir, exist_ok=True)
+    web_env = web_env_for(env, web_dir, password)
     try:
-        dotnet_test("FullyQualifiedName~" + WEB_FIXTURE, web_env, os.path.join(web_dir, "web.log"))
+        web_env.update(start_throwaway())
+        fresh = "".join("&Name!=" + name for name in FRESH_WEB)
+        dotnet_test("FullyQualifiedName~" + WEB_FIXTURE + fresh, web_env, os.path.join(web_dir, "web.log"))
     finally:
+        remove_throwaway()
         clean_check_entries()
+    return web_results(web_dir)
+
+
+def run_web_fresh(out, env, commit):
+    """The web checks that need a dev stack just reset: up with the checks' login, the test member known from a made-up
+    import with HISTORY_SEEDED requests of their own, then the checks. The run's reset afterwards removes it all."""
+    password = secrets.token_urlsafe(24)
+    stack(["reset-dev"])
+    stack(["up"], login_env(password), ref=commit)
+    member = test_member(env)
+    edit_dev_database(lambda con: seed_history_rows(con, member))
+    print("[qa-checks] the test member imported with %d requests of their own" % HISTORY_SEEDED, flush=True)
+    web_dir = os.path.join(out, "web")
+    web_env = dict(web_env_for(env, web_dir, password), QA_CHECKS_TEST_MEMBER=member["username"], QA_CHECKS_HISTORY_SEEDED=str(HISTORY_SEEDED))
+    tests = "|".join("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name) for name in FRESH_WEB)
+    dotnet_test(tests, web_env, os.path.join(web_dir, "web-fresh.log"))
+    return web_results(web_dir)
+
+
+def login_env(password):
+    return {"DEV_AUTH_REQUIRED": "enabled", "REQUESTARR_ADMIN_USERNAME": ACCOUNT, "REQUESTARR_ADMIN_PASSWORD": password}
+
+
+def web_env_for(env, web_dir, password):
+    os.makedirs(web_dir, exist_ok=True)
+    return dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir, QA_CHECKS_USERNAME=ACCOUNT,
+                QA_CHECKS_PASSWORD=password, QA_CHECKS_VERSION=running_build("dev"))
+
+
+def web_results(web_dir):
     results = {}
     for name in os.listdir(web_dir):
         if name.endswith(".json"):
             with open(os.path.join(web_dir, name), encoding="utf-8") as handle:
                 results[name[:-5]] = json.load(handle)
     return results
+
+
+def start_throwaway():
+    """The throwaway Requestarr up and answering: its address and API key for the checks."""
+    remove_throwaway()
+    key = secrets.token_hex(16)
+    # Its own network carries the browser's port, so a check can cut it off from the dev stack's and back.
+    docker("network", "create", THROWAWAY)
+    docker("run", "-d", "--name", THROWAWAY, "--network", THROWAWAY, "-p", "127.0.0.1:%s:9797" % THROWAWAY_PORT,
+           "-e", "TZ=Etc/UTC", "-e", "Requestarr__Auth__ApiKey=" + key, "-e", "Requestarr__Auth__Method=External", "requestarr:dev")
+    docker("network", "connect", DEV_NETWORK, THROWAWAY)
+    url = "http://localhost:" + THROWAWAY_PORT
+    for _ in range(THROWAWAY_TRIES):
+        try:
+            with urllib.request.urlopen(url + "/ping", timeout=5):
+                print("[qa-checks] throwaway Requestarr up at %s" % url, flush=True)
+                return {"QA_CHECKS_THROWAWAY_URL": url}
+        except OSError:
+            time.sleep(THROWAWAY_WAIT_SECONDS)
+    sys.exit("The throwaway Requestarr didn't start.")
+
+
+def remove_throwaway():
+    """The throwaway Requestarr and its data gone (nothing when there's none)."""
+    subprocess.run(["docker", "rm", "-f", "-v", THROWAWAY], capture_output=True)
+    subprocess.run(["docker", "network", "rm", THROWAWAY], capture_output=True)
 
 
 def gh(*args):
@@ -415,6 +492,10 @@ DEV_DATABASE = "/config/requestarr.db"
 SEED_OWNER = "Automated check"
 SEED_TITLE = "Automated check: "
 
+# A made-up server among the ones Requestarr remembers (the Config table's discordknownservers, one list per bot): the
+# bot isn't in it, so it stands for a server that removed the bot (the web app server cards check).
+MADE_UP_SERVER = {"id": "900000000000300001", "name": "Automated check server", "iconUrl": None}
+
 # What the checks write in the dev stack's audit log: everything the web checks do, signed in as ACCOUNT, and anything
 # about the made-up "Automated check" titles and people. The owner's own entries (their sign-in, Discord, the bot) and
 # the QA checklist's results stay.
@@ -475,7 +556,45 @@ def seed_check_rows(con):
     for name, status, tmdb, year, backend in rows:
         con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, TmdbId, Status, BackendId, MonitorFutureSeasons, Requested, Progress) "
                     "VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0)", (owner, SEED_TITLE + name, year, tmdb, status, backend, now))
+    known = known_servers(con)
+    if known:
+        set_known_servers(con, known + [dict(MADE_UP_SERVER, bot=known[0]["bot"])])
     return len(rows)
+
+
+def known_servers(con):
+    row = con.execute("SELECT Value FROM Config WHERE Key = 'discordknownservers'").fetchone()
+    return json.loads(row[0]) if row and row[0] else []
+
+
+def set_known_servers(con, servers):
+    con.execute("UPDATE Config SET Value = ? WHERE Key = 'discordknownservers'", (json.dumps(servers),))
+
+
+def test_member(env):
+    """The first of DISCORD_TEST_MEMBERS as the dev server knows them: their Discord ID and username (read, never
+    changed)."""
+    username = env["DISCORD_TEST_MEMBERS"].split(",")[0].strip()
+    request = urllib.request.Request("%s/guilds/%s/members/search?query=%s&limit=10" % (DISCORD_API, env["DEV_DISCORD_GUILD_ID"], urllib.parse.quote(username)),
+                                     headers={"Authorization": "Bot " + env["DEV_DISCORD_BOT_TOKEN"], "User-Agent": "DiscordBot (https://github.com/Requestarr/Requestarr, 1.0)"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        found = [m["user"] for m in json.load(response) if m["user"]["username"] == username]
+    if not found:
+        sys.exit("The test member %s isn't in the dev server." % username)
+    return {"id": found[0]["id"], "username": username}
+
+
+def seed_history_rows(con, member):
+    """The test member known only from an import, as Requestrr's history makes people, with HISTORY_SEEDED old requests
+    of their own (marked "Automated check: ..."), so Post History has theirs to post and nobody else's."""
+    now = time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
+    user = con.execute("INSERT INTO RequestarrUsers (DisplayName, Status, Added, StatusChanged, ImportedFrom) VALUES (?, 3, ?, ?, 'Requestrr')",
+                       (member["username"], now, now)).lastrowid
+    con.execute("INSERT INTO UserIdentities (UserId, Provider, ExternalId, Username, DisplayName, Linked) VALUES (?, 'Discord', ?, ?, ?, ?)",
+                (user, member["id"], member["username"], member["username"], now))
+    for n in range(HISTORY_SEEDED):
+        con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, Status, MonitorFutureSeasons, Requested, Progress, Imported) "
+                    "VALUES (?, 1, ?, ?, 7, 0, ?, 0, 1)", (user, SEED_TITLE + "post history %d" % (n + 1), 1990 + n, now))
 
 
 def remove_check_data(con):
@@ -494,6 +613,7 @@ def remove_check_data(con):
     for table in ("UserMediaAccess", "UserIdentities"):
         con.execute("DELETE FROM %s WHERE UserId IN (%s)" % (table, marks(people)), people)
     con.execute("DELETE FROM RequestarrUsers WHERE Id IN (%s)" % marks(people), people)
+    set_known_servers(con, [s for s in known_servers(con) if s["id"] != MADE_UP_SERVER["id"]])
     return con.execute("DELETE FROM AuditEntries WHERE " + CHECK_ENTRIES, ("web:" + ACCOUNT, "web:" + ACCOUNT + " %")).rowcount
 
 
@@ -544,7 +664,7 @@ def run(args):
     os.makedirs(out, exist_ok=True)
     suite_run = start_suite(commit) if only is None else None
     env = dict(os.environ, **secrets_env())
-    if only in (None, "live") and not env.get("DISCORD_TEST_MEMBERS"):
+    if only in (None, "live", "web") and not env.get("DISCORD_TEST_MEMBERS"):
         sys.exit("The live checks press buttons as a test member: set DISCORD_TEST_MEMBERS (in your shell or docker/secrets.env) first.")
     with open(os.path.join(REPO, "QA-CHECKLIST.md"), encoding="utf-8") as handle:
         items = checklist_items(handle.read())
@@ -556,6 +676,9 @@ def run(args):
         if only in (None, "live"):
             fixtures = LIVE if only is None else sorted({c.target for c in CHECKS.values() if c.kind == "live"})
             live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit, fixtures))
+        if only in (None, "web"):
+            web.update(timed("web app checks on a dev stack just reset (the test member's made-up history)", timings,
+                             lambda: run_web_fresh(out, env, commit)))
     finally:
         timed("dev stack reset", timings, lambda: stack(["reset-dev"]))
     if only is None:
@@ -812,6 +935,7 @@ CREATE TABLE RequestSubscribers (Id INTEGER PRIMARY KEY, RequestId INTEGER, User
 CREATE TABLE UserMediaAccess (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE UserIdentities (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE AuditEntries (Id INTEGER PRIMARY KEY, Actor TEXT, Detail TEXT);
+CREATE TABLE Config (Id INTEGER PRIMARY KEY, Key TEXT, Value TEXT);
 """
 
 
@@ -825,7 +949,9 @@ def seeded_and_cleaned():
     con.execute("INSERT INTO Requests (OwnerUserId, Title) VALUES (1, 'Heat')")
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (1, 'owner (web app)')")
     con.execute("INSERT INTO AuditEntries (Actor, Detail) VALUES ('web:owner', 'Heat dropped')")
+    con.execute("INSERT INTO Config (Key, Value) VALUES ('discordknownservers', ?)", (json.dumps([{"bot": "42", "id": "7", "name": "Original", "iconUrl": None}]),))
     seeded = seed_check_rows(con)
+    with_made_up = [k["id"] for k in known_servers(con)]
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (2, 'qa-checks (web app)')")
     con.execute("INSERT INTO RemovalFlags (ProposalId) VALUES (2)")
     con.execute("INSERT INTO RequestSubscribers (RequestId, UserId) VALUES (3, 2)")
@@ -833,7 +959,7 @@ def seeded_and_cleaned():
     removed = remove_check_data(con)
     left = {t: con.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
             for t in ("RequestarrUsers", "Requests", "RemovalProposals", "RemovalFlags", "RequestSubscribers", "AuditEntries")}
-    return seeded, removed, left
+    return seeded, removed, left, (with_made_up, [k["id"] for k in known_servers(con)])
 
 
 def self_test():
@@ -876,8 +1002,9 @@ def self_test():
         ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
+        ("a made-up server remembered for the checks, then forgotten", seeded_and_cleaned()[3] == (["7", MADE_UP_SERVER["id"]], ["7"])),
         ("and everything the checks did removed, the owner's own kept",
-         seeded_and_cleaned()[1:] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
+         seeded_and_cleaned()[1:3] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
         ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
     wrong = [name for name, ok in expected if not ok]
