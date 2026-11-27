@@ -1,0 +1,3 @@
+audience: admins
+kind: fixed
+line: **Letter bar on Members and Requests:** pressing a letter when the whole list fits on the screen no longer blanks out the rows above it.

@@ -51,6 +51,7 @@ promoted to them, and a beta heading names the goals' builds it includes.
 - **Notices in the right channel:** news about someone's request no longer lands in the admin channel when they have no channel of their own. The admin feed and the web app still show it.
 - **Missing links and posters:** a request already in a library gets its link and poster from there, even when a search for the title finds nothing.
 - **What's new:** each build shows its own day wherever you are, and older lines show bold instead of asterisks.
+- **Letter bar on Members and Requests:** pressing a letter when the whole list fits on the screen no longer blanks out the rows above it.
 
 #### Changed
 - **Simpler bot setup:** you paste only the bot's token. Requestarr notices when the bot joins your server, makes its admin role, and lets you pick admins in the web app.

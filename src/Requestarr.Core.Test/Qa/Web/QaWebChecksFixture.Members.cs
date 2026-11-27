@@ -111,6 +111,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
             if (rows > 0)
             {
+                await JumpToLastLetterAsync(browser, check, theme);
                 await PressToolbarAsync(browser, "Select Members");
                 await browser.WaitForAsync("!!document.querySelector('[class*=\"VirtualTableHeader-header\"] input[type=checkbox]')");
                 var boxes = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]').length");
@@ -124,6 +125,29 @@ namespace Requestarr.Core.Test.Qa.Web
                 await OnboardWindowAsync(browser, check, theme);
                 await PressToolbarAsync(browser, "Stop Selecting");
             }
+        }
+
+        // Sorted by name, the letter bar's last letter keeps every row on screen drawn, even when the whole list fits on
+        // the page and it can't scroll that far: no blank space opens between the header and the first row.
+        private static async Task JumpToLastLetterAsync(HeadlessBrowser browser, WebCheck check, string theme)
+        {
+            const string Letters = "[...document.querySelectorAll('[class*=\"PageJumpBarItem-jumpBarItem\"]')]";
+            const string Gap = "document.querySelector('[class*=\"IndexTable-row\"]').getBoundingClientRect().top - document.querySelector('[class*=\"VirtualTableHeader-header\"]').getBoundingClientRect().bottom";
+            var letter = await browser.EvalAsync<string>($"{Letters}.map(l => l.innerText.trim()).filter(l => /^[A-Z]$/.test(l)).at(-1) ?? ''");
+
+            if (string.IsNullOrEmpty(letter))
+            {
+                check.Saw($"Members ({theme}): no letter bar, so nothing to jump to");
+                return;
+            }
+
+            await browser.RunAsync($"{Letters}.find(l => l.innerText.trim() === '{letter}').click()");
+            await browser.EvalAsync<bool>("new Promise(r => setTimeout(() => r(true), 800))");
+            var gap = await browser.EvalAsync<double>(Gap);
+            var drawn = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"]').length");
+            check.Saw($"Members ({theme}): the letter bar's {letter} leaves {drawn} rows drawn, the first {gap:0}px below the header");
+            await check.ShotAsync(browser, $"members-jump-{theme}");
+            gap.Should().BeLessThan(1, "the rows above the letter stay drawn");
         }
 
         // With everyone picked, Onboard opens one window over the list for the picks it can onboard: what they get, then
