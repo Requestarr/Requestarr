@@ -155,6 +155,21 @@ namespace Requestarr.Core.Test.Availability
         }
 
         [Test]
+        public async Task all_seasons_says_so_and_offers_no_add_seasons()
+        {
+            var message = await Ask(Alice, "tv", $"tvdb:{DarkMatter2015}");
+            await ClickOn(Alice, message, $"req-tv-all:{DarkMatter2015}");
+            await AdminButton("req-approve:1");
+
+            Reload(1).AllSeasons.Should().BeTrue();
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.RequestStatusLine(DiscordText.FinalApproved, 1)}\n")
+                .And.EndWith(DiscordText.SeasonsLine("all seasons"));
+            Latest(Alice).Buttons.Should().NotContain(b => b.CustomId == "req-add:1", "every season and new ones as they air are already asked for");
+            CardOf(1).Embeds[0].Description.Should().Contain(DiscordText.SeasonsLine("all seasons"));
+            CardOf(1).Buttons.Should().NotContain(b => b.CustomId == "req-add:1");
+        }
+
+        [Test]
         public async Task someone_who_neither_owns_nor_follows_it_cannot_add()
         {
             var request = await SentShow(Alice, DarkMatter2015, 1);

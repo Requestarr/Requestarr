@@ -473,7 +473,7 @@ namespace Requestarr.Core.Requests
         private async Task<RequestResult> NewRequestAsync(RequestCaller caller, UserMediaAccess access, ContentType type, int externalId, TitleState state, SeasonChoice seasons, AnimeLanguage? language)
         {
             var item = state.Item;
-            var (chosen, future) = type == ContentType.Tv ? ChosenSeasons(item, seasons) : (new List<int>(), false);
+            var (chosen, future, all) = type == ContentType.Tv ? ChosenSeasons(item, seasons) : (new List<int>(), false, false);
 
             if (type == ContentType.Tv && !chosen.Any() && !future)
             {
@@ -497,6 +497,7 @@ namespace Requestarr.Core.Requests
                 BackendId = state.Instance.Id,
                 Seasons = chosen,
                 MonitorFutureSeasons = future,
+                AllSeasons = all,
                 Language = language,
                 AppliedFix = state.AppliedFix,
                 PosterUrl = item.PosterUrl,
@@ -523,12 +524,12 @@ namespace Requestarr.Core.Requests
         // The seasons a TV request asks for: All is every season the series has now, otherwise the
         // chosen ones it has (specials only when it has them). No choice is All, plus new seasons
         // while the series continues.
-        private static (List<int> Seasons, bool Future) ChosenSeasons(MediaLookupResult item, SeasonChoice choice)
+        private static (List<int> Seasons, bool Future, bool All) ChosenSeasons(MediaLookupResult item, SeasonChoice choice)
         {
             choice ??= new SeasonChoice(true, Array.Empty<int>(), item.Continuing);
             var chosen = (choice.All ? item.Seasons : choice.Seasons.Where(s => item.Seasons.Contains(s) || (s == 0 && item.HasSpecials))).Distinct().OrderBy(s => s).ToList();
 
-            return (chosen, choice.Future);
+            return (chosen, choice.Future, choice.All);
         }
 
         // Over the caller's limit for the type: the refusal (recorded), or null while there's room.
@@ -566,7 +567,7 @@ namespace Requestarr.Core.Requests
 
             if (request.Status == RequestStatus.Available)
             {
-                return new RequestResult(true, DiscordText.RequestAlreadyAvailableStatus(request.Label, request.Id), request, RequestOutcome.AlreadyAvailable);
+                return new RequestResult(true, DiscordText.RequestAlreadyAvailableStatus(request.Label), request, RequestOutcome.AlreadyAvailable);
             }
 
             return sent

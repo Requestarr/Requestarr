@@ -207,7 +207,7 @@ namespace Requestarr.Core.Test.Requests
                     win.Embeds.Single().Color.Value.RawValue.Should().Be(RequestCards.SentColor);
                 }
 
-                (await Text(Now(4))).Should().StartWith(DiscordText.FinalCancelled).And.Contain("Request #4 for Interstellar (2014) was cancelled.");
+                (await Text(Now(4))).Should().StartWith(DiscordText.RequestStatusLine(DiscordText.FinalCancelled, 4)).And.Contain("Interstellar (2014) was cancelled.");
                 (await admin.GetMessageAsync(ulong.Parse(requests.Get(3).AdminMessageId))).Content.Should().StartWith("**Request #3: already available**");
                 (await admin.GetMessageAsync(ulong.Parse(requests.Get(5).AdminMessageId))).Content.Should().StartWith("**Request #5: already available**");
                 (await admin.GetMessageAsync(ulong.Parse(requests.Get(4).AdminMessageId))).Content.Should().StartWith("**Request #4: cancelled** by OneRadChad");

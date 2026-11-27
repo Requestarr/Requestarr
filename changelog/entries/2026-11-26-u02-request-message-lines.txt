@@ -1,0 +1,3 @@
+audience: users
+kind: changed
+line: **Request messages:** the status and request number, what is happening, and the seasons each get their own line, so the message is easier to read.

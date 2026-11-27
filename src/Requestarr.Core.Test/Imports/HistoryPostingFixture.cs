@@ -339,7 +339,7 @@ namespace Requestarr.Core.Test.Imports
         [Test]
         public void a_shows_card_says_its_seasons_and_shows_its_poster_and_nothing_only_the_admins_see()
         {
-            Mocker.Resolve<IRequestRepository>().Insert(new Request { OwnerUserId = _alice.Id, Title = "Landman", PosterUrl = "https://example.com/p.jpg", ContentType = ContentType.Tv, Status = RequestStatus.NotInLibrary, Imported = true, MonitorFutureSeasons = true, BackendId = 7, Requested = DateTime.UtcNow });
+            Mocker.Resolve<IRequestRepository>().Insert(new Request { OwnerUserId = _alice.Id, Title = "Landman", PosterUrl = "https://example.com/p.jpg", ContentType = ContentType.Tv, Status = RequestStatus.NotInLibrary, Imported = true, MonitorFutureSeasons = true, AllSeasons = true, BackendId = 7, Requested = DateTime.UtcNow });
 
             Subject.PostMember(_alice.Id, Admin);
 

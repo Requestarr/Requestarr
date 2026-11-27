@@ -205,7 +205,7 @@ namespace Requestarr.Core.Test.Admin
                 var reposted = await channel.GetMessageAsync(ulong.Parse(request.MessageId));
                 Log($"[discord] request #{request.Id} status={request.Status}; the user's message, read back: \"{reposted.Content.Replace("\n", " | ")}\"");
                 request.Status.Should().Be(RequestStatus.Approved);
-                reposted.Content.Should().StartWith($"<@{target.Id}> {DiscordText.FinalApproved}");
+                reposted.Content.Should().StartWith($"<@{target.Id}>\n{DiscordText.FinalApproved}");
 
                 var requests = Mocker.Resolve<IRequestRepository>();
                 var feedChannel = ulong.Parse(guildSetup.GetConfig().FeedChannelId);

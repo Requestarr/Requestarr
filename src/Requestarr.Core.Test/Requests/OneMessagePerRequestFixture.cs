@@ -129,7 +129,7 @@ namespace Requestarr.Core.Test.Requests
             var run = await Harness.SendAsync(CancelButton(Alice, 1));
 
             run.Responder.Responses.Single().Kind.Should().Be(ResponseKind.MessageUpdate);
-            run.LastReply.Content.Should().StartWith(DiscordText.FinalCancelled).And.Contain(DiscordText.RequestCancelled("Dune (2021)", 1));
+            run.LastReply.Content.Should().StartWith(DiscordText.RequestStatusLine(DiscordText.FinalCancelled, 1)).And.Contain("Dune (2021) was cancelled.");
             run.LastReply.Buttons.Should().BeEmpty();
             RequestStore.Get(1).Status.Should().Be(RequestStatus.Cancelled);
         }

@@ -241,7 +241,7 @@ namespace Requestarr.Core.Test.Availability
                     Log($"[available]   user message read back (reposted): \"{message.Content.Replace("\n", " | ")}\" buttons={Buttons(message).Count}");
                     Log($"[available]   card footer: \"{message.Embeds.FirstOrDefault()?.Footer?.Text ?? "none"}\" icon={(message.Embeds.FirstOrDefault()?.Footer?.IconUrl != null ? "TMDB logo" : "none")}; cast field: {message.Embeds.FirstOrDefault()?.Fields.Any(f => f.Name == DiscordText.FieldCast) == true}");
                     request.Status.Should().Be(RequestStatus.Available);
-                    message.Content.Should().StartWith($"<@{target.Id}> {DiscordText.FinalReady}");
+                    message.Content.Should().StartWith($"<@{target.Id}>\n{DiscordText.FinalReady}");
                 }
 
                 (await userChannel.GetMessageAsync(movieMessage)).Should().BeNull("the old message was deleted when it was reposted");

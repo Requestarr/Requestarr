@@ -195,7 +195,7 @@ namespace Requestarr.Core.Discord.Handlers
 
             await responder.DeferAsync();
             var result = await _requests.RequestAsync(caller, type.Value, id);
-            await Finish(interaction, responder, type.Value, result, SeasonText(result, null), caller);
+            await Finish(interaction, responder, type.Value, result, SeasonText(result), caller);
         }
 
         private static AnimeLanguage? LanguageAt(IReadOnlyList<string> args, int index) => args.Count > index ? AnimeDefaults.ParseKey(args[index]) : null;
@@ -253,7 +253,7 @@ namespace Requestarr.Core.Discord.Handlers
             }
 
             var result = await _requests.RequestAsync(caller, ContentType.Tv, tvdbId, choice, language);
-            await Finish(interaction, responder, ContentType.Tv, result, SeasonText(result, choice), caller);
+            await Finish(interaction, responder, ContentType.Tv, result, SeasonText(result), caller);
         }
 
         private async Task HandleFollow(DiscordInteraction interaction, IInteractionResponder responder, RequestCaller caller)
@@ -535,16 +535,14 @@ namespace Requestarr.Core.Discord.Handlers
         }
 
         // What was actually requested, in plain words, for the final status.
-        private static string SeasonText(RequestResult result, SeasonChoice choice)
+        private static string SeasonText(RequestResult result)
         {
             if (result.Request == null || result.Request.ContentType != ContentType.Tv)
             {
                 return null;
             }
 
-            return choice is { All: true, Future: true } && result.Item != null
-                ? DiscordText.SeasonChoiceText(choice, result.Item.Seasons)
-                : DiscordText.Seasons(result.Request);
+            return DiscordText.Seasons(result.Request);
         }
 
         private static string First(IReadOnlyList<string> values) => values.Count > 0 ? values[0] : null;
