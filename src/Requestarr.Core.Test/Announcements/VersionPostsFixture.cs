@@ -141,9 +141,7 @@ namespace Requestarr.Core.Test.Announcements
             AdminHeaders.Should().BeEmpty("a card already posted is never posted again");
 
             DeleteEveryMessage();
-            var config = Config;
-            config.AnnouncedVersion = null;
-            Mocker.Resolve<IDiscordGuildConfigRepository>().Upsert(config);
+            Mocker.Resolve<IConfigService>().ChangelogPostedCards = null;
             Mocker.Resolve<IConfigService>().ChangelogPostedEntries = null;
             await StartOn("0.3.0");
 
@@ -169,16 +167,42 @@ namespace Requestarr.Core.Test.Announcements
             Discord.Channels[AdminChannel].Messages[ids.Count - 1].Embeds[0].Title.Should().Be(running, "the build that was running says something else now, but its card stays as posted");
         }
 
+        // A version QA shows for the first time after a later one (staging went back past it) is posted after the cards
+        // already there; one that comes back after reaching staging was posted before, so it isn't posted again.
         [Test]
-        public async Task a_version_that_reaches_qa_late_is_posted_after_the_cards_already_there()
+        public async Task a_version_first_shown_late_is_posted_after_the_cards_already_there_and_one_that_returns_is_not()
         {
             Environment("qa", "0.1.0,0.2.0");
             await StartOn("0.3.0");
             Environment("qa", "0.1.0");
-
             await StartOn("0.3.0");
 
             AdminHeaders.Should().Equal("0.3.0", "0.2.0");
+
+            Environment("qa", "0.1.0,0.2.0");
+            await StartOn("0.3.0");
+            Environment("qa", "0.1.0");
+            await StartOn("0.3.0");
+
+            AdminHeaders.Should().Equal("0.3.0");
+        }
+
+        // Dev keeps one number across commits between goals: a card skipped in one channel (nothing for users yet) is
+        // posted there once a later commit has something for it, and the other channel's card isn't posted again.
+        [Test]
+        public async Task a_users_card_skipped_for_a_build_is_posted_once_it_has_lines_for_users()
+        {
+            Environment("dev");
+            await StartOn("0.7.4", Pending);
+            var adminIds = Discord.Channels[AdminChannel].MessageIds.ToList();
+            UserHeaders.Should().BeEmpty();
+
+            var withUsers = Pending.Replace("## Unreleased", "## Unreleased\n\n### For users\n- **Quieter updates:** fewer pings.\n");
+            await StartOn("0.7.4", withUsers);
+            await StartOn("0.7.4", withUsers);
+
+            UserHeaders.Should().Equal("0.7.4");
+            Discord.Channels[AdminChannel].MessageIds.Should().Equal(adminIds, "the admin card isn't posted again");
         }
 
         // QA's view of what's coming is one card per QA build: Unreleased under the build's number. A promotion to QA
@@ -232,7 +256,8 @@ namespace Requestarr.Core.Test.Announcements
 
             Discord.Channels[AdminChannel].MessageIds.Should().Equal(adminIds);
             Discord.Channels[UsersChannel].MessageIds.Should().Equal(userIds);
-            Config.AnnouncedVersion.Should().Be("0.2.0");
+            var posted = PostedCards.Parse(Mocker.Resolve<IConfigService>().ChangelogPostedCards);
+            new[] { AdminChannel, UsersChannel }.Should().OnlyContain(c => posted.Has(c, new Version(0, 2, 0)));
         }
 
         private void DeleteEveryMessage()

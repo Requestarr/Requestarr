@@ -6,7 +6,8 @@ using Requestarr.Core.Discord.Gateway;
 namespace Requestarr.Core.Test.Discord.Harness
 {
     // A live check leaves nothing behind in the dev server: the bot's messages it posted in a channel (made-up versions,
-    // fixture items, their cards) are removed when it ends. The dev stack's bot posts its own again when it starts.
+    // fixture items, their cards) are removed when it ends. The dev stack's bot posts its own again when it starts after
+    // reset-dev; a plain restart doesn't repost a what's new card it posted before.
     public sealed class LiveLeftovers
     {
         private const int MessagesRead = 500;

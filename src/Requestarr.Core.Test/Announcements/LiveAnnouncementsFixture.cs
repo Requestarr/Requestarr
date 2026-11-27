@@ -291,9 +291,7 @@ namespace Requestarr.Core.Test.Announcements
                 announcements.CurrentVersion = () => build;
 
                 // A QA server keeps its own record of the cards it posted: start with none, as QA after a reset.
-                var qaConfig = guildSetup.GetConfig();
-                qaConfig.AnnouncedVersion = null;
-                Mocker.Resolve<IDiscordGuildConfigRepository>().Upsert(qaConfig);
+                Mocker.Resolve<NzbDrone.Core.Configuration.IConfigService>().ChangelogPostedCards = null;
 
                 var firstNumbered = embedded.IndexOf("\n## 0.", StringComparison.Ordinal) + 1;
                 announcements.Changelog = () => ChangelogSource.FromMarkdown(embedded.Insert(firstNumbered, "## 0.6.0 (2026-11-13)\n\n### For admins\n- **Folded version:** this card goes once it's folded into Unreleased.\n\n"));

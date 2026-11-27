@@ -216,6 +216,12 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("ChangelogPostedEntries", value ?? string.Empty); }
         }
 
+        public string ChangelogPostedCards
+        {
+            get { return GetValue("ChangelogPostedCards"); }
+            set { SetValue("ChangelogPostedCards", value ?? string.Empty); }
+        }
+
         public string DiscordKnownServers
         {
             get { return GetValue("DiscordKnownServers"); }
