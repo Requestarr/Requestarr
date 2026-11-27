@@ -71,7 +71,7 @@ namespace Requestarr.Core.Test.Availability
             State(CardOf(1)).Should().Be("✅ **Sent**, searching");
             ButtonIds(CardOf(1)).Should().Equal("req-admin-cancel:1");
             Discord.Channels[AdminChannel].Messages[Discord.Channels[AdminChannel].MessageIds.IndexOf(approvalCard)].Content.Should().StartWith("**Request #1: approved**");
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalApproved}");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalApproved}");
         }
 
         [Test]
@@ -122,7 +122,7 @@ namespace Requestarr.Core.Test.Availability
             Reload(1).Status.Should().Be(RequestStatus.Cancelled);
             run.LastReply.Content.Should().Be(DiscordText.AdminCancelled(Reload(1)));
             State(CardOf(1)).Should().Be(DiscordText.FinalCancelled);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalCancelled}");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalCancelled}");
         }
 
         [Test]

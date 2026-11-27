@@ -488,6 +488,7 @@ namespace Requestarr.Core.Imports
                 TvdbId = planned.TvdbId,
                 Seasons = planned.Type == ContentType.Tv ? seasons.ToList() : new List<int>(),
                 MonitorFutureSeasons = everySeason,
+                AllSeasons = everySeason,
                 Status = RequestStatus.NotInLibrary,
                 Requested = planned.Requested,
                 Imported = true

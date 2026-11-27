@@ -47,7 +47,7 @@ namespace Requestarr.Core.Test.Requests
         {
             var final = (await RequestMovie(Alice, Dune)).LastReply;
 
-            final.Content.Should().StartWith(DiscordText.FinalPending).And.Contain(DiscordText.RequestPending("Dune (2021)", 1));
+            final.Content.Should().StartWith(DiscordText.RequestStatusLine(DiscordText.FinalPending, 1) + "\nDune (2021) is waiting for the admin's approval.");
             final.Buttons.Single().CustomId.Should().Be("req-cancel:1");
             final.Embeds.Single().Color.Should().Be(RequestCards.PendingColor);
         }
@@ -129,7 +129,7 @@ namespace Requestarr.Core.Test.Requests
             var run = await Harness.SendAsync(CancelButton(Alice, 1));
 
             run.Responder.Responses.Single().Kind.Should().Be(ResponseKind.MessageUpdate);
-            run.LastReply.Content.Should().StartWith(DiscordText.FinalCancelled).And.Contain(DiscordText.RequestCancelled("Dune (2021)", 1));
+            run.LastReply.Content.Should().StartWith(DiscordText.RequestStatusLine(DiscordText.FinalCancelled, 1)).And.Contain("Dune (2021) was cancelled.");
             run.LastReply.Buttons.Should().BeEmpty();
             RequestStore.Get(1).Status.Should().Be(RequestStatus.Cancelled);
         }

@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
+using Requestarr.Core.Discord;
 using Requestarr.Core.Requests;
 using Requestarr.Core.Test.Discord.Harness;
 using Requestarr.Test.Common;
@@ -66,7 +67,7 @@ namespace Requestarr.Core.Test.Requests
 
             LastRequest.Status.Should().Be(RequestStatus.Failed);
             LastRequest.DecisionReason.Should().Contain("validation failed");
-            run.LastReply.Content.Should().Contain("Request #1 for Dune (2021) couldn't be added");
+            run.LastReply.Content.Should().StartWith(DiscordText.RequestStatusLine(DiscordText.FinalFailed, 1)).And.Contain("Dune (2021) couldn't be added");
             ExceptionVerification.ExpectedErrors(1);
         }
     }

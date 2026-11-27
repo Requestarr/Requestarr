@@ -71,7 +71,7 @@ namespace Requestarr.Core.Test.Removals
             Radarr.Deletes.Should().Equal((Instance("Radarr").Config.Url, request.ExternalItemId.Value));
             Proposal().Status.Should().Be(RemovalStatus.Deleted);
             Reload(request.Id).Status.Should().Be(RequestStatus.Removed);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalRemoved}").And.Contain("Removed from the library after a vote");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalRemoved}").And.Contain("Removed from the library after a vote");
             Latest(Alice).Buttons.Should().BeEmpty();
 
             var bobs = PromptOf(Bob);

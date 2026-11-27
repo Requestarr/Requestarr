@@ -12,6 +12,15 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
   - Expect:
     - Every member still shows, with no blank space above them.
   - Checked automatically: the web app add member check.
+- **Request messages and All seasons**
+  - Steps:
+    1. In your request channel, request a show with All seasons.
+    2. Approve it from the admin feed.
+  - Expect:
+    - Your mention, then the status and request number, each on its own line.
+    - A sentence about the show, then Seasons: All seasons.
+    - No Add seasons button on your message or the feed card.
+  - Checked by the owner, needs human eyes: how the new lines read in the Discord app; the tests cover the text and the buttons.
 - **What's new grouped by kind**
   - Steps:
     1. In the web app, open System, then What's new.

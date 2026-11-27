@@ -38,8 +38,8 @@ namespace Requestarr.Core.Test.Requests
             var final = (await Click(Alice, $"req-tv-all:{DarkMatter}")).LastReply;
 
             final.Content.Should().StartWith(DiscordText.FinalSent).And.NotContain("You chose");
-            final.Content.Should().Contain("All seasons (1–2) and new seasons as they air, without specials.");
-            final.Buttons.Select(b => b.CustomId).Should().Equal("req-add:1"); // once sent, seasons can only be added
+            final.Content.Should().Contain(DiscordText.SeasonsLine("all seasons"));
+            final.Buttons.Should().BeEmpty("all seasons and new ones as they air leave nothing to add");
             var added = Sonarr.Adds.Single();
             added.Seasons.Should().Equal(1, 2);
             added.MonitorFuture.Should().BeTrue();
@@ -70,7 +70,7 @@ namespace Requestarr.Core.Test.Requests
 
             Sonarr.Adds.Single().Seasons.Should().Equal(2);
             Sonarr.Adds.Single().MonitorFuture.Should().BeFalse();
-            final.Content.Should().Contain("Season 2 only; new seasons won't be added.");
+            final.Content.Should().Contain(DiscordText.SeasonsLine("season 2 only; new seasons won't be added"));
         }
 
         [Test]
@@ -117,7 +117,7 @@ namespace Requestarr.Core.Test.Requests
 
         // "all" with a season (possible only on the old menu) means all, and says so.
         [TestCase("s2", "2", false, "season 2 only; new seasons won't be added")]
-        [TestCase("all,future", "1,2", true, "all seasons (1–2) and new seasons as they air, without specials")]
+        [TestCase("all,future", "1,2", true, "all seasons")]
         [TestCase("future", "", true, "only new seasons as they air (no existing seasons)")]
         [TestCase("all,s2", "1,2", false, "seasons 1–2 only; new seasons won't be added")]
         public async Task the_old_season_menu_requests_and_monitors_what_was_picked(string picks, string seasons, bool future, string said)

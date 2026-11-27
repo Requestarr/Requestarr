@@ -25,7 +25,7 @@ namespace Requestarr.Core.Test.Requests
 
             ChannelFor(Alice).MessageIds.Should().NotContain(message);
             ChannelFor(Alice).MessageIds.Last().ToString().Should().Be(RequestStore.Get(1).MessageId);
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalApproved}");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalApproved}");
             Latest(Alice).Buttons.Should().BeEmpty("nothing can be done with an approved request");
         }
 
@@ -38,7 +38,7 @@ namespace Requestarr.Core.Test.Requests
             await AdminButton("req-approve:1");
 
             Message(Alice, message).Buttons.Should().BeEmpty();
-            Latest(Alice).Content.Should().StartWith($"<@{Alice}> {DiscordText.FinalApproved}");
+            Latest(Alice).Content.Should().StartWith($"<@{Alice}>\n{DiscordText.FinalApproved}");
             RequestStore.Get(1).MessageId.Should().NotBe(message.ToString());
         }
 
@@ -65,7 +65,7 @@ namespace Requestarr.Core.Test.Requests
             await AdminButton("req-approve:1");
 
             ChannelFor(Bob).MessageIds.Should().NotContain(bobs);
-            Latest(Bob).Content.Should().StartWith($"<@{Bob}> {DiscordText.FinalApproved}").And.Contain("You're following alice's request");
+            Latest(Bob).Content.Should().StartWith($"<@{Bob}>\n{DiscordText.FinalApproved}").And.Contain("You're following alice's request");
             Latest(Bob).Buttons.Should().BeEmpty();
             Subscribers.ForRequest(1).Single().MessageId.Should().Be(ChannelFor(Bob).MessageIds.Last().ToString());
         }

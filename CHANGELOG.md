@@ -27,11 +27,13 @@ promoted to them, and a beta heading names the goals' builds it includes.
 #### Fixed
 - **Reasons end once:** a message about a stuck or failed download no longer ends its reason with two periods.
 - **Years and seasons:** a title that already names its year doesn't show it twice, and one season reads Season 1, not Seasons 1.
+- **All seasons:** a request for all seasons now says All seasons, not the seasons the show had that day, and no longer shows an Add seasons button with nothing left to add.
 
 #### Changed
 - **Anime versions in plain words:** the bot now says "English dub" or "subtitled version", and when two people want different versions it says which one is kept.
 - **Wording that fits your server:** removal votes and help talk about the library, not apps your server may not use.
 - **Request messages don't name servers:** your request goes where it belongs by what you asked for, so the bot no longer says which server took it.
+- **Request messages:** the status and request number, what is happening, and the seasons each get their own line, so the message is easier to read.
 
 ### For admins
 
