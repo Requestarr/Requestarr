@@ -62,8 +62,8 @@ namespace Requestarr.Core.Requests
         public List<int> Seasons { get; set; } = new();
         public bool MonitorFutureSeasons { get; set; }
 
-        // TV asked for as "All seasons" (Seasons holds the ones the series had then). With new seasons as they air, its
-        // cards say all seasons and there's nothing left to add but specials.
+        // TV asked for as "All seasons", with new seasons as they air: its cards say all seasons, and there's nothing left
+        // to add but specials. Seasons holds every season the series had when it was last sent.
         public bool AllSeasons { get; set; }
         public int? DecidedByUserId { get; set; }
 

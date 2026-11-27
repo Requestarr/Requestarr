@@ -177,6 +177,8 @@ namespace Requestarr.Core.Discord
 
         public static string RequestCancelledStatus(Request request) => $"{request.Label} was cancelled.";
 
+        public static string RequestAddedStatus(Request request) => $"{request.Label} was added and a search has started.";
+
         public static string RequestPendingStatus(Request request) => $"{request.Label} is waiting for the admin's approval.";
 
         public static string RequestFailedStatus(Request request) => $"{request.Label} couldn't be added: {request.DecisionReason}";
@@ -428,13 +430,8 @@ namespace Requestarr.Core.Discord
         public static string QuotaReached(ContentType type, int limit, int days, DateTime nextSlot) =>
             $"You've reached your {Label(type).ToLowerInvariant()} limit ({limit} per {days} days). Your next request frees up {DiscordTimestamp(nextSlot)}.";
 
-        public static string RequestPending(string label, int id) => $"Request #{id} for {label} is waiting for the admin's approval.";
-
         // For admins, who may see where a request went.
         public static string RequestSent(string label, int id, string instance) => $"Request #{id} for {label} was added to {instance} and a search has started.";
-
-        // For members, who never see which server takes a request.
-        public static string RequestAdded(string label, int id) => $"Request #{id} for {label} was added and a search has started.";
 
         public static string RequestApprovedNotice(string label, int id) => $"Your request #{id} for {label} was approved. A search has started.";
 
@@ -460,10 +457,10 @@ namespace Requestarr.Core.Discord
 
         public static string AdminDenied(Request request) => $"Denied request #{request.Id} for {request.Label}.";
 
-        // A request for all seasons and new ones as they air says so, whatever seasons the series had then.
+        // A request for all seasons says so, whatever seasons the series had then.
         public static string Seasons(Request request)
         {
-            if (!request.AllSeasons || !request.MonitorFutureSeasons)
+            if (!request.AllSeasons)
             {
                 return SeasonList(request.Seasons, request.MonitorFutureSeasons);
             }

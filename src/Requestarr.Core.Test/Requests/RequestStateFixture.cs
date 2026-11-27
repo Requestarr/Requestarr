@@ -75,7 +75,7 @@ namespace Requestarr.Core.Test.Requests
             card.Content.Should().Contain(DiscordText.StatePreviouslyDenied("not in English"));
             card.Buttons.Single().Label.Should().Be(DiscordText.RequestLabel);
 
-            (await RequestMovie(Bob, Dune)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Dune (2021)", 2));
+            (await RequestMovie(Bob, Dune)).LastReply.Content.Should().Contain("Dune (2021) is waiting for the admin's approval.");
         }
     }
 }

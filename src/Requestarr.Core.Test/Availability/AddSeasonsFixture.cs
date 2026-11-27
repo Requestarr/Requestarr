@@ -170,6 +170,19 @@ namespace Requestarr.Core.Test.Availability
         }
 
         [Test]
+        public async Task all_seasons_sends_a_season_that_aired_while_it_waited()
+        {
+            var message = await Ask(Alice, "tv", $"tvdb:{Severance}");
+            await ClickOn(Alice, message, $"req-tv-all:{Severance}");
+            Sonarr.Catalog.Single(i => i.TvdbId == Severance).Seasons.Add(3);
+
+            await AdminButton("req-approve:1");
+
+            Sonarr.Adds.Single().Seasons.Should().Equal(1, 2, 3);
+            Reload(1).Seasons.Should().Equal(1, 2, 3);
+        }
+
+        [Test]
         public async Task someone_who_neither_owns_nor_follows_it_cannot_add()
         {
             var request = await SentShow(Alice, DarkMatter2015, 1);

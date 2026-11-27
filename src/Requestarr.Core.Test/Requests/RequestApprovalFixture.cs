@@ -28,7 +28,7 @@ namespace Requestarr.Core.Test.Requests
         {
             var run = await RequestMovie(Alice, Dune);
 
-            run.LastReply.Content.Should().Contain(DiscordText.RequestPending("Dune (2021)", 1));
+            run.LastReply.Content.Should().Contain("Dune (2021) is waiting for the admin's approval.");
             LastRequest.Status.Should().Be(RequestStatus.Pending);
             Radarr.Adds.Should().BeEmpty();
 
@@ -79,7 +79,7 @@ namespace Requestarr.Core.Test.Requests
 
             var run = await RequestMovie(Alice, Dune);
 
-            run.LastReply.Content.Should().Contain(DiscordText.RequestAdded("Dune (2021)", 1));
+            run.LastReply.Content.Should().Contain("Dune (2021) was added and a search has started.");
             LastRequest.Status.Should().Be(RequestStatus.Approved);
             Discord.Channels[AdminChannel].Messages.Should().NotContain(m => m.Content.Contains("Request #1"));
         }
@@ -101,7 +101,7 @@ namespace Requestarr.Core.Test.Requests
         {
             var run = await Harness.SendAsync(FakeInteraction.Button($"req-make:movie:{DuneTwo}").By(FakeDiscordGuild.Owner, "owner").InGuild(FakeDiscordGuild.Guild).InChannel(AdminChannel));
 
-            run.LastReply.Content.Should().Contain(DiscordText.RequestAdded("Dune: Part Two (2024)", 1));
+            run.LastReply.Content.Should().Contain("Dune: Part Two (2024) was added and a search has started.");
             UserFor(FakeDiscordGuild.Owner).PrivateChannelId.Should().BeNull();
             LastRequest.OwnerUserId.Should().Be(UserFor(FakeDiscordGuild.Owner).Id);
         }

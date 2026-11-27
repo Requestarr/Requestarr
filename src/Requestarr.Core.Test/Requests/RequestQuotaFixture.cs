@@ -51,7 +51,7 @@ namespace Requestarr.Core.Test.Requests
 
             _now = _now.AddDays(7);
 
-            (await RequestMovie(Alice, Heat)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Heat (1995)", 3));
+            (await RequestMovie(Alice, Heat)).LastReply.Content.Should().Contain("Heat (1995) is waiting for the admin's approval.");
         }
 
         [Test]
@@ -64,9 +64,9 @@ namespace Requestarr.Core.Test.Requests
             HeatInRadarr();
             Radarr.Catalog.Add(new Backends.MediaLookupResult { Title = "Ronin", Year = 1998, TmdbId = 8195 });
 
-            (await RequestMovie(Alice, Heat)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Heat (1995)", 3));
+            (await RequestMovie(Alice, Heat)).LastReply.Content.Should().Contain("Heat (1995) is waiting for the admin's approval.");
             await Harness.SendAsync(AdminSlash("deny").WithOption("id", 3L));
-            (await RequestMovie(Alice, 8195)).LastReply.Content.Should().Contain(DiscordText.RequestPending("Ronin (1998)", 4));
+            (await RequestMovie(Alice, 8195)).LastReply.Content.Should().Contain("Ronin (1998) is waiting for the admin's approval.");
         }
 
         [Test]

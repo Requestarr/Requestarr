@@ -389,7 +389,7 @@ namespace Requestarr.Core.Requests
                 _ => (DiscordText.FinalRefused, RefusedColor)
             };
 
-            var lines = new List<string> { result.Header ?? status };
+            var lines = new List<string> { FinalStatusLine(result, status) };
 
             if (result.Message != null)
             {
@@ -437,6 +437,18 @@ namespace Requestarr.Core.Requests
             {
                 yield return DiscordText.FixLine(request.AppliedFix);
             }
+        }
+
+        // The request block's first line: its status, and the request's number when it's about one request (a follow's
+        // message names the request it follows already).
+        private static string FinalStatusLine(RequestResult result, string status)
+        {
+            if (result.Header != null)
+            {
+                return result.Header;
+            }
+
+            return result.Request != null && result.Outcome != RequestOutcome.Following ? DiscordText.RequestStatusLine(status, result.Request.Id) : status;
         }
 
         // A request message showing the request's real state; Cancel only while it is pending.
@@ -514,13 +526,10 @@ namespace Requestarr.Core.Requests
             _ => (DiscordText.FinalFailed, RefusedColor, DiscordText.RequestFailedStatus(request))
         };
 
-        // Add seasons, on an open TV request that has something left to add: all seasons and new ones as they air leave
-        // only specials, which the web app can still add.
+        // Add seasons, on an open TV request that has something left to add: all seasons (with new ones as they air)
+        // leaves only specials, which the web app can still add.
         private static bool CanAddSeasons(Request request) =>
-            request is { ContentType: ContentType.Tv, IsActive: true } && !HasEverySeason(request);
-
-        // All seasons with new ones as they air already has every season, even ones that aired since.
-        private static bool HasEverySeason(Request request) => request.AllSeasons && request.MonitorFutureSeasons;
+            request is { ContentType: ContentType.Tv, IsActive: true, AllSeasons: false };
 
         public static InteractionButton AddSeasonsButton(int requestId) =>
             new() { CustomId = $"{RequestRoutes.AddSeasons}:{requestId}", Label = DiscordText.AddSeasonsLabel, Style = ButtonStyle.Secondary };
@@ -703,7 +712,7 @@ namespace Requestarr.Core.Requests
         // here), a page at a time; picks ride in the custom IDs.
         public static IReadOnlyList<int> AddableSeasons(Request request, MediaLookupResult item) =>
             (item.HasSpecials ? new[] { 0 } : Array.Empty<int>())
-                .Concat(HasEverySeason(request) ? Array.Empty<int>() : item.Seasons)
+                .Concat(request.AllSeasons ? Array.Empty<int>() : item.Seasons)
                 .Except(request.Seasons).Distinct().OrderBy(s => s).ToList();
 
         public static InteractionReply AddSeasonsPicker(Request request, MediaLookupResult item, int page, SeasonChoice picks)
