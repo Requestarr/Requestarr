@@ -280,8 +280,7 @@ namespace Requestarr.Core.Test.Qa
             var unreleased = QaChecklist.Parse(QaChecklist.Embedded(), new Version(9, 9, 9999))[0].Items;
 
             unreleased.Should().OnlyContain(i => i.Checker != QaChecker.Unclassified);
-            unreleased.Where(i => !i.Checker.Automated).Should().OnlyContain(i => i.Checker.Why != null);
-            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEquivalentTo("Request messages and All seasons", "Media manager wording", "Warning before turning off all other shows", "Server cards on Import", "Imported history in Discord", "Post History in the web app");
+            unreleased.Where(i => !i.Checker.Automated).Select(i => i.Name).Should().BeEmpty("everything in it is checked on dev; only a click only a person can make is the owner's");
         }
 
         [Test]
