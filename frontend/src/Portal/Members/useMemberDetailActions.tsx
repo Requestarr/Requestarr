@@ -201,6 +201,11 @@ function useMemberDetailActions(
   const { member } = detail;
   const path = `members/${member.id}`;
   const onClose = useCallback(() => setDialog(undefined), []);
+
+  // Posting finished while asked: nothing is left to cancel.
+  if (dialog === 'cancelHistory' && postingStatus?.state === 'idle') {
+    setDialog(undefined);
+  }
   const onOnboarded = useCallback(() => {
     setDialog(undefined);
     onDone();
