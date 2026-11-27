@@ -836,8 +836,9 @@ and the first-run setup links to it once it's done.
      channel, and the feed when it's on. Use it for an import run before posting existed, or after setting up a new
      Discord server.
 
-   The server's window shows how far it got ("312 of 467 posted") with **Pause**, **Resume** and **Cancel Posting**; a
-   member's page has them too while it posts, and System, then Tasks lists it. Live news (new requests, downloads,
+   The server's window shows how far it got ("312 of 467 posted") with **Pause**, **Resume** and **Cancel Posting**,
+   which asks first and drops what isn't posted yet; a member's page has them too while it posts, and System, then
+   Tasks lists it. Live news (new requests, downloads,
    removals) never waits behind it. Each post is recorded, so nothing is ever posted twice: not on a second import, a
    restart or an update.
 

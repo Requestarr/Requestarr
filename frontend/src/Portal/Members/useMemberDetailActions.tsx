@@ -112,6 +112,7 @@ function useReportedPosting() {
 
 interface MemberDialogsProps {
   detail: PortalMemberDetail;
+  posting?: HistoryStatus;
   dialog?: Dialog;
   onAccessSaved: () => void;
   onRemove: () => void;
@@ -137,6 +138,7 @@ function onboarding({ member }: PortalMemberDetail, dialog?: Dialog): Who[] {
 // The windows a member's actions open: what's asked first, and the changes made in one.
 function MemberDialogs({
   detail,
+  posting,
   dialog,
   onAccessSaved,
   onRemove,
@@ -162,7 +164,10 @@ function MemberDialogs({
         isOpen={dialog === 'cancelHistory'}
         kind={kinds.DANGER}
         title={translate('PortalActionCancelHistory')}
-        message={translate('PortalCancelHistoryMessage')}
+        message={translate('HistoryCancelMessage', {
+          posted: posting?.posted ?? 0,
+          total: posting?.total ?? 0,
+        })}
         confirmLabel={translate('PortalActionCancelHistory')}
         onConfirm={onCancelHistory}
         onCancel={onClose}
@@ -196,6 +201,11 @@ function useMemberDetailActions(
   const { member } = detail;
   const path = `members/${member.id}`;
   const onClose = useCallback(() => setDialog(undefined), []);
+
+  // Posting finished while asked: nothing is left to cancel.
+  if (dialog === 'cancelHistory' && postingStatus?.state === 'idle') {
+    setDialog(undefined);
+  }
   const onOnboarded = useCallback(() => {
     setDialog(undefined);
     onDone();
@@ -247,6 +257,7 @@ function useMemberDetailActions(
   const dialogs = (
     <MemberDialogs
       detail={detail}
+      posting={postingStatus}
       dialog={dialog}
       onAccessSaved={onDone}
       onRemove={onRemove}

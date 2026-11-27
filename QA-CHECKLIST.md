@@ -150,6 +150,7 @@ Every pull request adds its items under Unreleased, the way it adds its changelo
     - Their channel gets theirs, once.
     - The server's window shows how many are posted.
     - Pause, Resume and Cancel work in both places while it posts.
+    - Cancel asks first in both, saying how many are posted.
   - Checked automatically: the web app post history check.
 - **Server cards on Import**
   - Steps:
