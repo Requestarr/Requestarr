@@ -22,6 +22,9 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string ToolbarButtons = "[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].map(b => b.innerText.trim())";
         private const string WindowButtons = "[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"] button')]";
 
+        // The window opened last: a confirm over the server's window.
+        private const string TopWindow = "[...document.querySelectorAll('[class*=\"ModalContent-modalContent\"]')].at(-1)";
+
         // The sidebar's messages so far, so what an action shows there (a new message, or one updated in place) can be
         // told apart.
         private const string SidebarMessages = "[...document.querySelectorAll('[class*=\"Message-message\"]')].map(m => m.innerText.trim()).join(' / ')";
@@ -116,7 +119,7 @@ namespace Requestarr.Core.Test.Qa.Web
             resumed.Count.Should().BeGreaterThan(paused, "Resume carries on posting");
 
             await PressToolbarAsync(browser, "Cancel History");
-            await browser.WaitForAsync($"{ModalText}.includes('Stop posting imported requests?')");
+            await browser.WaitForAsync($"{ModalText}.includes('Stop posting imported history?')");
             check.Saw($"Cancel History asks first: {await browser.EvalAsync<string>(ModalText)}");
             await check.ShotAsync(browser, "member-cancel-confirm");
             await AnswerAsync(browser, "Cancel History", true);
@@ -165,7 +168,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Requestarr's server window on Connections: Post History posts the server's history in the admin feed (theirs
         // is posted already), with how many are posted, and Pause, Resume and Cancel Posting stop and carry on the feed's
-        // posts. Its Cancel Posting doesn't ask first, as the server window is built.
+        // posts. Its Cancel Posting asks first, in a window over the server's, as the member page's Cancel History does.
         private static async Task ServerWindowAsync(HeadlessBrowser browser, WebCheck check, DiscordReadBack discord)
         {
             const string Buttons = $"{WindowButtons}.map(b => b.innerText.trim())";
@@ -192,6 +195,12 @@ namespace Requestarr.Core.Test.Qa.Web
             progress.Should().MatchRegex(@"\d+ of \d+ posted", "the window shows how many are posted");
 
             await PressInWindowAsync(browser, "Cancel Posting");
+            await browser.WaitForAsync($"{TopWindow}.innerText.includes('Stop posting imported history?')");
+            var asked = await browser.EvalAsync<string>($"{TopWindow}.innerText.replace(/\\s+/g, ' ')");
+            check.Saw($"Cancel Posting asks first: {asked}");
+            asked.Should().MatchRegex(@"\d+ of \d+ are posted; the rest won't be", "it says how many are posted");
+            await check.ShotAsync(browser, "server-cancel-confirm");
+            await browser.RunAsync($"[...{TopWindow}.querySelectorAll('[class*=\"ModalFooter\"] button')].find(b => b.innerText.trim() === 'Cancel Posting').click()");
             await browser.WaitForAsync($"{Buttons}.includes('Post History')", TimeSpan.FromSeconds(30));
             check.Saw($"Cancel Posting: back to {string.Join(", ", await browser.EvalAsync<string[]>(Buttons))}; {await browser.EvalAsync<string>(Progress)}");
             await check.ShotAsync(browser, "server-cancelled");
