@@ -177,7 +177,7 @@ namespace Requestarr.Core.Test.Requests
                 ulong Now(int id) => ulong.Parse(requests.Get(id).MessageId);
 
                 // A reposted message starts by mentioning the user, so they get a ping.
-                async Task<string> Text(ulong id) => System.Text.RegularExpressions.Regex.Replace((await userChannel.GetMessageAsync(id)).Content, @"^<@\d+> ", string.Empty);
+                async Task<string> Text(ulong id) => System.Text.RegularExpressions.Regex.Replace((await userChannel.GetMessageAsync(id)).Content, @"^<@\d+>\n", string.Empty);
 
                 foreach (var (label, messageId, request) in new[] { ("approved", approved, requests.Get(1)), ("denied", denied, requests.Get(2)), ("in library", inLibrary, requests.Get(3)), ("user cancel", userCancelled, requests.Get(4)), ("on disc", onDisc, requests.Get(5)) })
                 {

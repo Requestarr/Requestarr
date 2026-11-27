@@ -361,8 +361,9 @@ namespace Requestarr.Core.Test.Welcome
                 Log($"[cards] Read changes (private: {read.LastReply.Ephemeral}): {read.LastReply.Cards.Count} card(s), first \"{read.LastReply.Cards.FirstOrDefault()?.Text.Split('\n')[0]}\"");
                 read.LastReply.Ephemeral.Should().BeTrue();
 
-                // Discord takes the full card's layout: posted once for real, read back, and removed.
-                var fullPosted = await gateway.SendMessageAsync(adminChannel, new InteractionReply { Cards = read.LastReply.Cards });
+                // Discord takes the full card's layout: its first message (a long one carries on in more) posted once for
+                // real, read back, and removed.
+                var fullPosted = await gateway.SendMessageAsync(adminChannel, new InteractionReply { Cards = read.Responder.Replies.First(r => r.Cards.Count > 0).Cards });
                 var fullBack = await adminRest.GetMessageAsync(fullPosted);
                 Log($"[cards] Read changes as Discord shows it: {CardsOf(fullBack)}");
                 CardsOf(fullBack).Should().Contain("\"## Requestarr ");
