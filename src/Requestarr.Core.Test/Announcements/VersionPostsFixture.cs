@@ -97,6 +97,17 @@ namespace Requestarr.Core.Test.Announcements
             Buttons = new List<InteractionButton> { new() { CustomId = $"{VersionCardRoutes.ReadChanges}:{audience}:{version}", Label = DiscordText.ReadChangesLabel } }
         };
 
+        private void DeleteEveryMessage()
+        {
+            foreach (var channel in new[] { AdminChannel, UsersChannel })
+            {
+                foreach (var id in Discord.Channels[channel].MessageIds.ToList())
+                {
+                    Discord.DeleteMessage(channel, id);
+                }
+            }
+        }
+
         [TestCase("0.1.0", "0.2.0,0.3.0", "0.2.0")]
         [TestCase(null, "0.1.0,0.2.0,0.3.0", "0.1.0,0.2.0")]
         public async Task qa_shows_every_version_staging_does_not_have_yet(string staged, string admins, string users)
@@ -141,8 +152,9 @@ namespace Requestarr.Core.Test.Announcements
             AdminHeaders.Should().BeEmpty("a card already posted is never posted again");
 
             DeleteEveryMessage();
-            Mocker.Resolve<IConfigService>().ChangelogPostedCards = null;
-            Mocker.Resolve<IConfigService>().ChangelogPostedEntries = null;
+            var config = Mocker.Resolve<IConfigService>();
+            config.ChangelogPostedCards = null;
+            config.ChangelogPostedEntries = null;
             await StartOn("0.3.0");
 
             AdminHeaders.Should().Equal(admins.Split(','));
@@ -258,17 +270,6 @@ namespace Requestarr.Core.Test.Announcements
             Discord.Channels[UsersChannel].MessageIds.Should().Equal(userIds);
             var posted = PostedCards.Parse(Mocker.Resolve<IConfigService>().ChangelogPostedCards);
             new[] { AdminChannel, UsersChannel }.Should().OnlyContain(c => posted.Has(c, new Version(0, 2, 0)));
-        }
-
-        private void DeleteEveryMessage()
-        {
-            foreach (var channel in new[] { AdminChannel, UsersChannel })
-            {
-                foreach (var id in Discord.Channels[channel].MessageIds.ToList())
-                {
-                    Discord.DeleteMessage(channel, id);
-                }
-            }
         }
 
         [Test]

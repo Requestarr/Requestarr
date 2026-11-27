@@ -175,9 +175,9 @@ namespace Requestarr.Core.Announcements
         {
             var posted = new PostedCards();
 
-            foreach (var channel in (text ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var entry in (text ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
-                var parts = channel.Split(':');
+                var parts = entry.Split(':');
 
                 if (parts.Length != 2 || !ulong.TryParse(parts[0], out var id))
                 {
