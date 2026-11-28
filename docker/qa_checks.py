@@ -301,8 +301,10 @@ def timed(name, timings, body):
     try:
         return body()
     finally:
-        timings.append((name, time.monotonic() - start))
-        print("[qa-checks] %s: %.0fs" % (name, timings[-1][1]), flush=True)
+        # Parts run at the same time: this part's own seconds, not the list's last.
+        seconds = time.monotonic() - start
+        timings.append((name, seconds))
+        print("[qa-checks] %s: %.0fs" % (name, seconds), flush=True)
 
 
 def dotnet_test(filter_, env, log_path):
@@ -345,7 +347,8 @@ def run_web_fresh(out, env, commit):
     """The web checks that need a dev stack just reset: up with the checks' login, the test member known from a made-up
     import with HISTORY_SEEDED requests of their own, then the checks. The run's reset afterwards removes it all."""
     password = secrets.token_urlsafe(24)
-    stack(["reset-dev"])
+    # Left stopped: the next line starts it, with the checks' login.
+    stack(["reset-dev", "--stopped"])
     stack(["up"], login_env(password), ref=commit)
     member = test_member(env)
     edit_dev_database(lambda con: seed_history_rows(con, member))
@@ -773,9 +776,12 @@ def run(args):
         timed("build", timings, lambda: subprocess.run(["dotnet", "build", os.path.join(REPO, "src", "Requestarr.sln"), "-v", "q", "-nologo"], check=True))
         clean_lanes_in_discord(env)
         with ThreadPoolExecutor(max_workers=2) as pool:
-            web_part = pool.submit(run_all_web, out, env, commit, timings) if only in (None, "web") else None
-            live_part = pool.submit(timed, "live Discord checks (dev server, bot and test member, in %d lanes)" % len(LIVE_LANES),
-                                    timings, lambda: run_live(out, env, commit)) if only in (None, "live") else None
+            web_part = live_part = None
+            if only in (None, "web"):
+                web_part = pool.submit(run_all_web, out, env, commit, timings)
+            if only in (None, "live"):
+                live_part = pool.submit(timed, "live Discord checks (dev server, bot and test member, in %d lanes)" % len(LIVE_LANES),
+                                        timings, lambda: run_live(out, env, commit))
             web = web_part.result() if web_part else {}
             live = live_part.result() if live_part else {}
     finally:
@@ -1069,6 +1075,8 @@ def self_test():
     live = {"LiveQaFixture": (True, "noise\n[pass] the owner presses Passes\n[fail] not this one\n")}
     results = {r["name"]: r for r in results_for(items, web, live)}
     failed = apply_overrides([dict(results["Build number"])], {"Build number": "the logo is on black"})[0]
+    lanes = [lane_env(n, {}) for n in range(1, len(LIVE_LANES) + 1)]
+    lane_ports = {lane[port] for lane in lanes for port in ("DEV_RADARR_TEST_PORT", "DEV_SONARR_TEST_PORT")}
     expected = [
         ("only Unreleased items, in order", [i["name"] for i in items] == ["Build number", "Bot picture", "Passing an item", "Gone"]),
         ("the owner's item has no check", items[1]["check"] is None and "Bot picture" not in results),
@@ -1103,8 +1111,8 @@ def self_test():
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("each live check in one lane", len(LIVE) == len(set(LIVE)) and LIVE_ON_RUNNING_STACK not in LIVE),
         ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
-        ("each lane its own names, project and ports", lane_env(3, {})["QA_CHECKS_LANE"] == "lane3-" and lane_env(3, {})["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
-         and len({lane_env(n, {})["DEV_RADARR_TEST_PORT"] for n in range(1, len(LIVE_LANES) + 1)} | {lane_env(n, {})["DEV_SONARR_TEST_PORT"] for n in range(1, len(LIVE_LANES) + 1)} | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
+        ("each lane its own names, project and ports", lanes[2]["QA_CHECKS_LANE"] == "lane3-" and lanes[2]["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
+         and len(lane_ports | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
         ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
         ("a made-up server remembered for the checks, then forgotten", seeded_and_cleaned()[3] == (["7", MADE_UP_SERVER["id"]], ["7"])),
         ("and everything the checks did removed, the owner's own kept",
