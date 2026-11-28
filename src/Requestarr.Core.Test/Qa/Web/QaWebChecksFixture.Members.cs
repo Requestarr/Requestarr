@@ -134,11 +134,12 @@ namespace Requestarr.Core.Test.Qa.Web
         }
 
         // Sorted by name, the letter bar's last letter keeps every row on screen drawn, even when the whole list fits on
-        // the page and it can't scroll that far: no blank space opens between the header and the first row.
+        // the page and it can't scroll that far: no blank space opens between the top of the list and the first row. The
+        // list's top is its header, or the toolbar once a longer list has scrolled the header away.
         private static async Task JumpToLastLetterAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             const string Letters = "[...document.querySelectorAll('[class*=\"PageJumpBarItem-jumpBarItem\"]')]";
-            const string Gap = "document.querySelector('[class*=\"IndexTable-row\"]').getBoundingClientRect().top - document.querySelector('[class*=\"VirtualTableHeader-header\"]').getBoundingClientRect().bottom";
+            const string Gap = "document.querySelector('[class*=\"IndexTable-row\"]').getBoundingClientRect().top - Math.max(document.querySelector('[class*=\"VirtualTableHeader-header\"]').getBoundingClientRect().bottom, document.querySelector('[class*=\"PageToolbar\"]').getBoundingClientRect().bottom)";
             var letter = await browser.EvalAsync<string>($"{Letters}.map(l => l.innerText.trim()).filter(l => /^[A-Z]$/.test(l)).at(-1) ?? ''");
 
             if (string.IsNullOrEmpty(letter))
@@ -151,7 +152,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.EvalAsync<bool>("new Promise(r => setTimeout(() => r(true), 800))");
             var gap = await browser.EvalAsync<double>(Gap);
             var drawn = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"]').length");
-            check.Saw($"Members ({theme}): the letter bar's {letter} leaves {drawn} rows drawn, the first {gap:0}px below the header");
+            check.Saw($"Members ({theme}): the letter bar's {letter} leaves {drawn} rows drawn, the first {gap:0}px below the list's top");
             await check.ShotAsync(browser, $"members-jump-{theme}");
             gap.Should().BeLessThan(1, "the rows above the letter stay drawn");
         }

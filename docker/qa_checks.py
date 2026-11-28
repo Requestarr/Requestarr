@@ -28,6 +28,7 @@ The checks each item may name are CHECKS below ("Checked automatically: the <nam
 refuses an item naming any other.
 """
 import base64
+import contextlib
 import hashlib
 import json
 import os
@@ -51,9 +52,10 @@ REPO = os.path.dirname(HERE)
 TESTS = os.path.join(REPO, "_tests", "net10.0", "Requestarr.Core.Test.dll")
 WEB_FIXTURE = "QaWebChecksFixture"
 
-# Web checks run on a dev stack just reset, after the other web checks, not on the owner's dev data, in this order: Post History
-# posts the whole server's imported history, and there only the test member's made-up history is imported; then the
-# import from Requestrr imports the recorded channels (copied in for it) and lists its history posting in System, Tasks.
+# Web checks run on a Requestarr just set up (the run's second one, beside the dev stack), not on the owner's dev data,
+# in this order: Post History posts the whole server's imported history, and there only the test member's made-up
+# history is imported; then the import from Requestrr imports the recorded channels (copied in for it) and lists its
+# history posting in System, Tasks.
 FRESH_WEB = ["post_history", "import_preview"]
 RECORDINGS = os.path.join(REPO, "src", "Requestarr.Core.Test", "Imports", "Recorded")
 HISTORY_SEEDED = 30
@@ -179,9 +181,21 @@ COMPOSE = os.path.join(HERE, "compose.yaml")
 # bot in start this far apart, across every lane. These three use a stand-in for Discord.
 SIGN_IN_APART_SECONDS = 8
 NO_SIGN_IN = {"LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture"}
+# And at most this many hold the bot at once: each sets the server up when it starts, and with more Discord's limits on
+# one server's channels and messages slowed them past their timeouts.
+MAX_BOTS = 5
 # Checks that wait for the web checks to end: renaming the test member makes the dev stack's Requestarr, there for the
 # web checks, rename them in its own data, which the web checks show.
 AFTER_WEB = {"LiveMemberRenamesFixture"}
+# The web checks that need a Requestarr just set up (FRESH_WEB) run on a second one beside the dev stack, at the same time
+# as the others: compose.yaml's stack under the project of the lane after the live checks', with that lane's prefix on
+# its Discord names, the dev bot, and a port of its own.
+FRESH_LANE = len(LIVE_LANES) + 1
+FRESH_PORT = "39799"
+# What its log says once its bot has set up the server, looked for every few seconds for up to 3 minutes.
+BOT_READY = "Discord bot ready in server"
+BOT_READY_TRIES = 60
+BOT_READY_WAIT_SECONDS = 3
 # The read-back reads the running dev stack, so it runs last, once it's reset.
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
@@ -334,11 +348,10 @@ def ran_all(output):
     return bool(passed) and int(passed[-1]) > 0 and (not skipped or int(skipped[-1]) == 0)
 
 
-def run_web(out, env, commit):
-    password = secrets.token_urlsafe(24)
-    stack(["up"], login_env(password), ref=commit)
+def run_web(out, env, password):
+    """The web checks on the owner's dev data, on the dev stack already up at the commit with the checks' login."""
     web_dir = os.path.join(out, "web")
-    web_env = web_env_for(env, web_dir, password)
+    web_env = web_env_for(env, web_dir, password, stack_url(env, "dev"), "dev")
     series = None
     try:
         # The marked requests the checks act on, one of them in the test Sonarr; removed again with everything the
@@ -356,44 +369,71 @@ def run_web(out, env, commit):
             clean_check_entries()
         finally:
             remove_check_series(env, series)
-    return web_results(web_dir)
 
 
-def run_web_fresh(out, env, commit):
-    """The web checks that need a dev stack just reset: up with the checks' login, the test member known from a made-up
-    import with HISTORY_SEEDED requests of their own, then the checks. The run's reset afterwards removes it all."""
+def run_web_fresh(out, env):
+    """The web checks that need a Requestarr just set up, on the second one (fresh_env): up with the checks' login, the
+    test member known from a made-up import with HISTORY_SEEDED requests of their own, then the checks. It goes with its
+    data when they end."""
     password = secrets.token_urlsafe(24)
-    # Left stopped: the next line starts it, with the checks' login.
-    stack(["reset-dev", "--stopped"])
-    stack(["up"], login_env(password), ref=commit)
-    member = test_member(env)
-    edit_dev_database(lambda con: seed_history_rows(con, member))
-    print("[qa-checks] the test member imported with %d requests of their own" % HISTORY_SEEDED, flush=True)
-    web_dir = os.path.join(out, "web")
-    web_env = dict(web_env_for(env, web_dir, password), QA_CHECKS_TEST_MEMBER=member["username"], QA_CHECKS_HISTORY_SEEDED=str(HISTORY_SEEDED))
-    for name in FRESH_WEB:
-        # The recordings only once Post History is done: their import adds imported history of its own.
-        if name == "import_preview":
-            copy_recordings_in()
-        dotnet_test("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name), web_env, os.path.join(web_dir, "web-fresh-%s.log" % name))
-    return web_results(web_dir)
+    fresh = fresh_env(env, password)
+    container = LANE_PROJECT % FRESH_LANE + "-requestarr-1"
+    try:
+        # Down first: one an earlier run left would keep its data.
+        lane_compose(fresh, "down", "-v")
+        lane_compose(fresh, "up", "-d", "--wait")
+        wait_bot_ready(container)
+        member = test_member(env)
+        edit_dev_database(lambda con: seed_history_rows(con, member), container)
+        print("[qa-checks] the test member imported with %d requests of their own" % HISTORY_SEEDED, flush=True)
+        web_dir = os.path.join(out, "web")
+        web_env = dict(web_env_for(env, web_dir, password, "http://localhost:" + FRESH_PORT, "dev-lane%d" % FRESH_LANE),
+                       QA_CHECKS_LANE=fresh["QA_CHECKS_LANE"], QA_CHECKS_TEST_MEMBER=member["username"], QA_CHECKS_HISTORY_SEEDED=str(HISTORY_SEEDED))
+        for name in FRESH_WEB:
+            # The recordings only once Post History is done: their import adds imported history of its own.
+            if name == "import_preview":
+                copy_recordings_in(container)
+            dotnet_test("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name), web_env, os.path.join(web_dir, "web-fresh-%s.log" % name))
+    finally:
+        subprocess.run(lane_compose_args(fresh, "down", "-v"), env=lane_compose_env(fresh), capture_output=True)
 
 
-def copy_recordings_in():
-    """The recorded Requestrr channels into the dev stack's recordings folder (compose.yaml's REQUESTARR_IMPORT_RECORDINGS),
-    which the Import page lists as a server of its own. The run's reset afterwards removes them."""
-    docker("cp", os.path.join(RECORDINGS, "."), DEV_CONTAINER + ":" + DEV_RECORDINGS)
-    docker("exec", "-u", "0", DEV_CONTAINER, "chown", "-R", "1654:1654", DEV_RECORDINGS)
+def fresh_env(env, password):
+    """The second Requestarr's compose variables: the dev stack's image, provisioning file and bot, a lane's prefix on its
+    Discord names (a dev stack takes it from REQUESTARR_DISCORD_NAME_PREFIX), its own port, test Sonarr and Radarr and
+    data, and the checks' login."""
+    lane = lane_env(FRESH_LANE, env)
+    return dict(lane_compose_env(lane), STACK_REQUESTARR_PORT=FRESH_PORT, STACK_DISCORD_NAME_PREFIX=lane["QA_CHECKS_LANE"],
+                STACK_DISCORD_BOT_TOKEN=env["DEV_DISCORD_BOT_TOKEN"], STACK_DISCORD_GUILD_ID=env["DEV_DISCORD_GUILD_ID"],
+                STACK_DISCORD_APPLICATION_ID=env.get("DEV_DISCORD_APPLICATION_ID", ""), STACK_DISCORD_ADMIN_ROLE_ID=env.get("DEV_DISCORD_ADMIN_ROLE_ID", ""),
+                STACK_AUTH_REQUIRED="enabled", STACK_PROVISIONING_FILE=DEV_PROVISIONING, **login_env(password))
+
+
+def wait_bot_ready(container):
+    """Until the container's Requestarr says its bot set up the server (as dev.ps1's check reads it)."""
+    for _ in range(BOT_READY_TRIES):
+        logs = subprocess.run(["docker", "logs", container], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if BOT_READY in logs.stdout + logs.stderr:
+            return
+        time.sleep(BOT_READY_WAIT_SECONDS)
+    sys.exit("%s's bot didn't set up the dev server." % container)
+
+
+def copy_recordings_in(container):
+    """The recorded Requestrr channels into a Requestarr's recordings folder (compose.yaml's REQUESTARR_IMPORT_RECORDINGS),
+    which the Import page lists as a server of its own. They go with its data."""
+    docker("cp", os.path.join(RECORDINGS, "."), container + ":" + DEV_RECORDINGS)
+    docker("exec", "-u", "0", container, "chown", "-R", "1654:1654", DEV_RECORDINGS)
 
 
 def login_env(password):
     return {"DEV_AUTH_REQUIRED": "enabled", "REQUESTARR_ADMIN_USERNAME": ACCOUNT, "REQUESTARR_ADMIN_PASSWORD": password}
 
 
-def web_env_for(env, web_dir, password):
+def web_env_for(env, web_dir, password, url, which):
     os.makedirs(web_dir, exist_ok=True)
-    return dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir, QA_CHECKS_USERNAME=ACCOUNT,
-                QA_CHECKS_PASSWORD=password, QA_CHECKS_VERSION=running_build("dev"))
+    return dict(env, QA_CHECKS_URL=url, QA_CHECKS_DIR=web_dir, QA_CHECKS_USERNAME=ACCOUNT,
+                QA_CHECKS_PASSWORD=password, QA_CHECKS_VERSION=running_build(which))
 
 
 def web_results(web_dir):
@@ -531,26 +571,30 @@ def run_one_live(fixture, out, live_env):
         return passed, handle.read()
 
 
-class SignIns:
-    """Hands out turns to sign the bot in, SIGN_IN_APART_SECONDS apart, to the lanes' threads."""
+class Bots:
+    """Hands the lanes' threads turns with the bot: at most MAX_BOTS at once, signing in SIGN_IN_APART_SECONDS apart."""
 
     def __init__(self):
-        self._lock = threading.Lock()
+        self._held = threading.BoundedSemaphore(MAX_BOTS)
+        self._sign_in = threading.Lock()
         self._last = float("-inf")
 
-    def wait_turn(self):
-        with self._lock:
-            time.sleep(max(0.0, self._last + SIGN_IN_APART_SECONDS - time.monotonic()))
-            self._last = time.monotonic()
+    @contextlib.contextmanager
+    def turn(self):
+        with self._held:
+            with self._sign_in:
+                time.sleep(max(0.0, self._last + SIGN_IN_APART_SECONDS - time.monotonic()))
+                self._last = time.monotonic()
+            yield
 
 
 def run_live(out, env, commit, web_done):
     """Every lane at once: {fixture: (passed, log)}. web_done is set once the web checks have ended."""
     os.makedirs(os.path.join(out, "live"), exist_ok=True)
     live_env = live_env_for(out, env, commit)
-    sign_ins = SignIns()
+    bots = Bots()
     with ThreadPoolExecutor(max_workers=len(LIVE_LANES)) as pool:
-        lanes = [pool.submit(run_lane, number, fixtures, out, live_env, web_done, sign_ins) for number, fixtures in enumerate(LIVE_LANES, 1)]
+        lanes = [pool.submit(run_lane, number, fixtures, out, live_env, web_done, bots) for number, fixtures in enumerate(LIVE_LANES, 1)]
         return {fixture: result for lane in lanes for fixture, result in lane.result().items()}
 
 
@@ -561,7 +605,7 @@ def lane_env(number, live_env):
                 DEV_RADARR_TEST_PORT=str(radarr), DEV_SONARR_TEST_PORT=str(sonarr), LIVE_PYTHON=sys.executable)
 
 
-def run_lane(number, fixtures, out, live_env, web_done, sign_ins):
+def run_lane(number, fixtures, out, live_env, web_done, bots):
     """A lane's checks one after another. One its test Sonarr and Radarr failed for fails with Docker's words, and the
     lane goes on: the other lanes' results are kept either way."""
     env = lane_env(number, live_env)
@@ -576,9 +620,8 @@ def run_lane(number, fixtures, out, live_env, web_done, sign_ins):
         except subprocess.CalledProcessError as error:
             results[fixture] = backends_failed(fixture, out, error)
             continue
-        if fixture not in NO_SIGN_IN:
-            sign_ins.wait_turn()
-        results[fixture] = run_one_live(fixture, out, env)
+        with contextlib.nullcontext() if fixture in NO_SIGN_IN else bots.turn():
+            results[fixture] = run_one_live(fixture, out, env)
     if backends:
         # Gone with its volumes; a failure here only leaves containers for the next run's reset to replace.
         subprocess.run(lane_compose_args(env, "down", "-v"), env=lane_compose_env(env), capture_output=True)
@@ -632,15 +675,21 @@ def reset_dev_after(env):
 
 
 def run_all_web(out, env, commit, timings):
-    """The web checks on the owner's dev data, then those that need the dev stack just reset."""
-    web = timed("web app checks (dev stack up at the commit, signed in, its marked requests seeded and removed)", timings,
-                lambda: run_web(out, env, commit))
-    web.update(timed("web app checks on a dev stack just reset (the test member's made-up history)", timings,
-                     lambda: run_web_fresh(out, env, commit)))
-    return web
+    """The dev stack up at the commit (which builds the image), then side by side: the web checks on the owner's dev data
+    there, and those that need a Requestarr just set up on a second one."""
+    password = secrets.token_urlsafe(24)
+    timed("dev stack up at the commit, signed in", timings, lambda: stack(["up"], login_env(password), ref=commit))
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        fresh = pool.submit(timed, "web app checks on a Requestarr just set up (the test member's made-up history)", timings,
+                            lambda: run_web_fresh(out, env))
+        timed("web app checks on the owner's data (its marked requests seeded and removed)", timings, lambda: run_web(out, env, password))
+        fresh.result()
+    return web_results(os.path.join(out, "web"))
 
 
 DEV_CONTAINER = "requestarr-dev-requestarr-1"
+# dev.ps1's copy of the provisioning file as the commit it built has it.
+DEV_PROVISIONING = os.path.join(HERE, ".stacks", "dev-provisioning.yml")
 DEV_DATABASE = "/config/requestarr.db"
 DEV_RECORDINGS = "/config/import-recordings"
 
@@ -679,17 +728,18 @@ def docker(*args):
     subprocess.run(["docker"] + list(args), check=True, capture_output=True)
 
 
-def edit_dev_database(edit):
-    """Runs EDIT(connection) on the dev stack's database, Requestarr stopped for it and always started again, and waits
-    until it's healthy; returns what EDIT returned. Nothing when the stack has no Requestarr (a reset removed it)."""
-    if subprocess.run(["docker", "inspect", DEV_CONTAINER], capture_output=True).returncode != 0:
-        print("[qa-checks] no dev Requestarr: its data left as it is", flush=True)
+def edit_dev_database(edit, container=DEV_CONTAINER):
+    """Runs EDIT(connection) on a dev Requestarr's database (the dev stack's, or the run's second one), Requestarr stopped
+    for it and always started again, and waits until it's healthy; returns what EDIT returned. Nothing when there's no
+    such Requestarr (a reset removed it)."""
+    if subprocess.run(["docker", "inspect", container], capture_output=True).returncode != 0:
+        print("[qa-checks] no %s: its data left as it is" % container, flush=True)
         return None
     with tempfile.TemporaryDirectory() as folder:
         local = os.path.join(folder, "requestarr.db")
-        docker("stop", DEV_CONTAINER)
+        docker("stop", container)
         try:
-            copy_database_out(local)
+            copy_database_out(local, container)
             con = sqlite3.connect(local)
             try:
                 done = edit(con)
@@ -697,12 +747,12 @@ def edit_dev_database(edit):
                 con.execute("pragma journal_mode=delete")
             finally:
                 con.close()
-            copy_database_in(local, folder)
+            copy_database_in(local, folder, container)
         finally:
-            docker("start", DEV_CONTAINER)
-        docker("exec", "-u", "0", DEV_CONTAINER, "sh", "-c", "chown 1654:1654 %s* && chmod 644 %s*" % (DEV_DATABASE, DEV_DATABASE))
-        docker("restart", DEV_CONTAINER)
-    wait_healthy(DEV_CONTAINER)
+            docker("start", container)
+        docker("exec", "-u", "0", container, "sh", "-c", "chown 1654:1654 %s* && chmod 644 %s*" % (DEV_DATABASE, DEV_DATABASE))
+        docker("restart", container)
+    wait_healthy(container)
     return done
 
 
@@ -868,23 +918,23 @@ def clean_check_entries():
     return removed
 
 
-def copy_database_out(local):
-    """The stopped dev stack's database to LOCAL, with its write-ahead log when it has one."""
-    docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE, local)
+def copy_database_out(local, container):
+    """A stopped Requestarr's database to LOCAL, with its write-ahead log when it has one."""
+    docker("cp", container + ":" + DEV_DATABASE, local)
     for suffix in ("-wal", "-shm"):
         try:
-            docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE + suffix, local + suffix)
+            docker("cp", container + ":" + DEV_DATABASE + suffix, local + suffix)
         except subprocess.CalledProcessError:
             pass  # no write-ahead log: everything is in the database file
 
 
-def copy_database_in(local, folder):
-    """LOCAL back as the dev stack's database, its old write-ahead log emptied so it isn't replayed over the edit."""
+def copy_database_in(local, folder, container):
+    """LOCAL back as a Requestarr's database, its old write-ahead log emptied so it isn't replayed over the edit."""
     empty = os.path.join(folder, "empty")
     open(empty, "w").close()
-    docker("cp", local, DEV_CONTAINER + ":" + DEV_DATABASE)
+    docker("cp", local, container + ":" + DEV_DATABASE)
     for suffix in ("-wal", "-shm"):
-        docker("cp", empty, DEV_CONTAINER + ":" + DEV_DATABASE + suffix)
+        docker("cp", empty, container + ":" + DEV_DATABASE + suffix)
 
 
 def run(args):

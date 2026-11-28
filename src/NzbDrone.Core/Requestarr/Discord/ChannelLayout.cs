@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,9 +10,16 @@ namespace Requestarr.Core.Discord
     // @everyone's role ID equals the server ID.
     public static class ChannelLayout
     {
-        // Automated checks only: a prefix on every name below, so live checks running at the same time in one Discord
-        // server each keep to their own channels, groups and roles. Empty in Requestarr itself; the test run sets it.
-        public static string CheckLane { get; set; } = string.Empty;
+        // Automated checks only: a prefix on every name below, so checks running at the same time in one Discord server
+        // each keep to their own channels, groups and roles. Empty in Requestarr itself. The test run sets it, and a local
+        // test stack the automated run starts beside the dev stack takes it from REQUESTARR_DISCORD_NAME_PREFIX.
+        public const string NamePrefixVariable = "REQUESTARR_DISCORD_NAME_PREFIX";
+
+        public static string CheckLane { get; set; } = DevStackPrefix(Environment.GetEnvironmentVariable);
+
+        // The prefix only a local test stack (REQUESTARR_DEV_STACK, which only docker/compose.yaml sets) may have.
+        public static string DevStackPrefix(Func<string, string> variable) =>
+            string.Equals(variable(Removals.DevFastVotes.DevStackVariable), "true", StringComparison.OrdinalIgnoreCase) ? variable(NamePrefixVariable) ?? string.Empty : string.Empty;
 
         public static string AdminChannelName => CheckLane + "requestarr-admin";
         public static string FeedChannelName => CheckLane + "requestarr-feed";
