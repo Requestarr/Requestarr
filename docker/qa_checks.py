@@ -155,12 +155,11 @@ GH_WAIT_SECONDS = 30
 LIVE_LANES = [
     # Version words finds the lane's admin and announcements channels the QA check's setup made.
     ["LiveQaFixture", "LiveVersionWordsFixture", "LiveMemberRenamesFixture"],  # 260, 10, 35 (after the web checks)
-    ["LiveWelcomeFixture", "LiveAnnouncementsFixture"],  # 265, 115
-    ["LiveDevHelpersFixture", "LiveRemovalFixture"],  # about 100, 135
-    ["LiveRequestMessageFixture", "LiveAdminRequestsFixture"],  # about 90, 120
-    ["LiveAdminConsoleFixture", "LiveAvailabilityFeedFixture"],  # about 80, 145
-    ["LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture", "LiveDiscordFixture"],  # 50, 30, 20, 20
-    ["LiveImportAlertsFixture", "LiveImportHistoryFixture", "LivePortalActionsFixture"],  # 55, 50, 75
+    ["LiveWelcomeFixture", "LiveAnnouncementsFixture", "LiveDiscordFixture"],  # 265, 115, 20
+    ["LiveDevHelpersFixture", "LiveRemovalFixture", "LiveAvailabilityFeedFixture"],  # about 100, 135, 145
+    ["LiveRequestMessageFixture", "LiveAdminRequestsFixture", "LiveAdminConsoleFixture", "LivePortalActionsFixture"],  # about 90, 120, 80, 75
+    # None of these sets up a lane's layout in the dev server.
+    ["LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture", "LiveImportAlertsFixture", "LiveImportHistoryFixture"],  # 50, 30, 20, 55, 50
 ]
 LIVE = [fixture for lane in LIVE_LANES for fixture in lane]
 # The checks that use no test Sonarr or Radarr (a lane of only these gets none), and those that add titles to them, so
@@ -186,6 +185,8 @@ NO_SIGN_IN = {"LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture"
 # channels, groups and roles, so those start further apart still.
 MAX_BOTS = 5
 LAYOUT_APART_SECONDS = 25
+# Signed in with a bot of their own that makes no layout: hidden channels of their own.
+NO_LAYOUT = NO_SIGN_IN | {"LiveImportAlertsFixture", "LiveImportHistoryFixture"}
 # Checks that wait for the web checks to end: renaming the test member makes the dev stack's Requestarr, there for the
 # web checks, rename them in its own data, which the web checks show.
 AFTER_WEB = {"LiveMemberRenamesFixture"}
@@ -397,9 +398,9 @@ def run_web_fresh(out, env):
                 copy_recordings_in(container)
             dotnet_test("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name), web_env, os.path.join(web_dir, "web-fresh-%s.log" % name))
     finally:
-        # A restart in the middle (its bot couldn't stay connected) explains a check that found it gone.
-        restarts = subprocess.run(["docker", "inspect", "-f", "{{.RestartCount}}", container], capture_output=True, text=True).stdout.strip()
-        print("[qa-checks] the second Requestarr restarted %s time(s)" % (restarts or "?"), flush=True)
+        # Its log, for a check that found it gone or slow: it goes with the container.
+        with open(os.path.join(out, "web", "second-requestarr.log"), "w", encoding="utf-8") as log:
+            subprocess.run(["docker", "logs", container], stdout=log, stderr=subprocess.STDOUT)
         subprocess.run(lane_compose_args(fresh, "down", "-v"), env=lane_compose_env(fresh), capture_output=True)
 
 
@@ -621,7 +622,7 @@ def run_lane(number, fixtures, out, live_env, web_done, bots):
     env = lane_env(number, live_env)
     backends = not NO_BACKENDS.issuperset(fixtures)
     results = {}
-    first_bot = next((f for f in fixtures if f not in NO_SIGN_IN), None)
+    makes_layout = next((f for f in fixtures if f not in NO_LAYOUT), None)
     for index, fixture in enumerate(fixtures):
         if fixture in AFTER_WEB:
             web_done.wait()
@@ -631,7 +632,7 @@ def run_lane(number, fixtures, out, live_env, web_done, bots):
         except subprocess.CalledProcessError as error:
             results[fixture] = backends_failed(fixture, out, error)
             continue
-        with contextlib.nullcontext() if fixture in NO_SIGN_IN else bots.turn(fixture == first_bot):
+        with contextlib.nullcontext() if fixture in NO_SIGN_IN else bots.turn(fixture == makes_layout):
             results[fixture] = run_one_live(fixture, out, env)
     if backends:
         # Gone with its volumes; a failure here only leaves containers for the next run's reset to replace.
@@ -1319,7 +1320,7 @@ def self_test():
         ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("each live check in one lane", len(LIVE) == len(set(LIVE)) and LIVE_ON_RUNNING_STACK not in LIVE),
-        ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST | NO_SIGN_IN | AFTER_WEB <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
+        ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST | NO_LAYOUT | AFTER_WEB <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
         ("each lane its own names, project and ports", lanes[2]["QA_CHECKS_LANE"] == "lane3-" and lanes[2]["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
          and len(lane_ports | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
         ("the checks' requests seeded", seeded_and_cleaned()[0] == 8),
