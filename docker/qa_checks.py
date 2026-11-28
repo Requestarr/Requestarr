@@ -337,17 +337,23 @@ def ran_all(output):
 def run_web(out, env, commit):
     password = secrets.token_urlsafe(24)
     stack(["up"], login_env(password), ref=commit)
-    # The marked requests the checks act on; removed again with everything the checks did, pass or fail.
-    print("[qa-checks] seeded %d requests for the web checks" % edit_dev_database(seed_check_rows), flush=True)
     web_dir = os.path.join(out, "web")
     web_env = web_env_for(env, web_dir, password)
+    series = None
     try:
+        # The marked requests the checks act on, one of them in the test Sonarr; removed again with everything the
+        # checks did, pass or fail.
+        series = add_check_series(env)
+        print("[qa-checks] seeded %d requests for the web checks" % edit_dev_database(lambda con: seed_check_rows(con, series)), flush=True)
+        if series:
+            web_env["QA_CHECKS_SONARR_SERIES"] = series["title"]
         web_env.update(start_throwaway())
         fresh = "".join("&Name!=" + name for name in FRESH_WEB)
         dotnet_test("FullyQualifiedName~" + WEB_FIXTURE + fresh, web_env, os.path.join(web_dir, "web.log"))
     finally:
         remove_throwaway()
         clean_check_entries()
+        remove_check_series(env, series)
     return web_results(web_dir)
 
 
@@ -636,9 +642,26 @@ DEV_CONTAINER = "requestarr-dev-requestarr-1"
 DEV_DATABASE = "/config/requestarr.db"
 DEV_RECORDINGS = "/config/import-recordings"
 
-# The made-up owner and title prefix of the requests seeded for the web checks (seed_check_rows).
+# The made-up owner and title prefix of the requests seeded for the web checks (seed_check_rows), and a made-up person
+# who asks for one title and follows another (the web app request views check filters their page).
 SEED_OWNER = "Automated check"
+SEED_FOLLOWER = "Automated check follower"
 SEED_TITLE = "Automated check: "
+SEED_PEOPLE = (SEED_OWNER, SEED_FOLLOWER)
+# The request views check's requests by name (after SEED_TITLE): what the follower follows, their own, and the one in the
+# test Sonarr. QaWebChecksFixture names them the same.
+FOLLOWED = "followed"
+FOLLOWERS_OWN = "asked by the follower"
+IN_SONARR = "open in Sonarr"
+
+# The series the request views check opens in the dev stack's test Sonarr (Severance on TheTVDB, which the live checks
+# request too), added through Sonarr's API for the web checks and deleted after them. The provisioning file names that
+# Sonarr by its address in the stack; its port on this PC is the stack's (docker/dev.ps1).
+CHECK_SERIES_TVDB = 371980
+TEST_SONARR_ADDRESS = "http://sonarr-test:8989"
+TEST_SONARR_ROOT = "/data/tv"
+TEST_SONARR_PROFILE = "HD-1080p"
+DEFAULT_SONARR_TEST_PORT = "38989"
 
 # A made-up server among the ones Requestarr remembers (the Config table's discordknownservers, one list per bot): the
 # bot isn't in it, so it stands for a server that removed the bot (the web app server cards check).
@@ -690,24 +713,90 @@ def wait_healthy(container, tries=120):
     sys.exit("%s didn't come back healthy after its data was edited" % container)
 
 
-def seed_check_rows(con):
-    """The requests the web checks act on, titled "Automated check: ...", owned by a made-up person known only from an
+def seed_check_rows(con, series=None):
+    """The requests the web checks act on, titled "Automated check: ...", owned by made-up people known only from an
     import (so the bot never contacts them): one waiting to be approved (it goes to the test Radarr), one waiting for
-    the live updates check to deny from outside the page, three history rows for select mode, and one for a row's
-    Delete record. How many were added."""
+    the live updates check to deny from outside the page, three history rows for select mode, one for a row's Delete
+    record, and for the request views check a denied one the made-up follower follows, the follower's own (not in the
+    library) and, given SERIES (add_check_series), one in the test Sonarr. How many were added."""
     now = time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
-    owner = con.execute("INSERT INTO RequestarrUsers (DisplayName, Status, Added, StatusChanged) VALUES (?, 3, ?, ?)", (SEED_OWNER, now, now)).lastrowid
+    owner, follower = (con.execute("INSERT INTO RequestarrUsers (DisplayName, Status, Added, StatusChanged) VALUES (?, 3, ?, ?)",
+                                   (name, now, now)).lastrowid for name in SEED_PEOPLE)
     radarr = con.execute("SELECT Id FROM Backends WHERE Implementation = 'Radarr' ORDER BY Id LIMIT 1").fetchone()
     radarr = radarr[0] if radarr else None
-    rows = [("approve", 0, 10386, 1999, radarr), ("live update", 0, 105, 1985, radarr)]
-    rows += [("history", 7, None, 2001 + n, None) for n in range(3)] + [("delete one", 7, None, 2010, None)]
-    for name, status, tmdb, year, backend in rows:
+    rows = [(owner, "approve", 0, 10386, 1999, radarr), (owner, "live update", 0, 105, 1985, radarr)]
+    rows += [(owner, "history", 7, None, 2001 + n, None) for n in range(3)] + [(owner, "delete one", 7, None, 2010, None)]
+    rows += [(owner, FOLLOWED, 2, None, 2015, None), (follower, FOLLOWERS_OWN, 7, None, 2016, None)]
+    for person, name, status, tmdb, year, backend in rows:
         con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, TmdbId, Status, BackendId, MonitorFutureSeasons, Requested, Progress) "
-                    "VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0)", (owner, SEED_TITLE + name, year, tmdb, status, backend, now))
+                    "VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0)", (person, SEED_TITLE + name, year, tmdb, status, backend, now))
+    followed = con.execute("SELECT Id FROM Requests WHERE Title = ?", (SEED_TITLE + FOLLOWED,)).fetchone()[0]
+    con.execute("INSERT INTO RequestSubscribers (RequestId, UserId, Added) VALUES (?, ?, ?)", (followed, follower, now))
     known = known_servers(con)
     if known:
         set_known_servers(con, known + [dict(MADE_UP_SERVER, bot=known[0]["bot"])])
-    return len(rows)
+    return len(rows) + seed_sonarr_request(con, owner, series, now)
+
+
+def seed_sonarr_request(con, owner, series, now):
+    """The owner's request for SERIES as one sent to the test Sonarr is once it's there: in that Sonarr's library under
+    its ID, with its page there known (what Open in Sonarr opens). How many were added: none without the series or that
+    Sonarr."""
+    backend = con.execute("SELECT Id FROM Backends WHERE Implementation = 'Sonarr' AND Settings LIKE ? ORDER BY Id LIMIT 1",
+                          ("%" + TEST_SONARR_ADDRESS + "%",)).fetchone()
+    if not series or not backend:
+        return 0
+    media = json.dumps({"overview": series["overview"], "titleSlug": series["titleSlug"], "checked": now})
+    con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, TvdbId, Status, BackendId, ExternalItemId, Seasons, MonitorFutureSeasons, "
+                "Requested, Progress, Media) VALUES (?, 2, ?, ?, ?, 5, ?, ?, '[1]', 0, ?, 0, ?)",
+                (owner, SEED_TITLE + IN_SONARR, series["year"], series["tvdbId"], backend[0], series["id"], now, media))
+    return 1
+
+
+def sonarr_api(env):
+    """The dev stack's test Sonarr's API, as this PC reaches it, and its key."""
+    return "http://localhost:%s/api/v3/" % env.get("DEV_SONARR_TEST_PORT", DEFAULT_SONARR_TEST_PORT), env.get("SONARR_TEST_API_KEY", "")
+
+
+def add_check_series(env):
+    """CHECK_SERIES_TVDB in the dev stack's test Sonarr: its Sonarr ID, slug, title, year and overview, and whether this
+    run added it (one there already is used as it is). None, with why, when that Sonarr can't be reached or can't look
+    the series up; the check that opens it then fails, saying so."""
+    url, key = sonarr_api(env)
+    try:
+        found = api(url, key, "series?tvdbId=%d" % CHECK_SERIES_TVDB)
+        series, added = (found[0], False) if found else (add_series(url, key), True)
+    except (OSError, ValueError, LookupError) as error:
+        print("[qa-checks] the test Sonarr couldn't add the series the checks open: %s" % error, flush=True)
+        return None
+    print("[qa-checks] %s in the test Sonarr for the web checks" % series["title"], flush=True)
+    return {"id": series["id"], "titleSlug": series["titleSlug"], "title": series["title"], "year": series.get("year"),
+            "overview": series.get("overview"), "tvdbId": CHECK_SERIES_TVDB, "added": added}
+
+
+def add_series(url, key):
+    """The series looked up in Sonarr and added there with nothing monitored and nothing searched for."""
+    looked_up = api(url, key, "series/lookup?term=tvdb:%d" % CHECK_SERIES_TVDB)[0]
+    profiles = api(url, key, "qualityprofile")
+    profile = next((p for p in profiles if p["name"] == TEST_SONARR_PROFILE), profiles[0])
+    return api(url, key, "series", dict(looked_up, qualityProfileId=profile["id"], rootFolderPath=TEST_SONARR_ROOT, monitored=False,
+                                        seasonFolder=True, monitorNewItems="none",
+                                        addOptions={"monitor": "none", "searchForMissingEpisodes": False, "searchForCutoffUnmetEpisodes": False}))
+
+
+def remove_check_series(env, series):
+    """The series add_check_series added deleted from the test Sonarr again (one that was there already stays). The run
+    resets the dev stack right after the web checks, which empties that Sonarr anyway; this keeps a series with no request
+    out of the dev stack's library meanwhile, and when the run stops before its reset."""
+    if not series or not series["added"]:
+        return
+    url, key = sonarr_api(env)
+    request = urllib.request.Request("%sseries/%d?deleteFiles=true" % (url, series["id"]), method="DELETE", headers={"X-Api-Key": key})
+    try:
+        with urllib.request.urlopen(request, timeout=60):
+            print("[qa-checks] %s deleted from the test Sonarr again" % series["title"], flush=True)
+    except OSError as error:
+        print("[qa-checks] %s stays in the test Sonarr until the dev stack's reset: %s" % (series["title"], error), flush=True)
 
 
 def known_servers(con):
@@ -746,10 +835,10 @@ def seed_history_rows(con, member):
 
 
 def remove_check_data(con):
-    """What the checks made in the dev stack's data, the owner's own left as it is: the seeded requests and their made-up
-    owner, what was done to them (follows, removals with their keeps and prompts), removals the checks' sign-in started,
+    """What the checks made in the dev stack's data, the owner's own left as it is: the seeded requests and the made-up
+    people, what was done to them (follows, removals with their keeps and prompts), removals the checks' sign-in started,
     and the audit entries the checks wrote. How many audit entries went."""
-    people = [r[0] for r in con.execute("SELECT Id FROM RequestarrUsers WHERE DisplayName = ? AND ImportedFrom IS NULL", (SEED_OWNER,))]
+    people = [r[0] for r in con.execute("SELECT Id FROM RequestarrUsers WHERE DisplayName IN (%s) AND ImportedFrom IS NULL" % marks(SEED_PEOPLE), SEED_PEOPLE)]
     requests = [r[0] for r in con.execute("SELECT Id FROM Requests WHERE Title LIKE ?", (SEED_TITLE + "%",))]
     removals = [r[0] for r in con.execute("SELECT Id FROM RemovalProposals WHERE RequestId IN (%s) OR InitiatedByName LIKE ?" % marks(requests),
                                           requests + [ACCOUNT + "%"])]
@@ -1078,13 +1167,14 @@ def a_ready_run():
 # The tables seed_check_rows and remove_check_data touch, with the columns they use.
 TEST_SCHEMA = """
 CREATE TABLE RequestarrUsers (Id INTEGER PRIMARY KEY, DisplayName TEXT, Status INTEGER, Added TEXT, StatusChanged TEXT, ImportedFrom TEXT);
-CREATE TABLE Backends (Id INTEGER PRIMARY KEY, Implementation TEXT);
+CREATE TABLE Backends (Id INTEGER PRIMARY KEY, Implementation TEXT, Settings TEXT);
 CREATE TABLE Requests (Id INTEGER PRIMARY KEY, OwnerUserId INTEGER, ContentType INTEGER, Title TEXT, Year INTEGER, TmdbId INTEGER,
-                       Status INTEGER, BackendId INTEGER, MonitorFutureSeasons INTEGER, Requested TEXT, Progress INTEGER);
+                       TvdbId INTEGER, Status INTEGER, BackendId INTEGER, ExternalItemId INTEGER, Seasons TEXT, MonitorFutureSeasons INTEGER,
+                       Requested TEXT, Progress INTEGER, Media TEXT);
 CREATE TABLE RemovalProposals (Id INTEGER PRIMARY KEY, RequestId INTEGER, InitiatedByName TEXT);
 CREATE TABLE RemovalFlags (Id INTEGER PRIMARY KEY, ProposalId INTEGER);
 CREATE TABLE RemovalPrompts (Id INTEGER PRIMARY KEY, ProposalId INTEGER);
-CREATE TABLE RequestSubscribers (Id INTEGER PRIMARY KEY, RequestId INTEGER, UserId INTEGER);
+CREATE TABLE RequestSubscribers (Id INTEGER PRIMARY KEY, RequestId INTEGER, UserId INTEGER, Added TEXT);
 CREATE TABLE UserMediaAccess (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE UserIdentities (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE AuditEntries (Id INTEGER PRIMARY KEY, Actor TEXT, Detail TEXT);
@@ -1092,19 +1182,26 @@ CREATE TABLE Config (Id INTEGER PRIMARY KEY, Key TEXT, Value TEXT);
 """
 
 
-def seeded_and_cleaned():
-    """A database with the owner's own person, request, removal and audit entry, seeded for the checks, acted on as the
-    checks do, then cleaned: what's left in each table."""
+def seeded_and_cleaned(series=None):
+    """A database with the owner's own person, request, removal and audit entry, seeded for the checks (with SERIES in the
+    test Sonarr), acted on as the checks do, then cleaned: how many were seeded and how many audit entries went, what's
+    left in each table, the remembered servers before and after, and what the request views check reads (who follows
+    what, and the request in the test Sonarr)."""
     con = sqlite3.connect(":memory:")
     con.executescript(TEST_SCHEMA)
     con.execute("INSERT INTO Backends (Implementation) VALUES ('Radarr')")
+    con.execute("INSERT INTO Backends (Implementation, Settings) VALUES ('Sonarr', ?)", (json.dumps({"url": TEST_SONARR_ADDRESS}),))
     con.execute("INSERT INTO RequestarrUsers (DisplayName, ImportedFrom) VALUES ('Owner', '#media-requests')")
     con.execute("INSERT INTO Requests (OwnerUserId, Title) VALUES (1, 'Heat')")
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (1, 'owner (web app)')")
     con.execute("INSERT INTO AuditEntries (Actor, Detail) VALUES ('web:owner', 'Heat dropped')")
     con.execute("INSERT INTO Config (Key, Value) VALUES ('discordknownservers', ?)", (json.dumps([{"bot": "42", "id": "7", "name": "Original", "iconUrl": None}]),))
-    seeded = seed_check_rows(con)
+    seeded = seed_check_rows(con, series)
     with_made_up = [k["id"] for k in known_servers(con)]
+    read = {"follows": con.execute("SELECT f.DisplayName, r.Title, r.Status FROM RequestSubscribers s JOIN RequestarrUsers f ON f.Id = s.UserId "
+                                   "JOIN Requests r ON r.Id = s.RequestId").fetchall(),
+            "in sonarr": con.execute("SELECT BackendId, ExternalItemId, TvdbId, json_extract(Media, '$.titleSlug') FROM Requests WHERE Title = ?",
+                                     (SEED_TITLE + IN_SONARR,)).fetchall()}
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (2, 'qa-checks (web app)')")
     con.execute("INSERT INTO RemovalFlags (ProposalId) VALUES (2)")
     con.execute("INSERT INTO RequestSubscribers (RequestId, UserId) VALUES (3, 2)")
@@ -1112,7 +1209,7 @@ def seeded_and_cleaned():
     removed = remove_check_data(con)
     left = {t: con.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
             for t in ("RequestarrUsers", "Requests", "RemovalProposals", "RemovalFlags", "RequestSubscribers", "AuditEntries")}
-    return seeded, removed, left, (with_made_up, [k["id"] for k in known_servers(con)])
+    return seeded, removed, left, (with_made_up, [k["id"] for k in known_servers(con)]), read
 
 
 def self_test():
@@ -1124,6 +1221,8 @@ def self_test():
     failed = apply_overrides([dict(results["Build number"])], {"Build number": "the logo is on black"})[0]
     lanes = [lane_env(n, {}) for n in range(1, len(LIVE_LANES) + 1)]
     lane_ports = {lane[port] for lane in lanes for port in ("DEV_RADARR_TEST_PORT", "DEV_SONARR_TEST_PORT")}
+    with_series = seeded_and_cleaned({"id": 17, "titleSlug": "severance", "title": "Severance", "year": 2022, "overview": "Work.",
+                                      "tvdbId": CHECK_SERIES_TVDB, "added": True})
     expected = [
         ("only Unreleased items, in order", [i["name"] for i in items] == ["Build number", "Bot picture", "Passing an item", "Gone"]),
         ("the owner's item has no check", items[1]["check"] is None and "Bot picture" not in results),
@@ -1160,10 +1259,14 @@ def self_test():
         ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST | NO_SIGN_IN | AFTER_WEB <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
         ("each lane its own names, project and ports", lanes[2]["QA_CHECKS_LANE"] == "lane3-" and lanes[2]["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
          and len(lane_ports | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
-        ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
+        ("the checks' requests seeded", seeded_and_cleaned()[0] == 8),
+        ("the made-up follower follows the denied one", seeded_and_cleaned()[4]["follows"] == [(SEED_FOLLOWER, SEED_TITLE + FOLLOWED, 2)]),
+        ("no request in the test Sonarr without its series", seeded_and_cleaned()[4]["in sonarr"] == []),
+        ("with it, one in that Sonarr's library with its page known",
+         with_series[0] == 9 and with_series[4]["in sonarr"] == [(2, 17, CHECK_SERIES_TVDB, "severance")]),
         ("a made-up server remembered for the checks, then forgotten", seeded_and_cleaned()[3] == (["7", MADE_UP_SERVER["id"]], ["7"])),
         ("and everything the checks did removed, the owner's own kept",
-         seeded_and_cleaned()[1:3] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
+         with_series[1:3] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
         ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
     wrong = [name for name, ok in expected if not ok]

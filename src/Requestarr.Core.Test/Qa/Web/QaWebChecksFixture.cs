@@ -22,7 +22,21 @@ namespace Requestarr.Core.Test.Qa.Web
     [ManualTest]
     public partial class QaWebChecksFixture
     {
-        private const string FilterChoices = "[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')].map(e => e.innerText.trim())";
+        private const string FilterItems = "[...document.querySelectorAll('[class*=\"MenuContent\"] [class*=\"MenuItem-menuItem\"]')]";
+        private const string FilterChoices = $"{FilterItems}.map(e => e.innerText.trim())";
+
+        // The made-up member the run seeds (docker/qa_checks.py seed_check_rows) with a request of their own, not in the
+        // library, and a denied one of the made-up owner's that they follow; and the owner's request in the test Sonarr.
+        private const string SeededFollower = "Automated check follower";
+        private const string FollowersOwn = Marked + "asked by the follower";
+        private const string Followed = Marked + "followed";
+        private const string InSonarr = Marked + "open in Sonarr";
+
+        // A member's page's two lists of requests, by their headings, and what a list says when the filter leaves nothing.
+        private const string TheirRequests = "Their requests";
+        private const string TheyFollow = "Titles they follow";
+        private const string NoneMatch = "No requests match the filter.";
+
         private const string HeaderLogo = "img[class*='PageHeader-logo']";
         private const string ProvisionedNote = "Set by your provisioning file";
 
@@ -64,7 +78,16 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string CompactPeople = "[...document.querySelectorAll('[class*=\"RequestIndexPoster-title\"], [class*=\"RequestIndexOverviewInfo-infoRow\"], [class*=\"FollowerStack-stack\"], [class*=\"Person-small\"]')]";
         private const string FollowerStack = "document.querySelector('a[class*=\"FollowerStack-stack\"]')";
 
+        // The CSS weight bold text is drawn at, or more.
+        private const int BoldWeight = 600;
+
         private static readonly string[] Themes = { "light", "dark" };
+
+        // What's new read at UTC and west of it, with how far behind UTC each is on 0.7.0010's day (Pacific standard time).
+        private static readonly (string Zone, int MinutesBehind)[] TimeZones = { ("Etc/UTC", 0), ("America/Los_Angeles", 480) };
+
+        // The sites a request's Links may list: the title's pages on The Movie Database and TheTVDB.
+        private static readonly string[] OutsideSites = { "www.themoviedb.org", "www.thetvdb.com" };
 
         private static string Url => Environment.GetEnvironmentVariable("QA_CHECKS_URL")?.TrimEnd('/');
 
@@ -107,7 +130,8 @@ namespace Requestarr.Core.Test.Qa.Web
         // The admin portal's pages: Requests, Members, Queue, Access requests, Outages, the Audit log and System, What's
         // new load in both themes
         // with their tables or their "nothing yet" lines, and a request's and a member's own page open from the lists
-        // when there are any, with what an admin can do there.
+        // when there are any, with what an admin can do there. What's new names a build by its day at UTC and west of it,
+        // and old lines show their bold words.
         [Test]
         public Task portal_pages() => CheckAsync(nameof(portal_pages), async (browser, check) =>
         {
@@ -131,13 +155,8 @@ namespace Requestarr.Core.Test.Qa.Web
                 }
             }
 
-            await browser.GoAsync($"{Url}/system/whats-new");
-            await browser.WaitForAsync("document.body.innerText.includes('0.7.0010')");
-            var legend = await browser.EvalAsync<string>("[...document.querySelectorAll('legend')].find(l => l.innerText.startsWith('0.7.0010')).innerText");
-            var hasMarks = await browser.EvalAsync<bool>("document.querySelector('[class*=\"PageContentBody\"]').innerText.includes('**')");
-            check.Saw($"What's new: \"{legend}\"; asterisks left in its lines: {hasMarks}");
-            legend.Should().EndWith("November 22, 2026", "the build's own day, wherever the browser is");
-            hasMarks.Should().BeFalse();
+            await WhatsNewDatesAsync(browser, check);
+            await WhatsNewBoldAsync(browser, check);
 
             foreach (var page in new[] { "members/add", "queue", "access-requests", "outages", "audit", "settings/changes" })
             {
@@ -147,12 +166,62 @@ namespace Requestarr.Core.Test.Qa.Web
             }
         });
 
+        // 0.7.0010 is named by its own day, November 22, with the browser at UTC and west of it, where a day read as
+        // midnight UTC would show the 21st.
+        private static async Task WhatsNewDatesAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            const string Version = "0.7.0010";
+
+            foreach (var (zone, minutesBehind) in TimeZones)
+            {
+                await browser.SetTimeZoneAsync(zone);
+                await browser.GoAsync($"{Url}/system/whats-new");
+                await browser.WaitForAsync($"!!{VersionSection(Version)}");
+                var legend = await browser.EvalAsync<string>($"{VersionSection(Version)}.querySelector('legend').innerText.trim()");
+                var behind = await browser.EvalAsync<int>("new Date('2026-11-22T00:00:00Z').getTimezoneOffset()");
+                check.Saw($"What's new with the browser in {zone}, {behind} minutes behind UTC on the build's day: \"{legend}\"");
+                await check.ShotAsync(browser, "whats-new-" + zone.Replace('/', '-').ToLowerInvariant());
+                behind.Should().Be(minutesBehind, "the browser tells the time as one in that zone does");
+                legend.Should().EndWith("November 22, 2026", "the build's own day, wherever the browser is");
+            }
+
+            await browser.SetTimeZoneAsync(string.Empty);
+        }
+
+        // 0.1.0's lines show their leads as bold words: each line starts with one, drawn bold, and no asterisks are left,
+        // there or anywhere on the page.
+        private static async Task WhatsNewBoldAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            const string Version = "0.1.0";
+            await browser.WaitForAsync($"!!{VersionSection(Version)}");
+            var seen = await browser.EvalAsync<JsonElement>($@"(f => {{
+                f.scrollIntoView();
+                const lines = [...f.querySelectorAll('li')];
+                const leads = lines.map(l => l.querySelector('strong')).filter(b => b && b.closest('li').innerText.startsWith(b.innerText) && Number(getComputedStyle(b).fontWeight) >= {BoldWeight});
+                return {{ lines: lines.length, leads: leads.length, first: leads[0]?.innerText ?? '', marks: f.innerText.includes('**'),
+                          anywhere: document.querySelector('[class*=""PageContentBody""]').innerText.includes('**') }};
+            }})({VersionSection(Version)})");
+            var (lines, leads) = (seen.GetProperty("lines").GetInt32(), seen.GetProperty("leads").GetInt32());
+            var (marks, anywhere) = (seen.GetProperty("marks").GetBoolean(), seen.GetProperty("anywhere").GetBoolean());
+            check.Saw($"What's new, {Version}: {lines} lines, {leads} led by bold words (the first \"{seen.GetProperty("first").GetString()}\"); asterisks in its lines: {marks}, anywhere on the page: {anywhere}");
+            await check.ShotAsync(browser, "whats-new-bold");
+            lines.Should().BePositive();
+            leads.Should().Be(lines, "each of its lines leads with bold words");
+            marks.Should().BeFalse();
+            anywhere.Should().BeFalse();
+        }
+
+        // What's new's section for a version: its legend is the number, then its day when it has one.
+        private static string VersionSection(string version) =>
+            $"[...document.querySelectorAll('fieldset')].find(f => (l => l === '{version}' || l.startsWith('{version} '))(f.querySelector('legend')?.innerText.trim() ?? ''))";
+
         // The Requests page's three views, as Sonarr's and Radarr's lists have them, in both themes: Overview (the
         // default) with posters and what each title is, Posters, and Table with a poster column, each naming its people
         // on one line however many follow a title: the requester small, then at most five follower pictures and a count.
         // A follower stack opens its request's page at the Followers section, which lists them all. No list links to an
-        // app; a request's own page does, in its toolbar, and "Open in Sonarr" there is followed to the title's page in
-        // that Sonarr. The Filter menu has the states, on a member's page too. A server with no requests says so and passes.
+        // app; a request's own page does, in its toolbar, where "Open in Sonarr" opens the title's page in that Sonarr in a
+        // new tab and the header's Links has only outside sites. The Filter menu has the states, on a member's page too,
+        // where it filters their requests and what they follow together. A server with no requests says so and passes.
         [Test]
         public Task request_views() => CheckAsync(nameof(request_views), async (browser, check) =>
         {
@@ -194,7 +263,8 @@ namespace Requestarr.Core.Test.Qa.Web
             await OpenInSonarrAsync(browser, check);
         });
 
-        // The Requests page's filters, and the same on the page of the member with the most requests.
+        // The Requests page's filters, and the same on the page of the made-up member who asks for one title and follows
+        // another (the run seeds them), where a filter applies to their requests and what they follow together.
         private static async Task FilterStatesAsync(HeadlessBrowser browser, WebCheck check)
         {
             var states = new[] { "All", "Waiting for approval", "Denied", "Approved", "Not available yet", "Downloading", "Stuck", "Available", "Removed", "Not in library", "Movies", "TV" };
@@ -202,7 +272,8 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync($"!!{IndexBody}");
             await PressToolbarAsync(browser, "Filter");
             var onRequests = await browser.EvalAsync<string[]>(FilterChoices);
-            var member = await PortalAsync<int>(browser, "members", "all => all.sort((a, b) => b.requests - a.requests)[0].id");
+            var member = await PortalAsync<int>(browser, "members", $"all => all.find(m => m.name === {JsonSerializer.Serialize(SeededFollower)})?.id ?? 0");
+            member.Should().BePositive("the run seeds a member who asks for one title and follows another (docker/qa_checks.py)");
             await browser.GoAsync($"{Url}/members/{member}");
             await browser.WaitForAsync("[...document.querySelectorAll('[class*=\"PageToolbar\"] button')].some(b => b.innerText.trim() === 'Filter')");
             await PressToolbarAsync(browser, "Filter");
@@ -211,7 +282,49 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, "member-filter");
             onRequests.Should().ContainInOrder(states);
             onMember.Should().Equal(states);
+            await FilteredTogetherAsync(browser, check);
         }
+
+        // On the follower's page each filter picked applies to both lists at once: Denied leaves only the title they
+        // follow, Not in library only their own request, and All both again.
+        private static async Task FilteredTogetherAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            var picks = new (string Filter, string Theirs, string Follows)[] { ("Denied", null, Followed), ("Not in library", FollowersOwn, null), ("All", FollowersOwn, Followed) };
+
+            foreach (var (filter, theirs, follows) in picks)
+            {
+                await PickFilterAsync(browser, filter);
+                await browser.WaitForAsync($"{ListShows(TheirRequests, theirs)} && {ListShows(TheyFollow, follows)}");
+                check.Saw($"the follower's page, filter {filter}: {TheirRequests}: {await ListTextAsync(browser, TheirRequests)}; {TheyFollow}: {await ListTextAsync(browser, TheyFollow)}");
+                await check.ShotAsync(browser, "member-filter-" + filter.Replace(' ', '-').ToLowerInvariant());
+            }
+        }
+
+        // A filter from the toolbar's Filter menu, opened for it when it isn't open.
+        private static async Task PickFilterAsync(HeadlessBrowser browser, string filter)
+        {
+            var item = $"{FilterItems}.find(e => e.innerText.trim() === {JsonSerializer.Serialize(filter)})";
+
+            if (!await browser.EvalAsync<bool>($"!!{item}"))
+            {
+                await PressToolbarAsync(browser, "Filter");
+                await browser.WaitForAsync($"!!{item}");
+            }
+
+            await browser.RunAsync($"{item}.click()");
+        }
+
+        // A member's page's list by its heading ("Their requests (2)").
+        private static string MemberList(string heading) =>
+            $"[...document.querySelectorAll('fieldset')].find(f => f.querySelector('legend')?.innerText.startsWith({JsonSerializer.Serialize(heading)}))";
+
+        // The list shows just this title, or with none, that nothing matches the filter.
+        private static string ListShows(string heading, string title) => title == null
+            ? $"(f => !!f && f.innerText.includes({JsonSerializer.Serialize(NoneMatch)}))({MemberList(heading)})"
+            : $"(f => !!f && (rows => rows.length === 1 && rows[0].innerText.includes({JsonSerializer.Serialize(title)}))([...f.querySelectorAll('tbody tr')]))({MemberList(heading)})";
+
+        private static Task<string> ListTextAsync(HeadlessBrowser browser, string heading) =>
+            browser.EvalAsync<string>($"(f => [...f.querySelectorAll('tbody tr')].map(r => r.innerText.replace(/\\s+/g, ' ').trim()).join(' | ') || f.querySelector('[class*=\"Alert-\"]')?.innerText.trim())({MemberList(heading)})");
 
         private static async Task ChooseViewAsync(HeadlessBrowser browser, string view, string shows)
         {
@@ -295,13 +408,15 @@ namespace Requestarr.Core.Test.Qa.Web
 
         private static async Task FollowersSectionAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
-            var link = await browser.EvalAsync<string>($"{FollowerStack}?.href ?? ''");
-
-            if (string.IsNullOrEmpty(link))
+            if (await PortalAsync<int>(browser, "requests", "r => r.filter(q => q.followers.length).length") == 0)
             {
                 check.Saw($"followers ({theme}): no request has followers");
                 return;
             }
+
+            // The list draws only the rows on screen.
+            await ScrollToRowAsync(browser, FollowerStack);
+            var link = await browser.EvalAsync<string>($"{FollowerStack}.href");
 
             // The stack's pictures and its "+37 following": how many follow the title.
             var following = await browser.EvalAsync<int>($"(a => a.querySelectorAll('img').length + Number((a.innerText.match(/\\+(\\d+)/) ?? [0, 0])[1]))({FollowerStack})");
@@ -315,30 +430,47 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, $"request-followers-{theme}");
         }
 
-        // From a request's page, the toolbar's "Open in Sonarr" lands on that series' page in the Sonarr it names.
+        // From a request's page, the toolbar's "Open in Sonarr" opens that series' page in the Sonarr it names in a new tab,
+        // and the header's Links lists only the title's outside sites. The run adds a series to the dev stack's test Sonarr
+        // and seeds a request for it (QA_CHECKS_SONARR_SERIES names the series), so a run without one fails.
         private static async Task OpenInSonarrAsync(HeadlessBrowser browser, WebCheck check)
         {
-            await browser.GoAsync($"{Url}/requests");
-            await browser.WaitForAsync($"!!{IndexBody}");
-            var id = await PortalAsync<int>(browser, "requests", "all => all.find(r => r.media?.openIn === 'Sonarr' && r.media.openUrl)?.id ?? 0");
-
-            if (id == 0)
-            {
-                check.Saw("no request in a Sonarr a browser can reach: nothing to open");
-                return;
-            }
-
             const string Button = "[...document.querySelectorAll('[class*=\"PageToolbar\"] a')].find(a => a.innerText.trim() === 'Open in Sonarr')";
+            var series = Environment.GetEnvironmentVariable("QA_CHECKS_SONARR_SERIES");
+            var id = await PortalAsync<int>(browser, "requests", $"all => all.find(r => r.title === {JsonSerializer.Serialize(InSonarr)} && r.media?.openIn === 'Sonarr' && r.media.openUrl)?.id ?? 0");
+            check.Saw(id == 0 ? $"no \"{InSonarr}\" request a browser can open in Sonarr" : $"\"{InSonarr}\" is request {id}, for {series} in the test Sonarr");
+            id.Should().BePositive("the run adds a series to the test Sonarr and seeds a request for it (docker/qa_checks.py)");
+            series.Should().NotBeNullOrEmpty("the run names the series it added");
+
             await browser.GoAsync($"{Url}/requests/{id}");
             await browser.WaitForAsync($"!!{Button}");
+            var (link, target) = (await browser.EvalAsync<string>($"{Button}.href"), await browser.EvalAsync<string>($"{Button}.target"));
+            check.Saw($"its toolbar's Open in Sonarr: {link}, opened in {(target == "_blank" ? "a new tab" : $"the target \"{target}\"")}");
             await check.ShotAsync(browser, "request-toolbar");
-            var link = await browser.EvalAsync<string>($"{Button}.href");
-            var title = await browser.EvalAsync<string>("document.querySelector('[class*=\"DetailsHeader-title\"]').innerText");
+            target.Should().Be("_blank", "the app opens in a new tab, leaving the request's page open");
+            await OutsideLinksAsync(browser, check);
+
             await browser.GoAsync(link);
-            var series = title.Contains(" (", StringComparison.Ordinal) ? title[..title.LastIndexOf(" (", StringComparison.Ordinal)] : title;
             await browser.WaitForAsync($"document.title.includes({JsonSerializer.Serialize(series)}) || document.body.innerText.includes({JsonSerializer.Serialize(series)})", TimeSpan.FromSeconds(30));
-            check.Saw($"Open in Sonarr for {title}: {link} shows \"{await browser.EvalAsync<string>("document.title")}\"");
+            var landed = await browser.EvalAsync<string>("location.href");
+            check.Saw($"Open in Sonarr shows \"{await browser.EvalAsync<string>("document.title")}\" at {landed}");
             await check.ShotAsync(browser, "open-in-sonarr");
+            new Uri(landed).AbsolutePath.Should().Be(new Uri(link).AbsolutePath, "the series' own page, not Sonarr's list");
+        }
+
+        // The header's Links, pointed at as a person does: the title's pages on outside sites only, none in the app that
+        // downloads it.
+        private static async Task OutsideLinksAsync(HeadlessBrowser browser, WebCheck check)
+        {
+            const string Chip = "[...document.querySelectorAll('[class*=\"DetailsHeader-header\"] [class*=\"HeaderLabel-text\"]')].find(t => t.innerText.trim() === 'Links')";
+            const string Listed = "[...document.querySelectorAll('[class*=\"Portal-links\"] a')]";
+            await browser.HoverAsync(Chip);
+            await browser.WaitForAsync($"{Listed}.length > 0");
+            var names = await browser.EvalAsync<string[]>($"{Listed}.map(a => a.innerText.trim())");
+            var hosts = (await browser.EvalAsync<string[]>($"{Listed}.map(a => a.href)")).Select(h => new Uri(h).Host).ToArray();
+            check.Saw($"its header's Links: {string.Join(", ", names.Zip(hosts, (name, host) => $"{name} ({host})"))}");
+            await check.ShotAsync(browser, "request-links");
+            hosts.Should().OnlyContain(h => OutsideSites.Contains(h), "Links lists the title's outside sites, never the app");
         }
 
         // The header search, as in Sonarr: "/" puts the cursor in it; part of a request's title and of a member's name

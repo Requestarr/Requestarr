@@ -23,9 +23,9 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Onboard and the Members list, at the owner's width, in both themes. Onboard lists the server's people
         // with a box each and one in the header, narrows as you type, and with someone picked its toolbar's Onboard opens a
-        // window with what they'll get. The Members list has no buttons on its rows; Select Members shows a box on each
-        // and the actions on what's picked in the toolbar, left of Onboard. With a test member named, they're
-        // onboarded, suspended and unsuspended.
+        // window with what they'll get, whose Cancel leaves them picked. The Members list has no buttons on its rows, and
+        // Select Members shows a box on each and the actions on what's picked in the toolbar, left of Onboard. With a test
+        // member named, they're onboarded, suspended and unsuspended.
         [Test]
         public Task add_members() => CheckAsync(nameof(add_members), AddMembersAsync, OwnersWidth);
 
@@ -98,6 +98,12 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, $"set-up-{theme}");
             await AnswerAsync(browser, "Onboard", false);
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
+
+            // Cancel leaves the pick as it was, ready to Onboard again.
+            var ticked = await browser.EvalAsync<bool>($"[...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes({JsonSerializer.Serialize(first)})).querySelector('input[type=checkbox]').checked");
+            check.Saw($"Cancel in the Onboard window ({theme}): {first} still ticked: {ticked}");
+            await check.ShotAsync(browser, $"cancelled-{theme}");
+            ticked.Should().BeTrue("Cancel changes nothing, the pick included");
         }
 
         private static async Task MembersListAsync(HeadlessBrowser browser, WebCheck check, string theme)
