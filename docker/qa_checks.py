@@ -149,16 +149,16 @@ GH_WAIT_SECONDS = 30
 # others and from the dev stack: every name Requestarr gives a channel, group or role in the dev server takes the lane's
 # prefix (QA_CHECKS_LANE, "lane3-requestarr-admin"), and it has a test Sonarr and Radarr of its own (compose.yaml's,
 # under the compose project requestarr-dev-lane3, on ports of its own). What's left is the one test member, whose
-# nickname and roles every lane sees. Balanced by how long each check takes (minutes, in the 0.7.0027 run).
+# nickname and roles every lane sees. Balanced by how long each check took with all lanes running (seconds).
 LIVE_LANES = [
     # Version words finds the lane's admin and announcements channels the QA check's setup made.
-    ["LiveQaFixture", "LiveVersionWordsFixture", "LiveMemberRenamesFixture"],  # 3.3, 0.1, 0.7 (after the web checks)
-    ["LiveWelcomeFixture", "LiveAnnouncementsFixture", "LiveDiscordFixture"],  # 2.3, 1.6, 0.5
-    ["LiveDevHelpersFixture", "LiveRemovalFixture"],  # 1.5, 1.7
-    ["LiveRequestMessageFixture", "LiveAdminRequestsFixture"],  # 1.5, 1.5
-    ["LiveAdminConsoleFixture", "LiveAvailabilityFeedFixture", "LivePortalActionsFixture"],  # 1.3, 0.9, 0.8
-    ["LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture"],  # 0.8, 0.5, 0.3
-    ["LiveImportAlertsFixture", "LiveImportHistoryFixture"],  # 0.9, 0.9
+    ["LiveQaFixture", "LiveVersionWordsFixture", "LiveMemberRenamesFixture"],  # 260, 10, 35 (after the web checks)
+    ["LiveWelcomeFixture", "LiveAnnouncementsFixture"],  # 265, 115
+    ["LiveDevHelpersFixture", "LiveRemovalFixture"],  # about 100, 135
+    ["LiveRequestMessageFixture", "LiveAdminRequestsFixture"],  # about 90, 120
+    ["LiveAdminConsoleFixture", "LiveAvailabilityFeedFixture"],  # about 80, 145
+    ["LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture", "LiveDiscordFixture"],  # 50, 30, 20, 20
+    ["LiveImportAlertsFixture", "LiveImportHistoryFixture", "LivePortalActionsFixture"],  # 55, 50, 75
 ]
 LIVE = [fixture for lane in LIVE_LANES for fixture in lane]
 # The checks that use no test Sonarr or Radarr (a lane of only these gets none), and those that add titles to them, so
@@ -174,9 +174,11 @@ LANE_PORTS = (37880, 38990)
 TEST_BACKENDS = ["sonarr-test", "radarr-test", "test-backends-init"]
 TEST_BACKEND_VOLUMES = ["sonarr-test-config", "radarr-test-config", "test-media"]
 COMPOSE = os.path.join(HERE, "compose.yaml")
-# Lanes start their first bots this far apart once their test Sonarr and Radarr are up: Discord takes one sign-in of a
-# bot per 5 seconds.
-LANE_STAGGER_SECONDS = 6
+# Discord takes one sign-in of a bot per 5 seconds, and sign-ins that come faster are refused and tried again: started
+# together, the lanes' checks and the dev stack's bot kept each other out for over a minute. So the checks that sign the
+# bot in start this far apart, across every lane. These three use a stand-in for Discord.
+SIGN_IN_APART_SECONDS = 8
+NO_SIGN_IN = {"LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture"}
 # Checks that wait for the web checks to end: renaming the test member makes the dev stack's Requestarr, there for the
 # web checks, rename them in its own data, which the web checks show.
 AFTER_WEB = {"LiveMemberRenamesFixture"}
@@ -521,12 +523,26 @@ def run_one_live(fixture, out, live_env):
         return passed, handle.read()
 
 
+class SignIns:
+    """Hands out turns to sign the bot in, SIGN_IN_APART_SECONDS apart, to the lanes' threads."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._last = float("-inf")
+
+    def wait_turn(self):
+        with self._lock:
+            time.sleep(max(0.0, self._last + SIGN_IN_APART_SECONDS - time.monotonic()))
+            self._last = time.monotonic()
+
+
 def run_live(out, env, commit, web_done):
     """Every lane at once: {fixture: (passed, log)}. web_done is set once the web checks have ended."""
     os.makedirs(os.path.join(out, "live"), exist_ok=True)
     live_env = live_env_for(out, env, commit)
+    sign_ins = SignIns()
     with ThreadPoolExecutor(max_workers=len(LIVE_LANES)) as pool:
-        lanes = [pool.submit(run_lane, number, fixtures, out, live_env, web_done) for number, fixtures in enumerate(LIVE_LANES, 1)]
+        lanes = [pool.submit(run_lane, number, fixtures, out, live_env, web_done, sign_ins) for number, fixtures in enumerate(LIVE_LANES, 1)]
         return {fixture: result for lane in lanes for fixture, result in lane.result().items()}
 
 
@@ -537,7 +553,7 @@ def lane_env(number, live_env):
                 DEV_RADARR_TEST_PORT=str(radarr), DEV_SONARR_TEST_PORT=str(sonarr), LIVE_PYTHON=sys.executable)
 
 
-def run_lane(number, fixtures, out, live_env, web_done):
+def run_lane(number, fixtures, out, live_env, web_done, sign_ins):
     """A lane's checks one after another. One its test Sonarr and Radarr failed for fails with Docker's words, and the
     lane goes on: the other lanes' results are kept either way."""
     env = lane_env(number, live_env)
@@ -552,8 +568,8 @@ def run_lane(number, fixtures, out, live_env, web_done):
         except subprocess.CalledProcessError as error:
             results[fixture] = backends_failed(fixture, out, error)
             continue
-        if index == 0:
-            time.sleep(number * LANE_STAGGER_SECONDS)
+        if fixture not in NO_SIGN_IN:
+            sign_ins.wait_turn()
         results[fixture] = run_one_live(fixture, out, env)
     if backends:
         # Gone with its volumes; a failure here only leaves containers for the next run's reset to replace.
@@ -1141,7 +1157,7 @@ def self_test():
         ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("each live check in one lane", len(LIVE) == len(set(LIVE)) and LIVE_ON_RUNNING_STACK not in LIVE),
-        ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
+        ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST | NO_SIGN_IN | AFTER_WEB <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
         ("each lane its own names, project and ports", lanes[2]["QA_CHECKS_LANE"] == "lane3-" and lanes[2]["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
          and len(lane_ports | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
         ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
