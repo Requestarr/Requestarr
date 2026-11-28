@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using Requestarr.Core.Discord;
 
 namespace Requestarr.Core.Test.Discord.Harness
@@ -14,7 +15,23 @@ namespace Requestarr.Core.Test.Discord.Harness
         public const string Stack = "dev";
         public const string TokenVariable = "DEV_DISCORD_BOT_TOKEN";
 
-        public static string ComposeProject => Environment.GetEnvironmentVariable("LIVE_COMPOSE_PROJECT") ?? "requestarr-dev";
+        private const string DevProject = "requestarr-dev";
+
+        // The checks stop and empty these containers, so only the dev stack's or a lane's, never the QA stack's.
+        public static string ComposeProject
+        {
+            get
+            {
+                var named = Environment.GetEnvironmentVariable("LIVE_COMPOSE_PROJECT");
+
+                if (named == null)
+                {
+                    return DevProject;
+                }
+
+                return Regex.IsMatch(named, $"^{DevProject}-lane[0-9]+$") ? named : throw new InvalidOperationException($"LIVE_COMPOSE_PROJECT {named} isn't the dev stack or one of its lanes");
+            }
+        }
 
         public static string RadarrContainer => ComposeProject + "-radarr-test-1";
 

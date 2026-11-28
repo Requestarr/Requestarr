@@ -39,6 +39,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 import urllib.error
@@ -150,7 +151,8 @@ GH_WAIT_SECONDS = 30
 # under the compose project requestarr-dev-lane3, on ports of its own). What's left is the one test member, whose
 # nickname and roles every lane sees. Balanced by how long each check takes (minutes, in the 0.7.0027 run).
 LIVE_LANES = [
-    ["LiveQaFixture", "LiveMemberRenamesFixture", "LiveVersionWordsFixture"],  # 3.3, 0.7, 0.1
+    # Version words finds the lane's admin and announcements channels the QA check's setup made.
+    ["LiveQaFixture", "LiveVersionWordsFixture", "LiveMemberRenamesFixture"],  # 3.3, 0.1, 0.7 (after the web checks)
     ["LiveWelcomeFixture", "LiveAnnouncementsFixture", "LiveDiscordFixture"],  # 2.3, 1.6, 0.5
     ["LiveDevHelpersFixture", "LiveRemovalFixture"],  # 1.5, 1.7
     ["LiveRequestMessageFixture", "LiveAdminRequestsFixture"],  # 1.5, 1.5
@@ -172,8 +174,12 @@ LANE_PORTS = (37880, 38990)
 TEST_BACKENDS = ["sonarr-test", "radarr-test", "test-backends-init"]
 TEST_BACKEND_VOLUMES = ["sonarr-test-config", "radarr-test-config", "test-media"]
 COMPOSE = os.path.join(HERE, "compose.yaml")
-# Lanes start their bots a few seconds apart: Discord takes one bot sign-in at a time.
-LANE_STAGGER_SECONDS = 3
+# Lanes start their first bots this far apart once their test Sonarr and Radarr are up: Discord takes one sign-in of a
+# bot per 5 seconds.
+LANE_STAGGER_SECONDS = 6
+# Checks that wait for the web checks to end: renaming the test member makes the dev stack's Requestarr, there for the
+# web checks, rename them in its own data, which the web checks show.
+AFTER_WEB = {"LiveMemberRenamesFixture"}
 # The read-back reads the running dev stack, so it runs last, once it's reset.
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
@@ -515,12 +521,12 @@ def run_one_live(fixture, out, live_env):
         return passed, handle.read()
 
 
-def run_live(out, env, commit):
-    """Every lane at once: {fixture: (passed, log)}."""
+def run_live(out, env, commit, web_done):
+    """Every lane at once: {fixture: (passed, log)}. web_done is set once the web checks have ended."""
     os.makedirs(os.path.join(out, "live"), exist_ok=True)
     live_env = live_env_for(out, env, commit)
     with ThreadPoolExecutor(max_workers=len(LIVE_LANES)) as pool:
-        lanes = [pool.submit(run_lane, number, fixtures, out, live_env) for number, fixtures in enumerate(LIVE_LANES, 1)]
+        lanes = [pool.submit(run_lane, number, fixtures, out, live_env, web_done) for number, fixtures in enumerate(LIVE_LANES, 1)]
         return {fixture: result for lane in lanes for fixture, result in lane.result().items()}
 
 
@@ -531,28 +537,51 @@ def lane_env(number, live_env):
                 DEV_RADARR_TEST_PORT=str(radarr), DEV_SONARR_TEST_PORT=str(sonarr), LIVE_PYTHON=sys.executable)
 
 
-def run_lane(number, fixtures, out, live_env):
+def run_lane(number, fixtures, out, live_env, web_done):
+    """A lane's checks one after another. One its test Sonarr and Radarr failed for fails with Docker's words, and the
+    lane goes on: the other lanes' results are kept either way."""
     env = lane_env(number, live_env)
     backends = not NO_BACKENDS.issuperset(fixtures)
-    time.sleep(number * LANE_STAGGER_SECONDS)
     results = {}
-    try:
-        for index, fixture in enumerate(fixtures):
+    for index, fixture in enumerate(fixtures):
+        if fixture in AFTER_WEB:
+            web_done.wait()
+        try:
             if backends and (index == 0 or fixture in EMPTY_FIRST):
                 empty_lane_backends(env)
-            results[fixture] = run_one_live(fixture, out, env)
-    finally:
-        if backends:
-            lane_compose(env, "down", "-v")
+        except subprocess.CalledProcessError as error:
+            results[fixture] = backends_failed(fixture, out, error)
+            continue
+        if index == 0:
+            time.sleep(number * LANE_STAGGER_SECONDS)
+        results[fixture] = run_one_live(fixture, out, env)
+    if backends:
+        # Gone with its volumes; a failure here only leaves containers for the next run's reset to replace.
+        subprocess.run(lane_compose_args(env, "down", "-v"), env=lane_compose_env(env), capture_output=True)
     return results
 
 
+def backends_failed(fixture, out, error):
+    log = "The lane's test Sonarr and Radarr didn't start: %s\n%s" % (" ".join(error.cmd), error.stderr or "")
+    with open(os.path.join(out, "live", fixture + ".log"), "w", encoding="utf-8") as handle:
+        handle.write(log)
+    print("[qa-checks] %s: FAILED (its test Sonarr and Radarr didn't start)" % fixture, flush=True)
+    return False, log
+
+
+def lane_compose_args(env, *args):
+    """docker compose on a lane's test Sonarr and Radarr: compose.yaml's, under the lane's project."""
+    return ["docker", "compose", "-p", env["LIVE_COMPOSE_PROJECT"], "-f", COMPOSE] + list(args)
+
+
+def lane_compose_env(env):
+    """compose.yaml's variables for a lane: its ports (its Requestarr is never started)."""
+    return dict(env, REQUESTARR_STACK="dev", STACK_REQUESTARR_PORT="0",
+                STACK_RADARR_TEST_PORT=env["DEV_RADARR_TEST_PORT"], STACK_SONARR_TEST_PORT=env["DEV_SONARR_TEST_PORT"])
+
+
 def lane_compose(env, *args):
-    """docker compose on a lane's test Sonarr and Radarr: compose.yaml's, under the lane's project and ports."""
-    variables = dict(env, REQUESTARR_STACK="dev", STACK_REQUESTARR_PORT="0",
-                     STACK_RADARR_TEST_PORT=env["DEV_RADARR_TEST_PORT"], STACK_SONARR_TEST_PORT=env["DEV_SONARR_TEST_PORT"])
-    subprocess.run(["docker", "compose", "-p", env["LIVE_COMPOSE_PROJECT"], "-f", COMPOSE] + list(args),
-                   env=variables, check=True, capture_output=True)
+    subprocess.run(lane_compose_args(env, *args), env=lane_compose_env(env), check=True, capture_output=True, text=True)
 
 
 def empty_lane_backends(env):
@@ -775,14 +804,16 @@ def run(args):
     try:
         timed("build", timings, lambda: subprocess.run(["dotnet", "build", os.path.join(REPO, "src", "Requestarr.sln"), "-v", "q", "-nologo"], check=True))
         clean_lanes_in_discord(env)
+        web_done = threading.Event()
         with ThreadPoolExecutor(max_workers=2) as pool:
-            web_part = live_part = None
-            if only in (None, "web"):
-                web_part = pool.submit(run_all_web, out, env, commit, timings)
+            live_part = None
             if only in (None, "live"):
                 live_part = pool.submit(timed, "live Discord checks (dev server, bot and test member, in %d lanes)" % len(LIVE_LANES),
-                                        timings, lambda: run_live(out, env, commit))
-            web = web_part.result() if web_part else {}
+                                        timings, lambda: run_live(out, env, commit, web_done))
+            try:
+                web = run_all_web(out, env, commit, timings) if only in (None, "web") else {}
+            finally:
+                web_done.set()
             live = live_part.result() if live_part else {}
     finally:
         timed("dev stack reset", timings, lambda: reset_dev_after(env))
