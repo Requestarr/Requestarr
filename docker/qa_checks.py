@@ -199,7 +199,8 @@ FRESH_PORT = "39799"
 BOT_READY = "Discord bot ready in server"
 BOT_READY_TRIES = 60
 BOT_READY_WAIT_SECONDS = 3
-# The read-back reads the running dev stack, so it runs last, once it's reset.
+# The read-back reads the running dev stack, so it runs last, once it's reset and its bot has settled.
+READ_BACK_AFTER_SECONDS = 10
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 
@@ -654,9 +655,11 @@ def lane_compose_args(env, *args):
 
 
 def lane_compose_env(env):
-    """compose.yaml's variables for a lane: its ports (its Requestarr is never started)."""
-    return dict(env, REQUESTARR_STACK="dev", STACK_REQUESTARR_PORT="0",
-                STACK_RADARR_TEST_PORT=env["DEV_RADARR_TEST_PORT"], STACK_SONARR_TEST_PORT=env["DEV_SONARR_TEST_PORT"])
+    """compose.yaml's variables for a lane: its ports. A lane's Requestarr is never started, so it gets port 0 unless env
+    names one (the run's second Requestarr does)."""
+    variables = dict({"STACK_REQUESTARR_PORT": "0"}, **env)
+    variables.update(REQUESTARR_STACK="dev", STACK_RADARR_TEST_PORT=env["DEV_RADARR_TEST_PORT"], STACK_SONARR_TEST_PORT=env["DEV_SONARR_TEST_PORT"])
+    return variables
 
 
 def lane_compose(env, *args):
@@ -987,6 +990,8 @@ def run(args):
     finally:
         timed("dev stack reset", timings, lambda: reset_dev_after(env))
     if only is None:
+        # The bot moves its panel below what it posted on starting a few seconds later (PanelService.MoveDelay).
+        time.sleep(READ_BACK_AFTER_SECONDS)
         live[LIVE_ON_RUNNING_STACK] = timed("read-back of the running dev stack", timings,
                                             lambda: run_one_live(LIVE_ON_RUNNING_STACK, out, live_env_for(out, env, commit)))
         suite = timed("full suite (the rest of its run on GitHub)", timings, lambda: finish_suite(suite_run, out))
@@ -1321,6 +1326,8 @@ def self_test():
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
         ("each live check in one lane", len(LIVE) == len(set(LIVE)) and LIVE_ON_RUNNING_STACK not in LIVE),
         ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST | NO_LAYOUT | AFTER_WEB <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
+        ("the second Requestarr keeps its port", lane_compose_env(fresh_env({"DEV_DISCORD_BOT_TOKEN": "t", "DEV_DISCORD_GUILD_ID": "1"}, "p"))["STACK_REQUESTARR_PORT"] == FRESH_PORT
+         and lane_compose_env(lanes[0])["STACK_REQUESTARR_PORT"] == "0"),
         ("each lane its own names, project and ports", lanes[2]["QA_CHECKS_LANE"] == "lane3-" and lanes[2]["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
          and len(lane_ports | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
         ("the checks' requests seeded", seeded_and_cleaned()[0] == 8),
