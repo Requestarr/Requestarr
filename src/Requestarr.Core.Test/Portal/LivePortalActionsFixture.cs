@@ -64,11 +64,6 @@ namespace Requestarr.Core.Test.Portal
             }
             finally
             {
-                if (live.Host.Client?.GetGuild(live.Settings.Current.GuildId) is { } guild)
-                {
-                    await guild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 await live.Host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }

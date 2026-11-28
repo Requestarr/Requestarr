@@ -35,9 +35,9 @@ namespace Requestarr.Core.Qa
         // read-back is in the record and the task's reply.
         public const int EvidenceLength = 200;
 
-        public const string ChecklistChannelName = "requestarr-qa-checklist";
+        public static string ChecklistChannelName => Discord.ChannelLayout.CheckLane + "requestarr-qa-checklist";
         public const string ChecklistChannelTopic = "What to test on this server before the versions here go to staging. Press Passes or Failing on each item.";
-        public const string BugReportsChannelName = "requestarr-bug-reports";
+        public static string BugReportsChannelName => Discord.ChannelLayout.CheckLane + "requestarr-bug-reports";
         public const string BugReportsChannelTopic = "Found a problem? Press Report a problem. Reports reach the people who build Requestarr.";
         public const string ChecklistTitle = "## QA checklist";
 

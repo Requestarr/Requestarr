@@ -33,19 +33,24 @@ using Requestarr.Test.Common.Categories;
 namespace Requestarr.Core.Test.DevHelpers
 {
     // Live: the dev helpers with the real dev bot in the dev Discord server and the dev stack's TEST
-    // Radarr and Sonarr. The test member requests Dune and Severance; docker\dev.ps1 fake-download (run here
-    // from a fresh Windows PowerShell) makes them look downloaded, and Requestarr's poll finds them (Available,
+    // Radarr and Sonarr, or in the automated run its lane's own. The test member requests Dune and Severance, and
+    // dev.ps1 fake-download's helper makes them look downloaded, and Requestarr's poll finds them (Available,
     // partly available). Then, with fast votes on (the same switch the dev stack's container reads, turned on
-    // here for this in-process Requestarr), a user-started removal closes on its own and an admin removal goes
-    // through the requester's reminder and silence to the vote, in real minutes. Only the test accounts in
-    // DISCORD_TEST_MEMBERS. Never runs in CI (ManualTest). Needs the stack's Requestarr stopped:
-    // docker\dev.ps1 reset-dev --stopped.
+    // here for this in-process Requestarr, in seconds rather than the minutes `fast-votes on` gives), a user-started
+    // removal closes on its own and an admin removal goes through the requester's reminder and silence to the vote,
+    // in real time. Only the test accounts in DISCORD_TEST_MEMBERS. Never runs in CI (ManualTest). Outside the
+    // automated run's lanes it needs the stack's Requestarr stopped: docker\dev.ps1 reset-dev --stopped.
     [TestFixture]
     [ManualTest]
     public class LiveDevHelpersFixture : DbTest
     {
         private const int Dune = 438631;
         private const int Severance = 371980;
+
+        // How often the removal check runs while the votes are watched (Requestarr itself runs it every minute), and
+        // how many times at most.
+        private const int MostTicks = 80;
+        private static readonly TimeSpan TickEvery = TimeSpan.FromSeconds(3);
 
         private static string RadarrUrl => LiveDev.RadarrUrl;
         private static string RadarrKey => LiveDev.RadarrKey;
@@ -93,7 +98,7 @@ namespace Requestarr.Core.Test.DevHelpers
             System.IO.File.WriteAllText(System.IO.Path.Combine(appData, DevFastVotes.MarkerFile), string.Empty);
             var folders = new Moq.Mock<NzbDrone.Common.EnvironmentInfo.IAppFolderInfo>();
             folders.SetupGet(f => f.AppDataFolder).Returns(appData);
-            Mocker.SetConstant<IDevFastVotes>(new DevFastVotes(folders.Object) { Variable = name => name == DevFastVotes.DevStackVariable ? "true" : null });
+            Mocker.SetConstant<IDevFastVotes>(new DevFastVotes(folders.Object) { Variable = name => name == DevFastVotes.DevStackVariable ? "true" : null, Timings = DevFastVotes.Seconds });
             var settingsStore = Mocker.Resolve<RemovalSettings>();
             Mocker.SetConstant<IRemovalSettings>(settingsStore);
 
@@ -201,7 +206,7 @@ namespace Requestarr.Core.Test.DevHelpers
                 // 1. fake-download movie "Dune" after the test member requested Dune.
                 await RequestInRealMessage(dispatcher, gateway, guild.Id, channel, member.Id, $"req-make:movie:{Dune}", $"🎬 **Movies request** · details (tmdb:{Dune})");
                 var dune = requests.All().Single(r => r.TmdbId == Dune);
-                DevPs1("fake-download", "movie", "Dune");
+                FakeDownload("movie", "Dune");
                 await availability.CheckAllAsync();
                 Log($"[movie] request #{dune.Id} status={requests.Get(dune.Id).Status}; {member.Username}'s request message, read back: \"{await Message(dune)}\"");
                 Log($"[movie] feed card, read back: \"{await Card(dune)}\"");
@@ -210,15 +215,15 @@ namespace Requestarr.Core.Test.DevHelpers
                 // 2. fake-download tv "Severance" 1, for a request of seasons 1 and 2: partly available.
                 await RequestInRealMessage(dispatcher, gateway, guild.Id, channel, member.Id, $"req-tv-ok:{Severance}:1-2", $"📺 **TV request** · details (tvdb:{Severance})");
                 var show = requests.All().Single(r => r.TvdbId == Severance);
-                DevPs1("fake-download", "tv", "Severance", "1");
+                FakeDownload("tv", "Severance", "1");
                 await availability.CheckAllAsync();
                 Log($"[tv] request #{show.Id} status={requests.Get(show.Id).Status}, seasons there: {string.Join(", ", requests.Get(show.Id).AvailableSeasons)}; {member.Username}'s request message, read back: \"{await Message(show)}\"");
                 Log($"[tv] feed card, read back: \"{await Card(show)}\"");
                 requests.Get(show.Id).AvailableSeasons.Should().Equal(1);
 
-                // 3. Fast votes, in real minutes: a user-started removal of Dune that nobody keeps, and the
+                // 3. Fast votes, in real seconds: a user-started removal of Dune that nobody keeps, and the
                 //    admin's removal of Severance that its requester never answers.
-                Log($"[fast] fast votes on: vote {settingsStore.VoteWindow.TotalMinutes} min, requester {settingsStore.RequesterTimeout.TotalMinutes} min, reminder after {settingsStore.ReminderAfter?.TotalMinutes} min");
+                Log($"[fast] fast votes on: vote {settingsStore.VoteWindow.TotalSeconds} s, requester {settingsStore.RequesterTimeout.TotalSeconds} s, reminder after {settingsStore.ReminderAfter?.TotalSeconds} s");
                 await removals.TickAsync();
                 var notice = (await ((IMessageChannel)await host.Client.Rest.GetChannelAsync(adminChannel)).GetMessagesAsync(5).FlattenAsync()).First(m => m.Content.StartsWith("🧪"));
                 Log($"[fast] admin channel, read back: \"{notice.Content}\"");
@@ -234,9 +239,9 @@ namespace Requestarr.Core.Test.DevHelpers
                 Log($"[fast] {member.Username}'s channel now: {string.Join(" // ", await Recent(2))}");
 
                 var seen = new HashSet<string>();
-                for (var i = 0; i < 80 && proposals.Get(showVote.Id).Status != RemovalStatus.Deleted; i++)
+                for (var i = 0; i < MostTicks && proposals.Get(showVote.Id).Status != RemovalStatus.Deleted; i++)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(15));
+                    await Task.Delay(TickEvery);
                     await removals.TickAsync();
 
                     foreach (var p in new[] { proposals.Get(duneVote.Id), proposals.Get(showVote.Id) })
@@ -245,7 +250,7 @@ namespace Requestarr.Core.Test.DevHelpers
 
                         if (seen.Add(state))
                         {
-                            Log($"[fast] {DateTime.UtcNow:HH:mm:ss}Z (+{(DateTime.UtcNow - started).TotalMinutes:0.0} min) {state}");
+                            Log($"[fast] {DateTime.UtcNow:HH:mm:ss}Z (+{(DateTime.UtcNow - started).TotalSeconds:0} s) {state}");
                         }
                     }
                 }
@@ -268,27 +273,29 @@ namespace Requestarr.Core.Test.DevHelpers
             }
             finally
             {
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.ps1 reset-dev to restore the dev stack)");
             }
         }
 
-        // Runs docker\dev.ps1 on the dev stack from a fresh Windows PowerShell with the owner's script policy, and logs its output.
-        private static void DevPs1(params string[] arguments)
+        // Runs what dev.ps1 fake-download runs (docker/fake-download.py) on this run's test Sonarr and Radarr, with the
+        // variables dev.ps1 gives it, and logs its output. The automated run names its Python (LIVE_PYTHON).
+        private static void FakeDownload(params string[] arguments)
         {
-            arguments = new[] { "-Stack", LiveDev.Stack }.Concat(arguments).ToArray();
-            var script = System.IO.Path.Combine(RepoFiles.Path("docker"), "dev.ps1");
-            var output = Run(new[] { "powershell", "-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File", script }.Concat(arguments).ToArray());
-            Log($"[dev.ps1] PS> .\\docker\\dev.ps1 {string.Join(" ", arguments.Select(a => a.Contains(' ') ? $"\"{a}\"" : a))}");
+            var script = System.IO.Path.Combine(RepoFiles.Path("docker"), "fake-download.py");
+            var python = Environment.GetEnvironmentVariable("LIVE_PYTHON") ?? "python";
+            var variables = new Dictionary<string, string>
+            {
+                ["REQUESTARR_COMPOSE_PROJECT"] = LiveDev.ComposeProject,
+                ["RADARR_TEST_PORT"] = new Uri(RadarrUrl).Port.ToString(),
+                ["SONARR_TEST_PORT"] = new Uri(SonarrUrl).Port.ToString()
+            };
+            var output = Run(variables, new[] { python, script }.Concat(arguments).ToArray());
+            Log($"[fake-download] fake-download {string.Join(" ", arguments.Select(a => a.Contains(' ') ? $"\"{a}\"" : a))} on {LiveDev.ComposeProject}");
 
             foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
-                Log($"[dev.ps1]   {line.TrimEnd('\r')}");
+                Log($"[fake-download]   {line.TrimEnd('\r')}");
             }
         }
 
@@ -298,12 +305,17 @@ namespace Requestarr.Core.Test.DevHelpers
             return JToken.Parse((await http.GetAsync(request)).Content);
         }
 
-        private static string Run(params string[] args)
+        private static string Run(Dictionary<string, string> variables, params string[] args)
         {
             var start = new ProcessStartInfo(args[0]) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
             foreach (var arg in args.Skip(1))
             {
                 start.ArgumentList.Add(arg);
+            }
+
+            foreach (var (name, value) in variables)
+            {
+                start.Environment[name] = value;
             }
 
             using var process = Process.Start(start);

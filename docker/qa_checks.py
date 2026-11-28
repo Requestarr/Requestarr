@@ -11,12 +11,12 @@ only once all of it passed; QA's checklist shows only the owner's items, and not
 
 run: the checkout must be at the commit (the checks are built from it). It has GitHub run the full suite on the commit
      (the Build workflow by hand, on dev or the commit's build number tag; a run of it that passed or is still going is
-     used), and meanwhile builds the solution, brings the dev stack up at that commit with sign-in required and a
-     throwaway login for the web app checks (headless Edge or Chrome, light and dark theme), seeds the requests they act
-     on ("Automated check: ...") and afterwards removes those and everything the checks did there, audit entries included,
-     stops it and runs every live check on the dev server (the test Sonarr and Radarr emptied before each, so no check
-     finds another's titles), resets the dev stack and runs the read-back of the running stack. Results, read-backs and
-     screenshots go in DIR (default _qa-checks/<short commit>).
+     used) and builds the solution. Then, all at the same time: the web app checks bring the dev stack up at that commit
+     with sign-in required and a throwaway login (headless Edge or Chrome, light and dark theme), seed the requests they
+     act on ("Automated check: ...") and afterwards remove those and everything the checks did there, audit entries
+     included, then reset the dev stack for the checks that need it just reset; and every live check runs on the dev
+     server, in LIVE_LANES side by side. At the end it resets the dev stack and runs the read-back of the running stack.
+     Results, read-backs and screenshots go in DIR (default _qa-checks/<short commit>).
 record: after the automation has looked at every screenshot against its item's Expect (one that doesn't match
      is --fail), records the results on the dev stack's checklist (the automation's server; it must run that commit) and
      marks the run reviewed. QA never takes them.
@@ -40,6 +40,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,7 +50,7 @@ REPO = os.path.dirname(HERE)
 TESTS = os.path.join(REPO, "_tests", "net10.0", "Requestarr.Core.Test.dll")
 WEB_FIXTURE = "QaWebChecksFixture"
 
-# Web checks run on a dev stack just reset, after the live checks, not on the owner's dev data, in this order: Post History
+# Web checks run on a dev stack just reset, after the other web checks, not on the owner's dev data, in this order: Post History
 # posts the whole server's imported history, and there only the test member's made-up history is imported; then the
 # import from Requestrr imports the recorded channels (copied in for it) and lists its history posting in System, Tasks.
 FRESH_WEB = ["post_history", "import_preview"]
@@ -142,12 +143,38 @@ RUN_LISTED_SECONDS = 120
 GH_TRIES = 10
 GH_WAIT_SECONDS = 30
 
-# Every live check: these need the dev stack's bot stopped; the read-back reads the running stack, so it runs last.
-LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
-        "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
-        "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture", "LivePortalActionsFixture",
-        "LiveMemberRenamesFixture", "LiveVersionWordsFixture", "LiveRoutingFixture",
-        "LiveSeriesFixFixture", "LiveImportAlertsFixture", "LiveImportHistoryFixture"]
+# Every live check, in lanes that run side by side, alongside the web checks (the owner's rule: whatever can run in
+# parallel does, docs/development.md#qa-checklist). A lane's checks run one after another. Each lane keeps apart from the
+# others and from the dev stack: every name Requestarr gives a channel, group or role in the dev server takes the lane's
+# prefix (QA_CHECKS_LANE, "lane3-requestarr-admin"), and it has a test Sonarr and Radarr of its own (compose.yaml's,
+# under the compose project requestarr-dev-lane3, on ports of its own). What's left is the one test member, whose
+# nickname and roles every lane sees. Balanced by how long each check takes (minutes, in the 0.7.0027 run).
+LIVE_LANES = [
+    ["LiveQaFixture", "LiveMemberRenamesFixture", "LiveVersionWordsFixture"],  # 3.3, 0.7, 0.1
+    ["LiveWelcomeFixture", "LiveAnnouncementsFixture", "LiveDiscordFixture"],  # 2.3, 1.6, 0.5
+    ["LiveDevHelpersFixture", "LiveRemovalFixture"],  # 1.5, 1.7
+    ["LiveRequestMessageFixture", "LiveAdminRequestsFixture"],  # 1.5, 1.5
+    ["LiveAdminConsoleFixture", "LiveAvailabilityFeedFixture", "LivePortalActionsFixture"],  # 1.3, 0.9, 0.8
+    ["LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture"],  # 0.8, 0.5, 0.3
+    ["LiveImportAlertsFixture", "LiveImportHistoryFixture"],  # 0.9, 0.9
+]
+LIVE = [fixture for lane in LIVE_LANES for fixture in lane]
+# The checks that use no test Sonarr or Radarr (a lane of only these gets none), and those that add titles to them, so
+# they start with them empty (some checks leave their titles there on purpose).
+NO_BACKENDS = {"LiveQaFixture", "LiveMemberRenamesFixture", "LiveVersionWordsFixture"}
+EMPTY_FIRST = {"LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture", "LiveAvailabilityFeedFixture",
+               "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture", "LivePortalActionsFixture",
+               "LiveRoutingFixture", "LiveSeriesFixFixture", "LiveImportAlertsFixture", "LiveImportHistoryFixture"}
+LANE_PREFIX = "lane%d-"
+LANE_PROJECT = "requestarr-dev-lane%d"
+# Lane N's test Radarr and Sonarr are on these ports plus N (the dev stack's are 37878 and 38989).
+LANE_PORTS = (37880, 38990)
+TEST_BACKENDS = ["sonarr-test", "radarr-test", "test-backends-init"]
+TEST_BACKEND_VOLUMES = ["sonarr-test-config", "radarr-test-config", "test-media"]
+COMPOSE = os.path.join(HERE, "compose.yaml")
+# Lanes start their bots a few seconds apart: Discord takes one bot sign-in at a time.
+LANE_STAGGER_SECONDS = 3
+# The read-back reads the running dev stack, so it runs last, once it's reset.
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 
@@ -485,16 +512,76 @@ def run_one_live(fixture, out, live_env):
         return passed, handle.read()
 
 
-def run_live(out, env, commit, fixtures):
-    stack(["reset-dev", "--stopped"])
+def run_live(out, env, commit):
+    """Every lane at once: {fixture: (passed, log)}."""
     os.makedirs(os.path.join(out, "live"), exist_ok=True)
     live_env = live_env_for(out, env, commit)
+    with ThreadPoolExecutor(max_workers=len(LIVE_LANES)) as pool:
+        lanes = [pool.submit(run_lane, number, fixtures, out, live_env) for number, fixtures in enumerate(LIVE_LANES, 1)]
+        return {fixture: result for lane in lanes for fixture, result in lane.result().items()}
+
+
+def lane_env(number, live_env):
+    """A lane's checks: its prefix on every Discord name, and its own test Sonarr and Radarr."""
+    radarr, sonarr = (port + number for port in LANE_PORTS)
+    return dict(live_env, QA_CHECKS_LANE=LANE_PREFIX % number, LIVE_COMPOSE_PROJECT=LANE_PROJECT % number,
+                DEV_RADARR_TEST_PORT=str(radarr), DEV_SONARR_TEST_PORT=str(sonarr), LIVE_PYTHON=sys.executable)
+
+
+def run_lane(number, fixtures, out, live_env):
+    env = lane_env(number, live_env)
+    backends = not NO_BACKENDS.issuperset(fixtures)
+    time.sleep(number * LANE_STAGGER_SECONDS)
     results = {}
-    for fixture in fixtures:
-        # Some checks leave their titles in the test Sonarr and Radarr (on purpose); each starts with them empty.
-        stack(["reset-test-backends"])
-        results[fixture] = run_one_live(fixture, out, live_env)
+    try:
+        for index, fixture in enumerate(fixtures):
+            if backends and (index == 0 or fixture in EMPTY_FIRST):
+                empty_lane_backends(env)
+            results[fixture] = run_one_live(fixture, out, env)
+    finally:
+        if backends:
+            lane_compose(env, "down", "-v")
     return results
+
+
+def lane_compose(env, *args):
+    """docker compose on a lane's test Sonarr and Radarr: compose.yaml's, under the lane's project and ports."""
+    variables = dict(env, REQUESTARR_STACK="dev", STACK_REQUESTARR_PORT="0",
+                     STACK_RADARR_TEST_PORT=env["DEV_RADARR_TEST_PORT"], STACK_SONARR_TEST_PORT=env["DEV_SONARR_TEST_PORT"])
+    subprocess.run(["docker", "compose", "-p", env["LIVE_COMPOSE_PROJECT"], "-f", COMPOSE] + list(args),
+                   env=variables, check=True, capture_output=True)
+
+
+def empty_lane_backends(env):
+    """A lane's test Sonarr and Radarr started again from nothing, as dev.ps1 reset-test-backends does the stack's."""
+    project = env["LIVE_COMPOSE_PROJECT"]
+    lane_compose(env, "rm", "-sf", *TEST_BACKENDS)
+    subprocess.run(["docker", "volume", "rm"] + ["%s_%s" % (project, volume) for volume in TEST_BACKEND_VOLUMES], capture_output=True)
+    lane_compose(env, "up", "-d", "--wait", *TEST_BACKENDS)
+
+
+def clean_lanes_in_discord(env):
+    """What the lanes made in the dev server (every name with a lane's prefix) removed: before a run, in case an earlier
+    one stopped halfway, and after it."""
+    subprocess.run([sys.executable, os.path.join(HERE, "reset-discord.py"), "--lanes"], check=True,
+                   env=dict(env, STACK_DISCORD_BOT_TOKEN=env["DEV_DISCORD_BOT_TOKEN"], STACK_DISCORD_GUILD_ID=env["DEV_DISCORD_GUILD_ID"]))
+
+
+def reset_dev_after(env):
+    """The dev server and stack back to a clean start after a run, the lanes' leftovers first."""
+    try:
+        clean_lanes_in_discord(env)
+    finally:
+        stack(["reset-dev"])
+
+
+def run_all_web(out, env, commit, timings):
+    """The web checks on the owner's dev data, then those that need the dev stack just reset."""
+    web = timed("web app checks (dev stack up at the commit, signed in, its marked requests seeded and removed)", timings,
+                lambda: run_web(out, env, commit))
+    web.update(timed("web app checks on a dev stack just reset (the test member's made-up history)", timings,
+                     lambda: run_web_fresh(out, env, commit)))
+    return web
 
 
 DEV_CONTAINER = "requestarr-dev-requestarr-1"
@@ -669,6 +756,7 @@ def run(args):
     out = os.path.abspath(option(args, "--out") or os.path.join(REPO, "_qa-checks", commit[:7]))
     only = option(args, "--only")
     timings, web, live, suite = [], {}, {}, None
+    started = time.monotonic()
     if only == "suite":
         os.makedirs(out, exist_ok=True)
         return 0 if timed("full suite", timings, lambda: finish_suite(start_suite(commit), out))["ok"] else 1
@@ -683,23 +771,22 @@ def run(args):
         items = checklist_items(handle.read())
     try:
         timed("build", timings, lambda: subprocess.run(["dotnet", "build", os.path.join(REPO, "src", "Requestarr.sln"), "-v", "q", "-nologo"], check=True))
-        if only in (None, "web"):
-            web = timed("web app checks (dev stack up at the commit, signed in, its marked requests seeded and removed)", timings,
-                        lambda: run_web(out, env, commit))
-        if only in (None, "live"):
-            fixtures = LIVE if only is None else sorted({c.target for c in CHECKS.values() if c.kind == "live"})
-            live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit, fixtures))
-        if only in (None, "web"):
-            web.update(timed("web app checks on a dev stack just reset (the test member's made-up history)", timings,
-                             lambda: run_web_fresh(out, env, commit)))
+        clean_lanes_in_discord(env)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            web_part = pool.submit(run_all_web, out, env, commit, timings) if only in (None, "web") else None
+            live_part = pool.submit(timed, "live Discord checks (dev server, bot and test member, in %d lanes)" % len(LIVE_LANES),
+                                    timings, lambda: run_live(out, env, commit)) if only in (None, "live") else None
+            web = web_part.result() if web_part else {}
+            live = live_part.result() if live_part else {}
     finally:
-        timed("dev stack reset", timings, lambda: stack(["reset-dev"]))
+        timed("dev stack reset", timings, lambda: reset_dev_after(env))
     if only is None:
         live[LIVE_ON_RUNNING_STACK] = timed("read-back of the running dev stack", timings,
                                             lambda: run_one_live(LIVE_ON_RUNNING_STACK, out, live_env_for(out, env, commit)))
         suite = timed("full suite (the rest of its run on GitHub)", timings, lambda: finish_suite(suite_run, out))
     results = results_for(items, web, live)
-    total = sum(t for _, t in timings)
+    # The parts overlap, so the run's time is the clock's, not the sum of theirs.
+    total = time.monotonic() - started
     with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as handle:
         json.dump({"commit": commit, "only": only, "suite": suite, "live": {f: passed for f, (passed, _) in live.items()},
                    "results": results, "reviewed": False, "timings": timings, "seconds": round(total)}, handle, indent=2)
@@ -1014,6 +1101,10 @@ def self_test():
         ("another commit's run refuses", any("not def" in r for r in not_ready(ready, "def"))),
         ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
+        ("each live check in one lane", len(LIVE) == len(set(LIVE)) and LIVE_ON_RUNNING_STACK not in LIVE),
+        ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
+        ("each lane its own names, project and ports", lane_env(3, {})["QA_CHECKS_LANE"] == "lane3-" and lane_env(3, {})["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
+         and len({lane_env(n, {})["DEV_RADARR_TEST_PORT"] for n in range(1, len(LIVE_LANES) + 1)} | {lane_env(n, {})["DEV_SONARR_TEST_PORT"] for n in range(1, len(LIVE_LANES) + 1)} | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
         ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
         ("a made-up server remembered for the checks, then forgotten", seeded_and_cleaned()[3] == (["7", MADE_UP_SERVER["id"]], ["7"])),
         ("and everything the checks did removed, the owner's own kept",

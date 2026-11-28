@@ -6,12 +6,19 @@ namespace Requestarr.Core.Test.Discord.Harness
     // Every live check runs in the dev environment only: the dev Discord server and its bot (DEV_DISCORD_* in
     // docker/secrets.env) and the dev stack's test Sonarr and Radarr (docker\dev.ps1 -Stack dev). The QA server and
     // the QA stack (DISCORD_*, the default ports) are the owner's manual QA and are never touched by automated
-    // testing; no live fixture reads their variables (ReleaseFlowFixture checks).
+    // testing; no live fixture reads their variables (ReleaseFlowFixture checks). In the automated run (docker/qa_checks.py)
+    // each lane of live checks has a test Sonarr and Radarr of its own: LIVE_COMPOSE_PROJECT and the DEV_*_TEST_PORT
+    // variables name them.
     public static class LiveDev
     {
         public const string Stack = "dev";
-        public const string ComposeProject = "requestarr-dev";
         public const string TokenVariable = "DEV_DISCORD_BOT_TOKEN";
+
+        public static string ComposeProject => Environment.GetEnvironmentVariable("LIVE_COMPOSE_PROJECT") ?? "requestarr-dev";
+
+        public static string RadarrContainer => ComposeProject + "-radarr-test-1";
+
+        public static string SonarrContainer => ComposeProject + "-sonarr-test-1";
 
         public static string Token => Environment.GetEnvironmentVariable(TokenVariable);
 

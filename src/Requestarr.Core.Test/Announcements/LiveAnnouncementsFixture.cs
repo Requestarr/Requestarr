@@ -383,11 +383,6 @@ namespace Requestarr.Core.Test.Announcements
                     Docker("start");
                 }
 
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 // The made-up next version's cards and QA's cards go with everything else the check posted.
                 var (removed, left) = await leftovers.RemoveAsync();
                 Log($"[cleanup] removed the {removed} message(s) the check posted in the admin and announcements channels; left behind: {left}");

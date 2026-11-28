@@ -85,11 +85,6 @@ namespace Requestarr.Core.Test.Users
                     Log("[cleanup] the nickname given is taken away");
                 }
 
-                if (host.Client?.GetGuild(Mocker.Resolve<IDiscordSettingsStore>().Current.GuildId) is { } connected)
-                {
-                    await connected.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }

@@ -306,7 +306,8 @@ namespace Requestarr.Core.Test.Discord
             }
             finally
             {
-                // Remove everything the live test created: channels (user, admin, category) and commands.
+                // Remove everything the live test created: channels (user, admin, category). The commands stay: every bot
+                // registers the same ones, and checks running alongside read them.
                 foreach (var item in created.Where(c => c.StartsWith("role:")))
                 {
                     var roleId = ulong.Parse(item.Split(':')[1]);
@@ -346,10 +347,6 @@ namespace Requestarr.Core.Test.Discord
 
                 if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
                 {
-                    // Commands are shared with the dev stack's bot; reset-dev afterwards registers them again.
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<global::Discord.ApplicationCommandProperties>());
-                    Log("[cleanup] removed guild slash commands (registered again when the dev stack restarts)");
-
                     var restGuild2 = await host.Client.Rest.GetGuildAsync(cleanupGuild.Id);
                     var createdIds = created.Select(c => ulong.Parse(c.Split(':').Last())).ToHashSet();
                     var channelIds = (await restGuild2.GetChannelsAsync()).Select(c => c.Id).ToHashSet();

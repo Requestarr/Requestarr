@@ -209,8 +209,8 @@ namespace Requestarr.Core.Test.Availability
                 var aired = ((JArray)await Get(http, SonarrUrl, SonarrKey, $"episode?seriesId={series.ExternalItemId}")).Children<JObject>()
                     .Where(e => (int)e["seasonNumber"] == 1 && e["airDateUtc"] != null && (DateTime)e["airDateUtc"] <= DateTime.UtcNow).Select(e => (int)e["episodeNumber"]).ToList();
 
-                Docker("requestarr-dev-radarr-test-1", $"mkdir -p '{moviePath}' && truncate -s 1500M '{moviePath}/The.Matrix.1999.1080p.BluRay.x264-TEST.mkv'");
-                Docker("requestarr-dev-sonarr-test-1", $"mkdir -p '{seriesPath}/Season 01' && " + string.Join(" && ", aired.Select(n => $"truncate -s 900M '{seriesPath}/Season 01/Severance.S01E{n:00}.1080p.WEB.h264-TEST.mkv'")));
+                Docker(LiveDev.RadarrContainer, $"mkdir -p '{moviePath}' && truncate -s 1500M '{moviePath}/The.Matrix.1999.1080p.BluRay.x264-TEST.mkv'");
+                Docker(LiveDev.SonarrContainer, $"mkdir -p '{seriesPath}/Season 01' && " + string.Join(" && ", aired.Select(n => $"truncate -s 900M '{seriesPath}/Season 01/Severance.S01E{n:00}.1080p.WEB.h264-TEST.mkv'")));
                 Log($"[import] placed 1 movie file and {aired.Count} episode files (season 1, every aired episode); asking both to rescan");
                 await Post(http, RadarrUrl, RadarrKey, "command", new JObject { ["name"] = "RescanMovie", ["movieId"] = movie.ExternalItemId });
                 await Post(http, SonarrUrl, SonarrKey, "command", new JObject { ["name"] = "RescanSeries", ["seriesId"] = series.ExternalItemId });
@@ -254,11 +254,6 @@ namespace Requestarr.Core.Test.Availability
             }
             finally
             {
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<global::Discord.ApplicationCommandProperties>());
-                }
-
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }

@@ -280,11 +280,6 @@ namespace Requestarr.Core.Test.Admin
                     Docker("start");
                 }
 
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }

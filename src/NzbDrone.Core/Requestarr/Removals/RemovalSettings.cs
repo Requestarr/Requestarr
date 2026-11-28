@@ -14,8 +14,9 @@ namespace Requestarr.Core.Removals
         // The day of the requester's answer window they're reminded on; 0 when it's too short for one.
         int ReminderDay { get; }
 
-        // The timings removals use: the days above, or minutes while dev fast votes are on.
+        // The timings removals use: the days above, or dev fast votes' while they're on.
         bool FastVotes { get; }
+        FastVoteTimings FastVoteTimings { get; }
         TimeSpan VoteWindow { get; }
         TimeSpan RequesterTimeout { get; }
         TimeSpan? ReminderAfter { get; }
@@ -44,9 +45,11 @@ namespace Requestarr.Core.Removals
 
         public bool FastVotes => _fastVotes.On;
 
-        public TimeSpan VoteWindow => FastVotes ? DevFastVotes.VoteWindow : TimeSpan.FromDays(VoteDays);
+        public FastVoteTimings FastVoteTimings => _fastVotes.Timings;
 
-        public TimeSpan RequesterTimeout => FastVotes ? DevFastVotes.RequesterTimeout : TimeSpan.FromDays(RequesterTimeoutDays);
+        public TimeSpan VoteWindow => FastVotes ? FastVoteTimings.VoteWindow : TimeSpan.FromDays(VoteDays);
+
+        public TimeSpan RequesterTimeout => FastVotes ? FastVoteTimings.RequesterTimeout : TimeSpan.FromDays(RequesterTimeoutDays);
 
         public TimeSpan? ReminderAfter
         {
@@ -54,7 +57,7 @@ namespace Requestarr.Core.Removals
             {
                 if (FastVotes)
                 {
-                    return DevFastVotes.Reminder;
+                    return FastVoteTimings.Reminder;
                 }
 
                 return ReminderDay > 0 ? TimeSpan.FromDays(ReminderDay) : null;

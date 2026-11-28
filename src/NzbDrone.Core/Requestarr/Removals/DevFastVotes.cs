@@ -12,16 +12,22 @@ namespace Requestarr.Core.Removals
     public interface IDevFastVotes
     {
         bool On { get; }
+
+        FastVoteTimings Timings { get; }
     }
+
+    public record FastVoteTimings(TimeSpan VoteWindow, TimeSpan RequesterTimeout, TimeSpan Reminder);
 
     public class DevFastVotes : IDevFastVotes
     {
         public const string MarkerFile = "dev-fast-votes";
         public const string DevStackVariable = "REQUESTARR_DEV_STACK";
 
-        public static readonly TimeSpan VoteWindow = TimeSpan.FromMinutes(5);
-        public static readonly TimeSpan RequesterTimeout = TimeSpan.FromMinutes(5);
-        public static readonly TimeSpan Reminder = TimeSpan.FromMinutes(3);
+        // What `fast-votes on` gives: minutes, slow enough to watch and press by hand.
+        public static readonly FastVoteTimings Minutes = new(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(3));
+
+        // The automated live check's: the same steps in seconds, so a run doesn't wait out real minutes.
+        public static readonly FastVoteTimings Seconds = new(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(15));
 
         private readonly IAppFolderInfo _folders;
 
@@ -32,6 +38,9 @@ namespace Requestarr.Core.Removals
 
         // Settable for tests.
         public Func<string, string> Variable { get; set; } = Environment.GetEnvironmentVariable;
+
+        // Settable for the live check.
+        public FastVoteTimings Timings { get; set; } = Minutes;
 
         public bool DevStack => string.Equals(Variable(DevStackVariable), "true", StringComparison.OrdinalIgnoreCase);
 

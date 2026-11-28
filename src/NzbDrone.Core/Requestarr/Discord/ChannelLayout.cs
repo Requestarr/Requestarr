@@ -9,27 +9,31 @@ namespace Requestarr.Core.Discord
     // @everyone's role ID equals the server ID.
     public static class ChannelLayout
     {
-        public const string AdminChannelName = "requestarr-admin";
-        public const string FeedChannelName = "requestarr-feed";
-        public const string AnnouncementsChannelName = "requestarr-announcements";
+        // Automated checks only: a prefix on every name below, so live checks running at the same time in one Discord
+        // server each keep to their own channels, groups and roles. Empty in Requestarr itself; the test run sets it.
+        public static string CheckLane { get; set; } = string.Empty;
+
+        public static string AdminChannelName => CheckLane + "requestarr-admin";
+        public static string FeedChannelName => CheckLane + "requestarr-feed";
+        public static string AnnouncementsChannelName => CheckLane + "requestarr-announcements";
 
         // Prefixed so it can't clash with a server's own welcome channel.
-        public const string WelcomeChannelName = "requestarr-welcome";
-        public const string BlockedChannelName = "requestarr-access-blocked";
-        public const string MembersRoleName = "Requestarr Members";
-        public const string BlockedRoleName = "Requestarr Blocked";
+        public static string WelcomeChannelName => CheckLane + "requestarr-welcome";
+        public static string BlockedChannelName => CheckLane + "requestarr-access-blocked";
+        public static string MembersRoleName => CheckLane + "Requestarr Members";
+        public static string BlockedRoleName => CheckLane + "Requestarr Blocked";
 
         // Admin channel and feed; then the welcome, announcements and blocked channels and every member's private
         // channel, spilling into "Requestarr Users 2", "3" and on. Before task 4e the users groups were the request
         // groups, holding only the private channels; they are renamed in place, so nothing moves or loses messages.
-        public const string AdminCategoryName = "Requestarr Admin";
-        public const string UsersCategoryName = "Requestarr Users";
-        public const string OldRequestCategoryName = "Requestarr Requests";
+        public static string AdminCategoryName => CheckLane + "Requestarr Admin";
+        public static string UsersCategoryName => CheckLane + "Requestarr Users";
+        public static string OldRequestCategoryName => CheckLane + "Requestarr Requests";
 
         // QA and dev only: the QA checklist's own admin-only group.
-        public const string QaCategoryName = "Requestarr QA";
-        public const string UserChannelPrefix = "requests-";
-        public const string UserRolePrefix = "requestarr-";
+        public static string QaCategoryName => CheckLane + "Requestarr QA";
+        public static string UserChannelPrefix => CheckLane + "requests-";
+        public static string UserRolePrefix => CheckLane + "requestarr-";
         public const string ArchivedPrefix = "archived-";
 
         private const ChannelPermissions ReadWrite = ChannelPermissions.ViewChannel | ChannelPermissions.SendMessages | ChannelPermissions.ReadMessageHistory;
