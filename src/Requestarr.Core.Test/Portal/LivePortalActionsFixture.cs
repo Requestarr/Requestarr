@@ -59,7 +59,7 @@ namespace Requestarr.Core.Test.Portal
             try
             {
                 await live.Host.StartAsync(live.Settings.Current);
-                await live.Host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await live.Host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
                 await Run(live);
             }
             finally

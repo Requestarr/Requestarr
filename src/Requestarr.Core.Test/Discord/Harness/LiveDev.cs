@@ -37,6 +37,10 @@ namespace Requestarr.Core.Test.Discord.Harness
 
         public static string SonarrContainer => ComposeProject + "-sonarr-test-1";
 
+        // Ready means the server set up: channels, roles, commands and panels. Discord limits how fast one server gets
+        // new channels, and in the automated run every lane and the dev stack set theirs up at once.
+        public static readonly TimeSpan ReadyTimeout = TimeSpan.FromMinutes(3);
+
         public static string Token => Environment.GetEnvironmentVariable(TokenVariable);
 
         public static ulong GuildId => ulong.Parse(Environment.GetEnvironmentVariable("DEV_DISCORD_GUILD_ID"));

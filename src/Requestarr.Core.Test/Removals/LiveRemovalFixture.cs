@@ -166,7 +166,7 @@ namespace Requestarr.Core.Test.Removals
             try
             {
                 await host.StartAsync(settings.Current);
-                await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
 
                 var guild = host.Client.GetGuild(settings.Current.GuildId);
                 var config = guildSetup.GetConfig();

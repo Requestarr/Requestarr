@@ -121,7 +121,7 @@ namespace Requestarr.Core.Test.Discord
 
                 try
                 {
-                    await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                    await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
                 }
                 catch (TimeoutException)
                 {

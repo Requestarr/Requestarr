@@ -59,7 +59,7 @@ namespace Requestarr.Core.Test.Announcements
             try
             {
                 await host.StartAsync(settings.Current);
-                await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
                 var guild = host.Client.GetGuild(settings.Current.GuildId);
                 ulong Channel(string name) => guild.TextChannels.Single(c => c.Name == name).Id;
                 var admin = Channel(ChannelLayout.AdminChannelName);
