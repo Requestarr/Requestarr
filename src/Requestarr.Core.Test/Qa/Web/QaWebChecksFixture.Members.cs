@@ -120,12 +120,15 @@ namespace Requestarr.Core.Test.Qa.Web
                 await JumpToLastLetterAsync(browser, check, theme);
                 await PressToolbarAsync(browser, "Select Members");
                 await browser.WaitForAsync("!!document.querySelector('[class*=\"VirtualTableHeader-header\"] input[type=checkbox]')");
+
+                // Counted together: a list longer than the page draws only the rows near the screen.
+                var drawn = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"]').length");
                 var boxes = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]').length");
                 await PressToolbarAsync(browser, "Select All");
                 await browser.WaitForAsync("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]:not(:checked)').length === 0");
                 var actions = await browser.EvalAsync<string[]>("(b => b.slice(0, b.findIndex(x => x.innerText.trim() === 'Onboard')))([...document.querySelectorAll('[class*=\"PageToolbar\"] button')]).map(b => b.innerText.trim())");
-                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows, all ticked; left of Onboard: {string.Join(", ", actions)}");
-                boxes.Should().Be(rows);
+                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on the {drawn} rows drawn, all ticked; left of Onboard: {string.Join(", ", actions)}");
+                boxes.Should().Be(drawn);
                 actions.Should().Equal("Suspend", "Unsuspend", "Change access", "Post History", "Remove member");
                 await check.ShotAsync(browser, $"members-picked-{theme}");
                 await OnboardWindowAsync(browser, check, theme);

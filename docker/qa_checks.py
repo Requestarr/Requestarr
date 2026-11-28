@@ -182,8 +182,10 @@ COMPOSE = os.path.join(HERE, "compose.yaml")
 SIGN_IN_APART_SECONDS = 8
 NO_SIGN_IN = {"LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture"}
 # And at most this many hold the bot at once: each sets the server up when it starts, and with more Discord's limits on
-# one server's channels and messages slowed them past their timeouts.
+# one server's channels and messages slowed them past their timeouts. A lane's first check makes its whole layout of
+# channels, groups and roles, so those start further apart still.
 MAX_BOTS = 5
+LAYOUT_APART_SECONDS = 25
 # Checks that wait for the web checks to end: renaming the test member makes the dev stack's Requestarr, there for the
 # web checks, rename them in its own data, which the web checks show.
 AFTER_WEB = {"LiveMemberRenamesFixture"}
@@ -395,6 +397,9 @@ def run_web_fresh(out, env):
                 copy_recordings_in(container)
             dotnet_test("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name), web_env, os.path.join(web_dir, "web-fresh-%s.log" % name))
     finally:
+        # A restart in the middle (its bot couldn't stay connected) explains a check that found it gone.
+        restarts = subprocess.run(["docker", "inspect", "-f", "{{.RestartCount}}", container], capture_output=True, text=True).stdout.strip()
+        print("[qa-checks] the second Requestarr restarted %s time(s)" % (restarts or "?"), flush=True)
         subprocess.run(lane_compose_args(fresh, "down", "-v"), env=lane_compose_env(fresh), capture_output=True)
 
 
@@ -572,19 +577,24 @@ def run_one_live(fixture, out, live_env):
 
 
 class Bots:
-    """Hands the lanes' threads turns with the bot: at most MAX_BOTS at once, signing in SIGN_IN_APART_SECONDS apart."""
+    """Hands the lanes' threads turns with the bot: at most MAX_BOTS at once, signing in SIGN_IN_APART_SECONDS apart, and a
+    lane's first check (which makes its layout) LAYOUT_APART_SECONDS after the last one that did."""
 
     def __init__(self):
         self._held = threading.BoundedSemaphore(MAX_BOTS)
         self._sign_in = threading.Lock()
         self._last = float("-inf")
+        self._last_layout = float("-inf")
 
     @contextlib.contextmanager
-    def turn(self):
+    def turn(self, makes_layout):
         with self._held:
             with self._sign_in:
-                time.sleep(max(0.0, self._last + SIGN_IN_APART_SECONDS - time.monotonic()))
+                after = max(self._last + SIGN_IN_APART_SECONDS, self._last_layout + LAYOUT_APART_SECONDS if makes_layout else 0.0)
+                time.sleep(max(0.0, after - time.monotonic()))
                 self._last = time.monotonic()
+                if makes_layout:
+                    self._last_layout = self._last
             yield
 
 
@@ -611,6 +621,7 @@ def run_lane(number, fixtures, out, live_env, web_done, bots):
     env = lane_env(number, live_env)
     backends = not NO_BACKENDS.issuperset(fixtures)
     results = {}
+    first_bot = next((f for f in fixtures if f not in NO_SIGN_IN), None)
     for index, fixture in enumerate(fixtures):
         if fixture in AFTER_WEB:
             web_done.wait()
@@ -620,7 +631,7 @@ def run_lane(number, fixtures, out, live_env, web_done, bots):
         except subprocess.CalledProcessError as error:
             results[fixture] = backends_failed(fixture, out, error)
             continue
-        with contextlib.nullcontext() if fixture in NO_SIGN_IN else bots.turn():
+        with contextlib.nullcontext() if fixture in NO_SIGN_IN else bots.turn(fixture == first_bot):
             results[fixture] = run_one_live(fixture, out, env)
     if backends:
         # Gone with its volumes; a failure here only leaves containers for the next run's reset to replace.
