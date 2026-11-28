@@ -59,16 +59,11 @@ namespace Requestarr.Core.Test.Portal
             try
             {
                 await live.Host.StartAsync(live.Settings.Current);
-                await live.Host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await live.Host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
                 await Run(live);
             }
             finally
             {
-                if (live.Host.Client?.GetGuild(live.Settings.Current.GuildId) is { } guild)
-                {
-                    await guild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 await live.Host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }

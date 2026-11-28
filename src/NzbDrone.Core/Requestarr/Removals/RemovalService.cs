@@ -489,7 +489,7 @@ namespace Requestarr.Core.Removals
                 try
                 {
                     var text = on
-                        ? DiscordText.FastVotesOn(DevFastVotes.VoteWindow, DevFastVotes.RequesterTimeout, DevFastVotes.Reminder, _settings.VoteDays, _settings.RequesterTimeoutDays, _settings.ReminderDay)
+                        ? DiscordText.FastVotesOn(_settings.FastVoteTimings, _settings.VoteDays, _settings.RequesterTimeoutDays, _settings.ReminderDay)
                         : DiscordText.FastVotesOff(_settings.VoteDays, _settings.RequesterTimeoutDays, _settings.ReminderDay);
                     await _gateway.SendMessageAsync(channel, new InteractionReply { Content = text });
                 }

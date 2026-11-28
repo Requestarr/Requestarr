@@ -149,7 +149,7 @@ namespace Requestarr.Core.Test.Welcome
             try
             {
                 await host.StartAsync(settings.Current);
-                await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
 
                 var guild = host.Client.GetGuild(settings.Current.GuildId);
                 var config = guildSetup.GetConfig();
@@ -409,11 +409,6 @@ namespace Requestarr.Core.Test.Welcome
             }
             finally
             {
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }
@@ -437,7 +432,7 @@ namespace Requestarr.Core.Test.Welcome
             bool Has(IMessage m, string route) => All(m.Components).OfType<ButtonComponent>().Any(b => b.CustomId == route);
             var theirs = channels.Where(c => c.Name.EndsWith(ChannelLayout.UserChannelName(username))).ToList();
             var live = theirs.Where(c => c.Name == ChannelLayout.UserChannelName(username)).ToList();
-            var requestarr = channels.Where(c => c.Name.StartsWith("requestarr-") || c.Name.Contains(ChannelLayout.UserChannelPrefix)).ToList();
+            var requestarr = channels.Where(c => c.Name.StartsWith(ChannelLayout.CheckLane + "requestarr-") || c.Name.Contains(ChannelLayout.UserChannelPrefix)).ToList();
 
             return $"admin panels {await Count(ChannelLayout.AdminChannelName, m => Has(m, PanelRoutes.AdminQueue))}, " +
                    $"welcome messages {await Count(ChannelLayout.WelcomeChannelName, m => Has(m, WelcomeRoutes.Request))}, " +

@@ -142,7 +142,7 @@ namespace Requestarr.Core.Test.Requests
             try
             {
                 await host.StartAsync(settings.Current);
-                await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
 
                 var guild = host.Client.GetGuild(settings.Current.GuildId);
                 var adminChannel = ulong.Parse(guildSetup.GetConfig().AdminChannelId);
@@ -235,11 +235,6 @@ namespace Requestarr.Core.Test.Requests
             }
             finally
             {
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<global::Discord.ApplicationCommandProperties>());
-                }
-
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to clean the dev server)");
             }

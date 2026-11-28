@@ -26,6 +26,8 @@ import urllib.request
 from datetime import datetime, timezone
 
 STACKS = ("requestarr-qa", "requestarr-dev")
+# The automated run's lanes of live checks, each with a test Sonarr and Radarr of its own (docker/qa_checks.py).
+LANES = re.compile(r"requestarr-dev-lane\d+")
 PROJECT = os.environ.get("REQUESTARR_COMPOSE_PROJECT", "requestarr-qa")
 APPS = {
     "movie": {"service": "radarr-test", "app": "Radarr", "port": "RADARR_TEST_PORT", "default_port": "27878", "key": "RADARR_TEST_API_KEY"},
@@ -40,7 +42,7 @@ def fail(message):
 
 def container(service):
     """The running test container for the service, found by its compose labels; refuses anything else."""
-    if PROJECT not in STACKS:
+    if PROJECT not in STACKS and not LANES.fullmatch(PROJECT):
         fail(f"{PROJECT} isn't a local test stack ({' or '.join(STACKS)}).")
     out = subprocess.run(["docker", "ps", "--filter", f"label=com.docker.compose.project={PROJECT}",
                           "--filter", f"label=com.docker.compose.service={service}", "--format", "{{.Names}}"],

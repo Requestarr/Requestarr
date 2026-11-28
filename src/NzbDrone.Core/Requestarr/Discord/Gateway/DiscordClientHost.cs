@@ -379,8 +379,14 @@ namespace Requestarr.Core.Discord.Gateway
                 await _admins.Value.EnsureOwnerAsync();
             }
 
-            // Replaces every registered command, so commands from older versions disappear.
-            await guild.BulkOverwriteApplicationCommandAsync(DiscordCommandDefinitions.Build().ToArray());
+            // Replaces every registered command, so commands from older versions disappear. Checks running side by side in
+            // one server (ChannelLayout.CheckLane) leave it to the dev stack's bot: they'd register the same commands, and
+            // Discord takes that call for a server one at a time.
+            if (ChannelLayout.CheckLane.Length == 0)
+            {
+                await guild.BulkOverwriteApplicationCommandAsync(DiscordCommandDefinitions.Build().ToArray());
+            }
+
             await _panels.Value.EnsureAllAsync();
             await _feed.Value.SeedAsync();
 

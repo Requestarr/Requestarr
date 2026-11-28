@@ -41,7 +41,7 @@ namespace Requestarr.Core.Test.Imports
     [ManualTest]
     public class LiveImportAlertsFixture : DbTest
     {
-        private const string Container = "requestarr-dev-radarr-test-1";
+        private static string Container => LiveDev.RadarrContainer;
         private const string ClientName = "Requestarr import check";
         private const string Folder = "/config/requestarr-import-check";
         private const ulong OldChannel = 900000000000100009;

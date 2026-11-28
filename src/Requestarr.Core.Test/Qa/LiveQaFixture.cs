@@ -146,7 +146,7 @@ namespace Requestarr.Core.Test.Qa
             LogManager.ReconfigExistingLoggers();
 
             await host.StartAsync(settings.Current);
-            await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+            await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
             ulong? membersRole = null;
             IUser member = null;
             var leftovers = new LiveLeftovers(gateway);

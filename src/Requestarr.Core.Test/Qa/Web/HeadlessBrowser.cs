@@ -51,6 +51,18 @@ namespace Requestarr.Core.Test.Qa.Web
         public Task SetThemeAsync(string scheme) =>
             SendAsync("Emulation.setEmulatedMedia", new { features = new[] { new { name = "prefers-color-scheme", value = scheme } } });
 
+        // Pages loaded from now on tell the time as a browser in this zone does ("America/Los_Angeles"); an empty zone goes
+        // back to the machine's own.
+        public Task SetTimeZoneAsync(string zone) => SendAsync("Emulation.setTimezoneOverride", new { timezoneId = zone });
+
+        // Moves the mouse onto the middle of the element the expression finds, as a person points at it: what opens on
+        // hover (a tooltip) opens.
+        public async Task HoverAsync(string element)
+        {
+            var middle = await EvalAsync<double[]>($"(e => {{ e.scrollIntoView({{ block: 'center' }}); const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }})({element})");
+            await SendAsync("Input.dispatchMouseEvent", new { type = "mouseMoved", x = middle[0], y = middle[1] });
+        }
+
         // Draws the page at this width, as a phone or a narrow window would (Sonarr's small-screen layout below 768).
         public Task SetWidthAsync(int width, int height = 900) =>
             SendAsync("Emulation.setDeviceMetricsOverride", new { width, height, deviceScaleFactor = 1, mobile = false });

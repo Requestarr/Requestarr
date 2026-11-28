@@ -176,7 +176,7 @@ namespace Requestarr.Core.Test.Announcements
             try
             {
                 await host.StartAsync(settings.Current);
-                await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
 
                 var guild = host.Client.GetGuild(settings.Current.GuildId);
                 var adminChannel = ulong.Parse(guildSetup.GetConfig().AdminChannelId);
@@ -381,11 +381,6 @@ namespace Requestarr.Core.Test.Announcements
                 if (sonarrStopped)
                 {
                     Docker("start");
-                }
-
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
                 }
 
                 // The made-up next version's cards and QA's cards go with everything else the check posted.

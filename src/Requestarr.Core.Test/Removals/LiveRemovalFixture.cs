@@ -166,7 +166,7 @@ namespace Requestarr.Core.Test.Removals
             try
             {
                 await host.StartAsync(settings.Current);
-                await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
 
                 var guild = host.Client.GetGuild(settings.Current.GuildId);
                 var config = guildSetup.GetConfig();
@@ -205,7 +205,7 @@ namespace Requestarr.Core.Test.Removals
                 var movie = requests.All().Single(r => r.TmdbId == Matrix);
                 var moviePath = (string)(await Get(http, RadarrUrl, RadarrKey, $"movie/{movie.ExternalItemId}"))["path"];
                 var movieFile = $"{moviePath}/The.Matrix.1999.1080p.BluRay.x264-TEST.mkv";
-                Docker("requestarr-dev-radarr-test-1", $"mkdir -p '{moviePath}' && truncate -s 1500M '{movieFile}'");
+                Docker(LiveDev.RadarrContainer, $"mkdir -p '{moviePath}' && truncate -s 1500M '{movieFile}'");
                 await Post(http, RadarrUrl, RadarrKey, "command", new JObject { ["name"] = "RescanMovie", ["movieId"] = movie.ExternalItemId });
                 await Until(async () => (bool)(await Get(http, RadarrUrl, RadarrKey, $"movie/{movie.ExternalItemId}"))["hasFile"]);
                 await availability.CheckAllAsync();
@@ -220,18 +220,18 @@ namespace Requestarr.Core.Test.Removals
                 Log($"[movie] {member.Username}'s channel, read back: \"{await LatestIn(rest)}\"");
                 Log($"[movie] feed card, read back: \"{RemovalLine(await Feed(movie))}\" buttons=[{string.Join("] [", Buttons(await Feed(movie)))}]");
                 var during = (bool)(await Get(http, RadarrUrl, RadarrKey, $"movie/{movie.ExternalItemId}"))["monitored"];
-                Log($"[movie] during the vote Radarr still has it, monitored={during}, file there={Exists("requestarr-dev-radarr-test-1", movieFile)}");
+                Log($"[movie] during the vote Radarr still has it, monitored={during}, file there={Exists(LiveDev.RadarrContainer, movieFile)}");
 
                 await CloseVote();
-                await Until(() => Task.FromResult(!Exists("requestarr-dev-radarr-test-1", movieFile)));
+                await Until(() => Task.FromResult(!Exists(LiveDev.RadarrContainer, movieFile)));
 
                 var stillThere = (JArray)await Get(http, RadarrUrl, RadarrKey, $"movie?tmdbId={Matrix}");
                 var excluded = ((JArray)await Get(http, RadarrUrl, RadarrKey, "exclusions")).Count(e => (int?)e["tmdbId"] == Matrix);
-                Log($"[movie] after the vote closed with no keeps: Radarr movies with tmdbId {Matrix}: {stillThere.Count}; file there={Exists("requestarr-dev-radarr-test-1", movieFile)}; folder there={Exists("requestarr-dev-radarr-test-1", moviePath)}; on Radarr's exclusion list: {excluded}");
+                Log($"[movie] after the vote closed with no keeps: Radarr movies with tmdbId {Matrix}: {stillThere.Count}; file there={Exists(LiveDev.RadarrContainer, movieFile)}; folder there={Exists(LiveDev.RadarrContainer, moviePath)}; on Radarr's exclusion list: {excluded}");
                 Log($"[movie] request #{movie.Id} status={requests.Get(movie.Id).Status}; {member.Username}'s request message, read back: \"{await LatestIn(rest)}\"");
                 Log($"[movie] feed card, read back: \"{RemovalLine(await Feed(movie))}\"");
                 stillThere.Should().BeEmpty();
-                Exists("requestarr-dev-radarr-test-1", movieFile).Should().BeFalse();
+                Exists(LiveDev.RadarrContainer, movieFile).Should().BeFalse();
                 excluded.Should().Be(0);
 
                 // 2. A TV season removed by the admin's Force; the show stays.
@@ -242,7 +242,7 @@ namespace Requestarr.Core.Test.Removals
                 var aired = ((JArray)await Get(http, SonarrUrl, SonarrKey, $"episode?seriesId={seriesId}")).Children<JObject>()
                     .Where(e => (int)e["seasonNumber"] is 1 or 2 && e["airDateUtc"] != null && (DateTime)e["airDateUtc"] <= DateTime.UtcNow)
                     .Select(e => ((int)e["seasonNumber"], (int)e["episodeNumber"])).ToList();
-                Docker("requestarr-dev-sonarr-test-1", $"mkdir -p '{seriesPath}/Season 01' '{seriesPath}/Season 02' && " +
+                Docker(LiveDev.SonarrContainer, $"mkdir -p '{seriesPath}/Season 01' '{seriesPath}/Season 02' && " +
                     string.Join(" && ", aired.Select(e => $"truncate -s 900M '{seriesPath}/Season {e.Item1:00}/Severance.S{e.Item1:00}E{e.Item2:00}.1080p.WEB.h264-TEST.mkv'")));
                 await Post(http, SonarrUrl, SonarrKey, "command", new JObject { ["name"] = "RescanSeries", ["seriesId"] = seriesId });
                 await Until(async () => ((JArray)await Get(http, SonarrUrl, SonarrKey, $"episodefile?seriesId={seriesId}")).Count >= aired.Count);
@@ -264,7 +264,7 @@ namespace Requestarr.Core.Test.Removals
                 var after = (JArray)await Get(http, SonarrUrl, SonarrKey, $"episodefile?seriesId={seriesId}");
                 var series = (JObject)await Get(http, SonarrUrl, SonarrKey, $"series/{seriesId}");
                 var seasons = series["seasons"].Where(s => (int)s["seasonNumber"] is 1 or 2).Select(s => $"season {(int)s["seasonNumber"]} monitored={(bool)s["monitored"]}");
-                var onDisk = Run("exec", "requestarr-dev-sonarr-test-1", "sh", "-c", $"ls '{seriesPath}/Season 01' 2>/dev/null | wc -l; ls '{seriesPath}/Season 02' | wc -l").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var onDisk = Run("exec", LiveDev.SonarrContainer, "sh", "-c", $"ls '{seriesPath}/Season 01' 2>/dev/null | wc -l; ls '{seriesPath}/Season 02' | wc -l").Split('\n', StringSplitOptions.RemoveEmptyEntries);
                 Log($"[tv] after Force on season 1: series {seriesId} still in Sonarr: {(string)series["title"]}; {string.Join(", ", seasons)}; episode files: season 1 {Files(after, 1)}, season 2 {Files(after, 2)}; files on disk: Season 01 {onDisk[0].Trim()}, Season 02 {onDisk[1].Trim()}");
                 Log($"[tv] request #{show.Id} seasons now {string.Join(", ", requests.Get(show.Id).Seasons)}; {member.Username}'s request message, read back: \"{await LatestIn(rest)}\"");
                 Log($"[tv] feed card, read back: \"{RemovalLine(await Feed(show))}\"");
@@ -281,7 +281,7 @@ namespace Requestarr.Core.Test.Removals
                 await Post(http, RadarrUrl, RadarrKey, "movie", heat);
                 var heatMovie = (JObject)((JArray)await Get(http, RadarrUrl, RadarrKey, $"movie?tmdbId={Heat}")).Single();
                 var heatPath = (string)heatMovie["path"];
-                Docker("requestarr-dev-radarr-test-1", $"mkdir -p '{heatPath}' && truncate -s 1400M '{heatPath}/Heat.1995.1080p.BluRay.x264-TEST.mkv'");
+                Docker(LiveDev.RadarrContainer, $"mkdir -p '{heatPath}' && truncate -s 1400M '{heatPath}/Heat.1995.1080p.BluRay.x264-TEST.mkv'");
                 await Post(http, RadarrUrl, RadarrKey, "command", new JObject { ["name"] = "RescanMovie", ["movieId"] = (int)heatMovie["id"] });
                 await Until(async () => (bool)(await Get(http, RadarrUrl, RadarrKey, $"movie/{(int)heatMovie["id"]}"))["hasFile"]);
                 Log($"[ownerless] Heat (1995) added to the test Radarr directly (not through Requestarr), with a file");
@@ -389,11 +389,6 @@ namespace Requestarr.Core.Test.Removals
             }
             finally
             {
-                if (host.Client?.GetGuild(settings.Current.GuildId) is { } cleanupGuild)
-                {
-                    await cleanupGuild.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
-                }
-
                 await host.StopAsync();
                 Log("[cleanup] bot disconnected (run docker/dev.sh reset-dev to restore the dev stack)");
             }

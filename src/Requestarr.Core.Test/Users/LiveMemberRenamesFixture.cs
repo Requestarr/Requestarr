@@ -66,7 +66,7 @@ namespace Requestarr.Core.Test.Users
             try
             {
                 await host.StartAsync(Mocker.Resolve<IDiscordSettingsStore>().Current);
-                await host.WaitUntilReadyAsync(TimeSpan.FromSeconds(60));
+                await host.WaitUntilReadyAsync(LiveDev.ReadyTimeout);
                 var guild = await host.Client.Rest.GetGuildAsync(Mocker.Resolve<IDiscordSettingsStore>().Current.GuildId);
                 member = LiveTestMembers.Pick(await guild.GetUsersAsync().FlattenAsync()).First();
                 Log($"[member] test member: {member.Username}, display name {member.DisplayName}");
@@ -83,11 +83,6 @@ namespace Requestarr.Core.Test.Users
                 {
                     await member.ModifyAsync(p => p.Nickname = null);
                     Log("[cleanup] the nickname given is taken away");
-                }
-
-                if (host.Client?.GetGuild(Mocker.Resolve<IDiscordSettingsStore>().Current.GuildId) is { } connected)
-                {
-                    await connected.BulkOverwriteApplicationCommandAsync(Array.Empty<ApplicationCommandProperties>());
                 }
 
                 await host.StopAsync();

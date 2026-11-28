@@ -11,12 +11,12 @@ only once all of it passed; QA's checklist shows only the owner's items, and not
 
 run: the checkout must be at the commit (the checks are built from it). It has GitHub run the full suite on the commit
      (the Build workflow by hand, on dev or the commit's build number tag; a run of it that passed or is still going is
-     used), and meanwhile builds the solution, brings the dev stack up at that commit with sign-in required and a
-     throwaway login for the web app checks (headless Edge or Chrome, light and dark theme), seeds the requests they act
-     on ("Automated check: ...") and afterwards removes those and everything the checks did there, audit entries included,
-     stops it and runs every live check on the dev server (the test Sonarr and Radarr emptied before each, so no check
-     finds another's titles), resets the dev stack and runs the read-back of the running stack. Results, read-backs and
-     screenshots go in DIR (default _qa-checks/<short commit>).
+     used) and builds the solution. Then, all at the same time: the web app checks bring the dev stack up at that commit
+     with sign-in required and a throwaway login (headless Edge or Chrome, light and dark theme), seed the requests they
+     act on ("Automated check: ...") and afterwards remove those and everything the checks did there, audit entries
+     included, then reset the dev stack for the checks that need it just reset; and every live check runs on the dev
+     server, in LIVE_LANES side by side. At the end it resets the dev stack and runs the read-back of the running stack.
+     Results, read-backs and screenshots go in DIR (default _qa-checks/<short commit>).
 record: after the automation has looked at every screenshot against its item's Expect (one that doesn't match
      is --fail), records the results on the dev stack's checklist (the automation's server; it must run that commit) and
      marks the run reviewed. QA never takes them.
@@ -28,6 +28,7 @@ The checks each item may name are CHECKS below ("Checked automatically: the <nam
 refuses an item naming any other.
 """
 import base64
+import contextlib
 import hashlib
 import json
 import os
@@ -39,7 +40,9 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,9 +52,10 @@ REPO = os.path.dirname(HERE)
 TESTS = os.path.join(REPO, "_tests", "net10.0", "Requestarr.Core.Test.dll")
 WEB_FIXTURE = "QaWebChecksFixture"
 
-# Web checks run on a dev stack just reset, after the live checks, not on the owner's dev data, in this order: Post History
-# posts the whole server's imported history, and there only the test member's made-up history is imported; then the
-# import from Requestrr imports the recorded channels (copied in for it) and lists its history posting in System, Tasks.
+# Web checks run on a Requestarr just set up (the run's second one, beside the dev stack), not on the owner's dev data,
+# in this order: Post History posts the whole server's imported history, and there only the test member's made-up
+# history is imported; then the import from Requestrr imports the recorded channels (copied in for it) and lists its
+# history posting in System, Tasks.
 FRESH_WEB = ["post_history", "import_preview"]
 RECORDINGS = os.path.join(REPO, "src", "Requestarr.Core.Test", "Imports", "Recorded")
 HISTORY_SEEDED = 30
@@ -142,12 +146,61 @@ RUN_LISTED_SECONDS = 120
 GH_TRIES = 10
 GH_WAIT_SECONDS = 30
 
-# Every live check: these need the dev stack's bot stopped; the read-back reads the running stack, so it runs last.
-LIVE = ["LiveDiscordFixture", "LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture",
-        "LiveAvailabilityFeedFixture", "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture",
-        "LiveAnnouncementsFixture", "LiveQaFixture", "LiveWelcomeFixture", "LivePortalActionsFixture",
-        "LiveMemberRenamesFixture", "LiveVersionWordsFixture", "LiveRoutingFixture",
-        "LiveSeriesFixFixture", "LiveImportAlertsFixture", "LiveImportHistoryFixture"]
+# Every live check, in lanes that run side by side, alongside the web checks (the owner's rule: whatever can run in
+# parallel does, docs/development.md#qa-checklist). A lane's checks run one after another. Each lane keeps apart from the
+# others and from the dev stack: every name Requestarr gives a channel, group or role in the dev server takes the lane's
+# prefix (QA_CHECKS_LANE, "lane3-requestarr-admin"), and it has a test Sonarr and Radarr of its own (compose.yaml's,
+# under the compose project requestarr-dev-lane3, on ports of its own). What's left is the one test member, whose
+# nickname and roles every lane sees. Balanced by how long each check took with all lanes running (seconds).
+LIVE_LANES = [
+    # Version words finds the lane's admin and announcements channels the QA check's setup made.
+    ["LiveQaFixture", "LiveVersionWordsFixture", "LiveMemberRenamesFixture"],  # 260, 10, 35 (after the web checks)
+    ["LiveWelcomeFixture", "LiveAnnouncementsFixture", "LiveDiscordFixture"],  # 265, 115, 20
+    ["LiveDevHelpersFixture", "LiveRemovalFixture", "LiveAvailabilityFeedFixture"],  # about 100, 135, 145
+    ["LiveRequestMessageFixture", "LiveAdminRequestsFixture", "LiveAdminConsoleFixture", "LivePortalActionsFixture"],  # about 90, 120, 80, 75
+    # None of these sets up a lane's layout in the dev server.
+    ["LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture", "LiveImportAlertsFixture", "LiveImportHistoryFixture"],  # 50, 30, 20, 55, 50
+]
+LIVE = [fixture for lane in LIVE_LANES for fixture in lane]
+# The checks that use no test Sonarr or Radarr (a lane of only these gets none), and those that add titles to them, so
+# they start with them empty (some checks leave their titles there on purpose).
+NO_BACKENDS = {"LiveQaFixture", "LiveMemberRenamesFixture", "LiveVersionWordsFixture"}
+EMPTY_FIRST = {"LiveBackendFixture", "LiveAdminConsoleFixture", "LiveAdminRequestsFixture", "LiveAvailabilityFeedFixture",
+               "LiveDevHelpersFixture", "LiveRequestMessageFixture", "LiveRemovalFixture", "LivePortalActionsFixture",
+               "LiveRoutingFixture", "LiveSeriesFixFixture", "LiveImportAlertsFixture", "LiveImportHistoryFixture"}
+LANE_PREFIX = "lane%d-"
+LANE_PROJECT = "requestarr-dev-lane%d"
+# Lane N's test Radarr and Sonarr are on these ports plus N (the dev stack's are 37878 and 38989).
+LANE_PORTS = (37880, 38990)
+TEST_BACKENDS = ["sonarr-test", "radarr-test", "test-backends-init"]
+TEST_BACKEND_VOLUMES = ["sonarr-test-config", "radarr-test-config", "test-media"]
+COMPOSE = os.path.join(HERE, "compose.yaml")
+# Discord takes one sign-in of a bot per 5 seconds, and sign-ins that come faster are refused and tried again: started
+# together, the lanes' checks and the dev stack's bot kept each other out for over a minute. So the checks that sign the
+# bot in start this far apart, across every lane. These three use a stand-in for Discord.
+SIGN_IN_APART_SECONDS = 8
+NO_SIGN_IN = {"LiveBackendFixture", "LiveRoutingFixture", "LiveSeriesFixFixture"}
+# And at most this many hold the bot at once: each sets the server up when it starts, and with more Discord's limits on
+# one server's channels and messages slowed them past their timeouts. A lane's first check makes its whole layout of
+# channels, groups and roles, so those start further apart still.
+MAX_BOTS = 5
+LAYOUT_APART_SECONDS = 25
+# Signed in with a bot of their own that makes no layout: hidden channels of their own.
+NO_LAYOUT = NO_SIGN_IN | {"LiveImportAlertsFixture", "LiveImportHistoryFixture"}
+# Checks that wait for the web checks to end: renaming the test member makes the dev stack's Requestarr, there for the
+# web checks, rename them in its own data, which the web checks show.
+AFTER_WEB = {"LiveMemberRenamesFixture"}
+# The web checks that need a Requestarr just set up (FRESH_WEB) run on a second one beside the dev stack, at the same time
+# as the others: compose.yaml's stack under the project of the lane after the live checks', with that lane's prefix on
+# its Discord names, the dev bot, and a port of its own.
+FRESH_LANE = len(LIVE_LANES) + 1
+FRESH_PORT = "39799"
+# What its log says once its bot has set up the server, looked for every few seconds for up to 3 minutes.
+BOT_READY = "Discord bot ready in server"
+BOT_READY_TRIES = 60
+BOT_READY_WAIT_SECONDS = 3
+# The read-back reads the running dev stack, so it runs last, once it's reset and its bot has settled.
+READ_BACK_AFTER_SECONDS = 10
 LIVE_ON_RUNNING_STACK = "LiveReadBackFixture"
 
 
@@ -274,8 +327,10 @@ def timed(name, timings, body):
     try:
         return body()
     finally:
-        timings.append((name, time.monotonic() - start))
-        print("[qa-checks] %s: %.0fs" % (name, timings[-1][1]), flush=True)
+        # Parts run at the same time: this part's own seconds, not the list's last.
+        seconds = time.monotonic() - start
+        timings.append((name, seconds))
+        print("[qa-checks] %s: %.0fs" % (name, seconds), flush=True)
 
 
 def dotnet_test(filter_, env, log_path):
@@ -297,57 +352,95 @@ def ran_all(output):
     return bool(passed) and int(passed[-1]) > 0 and (not skipped or int(skipped[-1]) == 0)
 
 
-def run_web(out, env, commit):
-    password = secrets.token_urlsafe(24)
-    stack(["up"], login_env(password), ref=commit)
-    # The marked requests the checks act on; removed again with everything the checks did, pass or fail.
-    print("[qa-checks] seeded %d requests for the web checks" % edit_dev_database(seed_check_rows), flush=True)
+def run_web(out, env, password):
+    """The web checks on the owner's dev data, on the dev stack already up at the commit with the checks' login."""
     web_dir = os.path.join(out, "web")
-    web_env = web_env_for(env, web_dir, password)
+    web_env = web_env_for(env, web_dir, password, stack_url(env, "dev"), "dev")
+    series = None
     try:
+        # The marked requests the checks act on, one of them in the test Sonarr; removed again with everything the
+        # checks did, pass or fail.
+        series = add_check_series(env)
+        print("[qa-checks] seeded %d requests for the web checks" % edit_dev_database(lambda con: seed_check_rows(con, series)), flush=True)
+        if series:
+            web_env["QA_CHECKS_SONARR_SERIES"] = series["title"]
         web_env.update(start_throwaway())
         fresh = "".join("&Name!=" + name for name in FRESH_WEB)
         dotnet_test("FullyQualifiedName~" + WEB_FIXTURE + fresh, web_env, os.path.join(web_dir, "web.log"))
     finally:
         remove_throwaway()
-        clean_check_entries()
-    return web_results(web_dir)
+        try:
+            clean_check_entries()
+        finally:
+            remove_check_series(env, series)
 
 
-def run_web_fresh(out, env, commit):
-    """The web checks that need a dev stack just reset: up with the checks' login, the test member known from a made-up
-    import with HISTORY_SEEDED requests of their own, then the checks. The run's reset afterwards removes it all."""
+def run_web_fresh(out, env):
+    """The web checks that need a Requestarr just set up, on the second one (fresh_env): up with the checks' login, the
+    test member known from a made-up import with HISTORY_SEEDED requests of their own, then the checks. It goes with its
+    data when they end."""
     password = secrets.token_urlsafe(24)
-    stack(["reset-dev"])
-    stack(["up"], login_env(password), ref=commit)
-    member = test_member(env)
-    edit_dev_database(lambda con: seed_history_rows(con, member))
-    print("[qa-checks] the test member imported with %d requests of their own" % HISTORY_SEEDED, flush=True)
-    web_dir = os.path.join(out, "web")
-    web_env = dict(web_env_for(env, web_dir, password), QA_CHECKS_TEST_MEMBER=member["username"], QA_CHECKS_HISTORY_SEEDED=str(HISTORY_SEEDED))
-    for name in FRESH_WEB:
-        # The recordings only once Post History is done: their import adds imported history of its own.
-        if name == "import_preview":
-            copy_recordings_in()
-        dotnet_test("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name), web_env, os.path.join(web_dir, "web-fresh-%s.log" % name))
-    return web_results(web_dir)
+    fresh = fresh_env(env, password)
+    container = LANE_PROJECT % FRESH_LANE + "-requestarr-1"
+    try:
+        # Down first: one an earlier run left would keep its data.
+        lane_compose(fresh, "down", "-v")
+        lane_compose(fresh, "up", "-d", "--wait")
+        wait_bot_ready(container)
+        member = test_member(env)
+        edit_dev_database(lambda con: seed_history_rows(con, member), container)
+        print("[qa-checks] the test member imported with %d requests of their own" % HISTORY_SEEDED, flush=True)
+        web_dir = os.path.join(out, "web")
+        web_env = dict(web_env_for(env, web_dir, password, "http://localhost:" + FRESH_PORT, "dev-lane%d" % FRESH_LANE),
+                       QA_CHECKS_LANE=fresh["QA_CHECKS_LANE"], QA_CHECKS_TEST_MEMBER=member["username"], QA_CHECKS_HISTORY_SEEDED=str(HISTORY_SEEDED))
+        for name in FRESH_WEB:
+            # The recordings only once Post History is done: their import adds imported history of its own.
+            if name == "import_preview":
+                copy_recordings_in(container)
+            dotnet_test("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name), web_env, os.path.join(web_dir, "web-fresh-%s.log" % name))
+    finally:
+        # Its log, for a check that found it gone or slow: it goes with the container.
+        with open(os.path.join(out, "web", "second-requestarr.log"), "w", encoding="utf-8") as log:
+            subprocess.run(["docker", "logs", container], stdout=log, stderr=subprocess.STDOUT)
+        subprocess.run(lane_compose_args(fresh, "down", "-v"), env=lane_compose_env(fresh), capture_output=True)
 
 
-def copy_recordings_in():
-    """The recorded Requestrr channels into the dev stack's recordings folder (compose.yaml's REQUESTARR_IMPORT_RECORDINGS),
-    which the Import page lists as a server of its own. The run's reset afterwards removes them."""
-    docker("cp", os.path.join(RECORDINGS, "."), DEV_CONTAINER + ":" + DEV_RECORDINGS)
-    docker("exec", "-u", "0", DEV_CONTAINER, "chown", "-R", "1654:1654", DEV_RECORDINGS)
+def fresh_env(env, password):
+    """The second Requestarr's compose variables: the dev stack's image, provisioning file and bot, a lane's prefix on its
+    Discord names (a dev stack takes it from REQUESTARR_DISCORD_NAME_PREFIX), its own port, test Sonarr and Radarr and
+    data, and the checks' login."""
+    lane = lane_env(FRESH_LANE, env)
+    return dict(lane_compose_env(lane), STACK_REQUESTARR_PORT=FRESH_PORT, STACK_DISCORD_NAME_PREFIX=lane["QA_CHECKS_LANE"],
+                STACK_DISCORD_BOT_TOKEN=env["DEV_DISCORD_BOT_TOKEN"], STACK_DISCORD_GUILD_ID=env["DEV_DISCORD_GUILD_ID"],
+                STACK_DISCORD_APPLICATION_ID=env.get("DEV_DISCORD_APPLICATION_ID", ""), STACK_DISCORD_ADMIN_ROLE_ID=env.get("DEV_DISCORD_ADMIN_ROLE_ID", ""),
+                STACK_AUTH_REQUIRED="enabled", STACK_PROVISIONING_FILE=DEV_PROVISIONING, **login_env(password))
+
+
+def wait_bot_ready(container):
+    """Until the container's Requestarr says its bot set up the server (as dev.ps1's check reads it)."""
+    for _ in range(BOT_READY_TRIES):
+        logs = subprocess.run(["docker", "logs", container], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if BOT_READY in logs.stdout + logs.stderr:
+            return
+        time.sleep(BOT_READY_WAIT_SECONDS)
+    sys.exit("%s's bot didn't set up the dev server." % container)
+
+
+def copy_recordings_in(container):
+    """The recorded Requestrr channels into a Requestarr's recordings folder (compose.yaml's REQUESTARR_IMPORT_RECORDINGS),
+    which the Import page lists as a server of its own. They go with its data."""
+    docker("cp", os.path.join(RECORDINGS, "."), container + ":" + DEV_RECORDINGS)
+    docker("exec", "-u", "0", container, "chown", "-R", "1654:1654", DEV_RECORDINGS)
 
 
 def login_env(password):
     return {"DEV_AUTH_REQUIRED": "enabled", "REQUESTARR_ADMIN_USERNAME": ACCOUNT, "REQUESTARR_ADMIN_PASSWORD": password}
 
 
-def web_env_for(env, web_dir, password):
+def web_env_for(env, web_dir, password, url, which):
     os.makedirs(web_dir, exist_ok=True)
-    return dict(env, QA_CHECKS_URL=stack_url(env, "dev"), QA_CHECKS_DIR=web_dir, QA_CHECKS_USERNAME=ACCOUNT,
-                QA_CHECKS_PASSWORD=password, QA_CHECKS_VERSION=running_build("dev"))
+    return dict(env, QA_CHECKS_URL=url, QA_CHECKS_DIR=web_dir, QA_CHECKS_USERNAME=ACCOUNT,
+                QA_CHECKS_PASSWORD=password, QA_CHECKS_VERSION=running_build(which))
 
 
 def web_results(web_dir):
@@ -485,25 +578,156 @@ def run_one_live(fixture, out, live_env):
         return passed, handle.read()
 
 
-def run_live(out, env, commit, fixtures):
-    stack(["reset-dev", "--stopped"])
+class Bots:
+    """Hands the lanes' threads turns with the bot: at most MAX_BOTS at once, signing in SIGN_IN_APART_SECONDS apart, and a
+    lane's first check (which makes its layout) LAYOUT_APART_SECONDS after the last one that did."""
+
+    def __init__(self):
+        self._held = threading.BoundedSemaphore(MAX_BOTS)
+        self._sign_in = threading.Lock()
+        self._last = float("-inf")
+        self._last_layout = float("-inf")
+
+    @contextlib.contextmanager
+    def turn(self, makes_layout):
+        with self._held:
+            with self._sign_in:
+                after = max(self._last + SIGN_IN_APART_SECONDS, self._last_layout + LAYOUT_APART_SECONDS if makes_layout else 0.0)
+                time.sleep(max(0.0, after - time.monotonic()))
+                self._last = time.monotonic()
+                if makes_layout:
+                    self._last_layout = self._last
+            yield
+
+
+def run_live(out, env, commit, web_done):
+    """Every lane at once: {fixture: (passed, log)}. web_done is set once the web checks have ended."""
     os.makedirs(os.path.join(out, "live"), exist_ok=True)
     live_env = live_env_for(out, env, commit)
+    bots = Bots()
+    with ThreadPoolExecutor(max_workers=len(LIVE_LANES)) as pool:
+        lanes = [pool.submit(run_lane, number, fixtures, out, live_env, web_done, bots) for number, fixtures in enumerate(LIVE_LANES, 1)]
+        return {fixture: result for lane in lanes for fixture, result in lane.result().items()}
+
+
+def lane_env(number, live_env):
+    """A lane's checks: its prefix on every Discord name, and its own test Sonarr and Radarr."""
+    radarr, sonarr = (port + number for port in LANE_PORTS)
+    return dict(live_env, QA_CHECKS_LANE=LANE_PREFIX % number, LIVE_COMPOSE_PROJECT=LANE_PROJECT % number,
+                DEV_RADARR_TEST_PORT=str(radarr), DEV_SONARR_TEST_PORT=str(sonarr), LIVE_PYTHON=sys.executable)
+
+
+def run_lane(number, fixtures, out, live_env, web_done, bots):
+    """A lane's checks one after another. One its test Sonarr and Radarr failed for fails with Docker's words, and the
+    lane goes on: the other lanes' results are kept either way."""
+    env = lane_env(number, live_env)
+    backends = not NO_BACKENDS.issuperset(fixtures)
     results = {}
-    for fixture in fixtures:
-        # Some checks leave their titles in the test Sonarr and Radarr (on purpose); each starts with them empty.
-        stack(["reset-test-backends"])
-        results[fixture] = run_one_live(fixture, out, live_env)
+    makes_layout = next((f for f in fixtures if f not in NO_LAYOUT), None)
+    for index, fixture in enumerate(fixtures):
+        if fixture in AFTER_WEB:
+            web_done.wait()
+        try:
+            if backends and (index == 0 or fixture in EMPTY_FIRST):
+                empty_lane_backends(env)
+        except subprocess.CalledProcessError as error:
+            results[fixture] = backends_failed(fixture, out, error)
+            continue
+        with contextlib.nullcontext() if fixture in NO_SIGN_IN else bots.turn(fixture == makes_layout):
+            results[fixture] = run_one_live(fixture, out, env)
+    if backends:
+        # Gone with its volumes; a failure here only leaves containers for the next run's reset to replace.
+        subprocess.run(lane_compose_args(env, "down", "-v"), env=lane_compose_env(env), capture_output=True)
     return results
 
 
+def backends_failed(fixture, out, error):
+    log = "The lane's test Sonarr and Radarr didn't start: %s\n%s" % (" ".join(error.cmd), error.stderr or "")
+    with open(os.path.join(out, "live", fixture + ".log"), "w", encoding="utf-8") as handle:
+        handle.write(log)
+    print("[qa-checks] %s: FAILED (its test Sonarr and Radarr didn't start)" % fixture, flush=True)
+    return False, log
+
+
+def lane_compose_args(env, *args):
+    """docker compose on a lane's test Sonarr and Radarr: compose.yaml's, under the lane's project."""
+    return ["docker", "compose", "-p", env["LIVE_COMPOSE_PROJECT"], "-f", COMPOSE] + list(args)
+
+
+def lane_compose_env(env):
+    """compose.yaml's variables for a lane: its ports. A lane's Requestarr is never started, so it gets port 0 unless env
+    names one (the run's second Requestarr does)."""
+    variables = dict({"STACK_REQUESTARR_PORT": "0"}, **env)
+    variables.update(REQUESTARR_STACK="dev", STACK_RADARR_TEST_PORT=env["DEV_RADARR_TEST_PORT"], STACK_SONARR_TEST_PORT=env["DEV_SONARR_TEST_PORT"])
+    return variables
+
+
+def lane_compose(env, *args):
+    subprocess.run(lane_compose_args(env, *args), env=lane_compose_env(env), check=True, capture_output=True, text=True)
+
+
+def empty_lane_backends(env):
+    """A lane's test Sonarr and Radarr started again from nothing, as dev.ps1 reset-test-backends does the stack's."""
+    project = env["LIVE_COMPOSE_PROJECT"]
+    lane_compose(env, "rm", "-sf", *TEST_BACKENDS)
+    subprocess.run(["docker", "volume", "rm"] + ["%s_%s" % (project, volume) for volume in TEST_BACKEND_VOLUMES], capture_output=True)
+    lane_compose(env, "up", "-d", "--wait", *TEST_BACKENDS)
+
+
+def clean_lanes_in_discord(env):
+    """What the lanes made in the dev server (every name with a lane's prefix) removed: before a run, in case an earlier
+    one stopped halfway, and after it."""
+    subprocess.run([sys.executable, os.path.join(HERE, "reset-discord.py"), "--lanes"], check=True,
+                   env=dict(env, STACK_DISCORD_BOT_TOKEN=env["DEV_DISCORD_BOT_TOKEN"], STACK_DISCORD_GUILD_ID=env["DEV_DISCORD_GUILD_ID"]))
+
+
+def reset_dev_after(env):
+    """The dev server and stack back to a clean start after a run, the lanes' leftovers first."""
+    try:
+        clean_lanes_in_discord(env)
+    finally:
+        stack(["reset-dev"])
+
+
+def run_all_web(out, env, commit, timings):
+    """The dev stack up at the commit (which builds the image), then side by side: the web checks on the owner's dev data
+    there, and those that need a Requestarr just set up on a second one."""
+    password = secrets.token_urlsafe(24)
+    timed("dev stack up at the commit, signed in", timings, lambda: stack(["up"], login_env(password), ref=commit))
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        fresh = pool.submit(timed, "web app checks on a Requestarr just set up (the test member's made-up history)", timings,
+                            lambda: run_web_fresh(out, env))
+        timed("web app checks on the owner's data (its marked requests seeded and removed)", timings, lambda: run_web(out, env, password))
+        fresh.result()
+    return web_results(os.path.join(out, "web"))
+
+
 DEV_CONTAINER = "requestarr-dev-requestarr-1"
+# dev.ps1's copy of the provisioning file as the commit it built has it.
+DEV_PROVISIONING = os.path.join(HERE, ".stacks", "dev-provisioning.yml")
 DEV_DATABASE = "/config/requestarr.db"
 DEV_RECORDINGS = "/config/import-recordings"
 
-# The made-up owner and title prefix of the requests seeded for the web checks (seed_check_rows).
+# The made-up owner and title prefix of the requests seeded for the web checks (seed_check_rows), and a made-up person
+# who asks for one title and follows another (the web app request views check filters their page).
 SEED_OWNER = "Automated check"
+SEED_FOLLOWER = "Automated check follower"
 SEED_TITLE = "Automated check: "
+SEED_PEOPLE = (SEED_OWNER, SEED_FOLLOWER)
+# The request views check's requests by name (after SEED_TITLE): what the follower follows, their own, and the one in the
+# test Sonarr. QaWebChecksFixture names them the same.
+FOLLOWED = "followed"
+FOLLOWERS_OWN = "asked by the follower"
+IN_SONARR = "open in Sonarr"
+
+# The series the request views check opens in the dev stack's test Sonarr (Severance on TheTVDB, which the live checks
+# request too), added through Sonarr's API for the web checks and deleted after them. The provisioning file names that
+# Sonarr by its address in the stack; its port on this PC is the stack's (docker/dev.ps1).
+CHECK_SERIES_TVDB = 371980
+TEST_SONARR_ADDRESS = "http://sonarr-test:8989"
+TEST_SONARR_ROOT = "/data/tv"
+TEST_SONARR_PROFILE = "HD-1080p"
+DEFAULT_SONARR_TEST_PORT = "38989"
 
 # A made-up server among the ones Requestarr remembers (the Config table's discordknownservers, one list per bot): the
 # bot isn't in it, so it stands for a server that removed the bot (the web app server cards check).
@@ -519,17 +743,18 @@ def docker(*args):
     subprocess.run(["docker"] + list(args), check=True, capture_output=True)
 
 
-def edit_dev_database(edit):
-    """Runs EDIT(connection) on the dev stack's database, Requestarr stopped for it and always started again, and waits
-    until it's healthy; returns what EDIT returned. Nothing when the stack has no Requestarr (a reset removed it)."""
-    if subprocess.run(["docker", "inspect", DEV_CONTAINER], capture_output=True).returncode != 0:
-        print("[qa-checks] no dev Requestarr: its data left as it is", flush=True)
+def edit_dev_database(edit, container=DEV_CONTAINER):
+    """Runs EDIT(connection) on a dev Requestarr's database (the dev stack's, or the run's second one), Requestarr stopped
+    for it and always started again, and waits until it's healthy; returns what EDIT returned. Nothing when there's no
+    such Requestarr (a reset removed it)."""
+    if subprocess.run(["docker", "inspect", container], capture_output=True).returncode != 0:
+        print("[qa-checks] no %s: its data left as it is" % container, flush=True)
         return None
     with tempfile.TemporaryDirectory() as folder:
         local = os.path.join(folder, "requestarr.db")
-        docker("stop", DEV_CONTAINER)
+        docker("stop", container)
         try:
-            copy_database_out(local)
+            copy_database_out(local, container)
             con = sqlite3.connect(local)
             try:
                 done = edit(con)
@@ -537,12 +762,12 @@ def edit_dev_database(edit):
                 con.execute("pragma journal_mode=delete")
             finally:
                 con.close()
-            copy_database_in(local, folder)
+            copy_database_in(local, folder, container)
         finally:
-            docker("start", DEV_CONTAINER)
-        docker("exec", "-u", "0", DEV_CONTAINER, "sh", "-c", "chown 1654:1654 %s* && chmod 644 %s*" % (DEV_DATABASE, DEV_DATABASE))
-        docker("restart", DEV_CONTAINER)
-    wait_healthy(DEV_CONTAINER)
+            docker("start", container)
+        docker("exec", "-u", "0", container, "sh", "-c", "chown 1654:1654 %s* && chmod 644 %s*" % (DEV_DATABASE, DEV_DATABASE))
+        docker("restart", container)
+    wait_healthy(container)
     return done
 
 
@@ -555,24 +780,90 @@ def wait_healthy(container, tries=120):
     sys.exit("%s didn't come back healthy after its data was edited" % container)
 
 
-def seed_check_rows(con):
-    """The requests the web checks act on, titled "Automated check: ...", owned by a made-up person known only from an
+def seed_check_rows(con, series=None):
+    """The requests the web checks act on, titled "Automated check: ...", owned by made-up people known only from an
     import (so the bot never contacts them): one waiting to be approved (it goes to the test Radarr), one waiting for
-    the live updates check to deny from outside the page, three history rows for select mode, and one for a row's
-    Delete record. How many were added."""
+    the live updates check to deny from outside the page, three history rows for select mode, one for a row's Delete
+    record, and for the request views check a denied one the made-up follower follows, the follower's own (not in the
+    library) and, given SERIES (add_check_series), one in the test Sonarr. How many were added."""
     now = time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
-    owner = con.execute("INSERT INTO RequestarrUsers (DisplayName, Status, Added, StatusChanged) VALUES (?, 3, ?, ?)", (SEED_OWNER, now, now)).lastrowid
+    owner, follower = (con.execute("INSERT INTO RequestarrUsers (DisplayName, Status, Added, StatusChanged) VALUES (?, 3, ?, ?)",
+                                   (name, now, now)).lastrowid for name in SEED_PEOPLE)
     radarr = con.execute("SELECT Id FROM Backends WHERE Implementation = 'Radarr' ORDER BY Id LIMIT 1").fetchone()
     radarr = radarr[0] if radarr else None
-    rows = [("approve", 0, 10386, 1999, radarr), ("live update", 0, 105, 1985, radarr)]
-    rows += [("history", 7, None, 2001 + n, None) for n in range(3)] + [("delete one", 7, None, 2010, None)]
-    for name, status, tmdb, year, backend in rows:
+    rows = [(owner, "approve", 0, 10386, 1999, radarr), (owner, "live update", 0, 105, 1985, radarr)]
+    rows += [(owner, "history", 7, None, 2001 + n, None) for n in range(3)] + [(owner, "delete one", 7, None, 2010, None)]
+    rows += [(owner, FOLLOWED, 2, None, 2015, None), (follower, FOLLOWERS_OWN, 7, None, 2016, None)]
+    for person, name, status, tmdb, year, backend in rows:
         con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, TmdbId, Status, BackendId, MonitorFutureSeasons, Requested, Progress) "
-                    "VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0)", (owner, SEED_TITLE + name, year, tmdb, status, backend, now))
+                    "VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0)", (person, SEED_TITLE + name, year, tmdb, status, backend, now))
+    followed = con.execute("SELECT Id FROM Requests WHERE Title = ?", (SEED_TITLE + FOLLOWED,)).fetchone()[0]
+    con.execute("INSERT INTO RequestSubscribers (RequestId, UserId, Added) VALUES (?, ?, ?)", (followed, follower, now))
     known = known_servers(con)
     if known:
         set_known_servers(con, known + [dict(MADE_UP_SERVER, bot=known[0]["bot"])])
-    return len(rows)
+    return len(rows) + seed_sonarr_request(con, owner, series, now)
+
+
+def seed_sonarr_request(con, owner, series, now):
+    """The owner's request for SERIES as one sent to the test Sonarr is once it's there: in that Sonarr's library under
+    its ID, with its page there known (what Open in Sonarr opens). How many were added: none without the series or that
+    Sonarr."""
+    backend = con.execute("SELECT Id FROM Backends WHERE Implementation = 'Sonarr' AND Settings LIKE ? ORDER BY Id LIMIT 1",
+                          ("%" + TEST_SONARR_ADDRESS + "%",)).fetchone()
+    if not series or not backend:
+        return 0
+    media = json.dumps({"overview": series["overview"], "titleSlug": series["titleSlug"], "checked": now})
+    con.execute("INSERT INTO Requests (OwnerUserId, ContentType, Title, Year, TvdbId, Status, BackendId, ExternalItemId, Seasons, MonitorFutureSeasons, "
+                "Requested, Progress, Media) VALUES (?, 2, ?, ?, ?, 5, ?, ?, '[1]', 0, ?, 0, ?)",
+                (owner, SEED_TITLE + IN_SONARR, series["year"], series["tvdbId"], backend[0], series["id"], now, media))
+    return 1
+
+
+def sonarr_api(env):
+    """The dev stack's test Sonarr's API, as this PC reaches it, and its key."""
+    return "http://localhost:%s/api/v3/" % env.get("DEV_SONARR_TEST_PORT", DEFAULT_SONARR_TEST_PORT), env.get("SONARR_TEST_API_KEY", "")
+
+
+def add_check_series(env):
+    """CHECK_SERIES_TVDB in the dev stack's test Sonarr: its Sonarr ID, slug, title, year and overview, and whether this
+    run added it (one there already is used as it is). None, with why, when that Sonarr can't be reached or can't look
+    the series up; the check that opens it then fails, saying so."""
+    url, key = sonarr_api(env)
+    try:
+        found = [s for s in api(url, key, "series?tvdbId=%d" % CHECK_SERIES_TVDB) if s.get("tvdbId") == CHECK_SERIES_TVDB]
+        series, added = (found[0], False) if found else (add_series(url, key), True)
+    except (OSError, ValueError, LookupError) as error:
+        print("[qa-checks] the test Sonarr couldn't add the series the checks open: %s" % error, flush=True)
+        return None
+    print("[qa-checks] %s in the test Sonarr for the web checks" % series["title"], flush=True)
+    return {"id": series["id"], "titleSlug": series["titleSlug"], "title": series["title"], "year": series.get("year"),
+            "overview": series.get("overview"), "tvdbId": CHECK_SERIES_TVDB, "added": added}
+
+
+def add_series(url, key):
+    """The series looked up in Sonarr and added there with nothing monitored and nothing searched for."""
+    looked_up = api(url, key, "series/lookup?term=tvdb:%d" % CHECK_SERIES_TVDB)[0]
+    profiles = api(url, key, "qualityprofile")
+    profile = next((p for p in profiles if p["name"] == TEST_SONARR_PROFILE), profiles[0])
+    return api(url, key, "series", dict(looked_up, qualityProfileId=profile["id"], rootFolderPath=TEST_SONARR_ROOT, monitored=False,
+                                        seasonFolder=True, monitorNewItems="none",
+                                        addOptions={"monitor": "none", "searchForMissingEpisodes": False, "searchForCutoffUnmetEpisodes": False}))
+
+
+def remove_check_series(env, series):
+    """The series add_check_series added deleted from the test Sonarr again (one that was there already stays). The run
+    resets the dev stack right after the web checks, which empties that Sonarr anyway; this keeps a series with no request
+    out of the dev stack's library meanwhile, and when the run stops before its reset."""
+    if not series or not series["added"]:
+        return
+    url, key = sonarr_api(env)
+    request = urllib.request.Request("%sseries/%d?deleteFiles=true" % (url, series["id"]), method="DELETE", headers={"X-Api-Key": key})
+    try:
+        with urllib.request.urlopen(request, timeout=60):
+            print("[qa-checks] %s deleted from the test Sonarr again" % series["title"], flush=True)
+    except OSError as error:
+        print("[qa-checks] %s stays in the test Sonarr until the dev stack's reset: %s" % (series["title"], error), flush=True)
 
 
 def known_servers(con):
@@ -611,10 +902,10 @@ def seed_history_rows(con, member):
 
 
 def remove_check_data(con):
-    """What the checks made in the dev stack's data, the owner's own left as it is: the seeded requests and their made-up
-    owner, what was done to them (follows, removals with their keeps and prompts), removals the checks' sign-in started,
+    """What the checks made in the dev stack's data, the owner's own left as it is: the seeded requests and the made-up
+    people, what was done to them (follows, removals with their keeps and prompts), removals the checks' sign-in started,
     and the audit entries the checks wrote. How many audit entries went."""
-    people = [r[0] for r in con.execute("SELECT Id FROM RequestarrUsers WHERE DisplayName = ? AND ImportedFrom IS NULL", (SEED_OWNER,))]
+    people = [r[0] for r in con.execute("SELECT Id FROM RequestarrUsers WHERE DisplayName IN (%s) AND ImportedFrom IS NULL" % marks(SEED_PEOPLE), SEED_PEOPLE)]
     requests = [r[0] for r in con.execute("SELECT Id FROM Requests WHERE Title LIKE ?", (SEED_TITLE + "%",))]
     removals = [r[0] for r in con.execute("SELECT Id FROM RemovalProposals WHERE RequestId IN (%s) OR InitiatedByName LIKE ?" % marks(requests),
                                           requests + [ACCOUNT + "%"])]
@@ -642,23 +933,23 @@ def clean_check_entries():
     return removed
 
 
-def copy_database_out(local):
-    """The stopped dev stack's database to LOCAL, with its write-ahead log when it has one."""
-    docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE, local)
+def copy_database_out(local, container):
+    """A stopped Requestarr's database to LOCAL, with its write-ahead log when it has one."""
+    docker("cp", container + ":" + DEV_DATABASE, local)
     for suffix in ("-wal", "-shm"):
         try:
-            docker("cp", DEV_CONTAINER + ":" + DEV_DATABASE + suffix, local + suffix)
+            docker("cp", container + ":" + DEV_DATABASE + suffix, local + suffix)
         except subprocess.CalledProcessError:
             pass  # no write-ahead log: everything is in the database file
 
 
-def copy_database_in(local, folder):
-    """LOCAL back as the dev stack's database, its old write-ahead log emptied so it isn't replayed over the edit."""
+def copy_database_in(local, folder, container):
+    """LOCAL back as a Requestarr's database, its old write-ahead log emptied so it isn't replayed over the edit."""
     empty = os.path.join(folder, "empty")
     open(empty, "w").close()
-    docker("cp", local, DEV_CONTAINER + ":" + DEV_DATABASE)
+    docker("cp", local, container + ":" + DEV_DATABASE)
     for suffix in ("-wal", "-shm"):
-        docker("cp", empty, DEV_CONTAINER + ":" + DEV_DATABASE + suffix)
+        docker("cp", empty, container + ":" + DEV_DATABASE + suffix)
 
 
 def run(args):
@@ -669,6 +960,7 @@ def run(args):
     out = os.path.abspath(option(args, "--out") or os.path.join(REPO, "_qa-checks", commit[:7]))
     only = option(args, "--only")
     timings, web, live, suite = [], {}, {}, None
+    started = time.monotonic()
     if only == "suite":
         os.makedirs(out, exist_ok=True)
         return 0 if timed("full suite", timings, lambda: finish_suite(start_suite(commit), out))["ok"] else 1
@@ -683,23 +975,29 @@ def run(args):
         items = checklist_items(handle.read())
     try:
         timed("build", timings, lambda: subprocess.run(["dotnet", "build", os.path.join(REPO, "src", "Requestarr.sln"), "-v", "q", "-nologo"], check=True))
-        if only in (None, "web"):
-            web = timed("web app checks (dev stack up at the commit, signed in, its marked requests seeded and removed)", timings,
-                        lambda: run_web(out, env, commit))
-        if only in (None, "live"):
-            fixtures = LIVE if only is None else sorted({c.target for c in CHECKS.values() if c.kind == "live"})
-            live = timed("live Discord checks (dev server, bot and test member)", timings, lambda: run_live(out, env, commit, fixtures))
-        if only in (None, "web"):
-            web.update(timed("web app checks on a dev stack just reset (the test member's made-up history)", timings,
-                             lambda: run_web_fresh(out, env, commit)))
+        clean_lanes_in_discord(env)
+        web_done = threading.Event()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            live_part = None
+            if only in (None, "live"):
+                live_part = pool.submit(timed, "live Discord checks (dev server, bot and test member, in %d lanes)" % len(LIVE_LANES),
+                                        timings, lambda: run_live(out, env, commit, web_done))
+            try:
+                web = run_all_web(out, env, commit, timings) if only in (None, "web") else {}
+            finally:
+                web_done.set()
+            live = live_part.result() if live_part else {}
     finally:
-        timed("dev stack reset", timings, lambda: stack(["reset-dev"]))
+        timed("dev stack reset", timings, lambda: reset_dev_after(env))
     if only is None:
+        # The bot moves its panel below what it posted on starting a few seconds later (PanelService.MoveDelay).
+        time.sleep(READ_BACK_AFTER_SECONDS)
         live[LIVE_ON_RUNNING_STACK] = timed("read-back of the running dev stack", timings,
                                             lambda: run_one_live(LIVE_ON_RUNNING_STACK, out, live_env_for(out, env, commit)))
         suite = timed("full suite (the rest of its run on GitHub)", timings, lambda: finish_suite(suite_run, out))
     results = results_for(items, web, live)
-    total = sum(t for _, t in timings)
+    # The parts overlap, so the run's time is the clock's, not the sum of theirs.
+    total = time.monotonic() - started
     with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as handle:
         json.dump({"commit": commit, "only": only, "suite": suite, "live": {f: passed for f, (passed, _) in live.items()},
                    "results": results, "reviewed": False, "timings": timings, "seconds": round(total)}, handle, indent=2)
@@ -938,13 +1236,14 @@ def a_ready_run():
 # The tables seed_check_rows and remove_check_data touch, with the columns they use.
 TEST_SCHEMA = """
 CREATE TABLE RequestarrUsers (Id INTEGER PRIMARY KEY, DisplayName TEXT, Status INTEGER, Added TEXT, StatusChanged TEXT, ImportedFrom TEXT);
-CREATE TABLE Backends (Id INTEGER PRIMARY KEY, Implementation TEXT);
+CREATE TABLE Backends (Id INTEGER PRIMARY KEY, Implementation TEXT, Settings TEXT);
 CREATE TABLE Requests (Id INTEGER PRIMARY KEY, OwnerUserId INTEGER, ContentType INTEGER, Title TEXT, Year INTEGER, TmdbId INTEGER,
-                       Status INTEGER, BackendId INTEGER, MonitorFutureSeasons INTEGER, Requested TEXT, Progress INTEGER);
+                       TvdbId INTEGER, Status INTEGER, BackendId INTEGER, ExternalItemId INTEGER, Seasons TEXT, MonitorFutureSeasons INTEGER,
+                       Requested TEXT, Progress INTEGER, Media TEXT);
 CREATE TABLE RemovalProposals (Id INTEGER PRIMARY KEY, RequestId INTEGER, InitiatedByName TEXT);
 CREATE TABLE RemovalFlags (Id INTEGER PRIMARY KEY, ProposalId INTEGER);
 CREATE TABLE RemovalPrompts (Id INTEGER PRIMARY KEY, ProposalId INTEGER);
-CREATE TABLE RequestSubscribers (Id INTEGER PRIMARY KEY, RequestId INTEGER, UserId INTEGER);
+CREATE TABLE RequestSubscribers (Id INTEGER PRIMARY KEY, RequestId INTEGER, UserId INTEGER, Added TEXT);
 CREATE TABLE UserMediaAccess (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE UserIdentities (Id INTEGER PRIMARY KEY, UserId INTEGER);
 CREATE TABLE AuditEntries (Id INTEGER PRIMARY KEY, Actor TEXT, Detail TEXT);
@@ -952,19 +1251,26 @@ CREATE TABLE Config (Id INTEGER PRIMARY KEY, Key TEXT, Value TEXT);
 """
 
 
-def seeded_and_cleaned():
-    """A database with the owner's own person, request, removal and audit entry, seeded for the checks, acted on as the
-    checks do, then cleaned: what's left in each table."""
+def seeded_and_cleaned(series=None):
+    """A database with the owner's own person, request, removal and audit entry, seeded for the checks (with SERIES in the
+    test Sonarr), acted on as the checks do, then cleaned: how many were seeded and how many audit entries went, what's
+    left in each table, the remembered servers before and after, and what the request views check reads (who follows
+    what, and the request in the test Sonarr)."""
     con = sqlite3.connect(":memory:")
     con.executescript(TEST_SCHEMA)
     con.execute("INSERT INTO Backends (Implementation) VALUES ('Radarr')")
+    con.execute("INSERT INTO Backends (Implementation, Settings) VALUES ('Sonarr', ?)", (json.dumps({"url": TEST_SONARR_ADDRESS}),))
     con.execute("INSERT INTO RequestarrUsers (DisplayName, ImportedFrom) VALUES ('Owner', '#media-requests')")
     con.execute("INSERT INTO Requests (OwnerUserId, Title) VALUES (1, 'Heat')")
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (1, 'owner (web app)')")
     con.execute("INSERT INTO AuditEntries (Actor, Detail) VALUES ('web:owner', 'Heat dropped')")
     con.execute("INSERT INTO Config (Key, Value) VALUES ('discordknownservers', ?)", (json.dumps([{"bot": "42", "id": "7", "name": "Original", "iconUrl": None}]),))
-    seeded = seed_check_rows(con)
+    seeded = seed_check_rows(con, series)
     with_made_up = [k["id"] for k in known_servers(con)]
+    read = {"follows": con.execute("SELECT f.DisplayName, r.Title, r.Status FROM RequestSubscribers s JOIN RequestarrUsers f ON f.Id = s.UserId "
+                                   "JOIN Requests r ON r.Id = s.RequestId").fetchall(),
+            "in sonarr": con.execute("SELECT BackendId, ExternalItemId, TvdbId, json_extract(Media, '$.titleSlug') FROM Requests WHERE Title = ?",
+                                     (SEED_TITLE + IN_SONARR,)).fetchall()}
     con.execute("INSERT INTO RemovalProposals (RequestId, InitiatedByName) VALUES (2, 'qa-checks (web app)')")
     con.execute("INSERT INTO RemovalFlags (ProposalId) VALUES (2)")
     con.execute("INSERT INTO RequestSubscribers (RequestId, UserId) VALUES (3, 2)")
@@ -972,7 +1278,7 @@ def seeded_and_cleaned():
     removed = remove_check_data(con)
     left = {t: con.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
             for t in ("RequestarrUsers", "Requests", "RemovalProposals", "RemovalFlags", "RequestSubscribers", "AuditEntries")}
-    return seeded, removed, left, (with_made_up, [k["id"] for k in known_servers(con)])
+    return seeded, removed, left, (with_made_up, [k["id"] for k in known_servers(con)]), read
 
 
 def self_test():
@@ -982,6 +1288,10 @@ def self_test():
     live = {"LiveQaFixture": (True, "noise\n[pass] the owner presses Passes\n[fail] not this one\n")}
     results = {r["name"]: r for r in results_for(items, web, live)}
     failed = apply_overrides([dict(results["Build number"])], {"Build number": "the logo is on black"})[0]
+    lanes = [lane_env(n, {}) for n in range(1, len(LIVE_LANES) + 1)]
+    lane_ports = {lane[port] for lane in lanes for port in ("DEV_RADARR_TEST_PORT", "DEV_SONARR_TEST_PORT")}
+    with_series = seeded_and_cleaned({"id": 17, "titleSlug": "severance", "title": "Severance", "year": 2022, "overview": "Work.",
+                                      "tvdbId": CHECK_SERIES_TVDB, "added": True})
     expected = [
         ("only Unreleased items, in order", [i["name"] for i in items] == ["Build number", "Bot picture", "Passing an item", "Gone"]),
         ("the owner's item has no check", items[1]["check"] is None and "Bot picture" not in results),
@@ -1014,10 +1324,20 @@ def self_test():
         ("another commit's run refuses", any("not def" in r for r in not_ready(ready, "def"))),
         ("every live check has read-backs to show", all(c.tags for c in CHECKS.values() if c.kind == "live")),
         ("every live check an item names runs", all(c.target in LIVE + [LIVE_ON_RUNNING_STACK] for c in CHECKS.values() if c.kind == "live")),
-        ("the checks' requests seeded", seeded_and_cleaned()[0] == 6),
+        ("each live check in one lane", len(LIVE) == len(set(LIVE)) and LIVE_ON_RUNNING_STACK not in LIVE),
+        ("the lanes' lists name only lane checks", NO_BACKENDS | EMPTY_FIRST | NO_LAYOUT | AFTER_WEB <= set(LIVE) and not NO_BACKENDS & EMPTY_FIRST),
+        ("the second Requestarr keeps its port", lane_compose_env(fresh_env({"DEV_DISCORD_BOT_TOKEN": "t", "DEV_DISCORD_GUILD_ID": "1"}, "p"))["STACK_REQUESTARR_PORT"] == FRESH_PORT
+         and lane_compose_env(lanes[0])["STACK_REQUESTARR_PORT"] == "0"),
+        ("each lane its own names, project and ports", lanes[2]["QA_CHECKS_LANE"] == "lane3-" and lanes[2]["LIVE_COMPOSE_PROJECT"] == "requestarr-dev-lane3"
+         and len(lane_ports | {"37878", "38989"}) == 2 * len(LIVE_LANES) + 2),
+        ("the checks' requests seeded", seeded_and_cleaned()[0] == 8),
+        ("the made-up follower follows the denied one", seeded_and_cleaned()[4]["follows"] == [(SEED_FOLLOWER, SEED_TITLE + FOLLOWED, 2)]),
+        ("no request in the test Sonarr without its series", seeded_and_cleaned()[4]["in sonarr"] == []),
+        ("with it, one in that Sonarr's library with its page known",
+         with_series[0] == 9 and with_series[4]["in sonarr"] == [(2, 17, CHECK_SERIES_TVDB, "severance")]),
         ("a made-up server remembered for the checks, then forgotten", seeded_and_cleaned()[3] == (["7", MADE_UP_SERVER["id"]], ["7"])),
         ("and everything the checks did removed, the owner's own kept",
-         seeded_and_cleaned()[1:3] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
+         with_series[1:3] == (1, {"RequestarrUsers": 1, "Requests": 1, "RemovalProposals": 1, "RemovalFlags": 0, "RequestSubscribers": 0, "AuditEntries": 1})),
         ("the summary for the pull request", "- **Full suite:** 683 passed" in summary_text(ready) and "  - Build number: Version shown" in summary_text(ready)),
     ]
     wrong = [name for name, ok in expected if not ok]

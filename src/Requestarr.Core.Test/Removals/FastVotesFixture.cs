@@ -14,12 +14,17 @@ using Requestarr.Core.Test.Framework;
 namespace Requestarr.Core.Test.Removals
 {
     // Fast votes on dev: on the dev stack, `dev.ps1 fast-votes on` makes removal votes close after
-    // 5 minutes and requesters answer within 5 (reminded at minute 3); the admin channel says so. It can't
-    // be on anywhere else, and off is the real day values.
+    // 5 minutes and requesters answer within 5 (reminded at minute 3); the admin channel says so. The automated
+    // live check uses the same steps in seconds. It can't be on anywhere else, and off is the real day values.
     [TestFixture]
     public class FastVotesFixture : RemovalScenario
     {
-        private void FastVotes(bool on) => Mocker.GetMock<IDevFastVotes>().SetupGet(f => f.On).Returns(on);
+        private void FastVotes(bool on, FastVoteTimings timings = null)
+        {
+            var fast = Mocker.GetMock<IDevFastVotes>();
+            fast.SetupGet(f => f.On).Returns(on);
+            fast.SetupGet(f => f.Timings).Returns(timings ?? DevFastVotes.Minutes);
+        }
 
         private List<string> AdminNotices =>
             Discord.Channels[AdminChannel].Messages.Select(m => m.Content).Where(c => c != null && c.StartsWith("🧪")).ToList();
@@ -74,6 +79,24 @@ namespace Requestarr.Core.Test.Removals
             Proposal().RequesterResponse.Should().Be(RequesterResponse.Silent);
             await Tick(TimeSpan.FromMinutes(5));
             Proposal().Status.Should().Be(RemovalStatus.Deleted);
+        }
+
+        [Test]
+        public async Task the_live_checks_seconds_are_said_and_kept_in_seconds()
+        {
+            FastVotes(true, DevFastVotes.Seconds);
+            await Tick(TimeSpan.Zero);
+            AdminNotices.Single().Should().StartWith("🧪 **Dev: fast votes are on.** Removal votes now close after 30 seconds, and requesters have 30 seconds to answer (reminded after 15 seconds).");
+
+            var request = await DownloadedMovie();
+            await AdminStart(request);
+            Proposal().AnswerBy.Should().Be(Now.AddSeconds(30));
+
+            await Tick(TimeSpan.FromSeconds(15));
+            MessagesOf(Alice, "Reminder").Should().ContainSingle();
+            await Tick(TimeSpan.FromSeconds(15));
+            Proposal().Status.Should().Be(RemovalStatus.Voting);
+            Proposal().WindowClosesAt.Should().Be(Now.AddSeconds(30));
         }
 
         [Test]

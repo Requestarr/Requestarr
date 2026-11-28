@@ -20,7 +20,7 @@ namespace Requestarr.Core.Test.Qa.Web
         private const string Api = "https://discord.com/api/v10";
         private const int PageSize = 100;
 
-        // Tries at one delete while Discord asks to slow down.
+        // Tries at one call while Discord asks to slow down.
         private const int MaxTries = 5;
 
         private readonly HttpClient _http = new();
@@ -34,7 +34,7 @@ namespace Requestarr.Core.Test.Qa.Web
         // A channel of the dev server by its name, or null.
         public async Task<string> ChannelIdAsync(string name)
         {
-            using var channels = JsonDocument.Parse(await _http.GetStringAsync($"{Api}/guilds/{LiveDev.GuildId}/channels"));
+            using var channels = JsonDocument.Parse(await GetAsync($"{Api}/guilds/{LiveDev.GuildId}/channels"));
 
             return channels.RootElement.EnumerateArray().FirstOrDefault(c => c.GetProperty("name").GetString() == name) is { ValueKind: JsonValueKind.Object } found
                 ? found.GetProperty("id").GetString()
@@ -44,7 +44,7 @@ namespace Requestarr.Core.Test.Qa.Web
         // The channel's latest messages whose card's title starts with this, oldest first.
         public async Task<IReadOnlyList<PostedCard>> CardsAsync(string channelId, string titleStart)
         {
-            using var messages = JsonDocument.Parse(await _http.GetStringAsync($"{Api}/channels/{channelId}/messages?limit={PageSize}"));
+            using var messages = JsonDocument.Parse(await GetAsync($"{Api}/channels/{channelId}/messages?limit={PageSize}"));
 
             return messages.RootElement.EnumerateArray()
                 .Select(PostedCard.From)
@@ -53,20 +53,37 @@ namespace Requestarr.Core.Test.Qa.Web
                 .ToList();
         }
 
-        // Each card deleted, waiting as long as Discord says when it asks to slow down.
+        // Each card deleted.
         public async Task DeleteAsync(string channelId, IEnumerable<PostedCard> cards)
         {
             foreach (var card in cards)
             {
-                for (var tries = 0; tries < MaxTries; tries++)
+                using var answer = await PacedAsync(() => _http.DeleteAsync($"{Api}/channels/{channelId}/messages/{card.Id}"));
+            }
+        }
+
+        private async Task<string> GetAsync(string url)
+        {
+            using var answer = await PacedAsync(() => _http.GetAsync(url));
+            answer.EnsureSuccessStatusCode();
+            return await answer.Content.ReadAsStringAsync();
+        }
+
+        // Discord's answer, waiting as long as it says when it asks to slow down: the automated run's other checks use the
+        // same bot at the same time.
+        private static async Task<HttpResponseMessage> PacedAsync(Func<Task<HttpResponseMessage>> call)
+        {
+            for (var tries = 1; ; tries++)
+            {
+                var answer = await call();
+
+                if (answer.StatusCode != HttpStatusCode.TooManyRequests || tries == MaxTries)
                 {
-                    using var answer = await _http.DeleteAsync($"{Api}/channels/{channelId}/messages/{card.Id}");
+                    return answer;
+                }
 
-                    if (answer.StatusCode != HttpStatusCode.TooManyRequests)
-                    {
-                        break;
-                    }
-
+                using (answer)
+                {
                     using var limit = JsonDocument.Parse(await answer.Content.ReadAsStringAsync());
                     await Task.Delay(TimeSpan.FromSeconds(limit.RootElement.GetProperty("retry_after").GetDouble()));
                 }

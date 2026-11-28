@@ -18,6 +18,8 @@ import urllib.request
 
 API = "https://discord.com/api/v10"
 READY = "Discord bot ready in server"
+# Looked for every 5 seconds.
+READY_TRIES = 36
 
 
 def line(name, value):
@@ -71,8 +73,9 @@ def main():
                             "--filter", "label=com.docker.compose.service=requestarr", "--format", "{{.Names}}"],
                            capture_output=True, text=True).stdout.split()
     ready = []
-    # Just started (dev.ps1 up): the bot connects a few seconds after Requestarr answers, so wait up to a minute.
-    for _ in range(12 if names else 0):
+    # Just started (dev.ps1 up): the bot is ready a few seconds after Requestarr answers, once it has set up the server,
+    # which takes longer while other bots set theirs up there too (the automated run's live checks): wait up to 3 minutes.
+    for _ in range(READY_TRIES if names else 0):
         log = subprocess.run(["docker", "logs", names[0]], capture_output=True, text=True, encoding="utf-8", errors="replace")
         ready = [entry for entry in (log.stdout + log.stderr).splitlines() if READY in entry]
         if ready:

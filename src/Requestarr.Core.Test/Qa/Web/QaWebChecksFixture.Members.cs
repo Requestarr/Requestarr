@@ -23,9 +23,9 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Onboard and the Members list, at the owner's width, in both themes. Onboard lists the server's people
         // with a box each and one in the header, narrows as you type, and with someone picked its toolbar's Onboard opens a
-        // window with what they'll get. The Members list has no buttons on its rows; Select Members shows a box on each
-        // and the actions on what's picked in the toolbar, left of Onboard. With a test member named, they're
-        // onboarded, suspended and unsuspended.
+        // window with what they'll get, whose Cancel leaves them picked. The Members list has no buttons on its rows, and
+        // Select Members shows a box on each and the actions on what's picked in the toolbar, left of Onboard. With a test
+        // member named, they're onboarded, suspended and unsuspended.
         [Test]
         public Task add_members() => CheckAsync(nameof(add_members), AddMembersAsync, OwnersWidth);
 
@@ -98,6 +98,12 @@ namespace Requestarr.Core.Test.Qa.Web
             await check.ShotAsync(browser, $"set-up-{theme}");
             await AnswerAsync(browser, "Onboard", false);
             await browser.WaitForAsync("!document.querySelector('[class*=\"ModalBody\"]')");
+
+            // Cancel leaves the pick as it was, ready to Onboard again.
+            var ticked = await browser.EvalAsync<bool>($"[...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes({JsonSerializer.Serialize(first)})).querySelector('input[type=checkbox]').checked");
+            check.Saw($"Cancel in the Onboard window ({theme}): {first} still ticked: {ticked}");
+            await check.ShotAsync(browser, $"cancelled-{theme}");
+            ticked.Should().BeTrue("Cancel changes nothing, the pick included");
         }
 
         private static async Task MembersListAsync(HeadlessBrowser browser, WebCheck check, string theme)
@@ -114,12 +120,15 @@ namespace Requestarr.Core.Test.Qa.Web
                 await JumpToLastLetterAsync(browser, check, theme);
                 await PressToolbarAsync(browser, "Select Members");
                 await browser.WaitForAsync("!!document.querySelector('[class*=\"VirtualTableHeader-header\"] input[type=checkbox]')");
+
+                // Counted together: a list longer than the page draws only the rows near the screen.
+                var drawn = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"]').length");
                 var boxes = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]').length");
                 await PressToolbarAsync(browser, "Select All");
                 await browser.WaitForAsync("document.querySelectorAll('[class*=\"IndexTable-row\"] input[type=checkbox]:not(:checked)').length === 0");
                 var actions = await browser.EvalAsync<string[]>("(b => b.slice(0, b.findIndex(x => x.innerText.trim() === 'Onboard')))([...document.querySelectorAll('[class*=\"PageToolbar\"] button')]).map(b => b.innerText.trim())");
-                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on {rows} rows, all ticked; left of Onboard: {string.Join(", ", actions)}");
-                boxes.Should().Be(rows);
+                check.Saw($"Select Members, then Select All ({theme}): {boxes} boxes on the {drawn} rows drawn, all ticked; left of Onboard: {string.Join(", ", actions)}");
+                boxes.Should().Be(drawn);
                 actions.Should().Equal("Suspend", "Unsuspend", "Change access", "Post History", "Remove member");
                 await check.ShotAsync(browser, $"members-picked-{theme}");
                 await OnboardWindowAsync(browser, check, theme);
@@ -128,11 +137,12 @@ namespace Requestarr.Core.Test.Qa.Web
         }
 
         // Sorted by name, the letter bar's last letter keeps every row on screen drawn, even when the whole list fits on
-        // the page and it can't scroll that far: no blank space opens between the header and the first row.
+        // the page and it can't scroll that far: no blank space opens between the top of the list and the first row. The
+        // list's top is its header, or the toolbar once a longer list has scrolled the header away.
         private static async Task JumpToLastLetterAsync(HeadlessBrowser browser, WebCheck check, string theme)
         {
             const string Letters = "[...document.querySelectorAll('[class*=\"PageJumpBarItem-jumpBarItem\"]')]";
-            const string Gap = "document.querySelector('[class*=\"IndexTable-row\"]').getBoundingClientRect().top - document.querySelector('[class*=\"VirtualTableHeader-header\"]').getBoundingClientRect().bottom";
+            const string Gap = "document.querySelector('[class*=\"IndexTable-row\"]').getBoundingClientRect().top - Math.max(document.querySelector('[class*=\"VirtualTableHeader-header\"]').getBoundingClientRect().bottom, document.querySelector('[class*=\"PageToolbar\"]').getBoundingClientRect().bottom)";
             var letter = await browser.EvalAsync<string>($"{Letters}.map(l => l.innerText.trim()).filter(l => /^[A-Z]$/.test(l)).at(-1) ?? ''");
 
             if (string.IsNullOrEmpty(letter))
@@ -145,7 +155,7 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.EvalAsync<bool>("new Promise(r => setTimeout(() => r(true), 800))");
             var gap = await browser.EvalAsync<double>(Gap);
             var drawn = await browser.EvalAsync<int>("document.querySelectorAll('[class*=\"IndexTable-row\"]').length");
-            check.Saw($"Members ({theme}): the letter bar's {letter} leaves {drawn} rows drawn, the first {gap:0}px below the header");
+            check.Saw($"Members ({theme}): the letter bar's {letter} leaves {drawn} rows drawn, the first {gap:0}px below the list's top");
             await check.ShotAsync(browser, $"members-jump-{theme}");
             gap.Should().BeLessThan(1, "the rows above the letter stay drawn");
         }
