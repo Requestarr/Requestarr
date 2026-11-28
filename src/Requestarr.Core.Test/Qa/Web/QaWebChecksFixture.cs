@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
@@ -387,15 +388,15 @@ namespace Requestarr.Core.Test.Qa.Web
         // Import from Requestrr on the dev stack's recorded channels (copied into its recordings folder for a check):
         // The + card's invite asks only to read, ticking both channels lists what would be imported, then, once
         // Import is pressed, the import is listed as a command in System, then Tasks, and the Requests and Members pages
-        // show the imported statuses, in both themes; a rerun finds nothing new. A stack without recordings says so and
-        // passes: reading a real server is the owner's run, on beta.
+        // show the imported statuses, in both themes; a rerun finds nothing new. The run copies the recordings in on a dev
+        // stack just reset, so a stack without them fails rather than passing on nothing.
         [Test]
         public Task import_preview() => CheckAsync(nameof(import_preview), async (browser, check) =>
         {
             const string Add = "document.querySelector('[class*=\"ConnectionCard-addConnection\"]')";
             const string InvitePage = "Open Discord's invite page";
             await SignInAsync(browser);
-            var recorded = false;
+            var found = 0;
 
             foreach (var theme in Themes)
             {
@@ -415,27 +416,15 @@ namespace Requestarr.Core.Test.Qa.Web
                 check.Saw($"import ({theme}): the + card's invite, asking {asks}");
                 asks.Should().Be("permissions=66560&integration_type=0&scope=bot");
 
-                try
-                {
-                    await browser.WaitForAsync("document.body.innerText.includes('Recorded channels (dev)')", TimeSpan.FromSeconds(10));
-                }
-                catch (TimeoutException)
-                {
-                    check.Saw($"import ({theme}): no recorded channels on this stack, nothing to preview");
-                    continue;
-                }
-
-                recorded = true;
+                await browser.WaitForAsync("document.body.innerText.includes('Recorded channels (dev)')");
                 var summary = await PreviewImportAsync(browser, check, theme);
                 await browser.RunAsync("[...document.querySelectorAll('legend')].find(l => l.innerText.includes('Requests to import')).scrollIntoView()");
                 await check.ShotAsync(browser, $"import-preview-{theme}");
-                summary.Should().Contain("Requests found:");
+                found = int.Parse(Regex.Match(summary, @"Requests found: (\d+)").Groups[1].Value);
+                found.Should().BePositive();
             }
 
-            if (recorded)
-            {
-                await ConfirmImportAsync(browser, check);
-            }
+            await ConfirmImportAsync(browser, check, found);
         });
 
         // Both recorded channels, listed as ones Requestrr answered in, ticked, which reads them and lists what would be
@@ -457,7 +446,7 @@ namespace Requestarr.Core.Test.Qa.Web
 
         // Confirms the last preview, then the Requests and Members pages show the imported statuses in both themes, and
         // previewing again finds nothing new.
-        private async Task ConfirmImportAsync(HeadlessBrowser browser, WebCheck check)
+        private async Task ConfirmImportAsync(HeadlessBrowser browser, WebCheck check, int found)
         {
             await browser.RunAsync("[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Import').click()");
             await browser.WaitForAsync("document.body.innerText.includes('Imported ')");
@@ -473,6 +462,13 @@ namespace Requestarr.Core.Test.Qa.Web
             await browser.WaitForAsync("[...document.querySelectorAll('tr')].some(r => r.innerText.includes('Post Imported History'))");
             var posting = await browser.EvalAsync<string>("[...document.querySelectorAll('tr')].find(r => r.innerText.includes('Post Imported History')).innerText.replace(/\\s+/g, ' ').trim()");
             check.Saw($"System, then Tasks: {posting}");
+
+            // How many of this import's requests are posted so far: in the sidebar's messages while it posts, as Servarr shows
+            // a running task's progress, and on its row's status once it has finished. Post History's own runs can still be
+            // listed, so only this import's total counts.
+            var progress = $"([...[...document.querySelectorAll('tr')].filter(r => r.innerText.includes('Post Imported History')).map(r => r.querySelector('[title*=\"posted\"]')?.title ?? ''), ...[...document.querySelectorAll('[class*=\"Message-message\"]')].map(m => m.innerText.trim())].find(t => t.includes(' of {found} posted')) ?? '')";
+            await browser.WaitForAsync($"{progress} !== ''");
+            check.Saw($"System, then Tasks, how many are posted: {await browser.EvalAsync<string>(progress)}");
             await check.ShotAsync(browser, "import-task");
 
             foreach (var theme in Themes)
