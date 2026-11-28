@@ -294,8 +294,17 @@ namespace Requestarr.Core.Test.Qa.Web
             foreach (var (filter, theirs, follows) in picks)
             {
                 await PickFilterAsync(browser, filter);
-                await browser.WaitForAsync($"{ListShows(TheirRequests, theirs)} && {ListShows(TheyFollow, follows)}");
-                check.Saw($"the follower's page, filter {filter}: {TheirRequests}: {await ListTextAsync(browser, TheirRequests)}; {TheyFollow}: {await ListTextAsync(browser, TheyFollow)}");
+
+                try
+                {
+                    await browser.WaitForAsync($"{ListShows(TheirRequests, theirs)} && {ListShows(TheyFollow, follows)}");
+                }
+                finally
+                {
+                    // What both lists showed, also when the filter didn't apply to one of them.
+                    check.Saw($"the follower's page, filter {filter}: {TheirRequests}: {await ListTextAsync(browser, TheirRequests)}; {TheyFollow}: {await ListTextAsync(browser, TheyFollow)}");
+                }
+
                 await check.ShotAsync(browser, "member-filter-" + filter.Replace(' ', '-').ToLowerInvariant());
             }
         }

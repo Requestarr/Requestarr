@@ -352,8 +352,10 @@ def run_web(out, env, commit):
         dotnet_test("FullyQualifiedName~" + WEB_FIXTURE + fresh, web_env, os.path.join(web_dir, "web.log"))
     finally:
         remove_throwaway()
-        clean_check_entries()
-        remove_check_series(env, series)
+        try:
+            clean_check_entries()
+        finally:
+            remove_check_series(env, series)
     return web_results(web_dir)
 
 
@@ -764,7 +766,7 @@ def add_check_series(env):
     the series up; the check that opens it then fails, saying so."""
     url, key = sonarr_api(env)
     try:
-        found = api(url, key, "series?tvdbId=%d" % CHECK_SERIES_TVDB)
+        found = [s for s in api(url, key, "series?tvdbId=%d" % CHECK_SERIES_TVDB) if s.get("tvdbId") == CHECK_SERIES_TVDB]
         series, added = (found[0], False) if found else (add_series(url, key), True)
     except (OSError, ValueError, LookupError) as error:
         print("[qa-checks] the test Sonarr couldn't add the series the checks open: %s" % error, flush=True)
