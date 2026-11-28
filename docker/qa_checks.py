@@ -49,9 +49,11 @@ REPO = os.path.dirname(HERE)
 TESTS = os.path.join(REPO, "_tests", "net10.0", "Requestarr.Core.Test.dll")
 WEB_FIXTURE = "QaWebChecksFixture"
 
-# Web checks run on a dev stack just reset, after the live checks, not on the owner's dev data: Post History posts the
-# whole server's imported history, and there only the test member's made-up history is imported.
-FRESH_WEB = ["post_history"]
+# Web checks run on a dev stack just reset, after the live checks, not on the owner's dev data, in this order: Post History
+# posts the whole server's imported history, and there only the test member's made-up history is imported; then the
+# import from Requestrr imports the recorded channels (copied in for it) and lists its history posting in System, Tasks.
+FRESH_WEB = ["post_history", "import_preview"]
+RECORDINGS = os.path.join(REPO, "src", "Requestarr.Core.Test", "Imports", "Recorded")
 HISTORY_SEEDED = 30
 DISCORD_API = "https://discord.com/api/v10"
 ACCOUNT = "qa-checks"
@@ -323,9 +325,19 @@ def run_web_fresh(out, env, commit):
     print("[qa-checks] the test member imported with %d requests of their own" % HISTORY_SEEDED, flush=True)
     web_dir = os.path.join(out, "web")
     web_env = dict(web_env_for(env, web_dir, password), QA_CHECKS_TEST_MEMBER=member["username"], QA_CHECKS_HISTORY_SEEDED=str(HISTORY_SEEDED))
-    tests = "|".join("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name) for name in FRESH_WEB)
-    dotnet_test(tests, web_env, os.path.join(web_dir, "web-fresh.log"))
+    for name in FRESH_WEB:
+        # The recordings only once Post History is done: their import adds imported history of its own.
+        if name == "import_preview":
+            copy_recordings_in()
+        dotnet_test("FullyQualifiedName~%s.%s" % (WEB_FIXTURE, name), web_env, os.path.join(web_dir, "web-fresh-%s.log" % name))
     return web_results(web_dir)
+
+
+def copy_recordings_in():
+    """The recorded Requestrr channels into the dev stack's recordings folder (compose.yaml's REQUESTARR_IMPORT_RECORDINGS),
+    which the Import page lists as a server of its own. The run's reset afterwards removes them."""
+    docker("cp", os.path.join(RECORDINGS, "."), DEV_CONTAINER + ":" + DEV_RECORDINGS)
+    docker("exec", "-u", "0", DEV_CONTAINER, "chown", "-R", "1654:1654", DEV_RECORDINGS)
 
 
 def login_env(password):
@@ -487,6 +499,7 @@ def run_live(out, env, commit, fixtures):
 
 DEV_CONTAINER = "requestarr-dev-requestarr-1"
 DEV_DATABASE = "/config/requestarr.db"
+DEV_RECORDINGS = "/config/import-recordings"
 
 # The made-up owner and title prefix of the requests seeded for the web checks (seed_check_rows).
 SEED_OWNER = "Automated check"
